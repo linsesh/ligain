@@ -1,0 +1,10 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: go-tests
+        name: Go Tests
+        entry: go test ./backend/...
+        language: system
+        types: [go]
+        pass_filenames: false
+        always_run: true 
