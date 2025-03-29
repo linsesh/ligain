@@ -1,6 +1,13 @@
 repos:
 -   repo: local
     hooks:
+    -   id: go-fmt
+        name: Go Format
+        entry: go fmt ./backend/...
+        language: system
+        types: [go]
+        pass_filenames: false
+        always_run: true
     -   id: go-tests
         name: Go Tests
         entry: go test ./backend/...

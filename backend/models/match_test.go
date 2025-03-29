@@ -35,4 +35,4 @@ func TestMatch_Draw(t *testing.T) {
 	if winner != "Draw" {
 		t.Errorf("Expected result to be Draw, got %s", winner)
 	}
-} 
+}

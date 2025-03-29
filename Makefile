@@ -1,4 +1,4 @@
-.PHONY: test build clean
+.PHONY: test build clean format
 
 # Default target
 all: test build
@@ -22,4 +22,8 @@ deps:
 
 # Run with race detector
 test-race:
-	go test -race ./backend/... 
+	go test -race ./backend/...
+
+# Format Go files
+format:
+	go fmt ./backend/... 

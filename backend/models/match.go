@@ -28,4 +28,4 @@ func (m *Match) GetWinner() string {
 		return m.AwayTeam
 	}
 	return "Draw"
-} 
+}
