@@ -16,7 +16,7 @@ func NewBet(match *Match, predictedHomeGoals int, predictedAwayGoals int) *Bet {
 	}
 }
 
-// IsBetCorrect only checks if the predicted team won when the bet isn't a draw, or the draw if the draw was predicted
+// IsBetCorrect only checks if the predicted team won when the bet isn't a draw, or checks the draw the draw if it was predicted
 func (b *Bet) IsBetCorrect() bool {
 	if b.Match.HomeGoals > b.Match.AwayGoals {
 		return b.PredictedHomeGoals > b.PredictedAwayGoals
