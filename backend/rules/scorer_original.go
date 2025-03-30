@@ -86,7 +86,7 @@ func addBonusDependingOnOtherBets(bet *models.Bet, otherBets []*models.Bet, scor
 			numberOfBetsWithSameResult++
 		}
 	}
-	portionOfBetsWithSameResult := float64(numberOfBetsWithSameResult) / float64(totalNumberOfBets)
+	portionOfBetsWithSameResult := float64(numberOfBetsWithSameResult+1) / float64(totalNumberOfBets)
 	if portionOfBetsWithSameResult <= 0.25 {
 		return int(float64(score) * 1.25)
 	}
