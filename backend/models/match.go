@@ -1,5 +1,7 @@
 package models
 
+import "math"
+
 // Match represents a football match with teams, scores and odds
 type Match struct {
 	HomeTeam     string
@@ -11,7 +13,6 @@ type Match struct {
 	DrawOdds     float64
 }
 
-// NewMatch creates a new Match instance
 func NewMatch(homeTeam, awayTeam string) *Match {
 	return &Match{
 		HomeTeam: homeTeam,
@@ -28,4 +29,20 @@ func (m *Match) GetWinner() string {
 		return m.AwayTeam
 	}
 	return "Draw"
+}
+
+func (m *Match) AbsoluteGoalDifference() int {
+	return int(math.Abs(float64(m.HomeGoals - m.AwayGoals)))
+}
+
+func (m *Match) IsDraw() bool {
+	return m.HomeGoals == m.AwayGoals
+}
+
+func (m *Match) TotalGoals() int {
+	return m.HomeGoals + m.AwayGoals
+}
+
+func (m *Match) AbsoluteDifferenceOddsBetweenHomeAndAway() float64 {
+	return math.Abs(m.HomeTeamOdds - m.AwayTeamOdds)
 }
