@@ -1,11 +1,12 @@
 package models
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestBet_HomeTeamWins(t *testing.T) {
-	match := NewMatch("Manchester United", "Liverpool")
-	match.HomeGoals = 3
-	match.AwayGoals = 1
+	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	bet := NewBet(match, 1, 0)
 	if !bet.IsBetCorrect() {
@@ -14,9 +15,7 @@ func TestBet_HomeTeamWins(t *testing.T) {
 }
 
 func TestBet_AwayTeamWins(t *testing.T) {
-	match := NewMatch("Arsenal", "Chelsea")
-	match.HomeGoals = 0
-	match.AwayGoals = 2
+	match := NewFinishedMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	bet := NewBet(match, 0, 2)
 	if !bet.IsBetCorrect() {
@@ -25,9 +24,7 @@ func TestBet_AwayTeamWins(t *testing.T) {
 }
 
 func TestBet_Draw(t *testing.T) {
-	match := NewMatch("Tottenham", "West Ham")
-	match.HomeGoals = 1
-	match.AwayGoals = 1
+	match := NewFinishedMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	bet := NewBet(match, 0, 0)
 	if !bet.IsBetCorrect() {
@@ -36,9 +33,7 @@ func TestBet_Draw(t *testing.T) {
 }
 
 func TestBet_HomeTeamWinsButPredictedWrong(t *testing.T) {
-	match := NewMatch("Manchester United", "Liverpool")
-	match.HomeGoals = 3
-	match.AwayGoals = 1
+	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	bet := NewBet(match, 0, 2)
 	if bet.IsBetCorrect() {
@@ -47,9 +42,7 @@ func TestBet_HomeTeamWinsButPredictedWrong(t *testing.T) {
 }
 
 func TestBet_AwayTeamWinsButPredictedWrong(t *testing.T) {
-	match := NewMatch("Arsenal", "Chelsea")
-	match.HomeGoals = 0
-	match.AwayGoals = 2
+	match := NewFinishedMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	bet := NewBet(match, 2, 0)
 	if bet.IsBetCorrect() {
@@ -58,9 +51,7 @@ func TestBet_AwayTeamWinsButPredictedWrong(t *testing.T) {
 }
 
 func TestBet_DrawButPredictedWrong(t *testing.T) {
-	match := NewMatch("Tottenham", "West Ham")
-	match.HomeGoals = 1
-	match.AwayGoals = 1
+	match := NewFinishedMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	bet := NewBet(match, 2, 0)
 	if bet.IsBetCorrect() {

@@ -2,12 +2,11 @@ package models
 
 import (
 	"testing"
+	"time"
 )
 
 func TestMatch_HomeTeamWins(t *testing.T) {
-	match := NewMatch("Manchester United", "Liverpool")
-	match.HomeGoals = 3
-	match.AwayGoals = 1
+	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	winner := match.GetWinner()
 	if winner != "Manchester United" {
@@ -16,9 +15,7 @@ func TestMatch_HomeTeamWins(t *testing.T) {
 }
 
 func TestMatch_AwayTeamWins(t *testing.T) {
-	match := NewMatch("Arsenal", "Chelsea")
-	match.HomeGoals = 0
-	match.AwayGoals = 2
+	match := NewFinishedMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	winner := match.GetWinner()
 	if winner != "Chelsea" {
@@ -27,9 +24,7 @@ func TestMatch_AwayTeamWins(t *testing.T) {
 }
 
 func TestMatch_Draw(t *testing.T) {
-	match := NewMatch("Tottenham", "West Ham")
-	match.HomeGoals = 1
-	match.AwayGoals = 1
+	match := NewFinishedMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
 
 	winner := match.GetWinner()
 	if winner != "Draw" {

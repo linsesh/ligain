@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"liguain/backend/models"
 	"liguain/backend/utils"
 )
@@ -15,7 +14,6 @@ func (s *ScorerOriginal) Score(match *models.Match, bets []*models.Bet) []int {
 		otherBets := utils.SliceWithoutElement(bets, i)
 		scores[i] = s.scoreBet(match, bet, otherBets)
 	}
-	fmt.Println("Finished Scoring")
 	return scores
 }
 
@@ -40,7 +38,7 @@ func scoreBase(bet *models.Bet) int {
 	return 300
 }
 
-// scoreIsBetClose returns true if the bet is close to the match result
+// isBetClose returns true if the bet is close to the match result
 // The function is not implemented in the bet file because being close is defined by the scorer, and could be different for each scorer
 func isBetClose(bet *models.Bet) bool {
 	return bet.IsGoalDifferenceTheSameAsMatch() && bet.AbsoluteDifferenceTotalGoalsWithMatch() <= 2
