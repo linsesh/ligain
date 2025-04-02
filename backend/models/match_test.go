@@ -6,7 +6,7 @@ import (
 )
 
 func TestMatch_HomeTeamWins(t *testing.T) {
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
+	match := NewFinishedSeasonMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	winner := match.GetWinner()
 	if winner != "Manchester United" {
@@ -15,7 +15,7 @@ func TestMatch_HomeTeamWins(t *testing.T) {
 }
 
 func TestMatch_AwayTeamWins(t *testing.T) {
-	match := NewFinishedMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
+	match := NewFinishedSeasonMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	winner := match.GetWinner()
 	if winner != "Chelsea" {
@@ -24,7 +24,7 @@ func TestMatch_AwayTeamWins(t *testing.T) {
 }
 
 func TestMatch_Draw(t *testing.T) {
-	match := NewFinishedMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC))
+	match := NewFinishedSeasonMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	winner := match.GetWinner()
 	if winner != "Draw" {

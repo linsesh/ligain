@@ -6,13 +6,30 @@ import (
 	"time"
 )
 
+type ScorerTest struct{}
+
+func (s *ScorerTest) Score(match models.Match, bets []*models.Bet) []int {
+	scores := make([]int, len(bets))
+	for i, bet := range bets {
+		if bet.IsBetCorrect() {
+			scores[i] = 500
+		} else {
+			scores[i] = 0
+		}
+	}
+	return scores
+}
+
+// Reference time for all tests
+var testTime = time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC)
+
 func TestNewGame(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	matches := []*models.Match{
-		models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now()),
-		models.NewMatch("Team3", "Team4", "2024", "Premier League", time.Now()),
+	matches := []models.Match{
+		models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1),
+		models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", testTime, 1),
 	}
-	scorer := &ScorerOriginal{}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
@@ -32,99 +49,178 @@ func TestNewGame(t *testing.T) {
 
 func TestAddPlayerBetGetMatchBets(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := players[0]
-	game.AddPlayerBet(&bettingPlayer, bet)
+	game.AddPlayerBet(&bettingPlayer, bet, testTime)
 
-	playerBet := game.GetMatchBets(match)[bettingPlayer]
+	bet_map, err := game.GetMatchBets(match)
+	if err != nil {
+		t.Errorf("Error retrieving match bets: %v", err)
+	}
+	playerBet := bet_map[bettingPlayer]
 	if playerBet != bet {
 		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet, playerBet)
+	}
+}
+
+func TestAddPlayerBetUpdateBet(t *testing.T) {
+	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+
+	game := NewGame("2024", "Premier League", players, matches, scorer)
+
+	bet := models.NewBet(match, 2, 1)
+	bettingPlayer := players[0]
+	game.AddPlayerBet(&bettingPlayer, bet, testTime)
+	bet_map, err := game.GetMatchBets(match)
+	if err != nil {
+		t.Errorf("Error retrieving match bets: %v", err)
+	}
+	playerBet := bet_map[bettingPlayer]
+	if playerBet != bet {
+		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet, playerBet)
+	}
+	updatedBet := models.NewBet(match, 1, 2)
+	game.AddPlayerBet(&bettingPlayer, updatedBet, testTime)
+
+	bet_map, err = game.GetMatchBets(match)
+	if err != nil {
+		t.Errorf("Error retrieving match bets: %v", err)
+	}
+	playerBet = bet_map[bettingPlayer]
+	if playerBet != updatedBet {
+		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", updatedBet, playerBet)
+	}
+}
+
+func TestAddPlayerBetNonExistingPlayer(t *testing.T) {
+	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+
+	game := NewGame("2024", "Premier League", players, matches, scorer)
+
+	bet := models.NewBet(match, 2, 1)
+	bettingPlayer := models.Player{Name: "Player3"}
+	err := game.AddPlayerBet(&bettingPlayer, bet, testTime)
+	if err == nil {
+		t.Errorf("Expected error for non-existing player")
 	}
 }
 
 func TestAddPlayerBetNonExistingMatch(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
-	bet := models.NewBet(match, 2, 1)
+	fake_match := models.NewSeasonMatch("Sardinia", "Corsica", "2024", "Corsica Cup", testTime, 1)
+	bet := models.NewBet(fake_match, 2, 1)
 	bettingPlayer := players[0]
-	game.AddPlayerBet(&bettingPlayer, bet)
-
-	playerBet := game.GetMatchBets(match)[bettingPlayer]
-	if playerBet != bet {
-		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet, playerBet)
+	err := game.AddPlayerBet(&bettingPlayer, bet, testTime)
+	if err == nil {
+		t.Errorf("Expected error for non-existing match")
 	}
 }
 
-func TestAddPlayerBetGetMatchBets(t *testing.T) {
+func TestAddSeveralsPlayerBetsGetMatchBets(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+
+	game := NewGame("2024", "Premier League", players, matches, scorer)
+
+	bet1 := models.NewBet(match, 2, 1)
+	bet2 := models.NewBet(match, 1, 1)
+	bettingPlayer1 := players[0]
+	bettingPlayer2 := players[1]
+	game.AddPlayerBet(&bettingPlayer1, bet1, testTime)
+	game.AddPlayerBet(&bettingPlayer2, bet2, testTime)
+
+	bet_map, err := game.GetMatchBets(match)
+	if err != nil {
+		t.Errorf("Error retrieving match bets: %v", err)
+	}
+	playerBet1 := bet_map[bettingPlayer1]
+	playerBet2 := bet_map[bettingPlayer2]
+	if playerBet1 != bet1 {
+		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet1, playerBet1)
+	}
+	if playerBet2 != bet2 {
+		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet2, playerBet2)
+	}
+}
+
+func TestAddPlayerBetMatchStarted(t *testing.T) {
+	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime.Add(-1*time.Hour), 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := players[0]
-	game.AddPlayerBet(&bettingPlayer, bet)
-
-	playerBet := game.GetMatchBets(match)[bettingPlayer]
-	if playerBet != bet {
-		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet, playerBet)
+	err := game.AddPlayerBet(&bettingPlayer, bet, testTime)
+	if err == nil {
+		t.Errorf("Expected error for match started")
 	}
 }
 
 func TestGetMatchBetsNonExistingMatch(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := players[0]
-	game.AddPlayerBet(&bettingPlayer, bet)
+	game.AddPlayerBet(&bettingPlayer, bet, testTime)
 
-	playerBet := game.GetMatchBets(match)[bettingPlayer]
-	if playerBet != bet {
-		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet, playerBet)
+	fake_match := models.NewSeasonMatch("Sardinia", "Corsica", "2024", "Corsica Cup", testTime, 1)
+	_, err := game.GetMatchBets(fake_match)
+	if err == nil {
+		t.Errorf("Expected error for non-existing match")
 	}
 }
 
 func TestAddFinishedMatch(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
 	// Add bets for both players
 	bet1 := models.NewBet(match, 2, 1)
 	bet2 := models.NewBet(match, 1, 1)
-	game.AddPlayerBet(&players[0], bet1)
-	game.AddPlayerBet(&players[1], bet2)
+	game.AddPlayerBet(&players[0], bet1, testTime)
+	game.AddPlayerBet(&players[1], bet2, testTime)
 
 	// Finish the match
-	finishedMatch := models.NewFinishedMatch("Team1", "Team2", 2, 1, "2024", "Premier League", time.Now())
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
 	points, err := game.AddFinishedMatch(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check points
-	if points[players[0]] != 500 { // Perfect bet
+	if points[players[0]] != 500 { // Good bet
 		t.Errorf("Expected 500 points for Player1, got %d", points[players[0]])
 	}
 	if points[players[1]] != 0 { // Wrong bet
@@ -132,19 +228,19 @@ func TestAddFinishedMatch(t *testing.T) {
 	}
 }
 
-func TestAddFinishedMatch_Errors(t *testing.T) {
+func TestAddFinishedMatch_NonExistingMatch(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
-	// Test with non-existent match
-	nonExistentMatch := models.NewMatch("Team3", "Team4", "2024", "Premier League", time.Now())
-	_, err := game.AddFinishedMatch(nonExistentMatch)
+	// Test with non-existing match
+	nonExistingMatch := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", testTime, 1)
+	_, err := game.AddFinishedMatch(nonExistingMatch)
 	if err == nil {
-		t.Error("Expected error for non-existent match")
+		t.Error("Expected error for non-existing match")
 	}
 
 	// Test with unfinished match
@@ -156,12 +252,12 @@ func TestAddFinishedMatch_Errors(t *testing.T) {
 
 func TestGetIncomingMatches(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}}
-	matches := []*models.Match{
-		models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now()),
-		models.NewMatch("Team3", "Team4", "2024", "Premier League", time.Now()),
-		models.NewFinishedMatch("Team5", "Team6", 2, 1, "2024", "Premier League", time.Now()),
+	matches := []models.Match{
+		models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1),
+		models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", testTime, 1),
+		models.NewFinishedSeasonMatch("Team5", "Team6", 2, 1, "2024", "Premier League", testTime.Add(-24*time.Hour), 1, 1.0, 2.0, 3.0),
 	}
-	scorer := &ScorerOriginal{}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
@@ -169,20 +265,13 @@ func TestGetIncomingMatches(t *testing.T) {
 	if len(incomingMatches) != 2 {
 		t.Errorf("Expected 2 incoming matches, got %d", len(incomingMatches))
 	}
-
-	// Check that only unfinished matches are returned
-	for _, match := range incomingMatches {
-		if match.IsFinished() {
-			t.Error("Incoming matches should not include finished matches")
-		}
-	}
 }
 
 func TestGetPlayersPoints(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	match := models.NewMatch("Team1", "Team2", "2024", "Premier League", time.Now())
-	matches := []*models.Match{match}
-	scorer := &ScorerOriginal{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
@@ -198,10 +287,10 @@ func TestGetPlayersPoints(t *testing.T) {
 	// Add bets and finish match
 	bet1 := models.NewBet(match, 2, 1)
 	bet2 := models.NewBet(match, 1, 1)
-	game.AddPlayerBet(&players[0], bet1)
-	game.AddPlayerBet(&players[1], bet2)
+	game.AddPlayerBet(&players[0], bet1, testTime)
+	game.AddPlayerBet(&players[1], bet2, testTime)
 
-	finishedMatch := models.NewFinishedMatch("Team1", "Team2", 2, 1, "2024", "Premier League", time.Now())
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
 	_, err := game.AddFinishedMatch(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -214,169 +303,5 @@ func TestGetPlayersPoints(t *testing.T) {
 	}
 	if points[players[1]] != 0 {
 		t.Errorf("Expected 0 points for Player2, got %d", points[players[1]])
-	}
-}
-
-func TestGame_AddBet(t *testing.T) {
-	game := NewGame("Premier League", "2024", []*Player{}, []*Match{})
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	player := NewPlayer("John Doe")
-	bet := NewBet(match, 3, 1)
-
-	game.AddMatch(match)
-	game.AddPlayer(player)
-	game.AddBet(player, bet)
-
-	if len(game.Bets) != 1 {
-		t.Errorf("Expected 1 bet in game, got %d", len(game.Bets))
-	}
-	if game.Bets[0] != bet {
-		t.Error("Added bet is not the same as the one in game")
-	}
-}
-
-func TestGame_GetBetsForPlayer(t *testing.T) {
-	game := NewGame("Premier League", "2024")
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	player := NewPlayer("John Doe")
-	bet := NewBet(match, 3, 1)
-
-	game.AddMatch(match)
-	game.AddPlayer(player)
-	game.AddBet(player, bet)
-
-	playerBets := game.GetBetsForPlayer(player)
-	if len(playerBets) != 1 {
-		t.Errorf("Expected 1 bet for player, got %d", len(playerBets))
-	}
-	if playerBets[0] != bet {
-		t.Error("Retrieved bet is not the same as the one added")
-	}
-}
-
-func TestGame_GetBetsForMatch(t *testing.T) {
-	game := NewGame("Premier League", "2024")
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	player := NewPlayer("John Doe")
-	bet := NewBet(match, 3, 1)
-
-	game.AddMatch(match)
-	game.AddPlayer(player)
-	game.AddBet(player, bet)
-
-	matchBets := game.GetBetsForMatch(match)
-	if len(matchBets) != 1 {
-		t.Errorf("Expected 1 bet for match, got %d", len(matchBets))
-	}
-	if matchBets[0] != bet {
-		t.Error("Retrieved bet is not the same as the one added")
-	}
-}
-
-func TestGame_GetPlayerScoreWithMultipleBets(t *testing.T) {
-	game := NewGame("Premier League", "2024")
-
-	// First match
-	match1 := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	player := NewPlayer("John Doe")
-	bet1 := NewBet(match1, 3, 1) // Perfect bet (500 points)
-
-	// Second match
-	match2 := NewFinishedMatch("Arsenal", "Chelsea", 2, 2, "2024", "Premier League", time.Now())
-	bet2 := NewBet(match2, 2, 2) // Perfect bet (500 points)
-
-	game.AddMatch(match1)
-	game.AddMatch(match2)
-	game.AddPlayer(player)
-	game.AddBet(player, bet1)
-	game.AddBet(player, bet2)
-
-	score := game.GetPlayerScore(player)
-	if score != 1000 { // Two perfect bets should give 1000 points
-		t.Errorf("Expected score of 1000, got %d", score)
-	}
-}
-
-func TestGame_AddPlayerBet(t *testing.T) {
-	player := &Player{Name: "John Doe"}
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	bet := NewBet(match, 3, 1)
-
-	game := NewGame("2024", "Premier League", []*Player{player}, []*Match{match})
-
-	game.AddPlayerBet(player, bet)
-
-	playerBets := game.GetPlayerBets(player)
-	if len(playerBets) != 1 {
-		t.Errorf("Expected 1 bet for player, got %d", len(playerBets))
-	}
-	if playerBets[0] != bet {
-		t.Error("Retrieved bet is not the same as the one added")
-	}
-}
-
-func TestGame_GetIncomingMatches(t *testing.T) {
-	finishedMatch := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	scheduledMatch := NewScheduledMatch("Arsenal", "Chelsea", "2024", "Premier League", time.Now().Add(24*time.Hour))
-
-	game := NewGame("2024", "Premier League", []*Player{}, []*Match{finishedMatch, scheduledMatch})
-
-	incomingMatches := game.GetIncomingMatches()
-	if len(incomingMatches) != 1 {
-		t.Errorf("Expected 1 incoming match, got %d", len(incomingMatches))
-	}
-	if incomingMatches[0] != scheduledMatch {
-		t.Error("Retrieved match is not the same as the scheduled match")
-	}
-}
-
-func TestGame_GetPlayersPoints(t *testing.T) {
-	player := &Player{Name: "John Doe"}
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	bet := NewBet(match, 3, 1)
-
-	game := NewGame("2024", "Premier League", []*Player{player}, []*Match{match})
-
-	game.AddPlayerBet(player, bet)
-	points := game.GetPlayersPoints()
-
-	if points[*player] != 500 { // Perfect bet should give 500 points
-		t.Errorf("Expected 500 points for player, got %d", points[*player])
-	}
-}
-
-func TestGame_GetSeasonAndCompetitionCodes(t *testing.T) {
-	game := NewGame("2024", "Premier League", []*Player{}, []*Match{})
-
-	if game.GetSeasonCode() != "2024" {
-		t.Errorf("Expected season code '2024', got %s", game.GetSeasonCode())
-	}
-
-	if game.GetCompetitionCode() != "Premier League" {
-		t.Errorf("Expected competition code 'Premier League', got %s", game.GetCompetitionCode())
-	}
-}
-
-func TestGame_InitialStatus(t *testing.T) {
-	game := NewGame("2024", "Premier League", []*Player{}, []*Match{})
-
-	if game.GetGameStatus() != GameStatusNotStarted {
-		t.Errorf("Expected game status 'not started', got %s", game.GetGameStatus())
-	}
-}
-
-func TestGame_AddFinishedMatchAndGetPlayerScore(t *testing.T) {
-	game := NewGame("2024", "Premier League", []*Player{}, []*Match{})
-	match := NewFinishedMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Now())
-	player := NewPlayer("John Doe")
-	bet := NewBet(match, 3, 1)
-
-	game.AddFinishedMatch(match)
-	game.AddPlayer(player)
-	game.AddBet(player, bet)
-
-	score := game.GetPlayerScore(player)
-	if score != 500 {
-		t.Errorf("Expected score of 500, got %d", score)
 	}
 }

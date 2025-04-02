@@ -8,7 +8,7 @@ import (
 // ScorerOriginal is a scorer that uses the original rules of the game, defined here: https://docs.google.com/document/d/1Gv2s6EqsL5583PT56y8efra2PkMNJAEFGBv8Al5jxfQ/edit?tab=t.0 (todo: link to an english version on the repository instead)
 type ScorerOriginal struct{}
 
-func (s *ScorerOriginal) Score(match *models.Match, bets []*models.Bet) []int {
+func (s *ScorerOriginal) Score(match models.Match, bets []*models.Bet) []int {
 	scores := make([]int, len(bets))
 	for i, bet := range bets {
 		otherBets := utils.SliceWithoutElement(bets, i)
@@ -17,7 +17,7 @@ func (s *ScorerOriginal) Score(match *models.Match, bets []*models.Bet) []int {
 	return scores
 }
 
-func (s *ScorerOriginal) scoreBet(match *models.Match, bet *models.Bet, otherBets []*models.Bet) int {
+func (s *ScorerOriginal) scoreBet(match models.Match, bet *models.Bet, otherBets []*models.Bet) int {
 	if !bet.IsBetCorrect() {
 		return 0
 	}
@@ -47,7 +47,7 @@ func isBetClose(bet *models.Bet) bool {
 // addBonusIfUnfavorableOdds adds a bonus if the odds are unfavorable
 // The odds are unfavorable if the difference between the home and away odds is greater or equal to 1.5
 // The bonus is * 1.5 in case of draw, * 2 in case of a win for the underdog.
-func addBonusIfUnfavorableOdds(match *models.Match, score int) int {
+func addBonusIfUnfavorableOdds(match models.Match, score int) int {
 	favorite := getFavorite(match)
 	if favorite != "" {
 		if match.IsDraw() {
@@ -62,14 +62,14 @@ func addBonusIfUnfavorableOdds(match *models.Match, score int) int {
 
 // getFavorite returns the favorite team of the match
 // The function is not implemented in the match file because the favorite is defined by the scorer, and could be different for each scorer
-func getFavorite(match *models.Match) string {
+func getFavorite(match models.Match) string {
 	if match.AbsoluteDifferenceOddsBetweenHomeAndAway() < 1.5 {
 		return ""
 	}
-	if match.HomeTeamOdds < match.AwayTeamOdds {
-		return match.HomeTeam
+	if match.GetHomeTeamOdds() < match.GetAwayTeamOdds() {
+		return match.GetHomeTeam()
 	}
-	return match.AwayTeam
+	return match.GetAwayTeam()
 }
 
 // addBonusDependingOnOtherBets adds a bonus depending on the other bets

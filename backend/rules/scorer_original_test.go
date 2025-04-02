@@ -4,17 +4,13 @@ import (
 	"liguain/backend/models"
 	"slices"
 	"testing"
+	"time"
 )
 
 func TestScorerOriginal_ScoreClassAllPerfect(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:  "Manchester United",
-		AwayTeam:  "Liverpool",
-		HomeGoals: 2,
-		AwayGoals: 1,
-	}
+	match := models.NewFinishedSeasonMatch("Manchester United", "Liverpool", 2, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bets := []*models.Bet{
 		{
@@ -50,12 +46,7 @@ func TestScorerOriginal_ScoreClassAllPerfect(t *testing.T) {
 func TestScorerOriginal_ScoreClassHalfPerfectHalfWrong(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:  "Manchester United",
-		AwayTeam:  "Liverpool",
-		HomeGoals: 2,
-		AwayGoals: 1,
-	}
+	match := models.NewFinishedSeasonMatch("Manchester United", "Liverpool", 2, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bets := []*models.Bet{
 		{
@@ -91,12 +82,7 @@ func TestScorerOriginal_ScoreClassHalfPerfectHalfWrong(t *testing.T) {
 func TestScorerOriginal_ScoreClassOneQuarterPerfectOthersWrong(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:  "Manchester United",
-		AwayTeam:  "Liverpool",
-		HomeGoals: 2,
-		AwayGoals: 1,
-	}
+	match := models.NewFinishedSeasonMatch("Manchester United", "Liverpool", 2, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bets := []*models.Bet{
 		{
@@ -132,15 +118,7 @@ func TestScorerOriginal_ScoreClassOneQuarterPerfectOthersWrong(t *testing.T) {
 func TestScorerOriginal_ScoreClassAllPerfectWithFavoriteBeaten(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:     "Bastia",
-		AwayTeam:     "Real Madrid",
-		HomeGoals:    2,
-		AwayGoals:    0,
-		HomeTeamOdds: 8.0,
-		AwayTeamOdds: 1.1,
-		DrawOdds:     6.0,
-	}
+	match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 2, 0, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 
 	bets := []*models.Bet{
 		{
@@ -176,15 +154,7 @@ func TestScorerOriginal_ScoreClassAllPerfectWithFavoriteBeaten(t *testing.T) {
 func TestScorerOriginal_ScoreClassOnePerfectOthersWrongWithFavoriteLosing(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:     "Bastia",
-		AwayTeam:     "Real Madrid",
-		HomeGoals:    2,
-		AwayGoals:    0,
-		HomeTeamOdds: 8.0,
-		AwayTeamOdds: 1.1,
-		DrawOdds:     6.0,
-	}
+	match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 2, 0, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 
 	bets := []*models.Bet{
 		{
@@ -220,15 +190,7 @@ func TestScorerOriginal_ScoreClassOnePerfectOthersWrongWithFavoriteLosing(t *tes
 func TestScorerOriginal_ScoreClassOneCloseScoretOthersWrongWithFavoriteDraw(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:     "Bastia",
-		AwayTeam:     "Real Madrid",
-		HomeGoals:    2,
-		AwayGoals:    2,
-		HomeTeamOdds: 8.0,
-		AwayTeamOdds: 1.1,
-		DrawOdds:     6.0,
-	}
+	match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 2, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 
 	bets := []*models.Bet{
 		{
@@ -264,15 +226,7 @@ func TestScorerOriginal_ScoreClassOneCloseScoretOthersWrongWithFavoriteDraw(t *t
 func TestScorerOriginal_ScoreClassTwoPerfectOneCloseScoreOthersWrongWithFavoriteWinning(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:     "Bastia",
-		AwayTeam:     "Real Madrid",
-		HomeGoals:    1,
-		AwayGoals:    3,
-		HomeTeamOdds: 8.0,
-		AwayTeamOdds: 1.1,
-		DrawOdds:     6.0,
-	}
+	match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 1, 3, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 
 	bets := []*models.Bet{
 		{
@@ -308,12 +262,7 @@ func TestScorerOriginal_ScoreClassTwoPerfectOneCloseScoreOthersWrongWithFavorite
 func TestScorerOriginal_ScoreClassAllPossibleOutcomes(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:  "Manchester United",
-		AwayTeam:  "Liverpool",
-		HomeGoals: 1,
-		AwayGoals: 3,
-	}
+	match := models.NewFinishedSeasonMatch("Manchester United", "Liverpool", 1, 3, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 1.0)
 
 	bets := []*models.Bet{
 		{
@@ -349,12 +298,7 @@ func TestScorerOriginal_ScoreClassAllPossibleOutcomes(t *testing.T) {
 func TestScorerOriginal_ScoreClassTwoCloseTwoOk(t *testing.T) {
 	scorer := &ScorerOriginal{}
 
-	match := &models.Match{
-		HomeTeam:  "Manchester United",
-		AwayTeam:  "Liverpool",
-		HomeGoals: 2,
-		AwayGoals: 4,
-	}
+	match := models.NewFinishedSeasonMatch("Manchester United", "Liverpool", 2, 4, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 1.0)
 
 	bets := []*models.Bet{
 		{
