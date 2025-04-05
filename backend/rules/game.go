@@ -98,6 +98,9 @@ func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]i
 	if existingMatch.IsFinished() {
 		return nil, fmt.Errorf("match already finished")
 	}
+	if existingMatch.IsFinished() {
+		return g.PlayersPoints, fmt.Errorf("match already finished")
+	}
 	existingMatch.Finish(match.GetHomeGoals(), match.GetAwayGoals())
 	scores := g.scoreMatch(existingMatch)
 	return scores, nil
