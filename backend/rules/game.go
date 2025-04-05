@@ -91,6 +91,9 @@ func (g *GameImpl) AddFinishedMatch(match models.Match) (map[models.Player]int, 
 	if !match.IsFinished() {
 		return g.PlayersPoints, fmt.Errorf("match is not finished")
 	}
+	if existingMatch.IsFinished() {
+		return g.PlayersPoints, fmt.Errorf("match already finished")
+	}
 	existingMatch.Finish(match.GetHomeGoals(), match.GetAwayGoals())
 	scores := g.scoreMatch(existingMatch)
 	g.updatePlayersPoints(scores)

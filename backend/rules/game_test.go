@@ -250,6 +250,20 @@ func TestAddFinishedMatch_NonExistingMatch(t *testing.T) {
 	}
 }
 
+func TestAddFinishedMatch_AlreadyFinishedMatch(t *testing.T) {
+	players := []models.Player{{Name: "Player1"}}
+	match := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+
+	game := NewGame("2024", "Premier League", players, matches, scorer)
+
+	_, err := game.AddFinishedMatch(match)
+	if err == nil {
+		t.Error("Expected error for already finished match")
+	}
+}
+
 func TestGetIncomingMatches(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}}
 	matches := []models.Match{
