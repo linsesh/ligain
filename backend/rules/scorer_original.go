@@ -11,7 +11,7 @@ type ScorerOriginal struct{}
 func (s *ScorerOriginal) Score(match models.Match, bets []*models.Bet) []int {
 	scores := make([]int, len(bets))
 	for i, bet := range bets {
-		otherBets := utils.SliceWithoutElement(bets, i)
+		otherBets := utils.SliceWithoutElementAtIndex(bets, i)
 		scores[i] = s.scoreBet(match, bet, otherBets)
 	}
 	return scores
