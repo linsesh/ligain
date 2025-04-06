@@ -32,47 +32,56 @@ func NewGameService(game rules.Game, repo GameRepository) (*GameService, error) 
 // Play returns the winner(s) of the game when it ends
 func (g *GameService) Play() ([]models.Player, error) {
 	for !g.game.IsFinished() {
-		log.Info("Playing game %v", g.gameId)
+		log.Infof("Playing game %v", g.gameId)
 		updates, err := g.getUpdates()
 		if err != nil {
-			log.Error("Error getting updates: %v", err)
+			log.Errorf("Error getting updates: %v", err)
 			return nil, err
 		}
 		g.handleUpdates(updates)
 		g.pause()
 	}
 	winners := g.game.GetWinner()
-	log.Info("Game %v is finished, with winner(s) %v", g.gameId, winners)
+	log.Infof("Game %v is finished, with winner(s) %v", g.gameId, winners)
 	return winners, nil
 }
 
 func (g *GameService) handleUpdates(updates map[string]models.Match) {
 	for _, match := range updates {
 		if match.IsFinished() {
-			scores, _, err := g.game.AddFinishedMatch(match)
-			if err != nil {
-				log.Error("Error adding finished match: %v", err)
-				return
-			}
-			g.handleScoreUpdate(scores)
+			g.handleScoreUpdate(match)
 		} else {
 			err := g.game.UpdateMatch(match)
 			if err != nil {
-				log.Error("Error updating match: %v", err)
+				log.Errorf("Error updating match: %v", err)
 				return
 			}
 		}
 	}
 }
 
-func (g *GameService) handleScoreUpdate(scores map[models.Player]int) {
-	err := g.repo.updateScores(scores)
+func (g *GameService) handleScoreUpdate(match models.Match) {
+	scores, err := g.game.CalculateMatchScores(match)
 	if err != nil {
-		log.Error("Error updating scores: %v", err)
+		log.Errorf("Error calculating match scores: %v", err)
+		return
+	}
+
+	// Save to repository first
+	err = g.repo.UpdateScores(match, scores)
+	if err != nil {
+		log.Errorf("Error saving scores to repository: %v", err)
+		return
+	}
+
+	// Only after successful save, apply the scores
+	err = g.game.ApplyMatchScores(scores)
+	if err != nil {
+		log.Errorf("Error applying scores: %v", err)
 		return
 	}
 	for player, score := range scores {
-		log.Info("Player %v has earned %v points", player, score)
+		log.Infof("Player %v has earned %v points", player, score)
 	}
 }
 

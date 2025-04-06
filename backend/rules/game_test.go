@@ -45,6 +45,18 @@ func TestNewGame(t *testing.T) {
 	if len(game.GetIncomingMatches()) != 2 {
 		t.Errorf("Expected 2 incoming matches, got %d", len(game.GetIncomingMatches()))
 	}
+
+	// Finish the first match
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
+	scores, err := game.CalculateMatchScores(finishedMatch)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
 }
 
 func TestAddPlayerBetGetMatchBets(t *testing.T) {
@@ -66,6 +78,18 @@ func TestAddPlayerBetGetMatchBets(t *testing.T) {
 	playerBet := bet_map[bettingPlayer]
 	if playerBet != bet {
 		t.Errorf("Retrieved bet is not the same as the one added, expected %v, got %v", bet, playerBet)
+	}
+
+	// Finish the match
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
+	scores, err := game.CalculateMatchScores(finishedMatch)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
 	}
 }
 
@@ -214,25 +238,32 @@ func TestAddFinishedMatch(t *testing.T) {
 
 	// Finish the match
 	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
-	matchScores, totalPoints, err := game.AddFinishedMatch(finishedMatch)
+	scores, err := game.CalculateMatchScores(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check match scores
-	if matchScores[players[0]] != 500 { // Good bet
-		t.Errorf("Expected 500 points for Player1 in match, got %d", matchScores[players[0]])
+	if scores[players[0]] != 500 { // Good bet
+		t.Errorf("Expected 500 points for Player1 in match, got %d", scores[players[0]])
 	}
-	if matchScores[players[1]] != 0 { // Wrong bet
-		t.Errorf("Expected 0 points for Player2 in match, got %d", matchScores[players[1]])
+	if scores[players[1]] != 0 { // Wrong bet
+		t.Errorf("Expected 0 points for Player2 in match, got %d", scores[players[1]])
+	}
+
+	// Apply scores
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check total points
-	if totalPoints[players[0]] != 500 {
-		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints[players[0]])
+	points := game.GetPlayersPoints()
+	if points[players[0]] != 500 {
+		t.Errorf("Expected 500 total points for Player1, got %d", points[players[0]])
 	}
-	if totalPoints[players[1]] != 0 {
-		t.Errorf("Expected 0 total points for Player2, got %d", totalPoints[players[1]])
+	if points[players[1]] != 0 {
+		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
 	}
 }
 
@@ -246,13 +277,13 @@ func TestAddFinishedMatch_NonExistingMatch(t *testing.T) {
 
 	// Test with non-existing match
 	nonExistingMatch := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", testTime, 1)
-	_, _, err := game.AddFinishedMatch(nonExistingMatch)
+	_, err := game.CalculateMatchScores(nonExistingMatch)
 	if err == nil {
 		t.Error("Expected error for non-existing match")
 	}
 
 	// Test with unfinished match
-	_, _, err = game.AddFinishedMatch(match)
+	_, err = game.CalculateMatchScores(match)
 	if err == nil {
 		t.Error("Expected error for unfinished match")
 	}
@@ -266,7 +297,7 @@ func TestAddFinishedMatch_AlreadyFinishedMatch(t *testing.T) {
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
-	_, _, err := game.AddFinishedMatch(match)
+	_, err := game.CalculateMatchScores(match)
 	if err == nil {
 		t.Error("Expected error for already finished match")
 	}
@@ -313,25 +344,32 @@ func TestGetPlayersPoints(t *testing.T) {
 	game.AddPlayerBet(&players[1], bet2, testTime)
 
 	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
-	matchScores, totalPoints, err := game.AddFinishedMatch(finishedMatch)
+	scores, err := game.CalculateMatchScores(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check match scores
-	if matchScores[players[0]] != 500 {
-		t.Errorf("Expected 500 points for Player1 in match, got %d", matchScores[players[0]])
+	if scores[players[0]] != 500 {
+		t.Errorf("Expected 500 points for Player1 in match, got %d", scores[players[0]])
 	}
-	if matchScores[players[1]] != 0 {
-		t.Errorf("Expected 0 points for Player2 in match, got %d", matchScores[players[1]])
+	if scores[players[1]] != 0 {
+		t.Errorf("Expected 0 points for Player2 in match, got %d", scores[players[1]])
+	}
+
+	// Apply scores
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check total points
-	if totalPoints[players[0]] != 500 {
-		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints[players[0]])
+	points = game.GetPlayersPoints()
+	if points[players[0]] != 500 {
+		t.Errorf("Expected 500 total points for Player1, got %d", points[players[0]])
 	}
-	if totalPoints[players[1]] != 0 {
-		t.Errorf("Expected 0 total points for Player2, got %d", totalPoints[players[1]])
+	if points[players[1]] != 0 {
+		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
 	}
 }
 
@@ -353,31 +391,38 @@ func TestGetWinner_SingleWinner(t *testing.T) {
 
 	// Finish the match
 	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
-	matchScores, totalPoints, err := game.AddFinishedMatch(finishedMatch)
+	scores, err := game.CalculateMatchScores(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check match scores
-	if matchScores[players[0]] != 500 {
-		t.Errorf("Expected 500 points for Player1 in match, got %d", matchScores[players[0]])
+	if scores[players[0]] != 500 {
+		t.Errorf("Expected 500 points for Player1 in match, got %d", scores[players[0]])
 	}
-	if matchScores[players[1]] != 0 {
-		t.Errorf("Expected 0 points for Player2 in match, got %d", matchScores[players[1]])
+	if scores[players[1]] != 0 {
+		t.Errorf("Expected 0 points for Player2 in match, got %d", scores[players[1]])
 	}
-	if matchScores[players[2]] != 0 {
-		t.Errorf("Expected 0 points for Player3 in match, got %d", matchScores[players[2]])
+	if scores[players[2]] != 0 {
+		t.Errorf("Expected 0 points for Player3 in match, got %d", scores[players[2]])
+	}
+
+	// Apply scores
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check total points
-	if totalPoints[players[0]] != 500 {
-		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints[players[0]])
+	points := game.GetPlayersPoints()
+	if points[players[0]] != 500 {
+		t.Errorf("Expected 500 total points for Player1, got %d", points[players[0]])
 	}
-	if totalPoints[players[1]] != 0 {
-		t.Errorf("Expected 0 total points for Player2, got %d", totalPoints[players[1]])
+	if points[players[1]] != 0 {
+		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
 	}
-	if totalPoints[players[2]] != 0 {
-		t.Errorf("Expected 0 total points for Player3, got %d", totalPoints[players[2]])
+	if points[players[2]] != 0 {
+		t.Errorf("Expected 0 total points for Player3, got %d", points[players[2]])
 	}
 
 	winners := game.GetWinner()
@@ -407,31 +452,38 @@ func TestGetWinner_MultipleWinners(t *testing.T) {
 
 	// Finish the match
 	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
-	matchScores, totalPoints, err := game.AddFinishedMatch(finishedMatch)
+	scores, err := game.CalculateMatchScores(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check match scores
-	if matchScores[players[0]] != 500 {
-		t.Errorf("Expected 500 points for Player1 in match, got %d", matchScores[players[0]])
+	if scores[players[0]] != 500 {
+		t.Errorf("Expected 500 points for Player1 in match, got %d", scores[players[0]])
 	}
-	if matchScores[players[1]] != 500 {
-		t.Errorf("Expected 500 points for Player2 in match, got %d", matchScores[players[1]])
+	if scores[players[1]] != 500 {
+		t.Errorf("Expected 500 points for Player2 in match, got %d", scores[players[1]])
 	}
-	if matchScores[players[2]] != 0 {
-		t.Errorf("Expected 0 points for Player3 in match, got %d", matchScores[players[2]])
+	if scores[players[2]] != 0 {
+		t.Errorf("Expected 0 points for Player3 in match, got %d", scores[players[2]])
+	}
+
+	// Apply scores
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check total points
-	if totalPoints[players[0]] != 500 {
-		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints[players[0]])
+	points := game.GetPlayersPoints()
+	if points[players[0]] != 500 {
+		t.Errorf("Expected 500 total points for Player1, got %d", points[players[0]])
 	}
-	if totalPoints[players[1]] != 500 {
-		t.Errorf("Expected 500 total points for Player2, got %d", totalPoints[players[1]])
+	if points[players[1]] != 500 {
+		t.Errorf("Expected 500 total points for Player2, got %d", points[players[1]])
 	}
-	if totalPoints[players[2]] != 0 {
-		t.Errorf("Expected 0 total points for Player3, got %d", totalPoints[players[2]])
+	if points[players[2]] != 0 {
+		t.Errorf("Expected 0 total points for Player3, got %d", points[players[2]])
 	}
 
 	winners := game.GetWinner()
@@ -470,25 +522,32 @@ func TestGetWinner_NoWinners(t *testing.T) {
 
 	// Finish the match
 	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
-	matchScores, totalPoints, err := game.AddFinishedMatch(finishedMatch)
+	scores, err := game.CalculateMatchScores(finishedMatch)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check match scores
-	if matchScores[players[0]] != 0 {
-		t.Errorf("Expected 0 points for Player1 in match, got %d", matchScores[players[0]])
+	if scores[players[0]] != 0 {
+		t.Errorf("Expected 0 points for Player1 in match, got %d", scores[players[0]])
 	}
-	if matchScores[players[1]] != 0 {
-		t.Errorf("Expected 0 points for Player2 in match, got %d", matchScores[players[1]])
+	if scores[players[1]] != 0 {
+		t.Errorf("Expected 0 points for Player2 in match, got %d", scores[players[1]])
+	}
+
+	// Apply scores
+	err = game.ApplyMatchScores(scores)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check total points
-	if totalPoints[players[0]] != 0 {
-		t.Errorf("Expected 0 total points for Player1, got %d", totalPoints[players[0]])
+	points := game.GetPlayersPoints()
+	if points[players[0]] != 0 {
+		t.Errorf("Expected 0 total points for Player1, got %d", points[players[0]])
 	}
-	if totalPoints[players[1]] != 0 {
-		t.Errorf("Expected 0 total points for Player2, got %d", totalPoints[players[1]])
+	if points[players[1]] != 0 {
+		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
 	}
 
 	winners := game.GetWinner()
@@ -530,20 +589,26 @@ func TestGetWinner_MultipleMatches(t *testing.T) {
 
 	// Finish first match
 	finishedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", testTime, 1, 1.0, 2.0, 3.0)
-	matchScores1, _, err := game.AddFinishedMatch(finishedMatch1)
+	scores1, err := game.CalculateMatchScores(finishedMatch1)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check first match scores
-	if matchScores1[players[0]] != 500 {
-		t.Errorf("Expected 500 points for Player1 in first match, got %d", matchScores1[players[0]])
+	if scores1[players[0]] != 500 {
+		t.Errorf("Expected 500 points for Player1 in first match, got %d", scores1[players[0]])
 	}
-	if matchScores1[players[1]] != 0 {
-		t.Errorf("Expected 0 points for Player2 in first match, got %d", matchScores1[players[1]])
+	if scores1[players[1]] != 0 {
+		t.Errorf("Expected 0 points for Player2 in first match, got %d", scores1[players[1]])
 	}
-	if matchScores1[players[2]] != 0 {
-		t.Errorf("Expected 0 points for Player3 in first match, got %d", matchScores1[players[2]])
+	if scores1[players[2]] != 0 {
+		t.Errorf("Expected 0 points for Player3 in first match, got %d", scores1[players[2]])
+	}
+
+	// Apply first match scores
+	err = game.ApplyMatchScores(scores1)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Add bets for second match
@@ -556,49 +621,60 @@ func TestGetWinner_MultipleMatches(t *testing.T) {
 
 	// Finish second match
 	finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 2, 1, "2024", "Premier League", testTime.Add(24*time.Hour), 2, 1.0, 2.0, 3.0)
-	matchScores2, totalPoints2, err := game.AddFinishedMatch(finishedMatch2)
+	scores2, err := game.CalculateMatchScores(finishedMatch2)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check second match scores
-	if matchScores2[players[0]] != 0 {
-		t.Errorf("Expected 0 points for Player1 in second match, got %d", matchScores2[players[0]])
+	if scores2[players[0]] != 0 {
+		t.Errorf("Expected 0 points for Player1 in second match, got %d", scores2[players[0]])
 	}
-	if matchScores2[players[1]] != 500 {
-		t.Errorf("Expected 500 points for Player2 in second match, got %d", matchScores2[players[1]])
+	if scores2[players[1]] != 500 {
+		t.Errorf("Expected 500 points for Player2 in second match, got %d", scores2[players[1]])
 	}
-	if matchScores2[players[2]] != 500 {
-		t.Errorf("Expected 500 points for Player3 in second match, got %d", matchScores2[players[2]])
+	if scores2[players[2]] != 500 {
+		t.Errorf("Expected 500 points for Player3 in second match, got %d", scores2[players[2]])
+	}
+
+	// Apply second match scores
+	err = game.ApplyMatchScores(scores2)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Check final total points
-	if totalPoints2[players[0]] != 500 {
-		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints2[players[0]])
+	points := game.GetPlayersPoints()
+	if points[players[0]] != 500 {
+		t.Errorf("Expected 500 total points for Player1, got %d", points[players[0]])
 	}
-	if totalPoints2[players[1]] != 500 {
-		t.Errorf("Expected 500 total points for Player2, got %d", totalPoints2[players[1]])
+	if points[players[1]] != 500 {
+		t.Errorf("Expected 500 total points for Player2, got %d", points[players[1]])
 	}
-	if totalPoints2[players[2]] != 500 {
-		t.Errorf("Expected 500 total points for Player3, got %d", totalPoints2[players[2]])
+	if points[players[2]] != 500 {
+		t.Errorf("Expected 500 total points for Player3, got %d", points[players[2]])
 	}
 
 	winners := game.GetWinner()
-	if len(winners) != 2 {
-		t.Errorf("Expected 2 winners, got %d", len(winners))
+	if len(winners) != 3 {
+		t.Errorf("Expected 3 winners, got %d", len(winners))
 	}
-	// Check that both winners are in the slice
+	// Check that all winners are in the slice
 	winner1Found := false
 	winner2Found := false
+	winner3Found := false
 	for _, winner := range winners {
-		if winner == players[1] {
+		if winner == players[0] {
 			winner1Found = true
 		}
-		if winner == players[2] {
+		if winner == players[1] {
 			winner2Found = true
 		}
+		if winner == players[2] {
+			winner3Found = true
+		}
 	}
-	if !winner1Found || !winner2Found {
-		t.Errorf("Expected both Player2 and Player3 to be winners with 500 points each")
+	if !winner1Found || !winner2Found || !winner3Found {
+		t.Errorf("Expected all players to be winners")
 	}
 }

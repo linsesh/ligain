@@ -22,7 +22,8 @@ type Game interface {
 	GetCompetitionName() string
 	GetGameStatus() GameStatus
 	AddPlayerBet(player *models.Player, bet *models.Bet, datetime time.Time) error
-	AddFinishedMatch(match models.Match) (map[models.Player]int, map[models.Player]int, error)
+	CalculateMatchScores(match models.Match) (map[models.Player]int, error)
+	ApplyMatchScores(scores map[models.Player]int) error
 	UpdateMatch(match models.Match) error
 	GetMatchBets(match models.Match) (map[models.Player]*models.Bet, error)
 	GetIncomingMatches() []models.Match
@@ -86,23 +87,26 @@ func (g *GameImpl) GetIncomingMatches() []models.Match {
 	return matches
 }
 
-func (g *GameImpl) AddFinishedMatch(match models.Match) (map[models.Player]int, map[models.Player]int, error) {
+func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]int, error) {
 	existingMatch, exists := g.Matches[match.Id()]
 	if !exists {
-		return nil, g.PlayersPoints, fmt.Errorf("match not found")
+		return nil, fmt.Errorf("match not found")
 	}
 	if !match.IsFinished() {
-		return nil, g.PlayersPoints, fmt.Errorf("match is not finished")
+		return nil, fmt.Errorf("match is not finished")
 	}
 	if existingMatch.IsFinished() {
-		return nil, g.PlayersPoints, fmt.Errorf("match already finished")
+		return nil, fmt.Errorf("match already finished")
 	}
 	existingMatch.Finish(match.GetHomeGoals(), match.GetAwayGoals())
 	scores := g.scoreMatch(existingMatch)
-	//todo: we should not have the right to do this before this logged in db
-	g.updatePlayersPoints(scores)
 	g.removeIncomingMatch(match)
-	return scores, g.PlayersPoints, nil
+	return scores, nil
+}
+
+func (g *GameImpl) ApplyMatchScores(scores map[models.Player]int) error {
+	g.updatePlayersPoints(scores)
+	return nil
 }
 
 func (g *GameImpl) UpdateMatch(match models.Match) error {
