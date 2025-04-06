@@ -425,12 +425,13 @@ func TestGetWinner_SingleWinner(t *testing.T) {
 		t.Errorf("Expected 0 total points for Player3, got %d", points[players[2]])
 	}
 
+	// Check winner
 	winners := game.GetWinner()
 	if len(winners) != 1 {
-		t.Errorf("Expected 1 winner, got %d", len(winners))
+		t.Errorf("Expected 1 winner, got %d winners", len(winners))
 	}
-	if winners[0] != players[0] {
-		t.Errorf("Expected Player1 to be the winner, got %v", winners[0])
+	if winners[0].Name != players[0].Name {
+		t.Errorf("Expected Player1 to be the winner, got %s", winners[0].Name)
 	}
 }
 
@@ -486,23 +487,21 @@ func TestGetWinner_MultipleWinners(t *testing.T) {
 		t.Errorf("Expected 0 total points for Player3, got %d", points[players[2]])
 	}
 
+	// Check winners
 	winners := game.GetWinner()
 	if len(winners) != 2 {
-		t.Errorf("Expected 2 winners, got %d", len(winners))
+		t.Errorf("Expected 2 winners, got %d winners", len(winners))
 	}
-	// Check that both winners are in the slice
-	winner1Found := false
-	winner2Found := false
+	// Check that both expected winners are in the slice
+	winnerNames := make(map[string]bool)
 	for _, winner := range winners {
-		if winner == players[0] {
-			winner1Found = true
-		}
-		if winner == players[1] {
-			winner2Found = true
-		}
+		winnerNames[winner.Name] = true
 	}
-	if !winner1Found || !winner2Found {
-		t.Errorf("Expected both Player1 and Player2 to be winners")
+	if !winnerNames[players[0].Name] {
+		t.Errorf("Expected Player1 to be a winner")
+	}
+	if !winnerNames[players[1].Name] {
+		t.Errorf("Expected Player2 to be a winner")
 	}
 }
 
@@ -550,23 +549,21 @@ func TestGetWinner_NoWinners(t *testing.T) {
 		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
 	}
 
+	// Check winners (both players should be winners with 0 points)
 	winners := game.GetWinner()
 	if len(winners) != 2 {
-		t.Errorf("Expected both players to be winners with 0 points, got %d winners", len(winners))
+		t.Errorf("Expected 2 winners, got %d winners", len(winners))
 	}
 	// Check that both players are in the slice
-	player1Found := false
-	player2Found := false
+	winnerNames := make(map[string]bool)
 	for _, winner := range winners {
-		if winner == players[0] {
-			player1Found = true
-		}
-		if winner == players[1] {
-			player2Found = true
-		}
+		winnerNames[winner.Name] = true
 	}
-	if !player1Found || !player2Found {
-		t.Errorf("Expected both players to be winners with 0 points")
+	if !winnerNames[players[0].Name] {
+		t.Errorf("Expected Player1 to be a winner")
+	}
+	if !winnerNames[players[1].Name] {
+		t.Errorf("Expected Player2 to be a winner")
 	}
 }
 
@@ -655,26 +652,23 @@ func TestGetWinner_MultipleMatches(t *testing.T) {
 		t.Errorf("Expected 500 total points for Player3, got %d", points[players[2]])
 	}
 
+	// Check winners
 	winners := game.GetWinner()
 	if len(winners) != 3 {
-		t.Errorf("Expected 3 winners, got %d", len(winners))
+		t.Errorf("Expected 3 winners, got %d winners", len(winners))
 	}
-	// Check that all winners are in the slice
-	winner1Found := false
-	winner2Found := false
-	winner3Found := false
+	// Check that all expected winners are in the slice
+	winnerNames := make(map[string]bool)
 	for _, winner := range winners {
-		if winner == players[0] {
-			winner1Found = true
-		}
-		if winner == players[1] {
-			winner2Found = true
-		}
-		if winner == players[2] {
-			winner3Found = true
-		}
+		winnerNames[winner.Name] = true
 	}
-	if !winner1Found || !winner2Found || !winner3Found {
-		t.Errorf("Expected all players to be winners")
+	if !winnerNames[players[0].Name] {
+		t.Errorf("Expected Player1 to be a winner")
+	}
+	if !winnerNames[players[1].Name] {
+		t.Errorf("Expected Player2 to be a winner")
+	}
+	if !winnerNames[players[2].Name] {
+		t.Errorf("Expected Player3 to be a winner")
 	}
 }
