@@ -33,11 +33,11 @@ func TestNewGame(t *testing.T) {
 
 	game := NewGame("2024", "Premier League", players, matches, scorer)
 
-	if game.GetSeasonCode() != "2024" {
-		t.Errorf("Expected season code '2024', got %s", game.GetSeasonCode())
+	if game.GetSeasonYear() != "2024" {
+		t.Errorf("Expected season code '2024', got %s", game.GetSeasonYear())
 	}
-	if game.GetCompetitionCode() != "Premier League" {
-		t.Errorf("Expected competition code 'Premier League', got %s", game.GetCompetitionCode())
+	if game.GetCompetitionName() != "Premier League" {
+		t.Errorf("Expected competition code 'Premier League', got %s", game.GetCompetitionName())
 	}
 	if game.GetGameStatus() != GameStatusNotStarted {
 		t.Errorf("Expected game status 'not started', got %s", game.GetGameStatus())

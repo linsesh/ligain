@@ -11,21 +11,27 @@ import (
 
 // GameService is used to really run a game
 type GameService struct {
-	game    rules.Game
-	gameId  string
-	repo    GameRepository
-	watcher MatchWatcherService
+	game     rules.Game
+	gameId   string
+	gameRepo GameRepository
+	betRepo  BetRepository
+	watcher  MatchWatcherService
+	// waitTime is the time we accept to wait for a check of game updates
+	waitTime time.Duration
 }
 
-func NewGameService(game rules.Game, repo GameRepository) (*GameService, error) {
-	gameId, err := repo.SaveGame(game)
+func NewGameService(game rules.Game, gameRepo GameRepository, betRepo BetRepository, watcher MatchWatcherService, waitTime time.Duration) (*GameService, error) {
+	gameId, err := gameRepo.SaveGame(game)
 	if err != nil {
 		return nil, err
 	}
 	return &GameService{
-		game:   game,
-		gameId: gameId,
-		repo:   repo,
+		game:     game,
+		gameId:   gameId,
+		gameRepo: gameRepo,
+		betRepo:  betRepo,
+		watcher:  watcher,
+		waitTime: waitTime,
 	}, nil
 }
 
@@ -39,7 +45,6 @@ func (g *GameService) Play() ([]models.Player, error) {
 			return nil, err
 		}
 		g.handleUpdates(updates)
-		g.pause()
 	}
 	winners := g.game.GetWinner()
 	log.Infof("Game %v is finished, with winner(s) %v", g.gameId, winners)
@@ -54,7 +59,6 @@ func (g *GameService) handleUpdates(updates map[string]models.Match) {
 			err := g.game.UpdateMatch(match)
 			if err != nil {
 				log.Errorf("Error updating match: %v", err)
-				return
 			}
 		}
 	}
@@ -68,7 +72,7 @@ func (g *GameService) handleScoreUpdate(match models.Match) {
 	}
 
 	// Save to repository first
-	err = g.repo.UpdateScores(match, scores)
+	err = g.gameRepo.UpdateScores(match, scores)
 	if err != nil {
 		log.Errorf("Error saving scores to repository: %v", err)
 		return
@@ -86,7 +90,7 @@ func (g *GameService) handleScoreUpdate(match models.Match) {
 }
 
 func (g *GameService) getUpdates() (map[string]models.Match, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), g.waitTime)
 	defer cancel()
 
 	done := make(chan MatchWatcherServiceResult)
@@ -104,8 +108,11 @@ func (g *GameService) getUpdates() (map[string]models.Match, error) {
 	}
 }
 
-// pause pauses the updates of the game status for 1 second.
-// todo: make it configurable depending if we're running in dev mode or not
-func (g *GameService) pause() {
-	time.Sleep(1 * time.Second)
+func (g *GameService) updateBet(bet *models.Bet, player models.Player) error {
+	err := g.game.AddPlayerBet(&player, bet, time.Now())
+	if err != nil {
+		log.Errorf("Error adding player bet: %v", err)
+		return err
+	}
+	return nil
 }

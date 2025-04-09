@@ -142,11 +142,11 @@ func (g *GameImpl) removeIncomingMatch(match models.Match) {
 	}
 }
 
-func (g *GameImpl) GetSeasonCode() string {
+func (g *GameImpl) GetSeasonYear() string {
 	return g.SeasonCode
 }
 
-func (g *GameImpl) GetCompetitionCode() string {
+func (g *GameImpl) GetCompetitionName() string {
 	return g.CompetitionCode
 }
 
