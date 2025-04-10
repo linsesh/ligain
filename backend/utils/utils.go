@@ -1,11 +1,22 @@
 package utils
 
+import "slices"
+
 // SliceWithoutElement returns a new slice with the element at the given index removed, by copying to a new slice
-func SliceWithoutElement[T any](slice []T, index int) []T {
+func SliceWithoutElementAtIndex[T any](slice []T, index int) []T {
 	out := make([]T, 0, len(slice)-1)
 	out = append(out, slice[:index]...)
 	out = append(out, slice[index+1:]...)
 	return out
+}
+
+// SliceWithoutEllement finds the first elem in T and remove it from the slice
+func SliceWithoutElement[T comparable](slice []T, elem T) []T {
+	index := slices.Index(slice, elem)
+	if index == -1 {
+		return slice
+	}
+	return SliceWithoutElementAtIndex(slice, index)
 }
 
 // MapKeys returns a slice of the keys of the given map

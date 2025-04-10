@@ -22,10 +22,14 @@ type Game interface {
 	GetCompetitionName() string
 	GetGameStatus() GameStatus
 	AddPlayerBet(player *models.Player, bet *models.Bet, datetime time.Time) error
-	AddFinishedMatch(match models.Match) (map[models.Player]int, error)
+	CalculateMatchScores(match models.Match) (map[models.Player]int, error)
+	ApplyMatchScores(match models.Match, scores map[models.Player]int)
+	UpdateMatch(match models.Match) error
 	GetMatchBets(match models.Match) (map[models.Player]*models.Bet, error)
 	GetIncomingMatches() []models.Match
 	GetPlayersPoints() map[models.Player]int
+	IsFinished() bool
+	GetWinner() []models.Player
 }
 
 // Game represents a competition between several players, on a specific season and competition
@@ -83,18 +87,34 @@ func (g *GameImpl) GetIncomingMatches() []models.Match {
 	return matches
 }
 
-func (g *GameImpl) AddFinishedMatch(match models.Match) (map[models.Player]int, error) {
+func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]int, error) {
 	existingMatch, exists := g.Matches[match.Id()]
 	if !exists {
-		return g.PlayersPoints, fmt.Errorf("match not found")
+		return nil, fmt.Errorf("match not found")
 	}
 	if !match.IsFinished() {
-		return g.PlayersPoints, fmt.Errorf("match is not finished")
+		return nil, fmt.Errorf("match is not finished")
+	}
+	if existingMatch.IsFinished() {
+		return nil, fmt.Errorf("match already finished")
 	}
 	existingMatch.Finish(match.GetHomeGoals(), match.GetAwayGoals())
 	scores := g.scoreMatch(existingMatch)
+	return scores, nil
+}
+
+func (g *GameImpl) ApplyMatchScores(match models.Match, scores map[models.Player]int) {
 	g.updatePlayersPoints(scores)
-	return g.PlayersPoints, nil
+	g.removeIncomingMatch(match)
+}
+
+func (g *GameImpl) UpdateMatch(match models.Match) error {
+	_, exists := g.Matches[match.Id()]
+	if !exists {
+		return fmt.Errorf("match not found")
+	}
+	g.Matches[match.Id()] = match
+	return nil
 }
 
 func (g *GameImpl) scoreMatch(match models.Match) map[models.Player]int {
@@ -114,11 +134,18 @@ func (g *GameImpl) updatePlayersPoints(scores map[models.Player]int) {
 	}
 }
 
-func (g *GameImpl) GetSeasonCode() string {
+func (g *GameImpl) removeIncomingMatch(match models.Match) {
+	delete(g.Matches, match.Id())
+	if len(g.Matches) == 0 {
+		g.GameStatus = GameStatusFinished
+	}
+}
+
+func (g *GameImpl) GetSeasonYear() string {
 	return g.SeasonCode
 }
 
-func (g *GameImpl) GetCompetitionCode() string {
+func (g *GameImpl) GetCompetitionName() string {
 	return g.CompetitionCode
 }
 
@@ -136,4 +163,22 @@ func (g *GameImpl) GetMatchBets(match models.Match) (map[models.Player]*models.B
 
 func (g *GameImpl) GetPlayersPoints() map[models.Player]int {
 	return g.PlayersPoints
+}
+
+func (g *GameImpl) IsFinished() bool {
+	return g.GameStatus == GameStatusFinished
+}
+
+func (g *GameImpl) GetWinner() []models.Player {
+	bestScore := 0
+	winners := make([]models.Player, 0)
+	for player, points := range g.PlayersPoints {
+		if points > bestScore {
+			bestScore = points
+			winners = []models.Player{player}
+		} else if points == bestScore {
+			winners = append(winners, player)
+		}
+	}
+	return winners
 }

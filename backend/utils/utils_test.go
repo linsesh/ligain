@@ -5,30 +5,30 @@ import (
 	"testing"
 )
 
-func TestSliceWithoutElement_RemoveMiddle(t *testing.T) {
+func TestSliceWithoutElementAtIndex_RemoveMiddle(t *testing.T) {
 	original := []string{"a", "b", "c", "d", "e"}
 	expected := []string{"a", "b", "d", "e"}
-	result := SliceWithoutElement(original, 2)
+	result := SliceWithoutElementAtIndex(original, 2)
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 }
 
-func TestSliceWithoutElement_RemoveEnd(t *testing.T) {
+func TestSliceWithoutElementAtIndex_RemoveEnd(t *testing.T) {
 	original := []string{"a", "b", "c", "d", "e"}
 	expected := []string{"a", "b", "c", "d"}
-	result := SliceWithoutElement(original, 4)
+	result := SliceWithoutElementAtIndex(original, 4)
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 }
 
-func TestSliceWithoutElement_RemoveBeginning(t *testing.T) {
+func TestSliceWithoutElementAtIndex_RemoveBeginning(t *testing.T) {
 	original := []string{"a", "b", "c", "d", "e"}
 	expected := []string{"b", "c", "d", "e"}
-	result := SliceWithoutElement(original, 0)
+	result := SliceWithoutElementAtIndex(original, 0)
 
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
@@ -265,5 +265,85 @@ func TestMapKeysValues(t *testing.T) {
 	}
 	if valueCounts[2] != 1 {
 		t.Errorf("Expected value 2 to appear once, got %d times", valueCounts[2])
+	}
+}
+
+func TestSliceWithoutElement_RemoveExistingElement(t *testing.T) {
+	original := []string{"a", "b", "c", "d", "e"}
+	expected := []string{"a", "b", "d", "e"}
+	result := SliceWithoutElement(original, "c")
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestSliceWithoutElement_RemoveFirstElement(t *testing.T) {
+	original := []string{"a", "b", "c", "d", "e"}
+	expected := []string{"b", "c", "d", "e"}
+	result := SliceWithoutElement(original, "a")
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestSliceWithoutElement_RemoveLastElement(t *testing.T) {
+	original := []string{"a", "b", "c", "d", "e"}
+	expected := []string{"a", "b", "c", "d"}
+	result := SliceWithoutElement(original, "e")
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestSliceWithoutElement_RemoveNonExistingElement(t *testing.T) {
+	original := []string{"a", "b", "c", "d", "e"}
+	result := SliceWithoutElement(original, "x")
+
+	if !reflect.DeepEqual(result, original) {
+		t.Errorf("Expected original slice to be unchanged, got %v", result)
+	}
+}
+
+func TestSliceWithoutElement_EmptySlice(t *testing.T) {
+	original := []string{}
+	result := SliceWithoutElement(original, "a")
+
+	if !reflect.DeepEqual(result, original) {
+		t.Errorf("Expected empty slice to be unchanged, got %v", result)
+	}
+}
+
+func TestSliceWithoutElement_WithInts(t *testing.T) {
+	original := []int{1, 2, 3, 4, 5}
+	expected := []int{1, 2, 4, 5}
+	result := SliceWithoutElement(original, 3)
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestSliceWithoutElement_WithStructs(t *testing.T) {
+	type Person struct {
+		Name string
+		Age  int
+	}
+
+	original := []Person{
+		{Name: "Alice", Age: 25},
+		{Name: "Bob", Age: 30},
+		{Name: "Charlie", Age: 35},
+	}
+	expected := []Person{
+		{Name: "Alice", Age: 25},
+		{Name: "Charlie", Age: 35},
+	}
+	result := SliceWithoutElement(original, Person{Name: "Bob", Age: 30})
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
 	}
 }
