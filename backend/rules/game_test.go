@@ -53,9 +53,11 @@ func TestNewGame(t *testing.T) {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+	game.ApplyMatchScores(finishedMatch, scores)
+
+	// Verify game is finished after all matches are played
+	if game.IsFinished() {
+		t.Errorf("Expected game to not be finished after only a fraction of matches were played")
 	}
 }
 
@@ -87,9 +89,10 @@ func TestAddPlayerBetGetMatchBets(t *testing.T) {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+	game.ApplyMatchScores(finishedMatch, scores)
+
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }
 
@@ -252,10 +255,7 @@ func TestAddFinishedMatch(t *testing.T) {
 	}
 
 	// Apply scores
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch, scores)
 
 	// Check total points
 	points := game.GetPlayersPoints()
@@ -264,6 +264,11 @@ func TestAddFinishedMatch(t *testing.T) {
 	}
 	if points[players[1]] != 0 {
 		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
+	}
+
+	// Verify game is finished after all matches are played
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }
 
@@ -358,10 +363,7 @@ func TestGetPlayersPoints(t *testing.T) {
 	}
 
 	// Apply scores
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch, scores)
 
 	// Check total points
 	points = game.GetPlayersPoints()
@@ -370,6 +372,11 @@ func TestGetPlayersPoints(t *testing.T) {
 	}
 	if points[players[1]] != 0 {
 		t.Errorf("Expected 0 total points for Player2, got %d", points[players[1]])
+	}
+
+	// Verify game is finished after all matches are played
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }
 
@@ -408,10 +415,7 @@ func TestGetWinner_SingleWinner(t *testing.T) {
 	}
 
 	// Apply scores
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch, scores)
 
 	// Check total points
 	points := game.GetPlayersPoints()
@@ -432,6 +436,11 @@ func TestGetWinner_SingleWinner(t *testing.T) {
 	}
 	if winners[0].Name != players[0].Name {
 		t.Errorf("Expected Player1 to be the winner, got %s", winners[0].Name)
+	}
+
+	// Verify game is finished after all matches are played
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }
 
@@ -470,10 +479,7 @@ func TestGetWinner_MultipleWinners(t *testing.T) {
 	}
 
 	// Apply scores
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch, scores)
 
 	// Check total points
 	points := game.GetPlayersPoints()
@@ -502,6 +508,11 @@ func TestGetWinner_MultipleWinners(t *testing.T) {
 	}
 	if !winnerNames[players[1].Name] {
 		t.Errorf("Expected Player2 to be a winner")
+	}
+
+	// Verify game is finished after all matches are played
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }
 
@@ -535,10 +546,7 @@ func TestGetWinner_NoWinners(t *testing.T) {
 	}
 
 	// Apply scores
-	err = game.ApplyMatchScores(scores)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch, scores)
 
 	// Check total points
 	points := game.GetPlayersPoints()
@@ -564,6 +572,11 @@ func TestGetWinner_NoWinners(t *testing.T) {
 	}
 	if !winnerNames[players[1].Name] {
 		t.Errorf("Expected Player2 to be a winner")
+	}
+
+	// Verify game is finished after all matches are played
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }
 
@@ -603,10 +616,7 @@ func TestGetWinner_MultipleMatches(t *testing.T) {
 	}
 
 	// Apply first match scores
-	err = game.ApplyMatchScores(scores1)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch1, scores1)
 
 	// Add bets for second match
 	bet4 := models.NewBet(match2, 1, 1) // Wrong bet
@@ -635,10 +645,7 @@ func TestGetWinner_MultipleMatches(t *testing.T) {
 	}
 
 	// Apply second match scores
-	err = game.ApplyMatchScores(scores2)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	game.ApplyMatchScores(finishedMatch2, scores2)
 
 	// Check final total points
 	points := game.GetPlayersPoints()
@@ -670,5 +677,10 @@ func TestGetWinner_MultipleMatches(t *testing.T) {
 	}
 	if !winnerNames[players[2].Name] {
 		t.Errorf("Expected Player3 to be a winner")
+	}
+
+	// Verify game is finished after all matches are played
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after all matches are played")
 	}
 }

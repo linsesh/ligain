@@ -23,7 +23,7 @@ type Game interface {
 	GetGameStatus() GameStatus
 	AddPlayerBet(player *models.Player, bet *models.Bet, datetime time.Time) error
 	CalculateMatchScores(match models.Match) (map[models.Player]int, error)
-	ApplyMatchScores(scores map[models.Player]int) error
+	ApplyMatchScores(match models.Match, scores map[models.Player]int)
 	UpdateMatch(match models.Match) error
 	GetMatchBets(match models.Match) (map[models.Player]*models.Bet, error)
 	GetIncomingMatches() []models.Match
@@ -100,13 +100,12 @@ func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]i
 	}
 	existingMatch.Finish(match.GetHomeGoals(), match.GetAwayGoals())
 	scores := g.scoreMatch(existingMatch)
-	g.removeIncomingMatch(match)
 	return scores, nil
 }
 
-func (g *GameImpl) ApplyMatchScores(scores map[models.Player]int) error {
+func (g *GameImpl) ApplyMatchScores(match models.Match, scores map[models.Player]int) {
 	g.updatePlayersPoints(scores)
-	return nil
+	g.removeIncomingMatch(match)
 }
 
 func (g *GameImpl) UpdateMatch(match models.Match) error {
