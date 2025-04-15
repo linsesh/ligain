@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"liguain/backend/models"
+	"liguain/backend/repositories"
 	"liguain/backend/rules"
 	"time"
 
@@ -13,14 +14,14 @@ import (
 type GameService struct {
 	game     rules.Game
 	gameId   string
-	gameRepo GameRepository
-	betRepo  BetRepository
+	gameRepo repositories.GameRepository
+	betRepo  repositories.BetRepository
 	watcher  MatchWatcherService
 	// waitTime is the time we accept to wait for a check of game updates
 	waitTime time.Duration
 }
 
-func NewGameService(game rules.Game, gameRepo GameRepository, betRepo BetRepository, watcher MatchWatcherService, waitTime time.Duration) (*GameService, error) {
+func NewGameService(game rules.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, watcher MatchWatcherService, waitTime time.Duration) (*GameService, error) {
 	gameId, err := gameRepo.SaveGame(game)
 	if err != nil {
 		return nil, err

@@ -26,6 +26,7 @@ type Match interface {
 	GetAwayGoals() int
 	GetHomeTeamOdds() float64
 	GetAwayTeamOdds() float64
+	GetDrawOdds() float64
 	AbsoluteGoalDifference() int
 	IsDraw() bool
 	TotalGoals() int
@@ -173,4 +174,8 @@ func (m *SeasonMatch) GetHomeTeamOdds() float64 {
 
 func (m *SeasonMatch) GetAwayTeamOdds() float64 {
 	return m.awayTeamOdds
+}
+
+func (m *SeasonMatch) GetDrawOdds() float64 {
+	return m.drawOdds
 }

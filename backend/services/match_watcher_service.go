@@ -14,26 +14,3 @@ type MatchWatcherService interface {
 	// GetUpdates returns the updates of the matches in an async way
 	GetUpdates(ctx context.Context, done chan MatchWatcherServiceResult)
 }
-
-type MatchWatcherServiceWithAPI struct {
-	matches map[string]models.Match
-}
-
-func NewMatchWatcherServiceWithAPI() *MatchWatcherServiceWithAPI {
-	return &MatchWatcherServiceWithAPI{
-		matches: make(map[string]models.Match),
-	}
-}
-
-func (m *MatchWatcherServiceWithAPI) WatchMatches(matches []models.Match) {
-	for _, match := range matches {
-		m.matches[match.Id()] = match
-	}
-}
-
-func (m *MatchWatcherServiceWithAPI) GetUpdates(ctx context.Context, done chan MatchWatcherServiceResult) {
-	done <- MatchWatcherServiceResult{
-		Value: m.matches,
-		Err:   nil,
-	}
-}

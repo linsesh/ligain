@@ -1,4 +1,4 @@
-package services
+package repositories
 
 import (
 	"liguain/backend/models"
