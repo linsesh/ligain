@@ -7,14 +7,12 @@ import (
 
 // SportsmonkAPI is a wrapper around the Sportsmonk API
 type SportsmonkAPI interface {
-	// GetFixturesIdsForSeason returns all fixtures ids, for a given season, and convert to our Match model
-	GetFixturesIdsForSeason(seasonId string) (map[string]models.Match, error)
 	// GetSeasonIds creates a mapping between the season code and the season ID
 	GetSeasonIds(seasonCodes []string) (map[string]string, error)
-	// GetFixtureIds creates a mapping between the match ID and the fixture ID
-	GetFixtureIds(matches []models.Match) (map[string]string, error)
 	// GetFixturesInfos returns the fixtures infos for a given list of fixture IDs
 	GetFixturesInfos(fixtureIds []string) (map[string]models.Match, error)
+	// GetFixturesIds returns the fixture IDs for a given list of matches
+	GetFixturesIds(matches []models.Match) (map[string]string, error)
 }
 
 type SportsmonkAPIImpl struct {
@@ -30,15 +28,11 @@ func NewSportsmonkAPI(apiToken string) *SportsmonkAPIImpl {
 	return &SportsmonkAPIImpl{apiToken: apiToken}
 }
 
-func (s *SportsmonkAPIImpl) GetFixturesIdsForSeason(seasonId string) (map[string]models.Match, error) {
-	return nil, nil
-}
-
 func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string) (map[string]string, error) {
 	return nil, nil
 }
 
-func (s *SportsmonkAPIImpl) GetFixtureIds(matches []models.Match) (map[string]string, error) {
+func (s *SportsmonkAPIImpl) GetFixturesIds(matches []models.Match) (map[string]string, error) {
 	return nil, nil
 }
 

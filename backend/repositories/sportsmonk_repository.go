@@ -11,17 +11,15 @@ type SportsmonkRepository interface {
 }
 
 type SportsmonkRepositoryImpl struct {
-	apiToken string
-	api      api.SportsmonkAPI
+	api api.SportsmonkAPI
 	// Fixture ID is the Sportsmonk ID for a match, we use it as a cache to avoid reconverting the match ID to a fixture ID
 	matchIdToFixtureId   map[string]string
 	seasonCodeToSeasonId map[string]string
 }
 
-func NewSportsmonkRepository(apiToken string) SportsmonkRepository {
+func NewSportsmonkRepository(api api.SportsmonkAPI) SportsmonkRepository {
 	return &SportsmonkRepositoryImpl{
-		apiToken:             apiToken,
-		api:                  api.NewSportsmonkAPI(apiToken),
+		api:                  api,
 		matchIdToFixtureId:   make(map[string]string),
 		seasonCodeToSeasonId: make(map[string]string),
 	}
@@ -65,7 +63,7 @@ func (r *SportsmonkRepositoryImpl) askAndCacheFixtureIdAndSeasonId(matches map[s
 			matchesSeasonCodesToConvert = append(matchesSeasonCodesToConvert, match.GetSeasonCode())
 		}
 	}
-	fixtureIds, err := r.api.GetFixtureIds(matchesToConvert)
+	fixtureIds, err := r.api.GetFixturesIds(matchesToConvert)
 	if err != nil {
 		return err
 	}
