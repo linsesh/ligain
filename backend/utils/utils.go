@@ -1,6 +1,10 @@
 package utils
 
-import "slices"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 // SliceWithoutElement returns a new slice with the element at the given index removed, by copying to a new slice
 func SliceWithoutElementAtIndex[T any](slice []T, index int) []T {
@@ -45,4 +49,17 @@ func MapKeysValues[K comparable, V any](m map[K]V) ([]K, []V) {
 		values = append(values, v)
 	}
 	return keys, values
+}
+
+// ConvertIntSliceToStringWithCommas converts a slice of integers to a comma-separated string
+func ConvertIntSliceToStringWithCommas(ids []int) string {
+	if len(ids) == 0 {
+		return ""
+	}
+
+	result := make([]string, len(ids))
+	for i, id := range ids {
+		result[i] = fmt.Sprintf("%d", id)
+	}
+	return strings.Join(result, ",")
 }

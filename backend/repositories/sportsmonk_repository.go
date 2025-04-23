@@ -3,77 +3,86 @@ package repositories
 import (
 	"liguain/backend/api"
 	"liguain/backend/models"
+	"liguain/backend/utils"
 )
 
 type SportsmonkRepository interface {
-	// GetLastMatchInfos returns the last match infos for a given list of matches
+	// GetLastMatchInfos returns the last match infos for a given list of matches. The matches should be from the same season/competition
 	GetLastMatchInfos(matches map[string]models.Match) (map[string]models.Match, error)
 }
 
 type SportsmonkRepositoryImpl struct {
 	api api.SportsmonkAPI
 	// Fixture ID is the Sportsmonk ID for a match, we use it as a cache to avoid reconverting the match ID to a fixture ID
-	matchIdToFixtureId   map[string]string
-	seasonCodeToSeasonId map[string]string
+	matchIdToFixtureId             map[string]int
+	seasonCodeToSeasonId           map[string]int
+	competitionCodeToCompetitionId map[string]int
 }
 
 func NewSportsmonkRepository(api api.SportsmonkAPI) SportsmonkRepository {
 	return &SportsmonkRepositoryImpl{
-		api:                  api,
-		matchIdToFixtureId:   make(map[string]string),
-		seasonCodeToSeasonId: make(map[string]string),
+		api:                            api,
+		seasonCodeToSeasonId:           make(map[string]int),
+		competitionCodeToCompetitionId: make(map[string]int),
 	}
 }
 
 func (r *SportsmonkRepositoryImpl) GetLastMatchInfos(matches map[string]models.Match) (map[string]models.Match, error) {
-	fixtureIds, err := r.getFixtureIds(matches)
-	if err != nil {
-		return nil, err
-	}
-	fixtureInfos, err := r.api.GetFixturesInfos(fixtureIds)
+	fixtureInfos, err := r.getFixtureInfos(matches)
 	if err != nil {
 		return nil, err
 	}
 	return fixtureInfos, nil
 }
 
-func (r *SportsmonkRepositoryImpl) getFixtureIds(matches map[string]models.Match) ([]string, error) {
-	err := r.askAndCacheFixtureIdAndSeasonId(matches)
+func (r *SportsmonkRepositoryImpl) getFixtureInfos(matches map[string]models.Match) (map[string]models.Match, error) {
+	seasonId, err := r.askAndCacheSeasonId(matches)
 	if err != nil {
 		return nil, err
 	}
 
-	fixtureIds := make([]string, 0)
-	for _, match := range matches {
-		fixtureIds = append(fixtureIds, r.matchIdToFixtureId[match.Id()])
+	fixtureInfos, err := r.askAndCacheFixtureInfo(seasonId)
+	if err != nil {
+		return nil, err
 	}
-
-	return fixtureIds, nil
+	return fixtureInfos, nil
 }
 
-func (r *SportsmonkRepositoryImpl) askAndCacheFixtureIdAndSeasonId(matches map[string]models.Match) error {
-	matchesToConvert := make([]models.Match, 0)
-	matchesSeasonCodesToConvert := make([]string, 0)
-	// Get the list of matches and seasons to convert at once to reduce the number of requests
-	for _, match := range matches {
-		if _, ok := r.matchIdToFixtureId[match.Id()]; !ok {
-			matchesToConvert = append(matchesToConvert, match)
-		}
-		if _, ok := r.seasonCodeToSeasonId[match.GetSeasonCode()]; !ok {
-			matchesSeasonCodesToConvert = append(matchesSeasonCodesToConvert, match.GetSeasonCode())
-		}
-	}
-	fixtureIds, err := r.api.GetFixturesIds(matchesToConvert)
+func (r *SportsmonkRepositoryImpl) askAndCacheFixtureInfo(seasonId int) (map[string]models.Match, error) {
+	fixtureIdToMatch, err := r.api.GetSeasonFixtures(seasonId)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	seasonsIds, err := r.api.GetSeasonIds(matchesSeasonCodesToConvert)
-	if err != nil {
-		return err
+
+	matchIdToMatch := make(map[string]models.Match)
+	for _, match := range fixtureIdToMatch {
+		matchIdToMatch[match.Id()] = match
 	}
-	for _, match := range matchesToConvert {
-		r.matchIdToFixtureId[match.Id()] = fixtureIds[match.Id()]
-		r.seasonCodeToSeasonId[match.GetSeasonCode()] = seasonsIds[match.GetSeasonCode()]
+
+	return matchIdToMatch, nil
+}
+
+func (r *SportsmonkRepositoryImpl) askAndCacheSeasonId(matches map[string]models.Match) (int, error) {
+	var seasonId int
+	matchesSlice := utils.MapValues(matches)
+
+	seasonCode := matchesSlice[0].GetSeasonCode()
+	competitionCode := matchesSlice[0].GetCompetitionCode()
+	if _, ok := r.competitionCodeToCompetitionId[competitionCode]; !ok {
+		competitionId, err := r.api.GetCompetitionId(competitionCode)
+		if err != nil {
+			return -1, err
+		}
+		r.competitionCodeToCompetitionId[competitionCode] = competitionId
 	}
-	return nil
+
+	if _, ok := r.seasonCodeToSeasonId[seasonCode]; !ok {
+		seasonIds, err := r.api.GetSeasonIds([]string{seasonCode}, r.competitionCodeToCompetitionId[competitionCode])
+		if err != nil {
+			return -1, err
+		}
+		seasonId = seasonIds[seasonCode]
+		r.seasonCodeToSeasonId[seasonCode] = seasonId
+	}
+	return seasonId, nil
 }

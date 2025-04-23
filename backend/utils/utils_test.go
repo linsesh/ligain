@@ -347,3 +347,47 @@ func TestSliceWithoutElement_WithStructs(t *testing.T) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
 }
+
+func TestConvertIntSliceToStringWithCommas(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []int
+		expected string
+	}{
+		{
+			name:     "empty slice",
+			input:    []int{},
+			expected: "",
+		},
+		{
+			name:     "single element",
+			input:    []int{1},
+			expected: "1",
+		},
+		{
+			name:     "multiple elements",
+			input:    []int{1, 2, 3},
+			expected: "1,2,3",
+		},
+		{
+			name:     "negative numbers",
+			input:    []int{-1, 0, 1},
+			expected: "-1,0,1",
+		},
+		{
+			name:     "large numbers",
+			input:    []int{1000000, 2000000},
+			expected: "1000000,2000000",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ConvertIntSliceToStringWithCommas(tt.input)
+			if result != tt.expected {
+				t.Errorf("ConvertIntSliceToStringWithCommas(%v) = %v, want %v",
+					tt.input, result, tt.expected)
+			}
+		})
+	}
+}
