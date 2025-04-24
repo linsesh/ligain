@@ -11,51 +11,64 @@ var matchTime = time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 
 // MockSportsmonkAPI implements the SportsmonkAPI interface for testing
 type MockSportsmonkAPI struct {
-	futureUpdates      []map[string]models.Match
+	futureUpdates      []map[int]models.Match
+	matchIdToFixtureId map[string]int
 	futureUpdatesIndex int
 }
 
-func NewMockSportsmonkAPI(futureUpdates []map[string]models.Match) *MockSportsmonkAPI {
+func NewMockSportsmonkAPI(futureUpdates []map[int]models.Match) *MockSportsmonkAPI {
+	matchIdToFixtureId := make(map[string]int)
+	for _, batchOfUpdates := range futureUpdates {
+		for fixtureId, match := range batchOfUpdates {
+			matchIdToFixtureId[match.Id()] = fixtureId
+		}
+	}
 	return &MockSportsmonkAPI{
 		futureUpdates:      futureUpdates,
 		futureUpdatesIndex: 0,
+		matchIdToFixtureId: matchIdToFixtureId,
 	}
 }
 
-func (m *MockSportsmonkAPI) GetFixturesIds(matches []models.Match) (map[string]string, error) {
-	result := make(map[string]string)
-	for _, match := range matches {
-		result[match.Id()] = "fix-" + match.Id()
-	}
-	return result, nil
-}
-
-func (m *MockSportsmonkAPI) GetSeasonIds(seasonCodes []string) (map[string]string, error) {
-	result := make(map[string]string)
-	for _, code := range seasonCodes {
-		result[code] = "mock-" + code
+func (m *MockSportsmonkAPI) GetSeasonIds(seasonCodes []string, competitionId int) (map[string]int, error) {
+	result := make(map[string]int)
+	for i, code := range seasonCodes {
+		result[code] = i
 	}
 	return result, nil
 }
 
-func (m *MockSportsmonkAPI) GetFixturesInfos(fixtureIds []string) (map[string]models.Match, error) {
+func (m *MockSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]models.Match, error) {
 	if m.futureUpdatesIndex >= len(m.futureUpdates) {
-		return make(map[string]models.Match), nil
+		return make(map[int]models.Match), nil
 	}
 
-	result := make(map[string]models.Match)
+	result := make(map[int]models.Match)
 	currentUpdates := m.futureUpdates[m.futureUpdatesIndex]
 	m.futureUpdatesIndex++
 
 	for _, fixtureId := range fixtureIds {
-		// Remove "fix-" prefix to get original match ID
-		matchId := fixtureId[4:]
-		if match, exists := currentUpdates[matchId]; exists {
-			result[matchId] = match
+		if match, exists := currentUpdates[fixtureId]; exists {
+			result[fixtureId] = match
 		}
 	}
 
 	return result, nil
+}
+
+func (m *MockSportsmonkAPI) GetSeasonFixtures(seasonId int) (map[int]models.Match, error) {
+	if m.futureUpdatesIndex >= len(m.futureUpdates) {
+		return make(map[int]models.Match), nil
+	}
+
+	currentUpdates := m.futureUpdates[m.futureUpdatesIndex]
+	m.futureUpdatesIndex++
+
+	return currentUpdates, nil
+}
+
+func (m *MockSportsmonkAPI) GetCompetitionId(competitionCode string) (int, error) {
+	return 1, nil
 }
 
 func TestGetLastMatchInfosWithNoUpdatesOddsUpdatesResultUpdates(t *testing.T) {
@@ -81,12 +94,12 @@ func TestGetLastMatchInfosWithNoUpdatesOddsUpdatesResultUpdates(t *testing.T) {
 	matches[match2.Id()] = match2
 
 	// Create future updates with different scenarios
-	futureUpdates := []map[string]models.Match{
+	futureUpdates := []map[int]models.Match{
 		// First update: No changes
-		make(map[string]models.Match),
+		make(map[int]models.Match),
 		// Second update: Only match1 is updated
 		{
-			match1.Id(): models.NewSeasonMatchWithKnownOdds(
+			1: models.NewSeasonMatchWithKnownOdds(
 				"team1",
 				"team2",
 				"season1",
@@ -98,7 +111,7 @@ func TestGetLastMatchInfosWithNoUpdatesOddsUpdatesResultUpdates(t *testing.T) {
 		},
 		// Third update: Only match2 is updated
 		{
-			match2.Id(): models.NewFinishedSeasonMatch(
+			2: models.NewFinishedSeasonMatch(
 				"team3",
 				"team4",
 				2, 1,
@@ -163,7 +176,7 @@ func TestGetLastMatchInfosWithNoUpdatesOddsUpdatesResultUpdates(t *testing.T) {
 
 func TestGetLastMatchInfosWithEmptyInput(t *testing.T) {
 	// Setup
-	mockAPI := NewMockSportsmonkAPI([]map[string]models.Match{})
+	mockAPI := NewMockSportsmonkAPI([]map[int]models.Match{})
 	repo := NewSportsmonkRepository(mockAPI)
 
 	// Test with empty input
