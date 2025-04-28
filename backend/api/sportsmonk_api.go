@@ -1,12 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"liguain/backend/models"
 	"liguain/backend/utils"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -176,11 +179,13 @@ func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string, competitionId int
 }
 
 func (s *SportsmonkAPIImpl) fetchSeasons(competitionId int, ctx context.Context, resultChan chan<- []season, errChan chan<- error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sseasons?filter[league_id]=%d", baseURL, competitionId), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sseasons?filters=seasonLeagues:%d", baseURL, competitionId), nil)
 	if err != nil {
 		errChan <- err
 		return
 	}
+	query := s.basicQuery(req)
+	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
 		errChan <- err
@@ -226,6 +231,9 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		errChan <- err
 		return
 	}
+	query := s.basicQuery(req)
+	query.Add("include", "league,season,round,scores,home,away,odds")
+	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
 		errChan <- err
@@ -268,7 +276,9 @@ func (s *SportsmonkAPIImpl) GetFixturesInfos(fixtureIds []int) (map[int]models.M
 	if err != nil {
 		return nil, err
 	}
-
+	query := s.basicQuery(req)
+	query.Add("include", "league,season,round,scores,home,away,odds")
+	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
 		return nil, err
@@ -303,17 +313,30 @@ func (s *SportsmonkAPIImpl) GetCompetitionId(competitionCode string) (int, error
 }
 
 func (s *SportsmonkAPIImpl) makeRequest(req *http.Request) (resp *http.Response, err error) {
-	query := req.URL.Query()
-	query.Add("api_token", s.apiToken)
-	// Add includes for the relationships we need
-	query.Add("include", "league,season,round,scores,home,away,odds")
-	req.URL.RawQuery = query.Encode()
-
+	log.Printf("Request: %s", req.URL.String())
 	client := &http.Client{}
 	resp, err = client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Status: %s\nResponse: %s", resp.Status, resp.Body)
+
+	// Read the body into a buffer
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a new reader with the bytes for later use
+	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	// Just print the status and raw response
+	fmt.Printf("Status: %s\nResponse: %s\n", resp.Status, string(bodyBytes))
+
 	return resp, nil
+}
+
+func (s *SportsmonkAPIImpl) basicQuery(req *http.Request) url.Values {
+	query := req.URL.Query()
+	query.Add("api_token", s.apiToken)
+	return query
 }
