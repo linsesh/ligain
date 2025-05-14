@@ -30,7 +30,7 @@ func TestGetSeasonIds_Integration(t *testing.T) {
 	}
 
 	api := NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN"))
-	seasonCodes := []string{"2023/24"}
+	seasonCodes := []string{"2023/2024"}
 
 	seasonIds, err := api.GetSeasonIds(seasonCodes, 301)
 	if err != nil {
@@ -42,8 +42,8 @@ func TestGetSeasonIds_Integration(t *testing.T) {
 	}
 
 	// Check if we got the expected season
-	if _, ok := seasonIds["2023/24"]; !ok {
-		t.Error("Expected to find season 2023/24")
+	if _, ok := seasonIds["2023/2024"]; !ok {
+		t.Error("Expected to find season 2023/2024")
 	}
 }
 
@@ -53,8 +53,8 @@ func TestGetFixturesInfos_Integration(t *testing.T) {
 	}
 
 	api := NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN"))
-	// Using known fixture IDs from Ligue 1
-	fixtureIds := []int{1234567} // Replace with actual fixture IDs
+	// Marseille - Rennes 2025-05-17
+	fixtureIds := []int{19139949}
 
 	fixtures, err := api.GetFixturesInfos(fixtureIds)
 	if err != nil {
@@ -65,12 +65,9 @@ func TestGetFixturesInfos_Integration(t *testing.T) {
 		t.Error("Expected at least one fixture, got none")
 	}
 
-	// Test the content of the fixtures
-	for id, match := range fixtures {
-		if match == nil {
-			t.Errorf("Match with ID %d is nil", id)
-		}
-		// Add more specific checks based on your Match interface
+	match := fixtures[19139949]
+	if match.Id() != "Ligue 1-2024/2025-Olympique Marseille-Rennes-34" {
+		t.Errorf("Expected match ID Ligue 1-2024/2025-Olympique Marseille-Rennes-34, got %s", match.Id())
 	}
 }
 
@@ -80,9 +77,7 @@ func TestGetSeasonFixtures_Integration(t *testing.T) {
 	}
 
 	api := NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN"))
-	// Use a known season ID from Ligue 1
-	seasonId := 21787 // Replace with actual season ID
-
+	seasonId := 23643 // Ligue 1 2024/2025
 	fixtures, err := api.GetSeasonFixtures(seasonId)
 	if err != nil {
 		t.Fatalf("GetSeasonFixtures failed: %v", err)
@@ -92,11 +87,8 @@ func TestGetSeasonFixtures_Integration(t *testing.T) {
 		t.Error("Expected at least one fixture, got none")
 	}
 
-	// Test the content of the fixtures
-	for id, match := range fixtures {
-		if match == nil {
-			t.Errorf("Match with ID %d is nil", id)
-		}
-		// Add more specific checks based on your Match interface
+	// Check if we got the expected number of fixtures (34 * 9 matches per round)
+	if len(fixtures) != 306 {
+		t.Errorf("Expected 306 fixtures, got %d", len(fixtures))
 	}
 }

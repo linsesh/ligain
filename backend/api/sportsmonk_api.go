@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -32,73 +33,119 @@ type SportsmonkAPIImpl struct {
 	apiToken string
 }
 
-type season struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-type fixtures struct {
-	Data []string `json:"data"`
-}
-
 type seasonsResponse struct {
 	Data []season `json:"data"`
 }
 
-// sportmonkFixture represents the raw fixture data from Sportmonk API
-type sportmonksFixture struct {
+// League represents the league data in the API response
+type league struct {
+	ID        int    `json:"id"`
+	SportID   int    `json:"sport_id"`
+	CountryID int    `json:"country_id"`
+	Name      string `json:"name"`
+	Active    bool   `json:"active"`
+	ShortCode string `json:"short_code"`
+	ImagePath string `json:"image_path"`
+	Type      string `json:"type"`
+	SubType   string `json:"sub_type"`
+	Category  int    `json:"category"`
+}
+
+// Season represents the season data in the API response
+type season struct {
+	ID         int    `json:"id"`
+	SportID    int    `json:"sport_id"`
+	LeagueID   int    `json:"league_id"`
+	Name       string `json:"name"`
+	Finished   bool   `json:"finished"`
+	Pending    bool   `json:"pending"`
+	IsCurrent  bool   `json:"is_current"`
+	StartingAt string `json:"starting_at"`
+	EndingAt   string `json:"ending_at"`
+}
+
+// Round represents the round data in the API response
+type round struct {
 	ID         int    `json:"id"`
 	SportID    int    `json:"sport_id"`
 	LeagueID   int    `json:"league_id"`
 	SeasonID   int    `json:"season_id"`
 	StageID    int    `json:"stage_id"`
-	RoundID    int    `json:"round_id"`
-	StateID    int    `json:"state_id"`
-	VenueID    int    `json:"venue_id"`
 	Name       string `json:"name"`
+	Finished   bool   `json:"finished"`
+	IsCurrent  bool   `json:"is_current"`
 	StartingAt string `json:"starting_at"`
-	ResultInfo string `json:"result_info"`
-	Leg        string `json:"leg"`
-	Length     int    `json:"length"`
-	HasOdds    bool   `json:"has_odds"`
-	// Include relationships
-	League struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"league"`
-	Season struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"season"`
-	Round struct {
-		ID       int    `json:"id"`
-		Name     string `json:"name"`
-		Matchday int    `json:"matchday"`
-	} `json:"round"`
-	Scores struct {
-		HomeScore int `json:"home_score"`
-		AwayScore int `json:"away_score"`
-	} `json:"scores"`
-	HomeTeam struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"home"`
-	AwayTeam struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-	} `json:"away"`
-	Odds struct {
-		HomeWin float64 `json:"home_win"`
-		Draw    float64 `json:"draw"`
-		AwayWin float64 `json:"away_win"`
-	} `json:"odds"`
+	EndingAt   string `json:"ending_at"`
+}
+
+// Score represents a score entry in the API response
+type score struct {
+	Type      string `json:"type"`
+	HomeScore int    `json:"home_score"`
+	AwayScore int    `json:"away_score"`
+}
+
+// Participant represents a team participant in the API response
+type participant struct {
+	ID        int    `json:"id"`
+	SportID   int    `json:"sport_id"`
+	CountryID int    `json:"country_id"`
+	VenueID   int    `json:"venue_id"`
+	Name      string `json:"name"`
+	ShortCode string `json:"short_code"`
+	Type      string `json:"type"`
+	Meta      struct {
+		Location string `json:"location"` // "home" or "away"
+		Winner   *bool  `json:"winner"`
+		Position int    `json:"position"`
+	} `json:"meta"`
+}
+
+// Odd represents an odd entry in the API response
+type odd struct {
+	ID          int64  `json:"id"`
+	FixtureID   int    `json:"fixture_id"`
+	MarketID    int    `json:"market_id"`
+	BookmakerID int    `json:"bookmaker_id"`
+	Label       string `json:"label"`
+	Value       string `json:"value"`
+}
+
+// sportmonksFixture represents the raw fixture data from Sportmonk API
+type sportmonksFixture struct {
+	ID           int           `json:"id"`
+	LeagueID     int           `json:"league_id"`
+	SeasonID     int           `json:"season_id"`
+	RoundID      int           `json:"round_id"`
+	StateID      int           `json:"state_id"`
+	VenueID      int           `json:"venue_id"`
+	Name         string        `json:"name"`
+	StartingAt   string        `json:"starting_at"`
+	HasOdds      bool          `json:"has_odds"`
+	League       league        `json:"league"`
+	Season       season        `json:"season"`
+	Round        round         `json:"round"`
+	Scores       []score       `json:"scores"`
+	Participants []participant `json:"participants"`
+	Odds         []odd         `json:"odds"`
 }
 
 type fixturesResponse struct {
 	Data []sportmonksFixture `json:"data"`
 }
 
-// toMatch converts a sportmonkFixture to a models.Match
+type allFixturesResponse struct {
+	Data       []sportmonksFixture `json:"data"`
+	Pagination struct {
+		Count       int    `json:"count"`
+		PerPage     int    `json:"per_page"`
+		CurrentPage int    `json:"current_page"`
+		NextPage    string `json:"next_page"`
+		HasMore     bool   `json:"has_more"`
+	} `json:"pagination"`
+}
+
+// toMatch converts a sportmonksFixture to a models.Match
 func (f *sportmonksFixture) toMatch() (models.Match, error) {
 	// Parse the timestamp
 	startTime, err := time.Parse("2006-01-02 15:04:05", f.StartingAt)
@@ -106,44 +153,91 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		return nil, err
 	}
 
+	// Extract home and away teams
+	var homeTeam, awayTeam *participant
+	for i, p := range f.Participants {
+		if p.Meta.Location == "home" {
+			homeTeam = &f.Participants[i]
+		} else if p.Meta.Location == "away" {
+			awayTeam = &f.Participants[i]
+		}
+	}
+	if homeTeam == nil || awayTeam == nil {
+		return nil, fmt.Errorf("could not find home or away team in participants")
+	}
+
+	// Extract full time score (if available)
+	homeScore, awayScore := 0, 0
+	for _, s := range f.Scores {
+		if s.Type == "FT" || s.Type == "fulltime" || s.Type == "" { // fallback if type is missing
+			homeScore = s.HomeScore
+			awayScore = s.AwayScore
+			break
+		}
+	}
+
+	// Extract odds for home, draw, away (market_id=1, bookmaker_id=1)
+	var homeOdd, drawOdd, awayOdd float64
+	for _, o := range f.Odds {
+		if o.MarketID == 1 && o.BookmakerID == 1 {
+			switch o.Label {
+			case "Home":
+				homeOdd, _ = strconv.ParseFloat(o.Value, 64)
+			case "Draw":
+				drawOdd, _ = strconv.ParseFloat(o.Value, 64)
+			case "Away":
+				awayOdd, _ = strconv.ParseFloat(o.Value, 64)
+			}
+		}
+	}
+
+	// Extract the matchday
+	matchday := 1 // default value
+	if f.Round.Name != "" {
+		// Try to parse the round name as a number (e.g., "34" -> 34)
+		if m, err := strconv.Atoi(f.Round.Name); err == nil {
+			matchday = m
+		}
+	}
+
 	// State ID 5 means the match is finished
 	if f.StateID == 5 {
 		return models.NewFinishedSeasonMatch(
-			f.HomeTeam.Name,
-			f.AwayTeam.Name,
-			f.Scores.HomeScore,
-			f.Scores.AwayScore,
+			homeTeam.Name,
+			awayTeam.Name,
+			homeScore,
+			awayScore,
 			f.Season.Name,
 			f.League.Name,
 			startTime,
-			f.Round.Matchday,
-			f.Odds.HomeWin,
-			f.Odds.AwayWin,
-			f.Odds.Draw,
+			matchday,
+			homeOdd,
+			awayOdd,
+			drawOdd,
 		), nil
 	}
 
 	if f.HasOdds {
 		return models.NewSeasonMatchWithKnownOdds(
-			f.HomeTeam.Name,
-			f.AwayTeam.Name,
+			homeTeam.Name,
+			awayTeam.Name,
 			f.Season.Name,
 			f.League.Name,
 			startTime,
-			f.Round.Matchday,
-			f.Odds.HomeWin,
-			f.Odds.AwayWin,
-			f.Odds.Draw,
+			matchday,
+			homeOdd,
+			awayOdd,
+			drawOdd,
 		), nil
 	}
 
 	return models.NewSeasonMatch(
-		f.HomeTeam.Name,
-		f.AwayTeam.Name,
+		homeTeam.Name,
+		awayTeam.Name,
 		f.Season.Name,
 		f.League.Name,
 		startTime,
-		f.Round.Matchday,
+		matchday,
 	), nil
 }
 
@@ -211,7 +305,7 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 	seasonFixtures := make(chan map[int]models.Match)
 	errChan := make(chan error)
 	//should we forward the context from the caller?
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	go s.fetchSeasonFixtures(seasonId, ctx, seasonFixtures, errChan)
 
@@ -221,49 +315,79 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 	case err := <-errChan:
 		return nil, err
 	case <-ctx.Done():
-		return nil, fmt.Errorf("request timed out after 1 second")
+		return nil, fmt.Errorf("request timed out after 30 seconds")
 	}
 }
 
 func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Context, resultChan chan<- map[int]models.Match, errChan chan<- error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sseasons/%d/fixtures", baseURL, seasonId), nil)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	query := s.basicQuery(req)
-	query.Add("include", "league,season,round,scores,home,away,odds")
-	req.URL.RawQuery = query.Encode()
-	resp, err := s.makeRequest(req)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	defer resp.Body.Close()
+	// Map to store all fixtures across pages
+	allFixtures := make(map[int]models.Match)
+	currentPage := 1
+	hasMore := true
 
-	if resp.StatusCode != http.StatusOK {
-		errChan <- fmt.Errorf("unexpected status: %s", resp.Status)
-		return
-	}
+	log.Printf("Starting to fetch fixtures for season ID %d", seasonId)
 
-	var fixturesResp fixturesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&fixturesResp); err != nil {
-		errChan <- err
-		return
-	}
+	// Loop through all pages
+	for hasMore {
+		log.Printf("Fetching page %d of fixtures for season ID %d", currentPage, seasonId)
 
-	// Convert the fixtures to a map of models.Match
-	fixtureIdToMatch := make(map[int]models.Match)
-	for _, fixture := range fixturesResp.Data {
-		match, err := fixture.toMatch()
+		// Use the fixtures endpoint with a season filter
+		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sfixtures", baseURL), nil)
 		if err != nil {
 			errChan <- err
 			return
 		}
-		fixtureIdToMatch[fixture.ID] = match
+		query := s.basicQuery(req)
+		// Add the season filter
+		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:1;markets:1", seasonId))
+		// Use semicolons for includes
+		query.Add("include", "league;season;round;scores;participants;odds")
+		// Add pagination parameters
+		query.Add("page", strconv.Itoa(currentPage))
+		query.Add("per_page", "25") // Set a reasonable page size
+
+		req.URL.RawQuery = query.Encode()
+		resp, err := s.makeRequest(req)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			errChan <- fmt.Errorf("unexpected status: %s", resp.Status)
+			return
+		}
+
+		// Parse the response with pagination info
+		var responseBody allFixturesResponse
+		if err := json.NewDecoder(resp.Body).Decode(&responseBody); err != nil {
+			errChan <- err
+			return
+		}
+
+		fixtureCount := len(responseBody.Data)
+		log.Printf("Received %d fixtures on page %d for season ID %d", fixtureCount, currentPage, seasonId)
+
+		// Convert the fixtures to a map of models.Match and add to our collection
+		for _, fixture := range responseBody.Data {
+			match, err := fixture.toMatch()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			allFixtures[fixture.ID] = match
+		}
+
+		// Check if there are more pages
+		hasMore = responseBody.Pagination.HasMore
+		currentPage++
+
+		log.Printf("Processed page %d for season ID %d. Has more pages: %v", currentPage-1, seasonId, hasMore)
 	}
 
-	resultChan <- fixtureIdToMatch
+	log.Printf("Completed fetching all fixtures for season ID %d. Total fixtures: %d", seasonId, len(allFixtures))
+	resultChan <- allFixtures
 }
 
 func (s *SportsmonkAPIImpl) GetFixturesInfos(fixtureIds []int) (map[int]models.Match, error) {
@@ -277,7 +401,10 @@ func (s *SportsmonkAPIImpl) GetFixturesInfos(fixtureIds []int) (map[int]models.M
 		return nil, err
 	}
 	query := s.basicQuery(req)
-	query.Add("include", "league,season,round,scores,home,away,odds")
+	// Use semicolons for includes - this is the key change
+	query.Add("include", "league;season;round;scores;participants;odds")
+	// Filter for specific bookmaker and market if needed
+	query.Add("filters", "bookmakers:1;markets:1")
 	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
@@ -330,7 +457,7 @@ func (s *SportsmonkAPIImpl) makeRequest(req *http.Request) (resp *http.Response,
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	// Just print the status and raw response
-	fmt.Printf("Status: %s\nResponse: %s\n", resp.Status, string(bodyBytes))
+	//fmt.Printf("Status: %s\nResponse: %s\n", resp.Status, string(bodyBytes))
 
 	return resp, nil
 }
