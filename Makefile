@@ -9,6 +9,7 @@ test:
 
 # Run integration tests
 test-integration:
+	$(eval include .env)
 	INTEGRATION_TESTS=true SPORTSMONK_API_TOKEN=${SPORTSMONK_API_TOKEN} go test ./... -v -run Integration
 
 # Run all tests
