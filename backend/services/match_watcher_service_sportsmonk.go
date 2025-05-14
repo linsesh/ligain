@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"liguain/backend/api"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"os"
@@ -32,7 +33,7 @@ func NewMatchWatcherServiceSportsmonk(env string) (*MatchWatcherServiceSportsmon
 		}
 		watcher = &MatchWatcherServiceSportsmonk{
 			watchedMatches: make(map[string]models.Match),
-			repo:           repositories.NewSportsmonkRepository(getAPIToken()),
+			repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
 		}
 	})
 	return watcher, nil

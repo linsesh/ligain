@@ -1,11 +1,20 @@
-.PHONY: test build clean format
+.PHONY: test test-integration test-all build clean format
 
 # Default target
 all: test build
 
 # Run tests
 test:
-	go test ./backend/...
+	go test ./... -short
+
+# Run integration tests
+test-integration:
+	$(eval include .env)
+	INTEGRATION_TESTS=true SPORTSMONK_API_TOKEN=${SPORTSMONK_API_TOKEN} go test ./... -v -run Integration
+
+# Run all tests
+test-all:
+	INTEGRATION_TESTS=true SPORTSMONK_API_TOKEN=${SPORTSMONK_API_TOKEN} go test ./... -v
 
 # Build the application
 build:
