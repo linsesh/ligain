@@ -1,4 +1,4 @@
-.PHONY: test test-integration test-all build clean format
+.PHONY: test test-integration test-all build clean format mobile
 
 # Default target
 all: test build
@@ -35,4 +35,8 @@ test-race:
 
 # Format Go files
 format:
-	go fmt ./backend/... 
+	go fmt ./backend/...
+
+# Run iOS app
+mobile:
+	cd frontend/ligain && npx expo run:ios --device 

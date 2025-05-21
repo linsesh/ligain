@@ -27,3 +27,57 @@ go.work.sum
 # logs
 logs
 log
+
+# React Native / Expo
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env*.local
+
+# macOS
+.DS_Store
+*.pem
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/*.xcodeproj
+ios/*.pbxuser
+ios/*.mode1v3
+ios/*.mode2v3
+ios/*.perspectivev3
+ios/*.xccheckout
+ios/*.moved-aside
+ios/DerivedData/
+ios/*.hmap
+ios/*.ipa
+ios/*.dSYM.zip
+ios/*.dSYM
+
+# Android
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/*.iml
+android/.idea/
+android/.settings/
+android/.project
+android/.classpath
+android/app/release/
+android/app/debug/
+
+# Android Studio
+.android/
+.idea/
+
+.vscode/
