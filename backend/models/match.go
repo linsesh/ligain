@@ -38,144 +38,144 @@ type Match interface {
 
 // SeasonMatch represents a football match within a championship, like Ligue 1, Serie A, etc.
 type SeasonMatch struct {
-	homeTeam        string
-	awayTeam        string
-	homeGoals       int
-	awayGoals       int
-	homeTeamOdds    float64
-	awayTeamOdds    float64
-	drawOdds        float64
-	status          MatchStatus
-	seasonCode      string
-	competitionCode string
-	date            time.Time // time of the match could be modified
-	matchday        int
+	HomeTeam        string      `json:"homeTeam"`
+	AwayTeam        string      `json:"awayTeam"`
+	HomeGoals       int         `json:"homeGoals"`
+	AwayGoals       int         `json:"awayGoals"`
+	HomeTeamOdds    float64     `json:"homeTeamOdds"`
+	AwayTeamOdds    float64     `json:"awayTeamOdds"`
+	DrawOdds        float64     `json:"drawOdds"`
+	Status          MatchStatus `json:"status"`
+	SeasonCode      string      `json:"seasonCode"`
+	CompetitionCode string      `json:"competitionCode"`
+	Date            time.Time   `json:"date"`
+	Matchday        int         `json:"matchday"`
 }
 
 // NewMatch creates a new Match instance
 func NewSeasonMatch(homeTeam, awayTeam string, seasonCode, competitionCode string, date time.Time, matchday int) *SeasonMatch {
 	return &SeasonMatch{
-		homeTeam:        homeTeam,
-		awayTeam:        awayTeam,
-		status:          MatchStatusScheduled,
-		seasonCode:      seasonCode,
-		competitionCode: competitionCode,
-		date:            date,
-		matchday:        matchday,
+		HomeTeam:        homeTeam,
+		AwayTeam:        awayTeam,
+		Status:          MatchStatusScheduled,
+		SeasonCode:      seasonCode,
+		CompetitionCode: competitionCode,
+		Date:            date,
+		Matchday:        matchday,
 	}
 }
 
 func NewSeasonMatchWithKnownOdds(homeTeam, awayTeam string, seasonCode, competitionCode string, date time.Time, matchday int, homeTeamOdds, awayTeamOdds, drawOdds float64) *SeasonMatch {
 	return &SeasonMatch{
-		homeTeam:        homeTeam,
-		awayTeam:        awayTeam,
-		homeTeamOdds:    homeTeamOdds,
-		awayTeamOdds:    awayTeamOdds,
-		drawOdds:        drawOdds,
-		status:          MatchStatusScheduled,
-		seasonCode:      seasonCode,
-		competitionCode: competitionCode,
-		date:            date,
-		matchday:        matchday,
+		HomeTeam:        homeTeam,
+		AwayTeam:        awayTeam,
+		HomeTeamOdds:    homeTeamOdds,
+		AwayTeamOdds:    awayTeamOdds,
+		DrawOdds:        drawOdds,
+		Status:          MatchStatusScheduled,
+		SeasonCode:      seasonCode,
+		CompetitionCode: competitionCode,
+		Date:            date,
+		Matchday:        matchday,
 	}
 }
 
 func NewFinishedSeasonMatch(homeTeam, awayTeam string, homeGoals, awayGoals int, seasonCode, competitionCode string, date time.Time, matchday int, homeTeamOdds, awayTeamOdds, drawOdds float64) *SeasonMatch {
 	return &SeasonMatch{
-		homeTeam:        homeTeam,
-		awayTeam:        awayTeam,
-		homeTeamOdds:    homeTeamOdds,
-		awayTeamOdds:    awayTeamOdds,
-		drawOdds:        drawOdds,
-		homeGoals:       homeGoals,
-		awayGoals:       awayGoals,
-		status:          MatchStatusFinished,
-		seasonCode:      seasonCode,
-		competitionCode: competitionCode,
-		date:            date,
-		matchday:        matchday,
+		HomeTeam:        homeTeam,
+		AwayTeam:        awayTeam,
+		HomeTeamOdds:    homeTeamOdds,
+		AwayTeamOdds:    awayTeamOdds,
+		DrawOdds:        drawOdds,
+		HomeGoals:       homeGoals,
+		AwayGoals:       awayGoals,
+		Status:          MatchStatusFinished,
+		SeasonCode:      seasonCode,
+		CompetitionCode: competitionCode,
+		Date:            date,
+		Matchday:        matchday,
 	}
 }
 
 // GetWinner returns the winning team or "Draw" if the match is tied
 func (m *SeasonMatch) GetWinner() string {
-	if m.homeGoals > m.awayGoals {
-		return m.homeTeam
+	if m.HomeGoals > m.AwayGoals {
+		return m.HomeTeam
 	}
-	if m.awayGoals > m.homeGoals {
-		return m.awayTeam
+	if m.AwayGoals > m.HomeGoals {
+		return m.AwayTeam
 	}
 	return "Draw"
 }
 
 func (m *SeasonMatch) AbsoluteGoalDifference() int {
-	return int(math.Abs(float64(m.homeGoals - m.awayGoals)))
+	return int(math.Abs(float64(m.HomeGoals - m.AwayGoals)))
 }
 
 func (m *SeasonMatch) IsDraw() bool {
-	return m.homeGoals == m.awayGoals
+	return m.HomeGoals == m.AwayGoals
 }
 
 func (m *SeasonMatch) TotalGoals() int {
-	return m.homeGoals + m.awayGoals
+	return m.HomeGoals + m.AwayGoals
 }
 
 func (m *SeasonMatch) AbsoluteDifferenceOddsBetweenHomeAndAway() float64 {
-	return math.Abs(m.homeTeamOdds - m.awayTeamOdds)
+	return math.Abs(m.HomeTeamOdds - m.AwayTeamOdds)
 }
 
 // IsFinished returns true if the match has been played
 func (m *SeasonMatch) IsFinished() bool {
-	return m.status == MatchStatusFinished
+	return m.Status == MatchStatusFinished
 }
 
 // Finish marks the match as finished and sets the final score
 func (m *SeasonMatch) Finish(homeGoals, awayGoals int) {
-	m.homeGoals = homeGoals
-	m.awayGoals = awayGoals
-	m.status = MatchStatusFinished
+	m.HomeGoals = homeGoals
+	m.AwayGoals = awayGoals
+	m.Status = MatchStatusFinished
 }
 
 func (m *SeasonMatch) Id() string {
-	return fmt.Sprintf("%s-%s-%s-%s-%d", m.competitionCode, m.seasonCode, m.homeTeam, m.awayTeam, m.matchday)
+	return fmt.Sprintf("%s-%s-%s-%s-%d", m.CompetitionCode, m.SeasonCode, m.HomeTeam, m.AwayTeam, m.Matchday)
 }
 
 func (m *SeasonMatch) GetSeasonCode() string {
-	return m.seasonCode
+	return m.SeasonCode
 }
 
 func (m *SeasonMatch) GetCompetitionCode() string {
-	return m.competitionCode
+	return m.CompetitionCode
 }
 
 func (m *SeasonMatch) GetDate() time.Time {
-	return m.date
+	return m.Date
 }
 
 func (m *SeasonMatch) GetHomeTeam() string {
-	return m.homeTeam
+	return m.HomeTeam
 }
 
 func (m *SeasonMatch) GetAwayTeam() string {
-	return m.awayTeam
+	return m.AwayTeam
 }
 
 func (m *SeasonMatch) GetHomeGoals() int {
-	return m.homeGoals
+	return m.HomeGoals
 }
 
 func (m *SeasonMatch) GetAwayGoals() int {
-	return m.awayGoals
+	return m.AwayGoals
 }
 
 func (m *SeasonMatch) GetHomeTeamOdds() float64 {
-	return m.homeTeamOdds
+	return m.HomeTeamOdds
 }
 
 func (m *SeasonMatch) GetAwayTeamOdds() float64 {
-	return m.awayTeamOdds
+	return m.AwayTeamOdds
 }
 
 func (m *SeasonMatch) GetDrawOdds() float64 {
-	return m.drawOdds
+	return m.DrawOdds
 }
