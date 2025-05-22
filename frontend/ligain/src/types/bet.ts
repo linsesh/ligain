@@ -1,7 +1,7 @@
-import { Match } from './match';
+import { SeasonMatch } from './match';
 
 export interface Bet {
-    match: Match;
+    match: SeasonMatch;
     predictedHomeGoals: number;
     predictedAwayGoals: number;
     isBetCorrect(): boolean;
@@ -16,7 +16,7 @@ export interface Bet {
 
 export class BetImpl implements Bet {
     constructor(
-        public match: Match,
+        public match: SeasonMatch,
         public predictedHomeGoals: number,
         public predictedAwayGoals: number
     ) {}
@@ -66,7 +66,7 @@ export class BetImpl implements Bet {
         return 'Draw';
     }
 
-    static fromJSON(json: any, match: Match): BetImpl {
+    static fromJSON(json: any, match: SeasonMatch): BetImpl {
         return new BetImpl(
             match,
             json.predictedHomeGoals,

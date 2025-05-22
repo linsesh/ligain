@@ -1,27 +1,6 @@
 export type MatchStatus = 'scheduled' | 'finished';
 
-export interface Match {
-    id(): string;
-    getSeasonCode(): string;
-    getCompetitionCode(): string;
-    getDate(): Date;
-    getHomeTeam(): string;
-    getAwayTeam(): string;
-    getHomeGoals(): number;
-    getAwayGoals(): number;
-    getHomeTeamOdds(): number;
-    getAwayTeamOdds(): number;
-    getDrawOdds(): number;
-    absoluteGoalDifference(): number;
-    isDraw(): boolean;
-    totalGoals(): number;
-    absoluteDifferenceOddsBetweenHomeAndAway(): number;
-    isFinished(): boolean;
-    finish(homeGoals: number, awayGoals: number): void;
-    getWinner(): string;
-}
-
-export class SeasonMatch implements Match {
+export class SeasonMatch {
     private homeTeam: string;
     private awayTeam: string;
     private homeGoals: number;
@@ -38,81 +17,33 @@ export class SeasonMatch implements Match {
     constructor(
         homeTeam: string,
         awayTeam: string,
+        homeGoals: number,
+        awayGoals: number,
+        homeTeamOdds: number,
+        awayTeamOdds: number,
+        drawOdds: number,
+        status: MatchStatus,
         seasonCode: string,
         competitionCode: string,
-        date: Date,
-        matchday: number,
-        homeTeamOdds: number = 0,
-        awayTeamOdds: number = 0,
-        drawOdds: number = 0,
-        homeGoals: number = 0,
-        awayGoals: number = 0,
-        status: MatchStatus = 'scheduled'
+        date: string | Date,
+        matchday: number
     ) {
         this.homeTeam = homeTeam;
         this.awayTeam = awayTeam;
-        this.seasonCode = seasonCode;
-        this.competitionCode = competitionCode;
-        this.date = date;
-        this.matchday = matchday;
+        this.homeGoals = homeGoals;
+        this.awayGoals = awayGoals;
         this.homeTeamOdds = homeTeamOdds;
         this.awayTeamOdds = awayTeamOdds;
         this.drawOdds = drawOdds;
-        this.homeGoals = homeGoals;
-        this.awayGoals = awayGoals;
         this.status = status;
+        this.seasonCode = seasonCode;
+        this.competitionCode = competitionCode;
+        this.date = typeof date === 'string' ? new Date(date) : date;
+        this.matchday = matchday;
     }
 
     id(): string {
         return `${this.competitionCode}-${this.seasonCode}-${this.homeTeam}-${this.awayTeam}-${this.matchday}`;
-    }
-
-    getWinner(): string {
-        if (this.homeGoals > this.awayGoals) {
-            return this.homeTeam;
-        }
-        if (this.awayGoals > this.homeGoals) {
-            return this.awayTeam;
-        }
-        return 'Draw';
-    }
-
-    absoluteGoalDifference(): number {
-        return Math.abs(this.homeGoals - this.awayGoals);
-    }
-
-    isDraw(): boolean {
-        return this.homeGoals === this.awayGoals;
-    }
-
-    totalGoals(): number {
-        return this.homeGoals + this.awayGoals;
-    }
-
-    absoluteDifferenceOddsBetweenHomeAndAway(): number {
-        return Math.abs(this.homeTeamOdds - this.awayTeamOdds);
-    }
-
-    isFinished(): boolean {
-        return this.status === 'finished';
-    }
-
-    finish(homeGoals: number, awayGoals: number): void {
-        this.homeGoals = homeGoals;
-        this.awayGoals = awayGoals;
-        this.status = 'finished';
-    }
-
-    getSeasonCode(): string {
-        return this.seasonCode;
-    }
-
-    getCompetitionCode(): string {
-        return this.competitionCode;
-    }
-
-    getDate(): Date {
-        return this.date;
     }
 
     getHomeTeam(): string {
@@ -143,38 +74,51 @@ export class SeasonMatch implements Match {
         return this.drawOdds;
     }
 
-    static fromJSON(json: any): SeasonMatch {
-        return new SeasonMatch(
-            json.homeTeam,
-            json.awayTeam,
-            json.seasonCode,
-            json.competitionCode,
-            new Date(json.date),
-            json.matchday,
-            json.homeTeamOdds,
-            json.awayTeamOdds,
-            json.drawOdds,
-            json.homeGoals,
-            json.awayGoals,
-            json.status
-        );
+    getDate(): Date {
+        return this.date;
     }
 
-    toJSON(): any {
-        return {
-            id: this.id(),
-            seasonCode: this.seasonCode,
-            competitionCode: this.competitionCode,
-            date: this.date.toISOString(),
-            homeTeam: this.homeTeam,
-            awayTeam: this.awayTeam,
-            homeGoals: this.homeGoals,
-            awayGoals: this.awayGoals,
-            homeTeamOdds: this.homeTeamOdds,
-            awayTeamOdds: this.awayTeamOdds,
-            drawOdds: this.drawOdds,
-            status: this.status,
-            matchday: this.matchday
-        };
+    isFinished(): boolean {
+        return this.status === 'finished';
+    }
+
+    getWinner(): string {
+        if (this.homeGoals > this.awayGoals) {
+            return this.homeTeam;
+        }
+        if (this.awayGoals > this.homeGoals) {
+            return this.awayTeam;
+        }
+        return 'Draw';
+    }
+
+    absoluteGoalDifference(): number {
+        return Math.abs(this.homeGoals - this.awayGoals);
+    }
+
+    isDraw(): boolean {
+        return this.homeGoals === this.awayGoals;
+    }
+
+    totalGoals(): number {
+        return this.homeGoals + this.awayGoals;
+    }
+
+    absoluteDifferenceOddsBetweenHomeAndAway(): number {
+        return Math.abs(this.homeTeamOdds - this.awayTeamOdds);
+    }
+
+    finish(homeGoals: number, awayGoals: number): void {
+        this.homeGoals = homeGoals;
+        this.awayGoals = awayGoals;
+        this.status = 'finished';
+    }
+
+    getSeasonCode(): string {
+        return this.seasonCode;
+    }
+
+    getCompetitionCode(): string {
+        return this.competitionCode;
     }
 } 
