@@ -18,12 +18,12 @@ func getMatches(c *gin.Context) {
 	date2, _ := time.Parse(time.RFC3339, "2024-03-21T15:00:00Z")
 
 	match1 := models.NewFinishedSeasonMatch(
-		"Manchester United",
+		"Bastia",
 		"Liverpool",
-		2,
-		1,
+		4,
+		0,
 		"2024",
-		"Premier League",
+		"Champions's League",
 		date1,
 		1,
 		1.5,
