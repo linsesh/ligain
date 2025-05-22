@@ -19,6 +19,6 @@ repos:
         name: Frontend Tests
         entry: cd frontend/ligain && npm test
         language: system
-        types: [javascript, typescript]
+        types: [file]
         pass_filenames: false
         always_run: true 
