@@ -1,22 +1,44 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { useMatches } from '../hooks/useMatches';
+import { BetImpl } from '../../src/types/bet';
 
 export default function TabOneScreen() {
   const { matches, loading, error } = useMatches();
-  const [bets, setBets] = useState<{ [key: string]: { home: string; away: string } }>({});
+  const [bets, setBets] = useState<{ [key: string]: BetImpl | undefined }>({});
+  const [tempScores, setTempScores] = useState<{ [key: string]: { home?: number; away?: number } }>({});
 
   const handleBetChange = (matchId: string, team: 'home' | 'away', value: string) => {
     // Only allow numbers and max 2 digits
     if (/^\d{0,2}$/.test(value)) {
-      setBets(prev => ({
+      const match = matches.find(m => m.id() === matchId);
+      if (!match) return;
+
+      // Update temporary scores
+      const currentTempScores = tempScores[matchId] || {};
+      const newTempScores = {
+        ...currentTempScores,
+        [team]: value ? parseInt(value) : undefined
+      };
+      setTempScores(prev => ({
         ...prev,
-        [matchId]: {
-          ...prev[matchId],
-          [team]: value
-        }
+        [matchId]: newTempScores
       }));
-      // TODO: Send bet to server here
+
+      // Only create a Bet if we have both scores
+      if (newTempScores.home !== undefined && newTempScores.away !== undefined) {
+        const newBet = new BetImpl(match, newTempScores.home, newTempScores.away);
+        setBets(prev => ({
+          ...prev,
+          [matchId]: newBet
+        }));
+
+        // TODO: Send complete bet to server
+        console.log('Sending bet to server:', newBet.toJSON());
+      }
+      else {
+        console.log('Incomplete bet:', newTempScores);
+      }
     }
   };
 
@@ -52,7 +74,9 @@ export default function TabOneScreen() {
               <Text style={styles.teamName}>{match.getHomeTeam()}</Text>
               <TextInput
                 style={styles.betInput}
-                value={match.isFinished() ? match.getHomeGoals().toString() : (bets[match.id()]?.home || '')}
+                value={match.isFinished() 
+                  ? match.getHomeGoals().toString() 
+                  : (tempScores[match.id()]?.home?.toString() || '')}
                 onChangeText={(value) => handleBetChange(match.id(), 'home', value)}
                 keyboardType="numeric"
                 maxLength={2}
@@ -63,7 +87,9 @@ export default function TabOneScreen() {
             <View style={styles.teamContainer}>
               <TextInput
                 style={styles.betInput}
-                value={match.isFinished() ? match.getAwayGoals().toString() : (bets[match.id()]?.away || '')}
+                value={match.isFinished() 
+                  ? match.getAwayGoals().toString() 
+                  : (tempScores[match.id()]?.away?.toString() || '')}
                 onChangeText={(value) => handleBetChange(match.id(), 'away', value)}
                 keyboardType="numeric"
                 maxLength={2}
