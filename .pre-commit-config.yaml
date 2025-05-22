@@ -14,4 +14,11 @@ repos:
         language: system
         types: [go]
         pass_filenames: false
+        always_run: true
+    -   id: frontend-tests
+        name: Frontend Tests
+        entry: cd frontend/ligain && npm test
+        language: system
+        types: [javascript, typescript]
+        pass_filenames: false
         always_run: true 

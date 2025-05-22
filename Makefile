@@ -1,11 +1,15 @@
-.PHONY: test test-integration test-all build clean format mobile
+.PHONY: test test-integration test-all build clean format mobile test-frontend
 
 # Default target
-all: test build
+all: test test-frontend build
 
 # Run tests
 test:
 	go test ./... -short
+
+# Run frontend tests
+test-frontend:
+	cd frontend/ligain && npm test
 
 # Run integration tests
 test-integration:
@@ -13,8 +17,7 @@ test-integration:
 	INTEGRATION_TESTS=true SPORTSMONK_API_TOKEN=${SPORTSMONK_API_TOKEN} go test ./... -v -run Integration
 
 # Run all tests
-test-all:
-	INTEGRATION_TESTS=true SPORTSMONK_API_TOKEN=${SPORTSMONK_API_TOKEN} go test ./... -v
+test-all: test test-frontend test-integration
 
 # Build the application
 build:
@@ -28,6 +31,7 @@ clean:
 # Install dependencies
 deps:
 	go mod tidy
+	cd frontend/ligain && npm install
 
 # Run with race detector
 test-race:
