@@ -40,7 +40,7 @@ func TestNewGame(t *testing.T) {
 	if game.GetCompetitionName() != "Premier League" {
 		t.Errorf("Expected competition code 'Premier League', got %s", game.GetCompetitionName())
 	}
-	if game.GetGameStatus() != GameStatusNotStarted {
+	if game.GetGameStatus() != models.GameStatusNotStarted {
 		t.Errorf("Expected game status 'not started', got %s", game.GetGameStatus())
 	}
 	if len(game.GetIncomingMatches()) != 2 {
@@ -74,7 +74,7 @@ func TestAddPlayerBetGetMatchBets(t *testing.T) {
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := players[0]
-	err := game.CheckPlayerBetValidity(&bettingPlayer, bet, testTime)
+	err := game.CheckPlayerBetValidity(bettingPlayer, bet, testTime)
 	if err != nil {
 		t.Errorf("Error checking bet validity: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestAddPlayerBetUpdateBet(t *testing.T) {
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := players[0]
-	err := game.CheckPlayerBetValidity(&bettingPlayer, bet, testTime)
+	err := game.CheckPlayerBetValidity(bettingPlayer, bet, testTime)
 	if err != nil {
 		t.Errorf("Error checking bet validity: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestAddPlayerBetUpdateBet(t *testing.T) {
 	}
 
 	updatedBet := models.NewBet(match, 1, 2)
-	err = game.CheckPlayerBetValidity(&bettingPlayer, updatedBet, testTime)
+	err = game.CheckPlayerBetValidity(bettingPlayer, updatedBet, testTime)
 	if err != nil {
 		t.Errorf("Error checking updated bet validity: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestAddPlayerBetNonExistingPlayer(t *testing.T) {
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := models.Player{Name: "Player3"}
-	err := game.CheckPlayerBetValidity(&bettingPlayer, bet, testTime)
+	err := game.CheckPlayerBetValidity(bettingPlayer, bet, testTime)
 	if err == nil {
 		t.Errorf("Expected error for non-existing player")
 	}
@@ -195,7 +195,7 @@ func TestAddPlayerBetNonExistingMatch(t *testing.T) {
 	fake_match := models.NewSeasonMatch("Sardinia", "Corsica", "2024", "Corsica Cup", testTime, 1)
 	bet := models.NewBet(fake_match, 2, 1)
 	bettingPlayer := players[0]
-	err := game.CheckPlayerBetValidity(&bettingPlayer, bet, testTime)
+	err := game.CheckPlayerBetValidity(bettingPlayer, bet, testTime)
 	if err == nil {
 		t.Errorf("Expected error for non-existing match")
 	}
@@ -215,7 +215,7 @@ func TestAddSeveralsPlayerBetsGetMatchBets(t *testing.T) {
 	bettingPlayer1 := players[0]
 	bettingPlayer2 := players[1]
 
-	err := game.CheckPlayerBetValidity(&bettingPlayer1, bet1, testTime)
+	err := game.CheckPlayerBetValidity(bettingPlayer1, bet1, testTime)
 	if err != nil {
 		t.Errorf("Error checking bet1 validity: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestAddSeveralsPlayerBetsGetMatchBets(t *testing.T) {
 		t.Errorf("Error saving bet1: %v", err)
 	}
 
-	err = game.CheckPlayerBetValidity(&bettingPlayer2, bet2, testTime)
+	err = game.CheckPlayerBetValidity(bettingPlayer2, bet2, testTime)
 	if err != nil {
 		t.Errorf("Error checking bet2 validity: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestAddPlayerBetMatchStarted(t *testing.T) {
 
 	bet := models.NewBet(match, 2, 1)
 	bettingPlayer := players[0]
-	err := game.CheckPlayerBetValidity(&bettingPlayer, bet, testTime)
+	err := game.CheckPlayerBetValidity(bettingPlayer, bet, testTime)
 	if err == nil {
 		t.Errorf("Expected error for match started")
 	}
@@ -284,7 +284,7 @@ func TestAddFinishedMatch(t *testing.T) {
 	bet1 := models.NewBet(match, 2, 1)
 	bet2 := models.NewBet(match, 1, 1)
 
-	err := game.CheckPlayerBetValidity(&players[0], bet1, testTime)
+	err := game.CheckPlayerBetValidity(players[0], bet1, testTime)
 	if err != nil {
 		t.Errorf("Error checking bet1 validity: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestAddFinishedMatch(t *testing.T) {
 		t.Errorf("Error saving bet1: %v", err)
 	}
 
-	err = game.CheckPlayerBetValidity(&players[1], bet2, testTime)
+	err = game.CheckPlayerBetValidity(players[1], bet2, testTime)
 	if err != nil {
 		t.Errorf("Error checking bet2 validity: %v", err)
 	}

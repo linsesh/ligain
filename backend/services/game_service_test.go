@@ -16,15 +16,11 @@ var matchTime = time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 // Mock implementations
 type GameRepositoryMock struct{}
 
-func (r *GameRepositoryMock) SaveGame(game rules.Game) (string, error) {
-	return "test-game-id", nil
+func (r *GameRepositoryMock) SaveGame(game models.Game) (string, models.Game, error) {
+	return "test-game-id", game, nil
 }
 
-func (r *GameRepositoryMock) UpdateScores(match models.Match, scores map[models.Player]int) error {
-	return nil
-}
-
-func (r *GameRepositoryMock) GetGame(gameId string) (rules.Game, error) {
+func (r *GameRepositoryMock) GetGame(gameId string) (models.Game, error) {
 	return nil, nil // Not used in tests
 }
 
@@ -77,7 +73,7 @@ func (s *ScorerMock) Score(match models.Match, bets []*models.Bet) []int {
 }
 
 type MockGame struct {
-	rules.Game
+	models.Game
 }
 
 func (g *MockGame) CalculateMatchScores(match models.Match, bets map[models.Player]*models.Bet) (map[models.Player]int, error) {
@@ -111,12 +107,9 @@ func TestGameService_Play_SingleMatch(t *testing.T) {
 
 	// Create service with mocks
 	repo := &GameRepositoryMock{}
+	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
-	service, err := NewGameService(game, repo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Failed to create game service: %v", err)
-	}
-	service.watcher = NewMatchWatcherServiceMock(updates)
+	service := NewGameService("1", game, repo, scoresRepo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 
 	// Add some bets
 	bet1 := models.NewBet(match, 2, 1) // Correct good result
@@ -180,12 +173,9 @@ func TestGameService_Play_MultipleMatches(t *testing.T) {
 	}
 
 	repo := &GameRepositoryMock{}
+	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
-	service, err := NewGameService(game, repo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Failed to create game service: %v", err)
-	}
-	service.watcher = NewMatchWatcherServiceMock(updates)
+	service := NewGameService("1", game, repo, scoresRepo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 
 	// Add some bets
 	good_bet_match_1 := models.NewBet(match1, 2, 1)
@@ -252,12 +242,9 @@ func TestGameService_Play_NoWinner(t *testing.T) {
 	}
 
 	repo := &GameRepositoryMock{}
+	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
-	service, err := NewGameService(game, repo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Failed to create game service: %v", err)
-	}
-	service.watcher = NewMatchWatcherServiceMock(updates)
+	service := NewGameService("1", game, repo, scoresRepo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 
 	// Add some bets
 	good_bet_match_1 := models.NewBet(match1, 2, 1)
@@ -302,14 +289,12 @@ func TestGameService_UpdatePlayerBet(t *testing.T) {
 
 	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
 	repo := &GameRepositoryMock{}
+	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
-	service, err := NewGameService(game, repo, betRepo, nil, 10*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Failed to create game service: %v", err)
-	}
+	service := NewGameService("1", game, repo, scoresRepo, betRepo, nil, 10*time.Millisecond)
 
 	bet := models.NewBet(match, 2, 1)
-	err = service.UpdatePlayerBet(players[0], bet, matchTime.Add(-1*time.Second))
+	err := service.UpdatePlayerBet(players[0], bet, matchTime.Add(-1*time.Second))
 	if err != nil {
 		t.Errorf("Failed to update player bet: %v", err)
 	}
@@ -346,11 +331,9 @@ func TestGameService_HandleScoreUpdate(t *testing.T) {
 
 	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
 	repo := &GameRepositoryMock{}
+	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
-	service, err := NewGameService(game, repo, betRepo, nil, 10*time.Millisecond)
-	if err != nil {
-		t.Fatalf("Failed to create game service: %v", err)
-	}
+	service := NewGameService("1", game, repo, scoresRepo, betRepo, nil, 10*time.Millisecond)
 
 	// Add some bets
 	bet1 := models.NewBet(match, 2, 1) // Correct prediction
@@ -360,7 +343,7 @@ func TestGameService_HandleScoreUpdate(t *testing.T) {
 
 	// Handle score update
 	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-	service.handleScoreUpdate(finishedMatch)
+	service.handleUpdates(map[string]models.Match{finishedMatch.Id(): finishedMatch})
 
 	// Verify game state
 	if !game.IsFinished() {

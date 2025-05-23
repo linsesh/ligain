@@ -4,47 +4,43 @@ import (
 	"context"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
-	"liguain/backend/rules"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
-type Game interface {
+type GameService interface {
 	Play() ([]models.Player, error)
 	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
 	GetPlayerBets(player models.Player) ([]*models.Bet, error)
 }
 
 // GameService is used to really run a game
-type GameService struct {
-	game     rules.Game
-	gameId   string
-	gameRepo repositories.GameRepository
-	betRepo  repositories.BetRepository
-	watcher  MatchWatcherService
+type GameServiceImpl struct {
+	game       models.Game
+	gameId     string
+	gameRepo   repositories.GameRepository
+	scoresRepo repositories.ScoresRepository
+	betRepo    repositories.BetRepository
+	watcher    MatchWatcherService
 	// waitTime is the time we accept to wait for a check of game updates
 	waitTime time.Duration
 }
 
-func NewGameService(game rules.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, watcher MatchWatcherService, waitTime time.Duration) (*GameService, error) {
-	//gameId, err := gameRepo.SaveGame(game)
-	//if err != nil {
-	//	return nil, err
-	//}
-	gameId := "1"
-	return &GameService{
-		game:     game,
-		gameId:   gameId,
-		gameRepo: gameRepo,
-		betRepo:  betRepo,
-		watcher:  watcher,
-		waitTime: waitTime,
-	}, nil
+func NewGameService(gameId string, game models.Game, gameRepo repositories.GameRepository, scoresRepo repositories.ScoresRepository, betRepo repositories.BetRepository, watcher MatchWatcherService, waitTime time.Duration) *GameServiceImpl {
+	return &GameServiceImpl{
+		game:       game,
+		gameId:     gameId,
+		gameRepo:   gameRepo,
+		scoresRepo: scoresRepo,
+		betRepo:    betRepo,
+		watcher:    watcher,
+		waitTime:   waitTime,
+	}
 }
 
 // Play returns the winner(s) of the game when it ends
-func (g *GameService) Play() ([]models.Player, error) {
+func (g *GameServiceImpl) Play() ([]models.Player, error) {
 	log.Infof("Playing game %v", g.gameId)
 	for !g.game.IsFinished() {
 		updates, err := g.getUpdates()
@@ -59,7 +55,7 @@ func (g *GameService) Play() ([]models.Player, error) {
 	return winners, nil
 }
 
-func (g *GameService) handleUpdates(updates map[string]models.Match) {
+func (g *GameServiceImpl) handleUpdates(updates map[string]models.Match) {
 	for _, match := range updates {
 		log.Infof("Handling update for match %v", match.Id())
 		if match.IsFinished() {
@@ -75,7 +71,7 @@ func (g *GameService) handleUpdates(updates map[string]models.Match) {
 	}
 }
 
-func (g *GameService) handleScoreUpdate(match models.Match) {
+func (g *GameServiceImpl) handleScoreUpdate(match models.Match) {
 	bets, players, err := g.betRepo.GetBetsForMatch(match, g.gameId)
 	if err != nil {
 		log.Errorf("Error getting bets for match: %v", err)
@@ -94,7 +90,7 @@ func (g *GameService) handleScoreUpdate(match models.Match) {
 		return
 	}
 
-	err = g.gameRepo.UpdateScores(match, scores)
+	err = g.scoresRepo.UpdateScores(g.gameId, match, scores)
 	if err != nil {
 		log.Errorf("Error saving scores to repository: %v", err)
 		return
@@ -108,7 +104,7 @@ func (g *GameService) handleScoreUpdate(match models.Match) {
 	}
 }
 
-func (g *GameService) getUpdates() (map[string]models.Match, error) {
+func (g *GameServiceImpl) getUpdates() (map[string]models.Match, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), g.waitTime)
 	defer cancel()
 
@@ -125,8 +121,8 @@ func (g *GameService) getUpdates() (map[string]models.Match, error) {
 	}
 }
 
-func (g *GameService) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {
-	err := g.game.CheckPlayerBetValidity(&player, bet, now)
+func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {
+	err := g.game.CheckPlayerBetValidity(player, bet, now)
 	if err != nil {
 		log.Errorf("Error checking player bet validity: %v", err)
 		return err
@@ -139,6 +135,6 @@ func (g *GameService) UpdatePlayerBet(player models.Player, bet *models.Bet, now
 	return nil
 }
 
-func (g *GameService) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
+func (g *GameServiceImpl) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
 	return g.betRepo.GetBets(g.gameId, player)
 }

@@ -8,29 +8,6 @@ import (
 	"time"
 )
 
-// GameStatus represents the current status of a game
-type GameStatus string
-
-const (
-	GameStatusNotStarted GameStatus = "not started"
-	GameStatusScheduled  GameStatus = "in progress"
-	GameStatusFinished   GameStatus = "finished"
-)
-
-type Game interface {
-	GetSeasonYear() string
-	GetCompetitionName() string
-	GetGameStatus() GameStatus
-	CheckPlayerBetValidity(player *models.Player, bet *models.Bet, datetime time.Time) error
-	CalculateMatchScores(match models.Match, bets map[models.Player]*models.Bet) (map[models.Player]int, error)
-	ApplyMatchScores(match models.Match, scores map[models.Player]int)
-	UpdateMatch(match models.Match) error
-	GetIncomingMatches() []models.Match
-	GetPlayersPoints() map[models.Player]int
-	IsFinished() bool
-	GetWinner() []models.Player
-}
-
 // Game represents a competition between several players, on a specific season and competition
 type GameImpl struct {
 	SeasonCode      string
@@ -38,16 +15,16 @@ type GameImpl struct {
 	Players         []models.Player
 	PlayersPoints   map[models.Player]int
 	Matches         map[string]models.Match
-	GameStatus      GameStatus
+	GameStatus      models.GameStatus
 	Scorer          Scorer
 }
 
-func NewGame(seasonCode, competitionCode string, players []models.Player, matches []models.Match, scorer Scorer) *GameImpl {
+func NewGame(seasonCode, competitionCode string, players []models.Player, matches []models.Match, scorer Scorer) models.Game {
 	g := &GameImpl{
 		SeasonCode:      seasonCode,
 		CompetitionCode: competitionCode,
 		Players:         players,
-		GameStatus:      GameStatusNotStarted,
+		GameStatus:      models.GameStatusNotStarted,
 		PlayersPoints:   make(map[models.Player]int),
 		Matches:         make(map[string]models.Match),
 		Scorer:          scorer,
@@ -58,12 +35,12 @@ func NewGame(seasonCode, competitionCode string, players []models.Player, matche
 	return g
 }
 
-func (g *GameImpl) CheckPlayerBetValidity(player *models.Player, bet *models.Bet, datetime time.Time) error {
+func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
 	_, exists := g.Matches[bet.Match.Id()]
 	if !exists {
 		return fmt.Errorf("match %v not found", bet.Match.Id())
 	}
-	if !slices.Contains(g.Players, *player) {
+	if !slices.Contains(g.Players, player) {
 		return fmt.Errorf("player %v not found", player)
 	}
 	if datetime.After(bet.Match.GetDate()) {
@@ -126,7 +103,7 @@ func (g *GameImpl) updatePlayersPoints(scores map[models.Player]int) {
 func (g *GameImpl) removeIncomingMatch(match models.Match) {
 	delete(g.Matches, match.Id())
 	if len(g.Matches) == 0 {
-		g.GameStatus = GameStatusFinished
+		g.GameStatus = models.GameStatusFinished
 	}
 }
 
@@ -138,7 +115,7 @@ func (g *GameImpl) GetCompetitionName() string {
 	return g.CompetitionCode
 }
 
-func (g *GameImpl) GetGameStatus() GameStatus {
+func (g *GameImpl) GetGameStatus() models.GameStatus {
 	return g.GameStatus
 }
 
@@ -157,7 +134,7 @@ func (g *GameImpl) GetPlayersPoints() map[models.Player]int {
 }
 
 func (g *GameImpl) IsFinished() bool {
-	return g.GameStatus == GameStatusFinished
+	return g.GameStatus == models.GameStatusFinished
 }
 
 func (g *GameImpl) GetWinner() []models.Player {
