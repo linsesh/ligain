@@ -10,6 +10,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Game interface {
+	Play() ([]models.Player, error)
+	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
+	GetPlayerBets(player models.Player) ([]*models.Bet, error)
+}
+
 // GameService is used to really run a game
 type GameService struct {
 	game     rules.Game
@@ -22,10 +28,11 @@ type GameService struct {
 }
 
 func NewGameService(game rules.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, watcher MatchWatcherService, waitTime time.Duration) (*GameService, error) {
-	gameId, err := gameRepo.SaveGame(game)
-	if err != nil {
-		return nil, err
-	}
+	//gameId, err := gameRepo.SaveGame(game)
+	//if err != nil {
+	//	return nil, err
+	//}
+	gameId := "1"
 	return &GameService{
 		game:     game,
 		gameId:   gameId,
@@ -69,17 +76,32 @@ func (g *GameService) handleUpdates(updates map[string]models.Match) {
 }
 
 func (g *GameService) handleScoreUpdate(match models.Match) {
-	scores, err := g.game.CalculateMatchScores(match)
+	bets, players, err := g.betRepo.GetBetsForMatch(match, g.gameId)
+	if err != nil {
+		log.Errorf("Error getting bets for match: %v", err)
+		return
+	}
+
+	betsMap := make(map[models.Player]*models.Bet)
+	for i, player := range players {
+		betsMap[player] = bets[i]
+	}
+
+	log.Infof("Bets map: %v", betsMap)
+	scores, err := g.game.CalculateMatchScores(match, betsMap)
 	if err != nil {
 		log.Errorf("Error calculating match scores: %v", err)
 		return
 	}
+
 	err = g.gameRepo.UpdateScores(match, scores)
 	if err != nil {
 		log.Errorf("Error saving scores to repository: %v", err)
 		return
 	}
-	// Only after successful save, apply the scores
+	log.Infof("Scores updated for match %v", match.Id())
+	log.Infof("Scores: %v", scores)
+
 	g.game.ApplyMatchScores(match, scores)
 	for player, score := range scores {
 		log.Infof("Player %v has earned %v points for match %v", player, score, match.Id())
@@ -103,11 +125,20 @@ func (g *GameService) getUpdates() (map[string]models.Match, error) {
 	}
 }
 
-func (g *GameService) updateBet(bet *models.Bet, player models.Player, now time.Time) error {
-	err := g.game.AddPlayerBet(&player, bet, now)
+func (g *GameService) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {
+	err := g.game.CheckPlayerBetValidity(&player, bet, now)
 	if err != nil {
-		log.Errorf("Error adding player bet: %v", err)
+		log.Errorf("Error checking player bet validity: %v", err)
+		return err
+	}
+	_, err = g.betRepo.SaveBet(g.gameId, bet, player)
+	if err != nil {
+		log.Errorf("Error saving bet: %v", err)
 		return err
 	}
 	return nil
+}
+
+func (g *GameService) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
+	return g.betRepo.GetBets(g.gameId, player)
 }

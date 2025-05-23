@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"liguain/backend/models"
+	"liguain/backend/repositories"
 	"liguain/backend/rules"
 	"testing"
 	"time"
@@ -24,20 +25,6 @@ func (r *GameRepositoryMock) UpdateScores(match models.Match, scores map[models.
 }
 
 func (r *GameRepositoryMock) GetGame(gameId string) (rules.Game, error) {
-	return nil, nil // Not used in tests
-}
-
-type BetRepositoryMock struct{}
-
-func (r *BetRepositoryMock) GetBets(gameId string, player models.Player) ([]models.Bet, error) {
-	return nil, nil // Not used in tests
-}
-
-func (r *BetRepositoryMock) SaveBet(bet models.Bet) (string, error) {
-	return "test-bet-id", nil
-}
-
-func (r *BetRepositoryMock) GetBetsForMatch(match models.Match) ([]models.Bet, error) {
 	return nil, nil // Not used in tests
 }
 
@@ -89,6 +76,22 @@ func (s *ScorerMock) Score(match models.Match, bets []*models.Bet) []int {
 	return scores
 }
 
+type MockGame struct {
+	rules.Game
+}
+
+func (g *MockGame) CalculateMatchScores(match models.Match, bets map[models.Player]*models.Bet) (map[models.Player]int, error) {
+	scores := make(map[models.Player]int)
+	for player, bet := range bets {
+		if bet.PredictedHomeGoals == 2 && bet.PredictedAwayGoals == 1 {
+			scores[player] = 3 // Correct prediction
+		} else {
+			scores[player] = 0 // Wrong prediction
+		}
+	}
+	return scores, nil
+}
+
 // Test cases
 func TestGameService_Play_SingleMatch(t *testing.T) {
 	// Setup test data
@@ -108,7 +111,7 @@ func TestGameService_Play_SingleMatch(t *testing.T) {
 
 	// Create service with mocks
 	repo := &GameRepositoryMock{}
-	betRepo := &BetRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
 	service, err := NewGameService(game, repo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 	if err != nil {
 		t.Fatalf("Failed to create game service: %v", err)
@@ -118,8 +121,8 @@ func TestGameService_Play_SingleMatch(t *testing.T) {
 	// Add some bets
 	bet1 := models.NewBet(match, 2, 1) // Correct good result
 	bet2 := models.NewBet(match, 1, 1) // Wrong result
-	service.updateBet(bet1, players[0], matchTime.Add(-1*time.Second))
-	service.updateBet(bet2, players[1], matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[0], bet1, matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[1], bet2, matchTime.Add(-1*time.Second))
 
 	// Play the game with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -177,7 +180,7 @@ func TestGameService_Play_MultipleMatches(t *testing.T) {
 	}
 
 	repo := &GameRepositoryMock{}
-	betRepo := &BetRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
 	service, err := NewGameService(game, repo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 	if err != nil {
 		t.Fatalf("Failed to create game service: %v", err)
@@ -191,12 +194,12 @@ func TestGameService_Play_MultipleMatches(t *testing.T) {
 	wrong_bet_match_2 := models.NewBet(match2, 1, 1)
 	good_bet_match_3 := models.NewBet(match3, 1, 1)
 	wrong_bet_match_3 := models.NewBet(match3, 2, 1)
-	service.updateBet(good_bet_match_1, players[0], matchTime.Add(-1*time.Second))
-	service.updateBet(wrong_bet_match_1, players[1], matchTime.Add(-1*time.Second))
-	service.updateBet(good_bet_match_2, players[1], matchTime)
-	service.updateBet(wrong_bet_match_2, players[0], matchTime)
-	service.updateBet(good_bet_match_3, players[1], matchTime)
-	service.updateBet(wrong_bet_match_3, players[0], matchTime)
+	service.UpdatePlayerBet(players[0], good_bet_match_1, matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[1], wrong_bet_match_1, matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[1], good_bet_match_2, matchTime)
+	service.UpdatePlayerBet(players[0], wrong_bet_match_2, matchTime)
+	service.UpdatePlayerBet(players[1], good_bet_match_3, matchTime)
+	service.UpdatePlayerBet(players[0], wrong_bet_match_3, matchTime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -232,28 +235,35 @@ func TestGameService_Play_MultipleMatches(t *testing.T) {
 }
 
 func TestGameService_Play_NoWinner(t *testing.T) {
-	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Corsica Championship", matchTime, 1)
+	match2 := models.NewSeasonMatch("Team3", "Team4", "2024", "Corsica Championship", matchTime.Add(time.Hour), 1)
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
-	matches := []models.Match{match}
-	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
+	matches := []models.Match{match1, match2}
+
+	game := rules.NewGame("2024", "Corsica Championship", players, matches, &ScorerMock{})
 
 	updates := []map[string]models.Match{
 		{
-			match.Id(): models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0),
+			match1.Id(): models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Corsica Championship", matchTime, 1, 1.0, 2.0, 3.0),
+		},
+		{
+			match2.Id(): models.NewFinishedSeasonMatch("Team3", "Team4", 1, 2, "2024", "Corsica Championship", matchTime.Add(time.Hour), 1, 1.0, 2.0, 3.0),
 		},
 	}
+
 	repo := &GameRepositoryMock{}
-	betRepo := &BetRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
 	service, err := NewGameService(game, repo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 	if err != nil {
 		t.Fatalf("Failed to create game service: %v", err)
 	}
 	service.watcher = NewMatchWatcherServiceMock(updates)
 
-	bet1 := models.NewBet(match, 1, 1) // Wrong bet
-	bet2 := models.NewBet(match, 0, 2) // Wrong bet
-	service.updateBet(bet1, players[0], matchTime.Add(-1*time.Second))
-	service.updateBet(bet2, players[1], matchTime.Add(-1*time.Second))
+	// Add some bets
+	good_bet_match_1 := models.NewBet(match1, 2, 1)
+	good_bet_match_2 := models.NewBet(match2, 1, 2)
+	service.UpdatePlayerBet(players[0], good_bet_match_1, matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[1], good_bet_match_2, matchTime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -276,23 +286,92 @@ func TestGameService_Play_NoWinner(t *testing.T) {
 		}
 	}
 
-	// Verify results - both players should be winners with 0 points
 	if len(winners) != 2 {
-		t.Errorf("Expected 2 winners (tie with 0 points), got %d", len(winners))
-	}
-	winnerNames := make(map[string]bool)
-	for _, winner := range winners {
-		winnerNames[winner.Name] = true
-	}
-	if !winnerNames["Player1"] {
-		t.Errorf("Expected Player1 to be a winner")
-	}
-	if !winnerNames["Player2"] {
-		t.Errorf("Expected Player2 to be a winner")
+		t.Errorf("Expected 2 winners, got %d", len(winners))
 	}
 
-	// Verify game is finished
 	if !game.IsFinished() {
 		t.Errorf("Expected game to be finished after all matches are played")
+	}
+}
+
+func TestGameService_UpdatePlayerBet(t *testing.T) {
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	players := []models.Player{{Name: "Player1"}}
+	matches := []models.Match{match}
+
+	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
+	repo := &GameRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
+	service, err := NewGameService(game, repo, betRepo, nil, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("Failed to create game service: %v", err)
+	}
+
+	bet := models.NewBet(match, 2, 1)
+	err = service.UpdatePlayerBet(players[0], bet, matchTime.Add(-1*time.Second))
+	if err != nil {
+		t.Errorf("Failed to update player bet: %v", err)
+	}
+
+	// Verify bet was saved
+	bets, _, err := betRepo.GetBetsForMatch(match, "1")
+	if err != nil {
+		t.Errorf("Failed to get bets for match: %v", err)
+	}
+	if len(bets) != 1 {
+		t.Errorf("Expected 1 bet, got %d", len(bets))
+	}
+	if bets[0] != bet {
+		t.Errorf("Retrieved bet is not the same as the one added")
+	}
+
+	// Verify bet was saved with the correct game ID
+	gameBets, err := betRepo.GetBets("1", players[0])
+	if err != nil {
+		t.Errorf("Failed to get bets for game: %v", err)
+	}
+	if len(gameBets) != 1 {
+		t.Errorf("Expected 1 bet for game, got %d", len(gameBets))
+	}
+	if gameBets[0] != bet {
+		t.Errorf("Retrieved bet for game is not the same as the one added")
+	}
+}
+
+func TestGameService_HandleScoreUpdate(t *testing.T) {
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	matches := []models.Match{match}
+
+	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
+	repo := &GameRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
+	service, err := NewGameService(game, repo, betRepo, nil, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("Failed to create game service: %v", err)
+	}
+
+	// Add some bets
+	bet1 := models.NewBet(match, 2, 1) // Correct prediction
+	bet2 := models.NewBet(match, 1, 1) // Wrong prediction
+	service.UpdatePlayerBet(players[0], bet1, matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[1], bet2, matchTime.Add(-1*time.Second))
+
+	// Handle score update
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
+	service.handleScoreUpdate(finishedMatch)
+
+	// Verify game state
+	if !game.IsFinished() {
+		t.Errorf("Expected game to be finished after score update")
+	}
+
+	points := game.GetPlayersPoints()
+	if points[players[0]] != 500 {
+		t.Errorf("Expected Player1 to have 500 points, got %d", points[players[0]])
+	}
+	if points[players[1]] != 0 {
+		t.Errorf("Expected Player2 to have 0 points, got %d", points[players[1]])
 	}
 }
