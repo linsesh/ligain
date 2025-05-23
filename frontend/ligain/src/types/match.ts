@@ -121,4 +121,8 @@ export class SeasonMatch {
     getCompetitionCode(): string {
         return this.competitionCode;
     }
+
+    getMatchday(): number {
+        return this.matchday;
+    }
 } 

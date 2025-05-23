@@ -1,15 +1,33 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert } from 'react-native';
 import { useMatches } from '../../hooks/useMatches';
-import { getTempScoresFromBets, useBets } from '../../hooks/useBets';
-import { BetImpl } from '../../src/types/bet';
+import { useBets } from '../../hooks/useBets';
+import { useBetSubmission } from '../../hooks/useBetSubmission';
 import { Ionicons } from '@expo/vector-icons';
 
+interface TempScores {
+  [key: string]: {
+    home?: number;
+    away?: number;
+  };
+}
+
 export default function TabOneScreen() {
-  const { matches, loading, error } = useMatches();
+  const { matches, loading: matchesLoading, error: matchesError } = useMatches();
   const { bets, loading: betsLoading, error: betsError } = useBets(); 
-  const [tempScores, setTempScores] = useState<{ [key: string]: { home?: number; away?: number } }>(getTempScoresFromBets(bets));
+  const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
+  const { submitBet, error: submitError } = useBetSubmission();
+
+  useEffect(() => {
+    if (submitError) {
+      Alert.alert(
+        "Bet Not Saved",
+        "We couldn't save your bet. Please check your internet connection and try again.",
+        [{ text: "OK" }]
+      );
+    }
+  }, [submitError]);
 
   const toggleBetSection = (matchId: string) => {
     setExpandedMatches(prev => ({
@@ -18,7 +36,7 @@ export default function TabOneScreen() {
     }));
   };
 
-  const handleBetChange = (matchId: string, team: 'home' | 'away', value: string) => {
+  const handleBetChange = async (matchId: string, team: 'home' | 'away', value: string) => {
     const match = matches.find(m => m.id() === matchId);
     if (!match) return;
 
@@ -28,28 +46,25 @@ export default function TabOneScreen() {
       ...currentTempScores,
       [team]: value ? parseInt(value) : undefined
     };
+
     setTempScores(prev => ({
       ...prev,
       [matchId]: newTempScores
     }));
 
-    // Only create a Bet if we have both scores
+    // Submit bet if both scores are provided and are valid numbers
     if (newTempScores.home !== undefined && newTempScores.away !== undefined) {
-      const newBet = new BetImpl(match, newTempScores.home, newTempScores.away);
-      //setBets(prev => ({
-      //  ...prev,
-      //  [matchId]: newBet
-      //}));
-
-      // TODO: Send complete bet to server and convert to BetImpl
-      console.log('Sending bet to server:', newBet.toJSON());
-    }
-    else {
-      console.log('Incomplete bet:', newTempScores);
+      const homeGoals = Number(newTempScores.home);
+      const awayGoals = Number(newTempScores.away);
+      
+      // Only submit if both values are valid numbers
+      if (!isNaN(homeGoals) && !isNaN(awayGoals)) {
+        await submitBet(matchId, homeGoals, awayGoals);
+      }
     }
   };
 
-  if (loading || betsLoading) {
+  if (matchesLoading || betsLoading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#0000ff" />
@@ -57,10 +72,10 @@ export default function TabOneScreen() {
     );
   }
 
-  if (error || betsError) {
+  if (matchesError || betsError) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Error: {error?.message || betsError?.message}</Text>
+        <Text style={styles.errorText}>Error: {matchesError?.message || betsError?.message}</Text>
       </View>
     );
   }
@@ -68,7 +83,14 @@ export default function TabOneScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Matches</Text>
-      {matches.map((match) => (
+      {matches
+        .sort((a, b) => {
+          if (a.getMatchday() !== b.getMatchday()) {
+            return a.getMatchday() - b.getMatchday();
+          }
+          return a.getDate().getTime() - b.getDate().getTime();
+        })
+        .map((match) => (
         <View 
           key={match.id()} 
           style={[
@@ -90,9 +112,7 @@ export default function TabOneScreen() {
                 placeholder="0"
                 editable={!match.isFinished()}
                 returnKeyType="done"
-                onSubmitEditing={() => {
-                  Keyboard.dismiss();
-                }}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
             <View style={styles.teamContainer}>
@@ -107,9 +127,7 @@ export default function TabOneScreen() {
                 placeholder="0"
                 editable={!match.isFinished()}
                 returnKeyType="done"
-                onSubmitEditing={() => {
-                  Keyboard.dismiss();
-                }}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
               <Text style={[styles.teamName, styles.awayTeamName]}>{match.getAwayTeam()}</Text>
             </View>
@@ -168,7 +186,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   finishedMatchCard: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#9e9e9e',
+    opacity: 0.7,
   },
   bettingContainer: {
     flexDirection: 'row',
@@ -203,11 +222,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     fontSize: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#ccc',
-    marginVertical: 12,
   },
   toggleButton: {
     flexDirection: 'row',
