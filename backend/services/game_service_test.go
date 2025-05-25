@@ -38,7 +38,7 @@ func NewMatchWatcherServiceMock(updates []map[string]models.Match) *MatchWatcher
 
 func (m *MatchWatcherServiceMock) GetUpdates(ctx context.Context, done chan MatchWatcherServiceResult) {
 	var result MatchWatcherServiceResult
-	log.Infof("Getting updates for match %v", m.index)
+	//log.Infof("Getting updates for match %v", m.index)
 	if m.index >= len(m.updates) {
 		result = MatchWatcherServiceResult{Value: make(map[string]models.Match), Err: nil}
 	} else {
@@ -62,10 +62,15 @@ type ScorerMock struct{}
 
 func (s *ScorerMock) Score(match models.Match, bets []*models.Bet) []int {
 	scores := make([]int, len(bets))
+	log.Infof("Given match: %v", match)
 	for i, bet := range bets {
-		if bet.IsBetCorrect() {
+		// Create a new bet with the same predictions but the finished match
+		finishedBet := models.NewBet(match, bet.PredictedHomeGoals, bet.PredictedAwayGoals)
+		if finishedBet.IsBetCorrect() {
+			log.Infof("Correct bet: %v", finishedBet)
 			scores[i] = 500
 		} else {
+			log.Infof("Wrong bet: %v", finishedBet)
 			scores[i] = 0
 		}
 	}
@@ -96,7 +101,7 @@ func TestGameService_Play_SingleMatch(t *testing.T) {
 	matches := []models.Match{match}
 
 	// Create a game
-	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
+	game := rules.NewFreshGame("2024", "Premier League", players, matches, &ScorerMock{})
 
 	// Setup mock updates
 	updates := []map[string]models.Match{
@@ -112,10 +117,10 @@ func TestGameService_Play_SingleMatch(t *testing.T) {
 	service := NewGameService("1", game, repo, scoresRepo, betRepo, NewMatchWatcherServiceMock(updates), 10*time.Millisecond)
 
 	// Add some bets
-	bet1 := models.NewBet(match, 2, 1) // Correct good result
-	bet2 := models.NewBet(match, 1, 1) // Wrong result
-	service.UpdatePlayerBet(players[0], bet1, matchTime.Add(-1*time.Second))
-	service.UpdatePlayerBet(players[1], bet2, matchTime.Add(-1*time.Second))
+	goodBet := models.NewBet(match, 2, 1)  // Correct good result
+	wrongBet := models.NewBet(match, 1, 1) // Wrong result
+	service.UpdatePlayerBet(players[0], goodBet, matchTime.Add(-1*time.Second))
+	service.UpdatePlayerBet(players[1], wrongBet, matchTime.Add(-1*time.Second))
 
 	// Play the game with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -158,7 +163,7 @@ func TestGameService_Play_MultipleMatches(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
 	matches := []models.Match{match1, match2, match3}
 
-	game := rules.NewGame("2024", "Corsica Championship", players, matches, &ScorerMock{})
+	game := rules.NewFreshGame("2024", "Corsica Championship", players, matches, &ScorerMock{})
 
 	updates := []map[string]models.Match{
 		{
@@ -230,7 +235,7 @@ func TestGameService_Play_NoWinner(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
 	matches := []models.Match{match1, match2}
 
-	game := rules.NewGame("2024", "Corsica Championship", players, matches, &ScorerMock{})
+	game := rules.NewFreshGame("2024", "Corsica Championship", players, matches, &ScorerMock{})
 
 	updates := []map[string]models.Match{
 		{
@@ -287,7 +292,7 @@ func TestGameService_UpdatePlayerBet(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}}
 	matches := []models.Match{match}
 
-	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
+	game := rules.NewFreshGame("2024", "Premier League", players, matches, &ScorerMock{})
 	repo := &GameRepositoryMock{}
 	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
@@ -329,7 +334,7 @@ func TestGameService_HandleScoreUpdate(t *testing.T) {
 	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
 	matches := []models.Match{match}
 
-	game := rules.NewGame("2024", "Premier League", players, matches, &ScorerMock{})
+	game := rules.NewFreshGame("2024", "Premier League", players, matches, &ScorerMock{})
 	repo := &GameRepositoryMock{}
 	scoresRepo := repositories.NewInMemoryScoresRepository()
 	betRepo := repositories.NewInMemoryBetRepository()

@@ -1,3 +1,5 @@
+import { Bet } from './bet';
+
 export type MatchStatus = 'scheduled' | 'finished';
 
 export class SeasonMatch {
@@ -125,4 +127,37 @@ export class SeasonMatch {
     getMatchday(): number {
         return this.matchday;
     }
+
+    static fromJSON(json: any): SeasonMatch {
+        return new SeasonMatch(
+            json.homeTeam,
+            json.awayTeam,
+            json.homeGoals,
+            json.awayGoals,
+            json.homeTeamOdds,
+            json.awayTeamOdds,
+            json.drawOdds,
+            json.status,
+            json.seasonCode,
+            json.competitionCode,
+            json.date,
+            json.matchday
+        );
+    }
+}
+
+export interface SimplifiedBet {
+    predictedHomeGoals: number;
+    predictedAwayGoals: number;
+}
+
+export interface MatchResult {
+    match: SeasonMatch;
+    bets: { [key: string]: SimplifiedBet } | null;
+    scores: { [key: string]: number } | null;
+}
+
+export interface MatchesResponse {
+    incomingMatches: { [key: string]: MatchResult };
+    pastMatches: { [key: string]: MatchResult };
 } 

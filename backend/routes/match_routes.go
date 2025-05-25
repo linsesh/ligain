@@ -1,6 +1,5 @@
-package api
+package routes
 
-/*
 import (
 	"fmt"
 	"liguain/backend/models"
@@ -8,26 +7,75 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 var gameRepo = repositories.NewInMemoryGameRepository()
 
+// SimplifiedBet represents a bet with only the essential information needed for the API
+type SimplifiedBet struct {
+	PredictedHomeGoals int `json:"predictedHomeGoals"`
+	PredictedAwayGoals int `json:"predictedAwayGoals"`
+}
+
+// convertMatchResultToJSON converts a MatchResult to a JSON-friendly structure
+func convertMatchResultToJSON(matchResult *models.MatchResult) map[string]any {
+	result := map[string]any{
+		"match": matchResult.Match,
+	}
+
+	log.Info("matchResult.Bets", matchResult.Bets)
+	if matchResult.Bets != nil {
+		simplifiedBets := make(map[string]SimplifiedBet)
+		for player, bet := range matchResult.Bets {
+			simplifiedBets[player.Name] = SimplifiedBet{
+				PredictedHomeGoals: bet.PredictedHomeGoals,
+				PredictedAwayGoals: bet.PredictedAwayGoals,
+			}
+		}
+		result["bets"] = simplifiedBets
+	} else {
+		result["bets"] = nil
+	}
+
+	if matchResult.Scores != nil {
+		simplifiedScores := make(map[string]int)
+		for player, score := range matchResult.Scores {
+			simplifiedScores[player.Name] = score
+		}
+		result["scores"] = simplifiedScores
+	} else {
+		result["scores"] = nil
+	}
+
+	return result
+}
+
 func SetupMatchRoutes(router *gin.Engine) {
 	router.GET("/api/matches", getMatches)
-	router.GET("/api/bets", getBets)
 	router.POST("/api/bet", saveBet)
 }
 
 func getMatches(c *gin.Context) {
-	matches := gameRepo.GetMatches()
-	c.JSON(http.StatusOK, matches)
-}
+	game, _ := gameRepo.GetGame("1")
+	incomingMatches := game.GetIncomingMatches()
+	pastMatches := game.GetPastResults()
 
-func getBets(c *gin.Context) {
-	bet1 := models.NewBet(match1, 1, 2)
+	// Convert MatchResults to JSON-friendly format
+	jsonIncomingMatches := make(map[string]any)
+	for id, matchResult := range incomingMatches {
+		jsonIncomingMatches[id] = convertMatchResultToJSON(matchResult)
+	}
 
-	bets := []*models.Bet{bet1}
-	c.JSON(http.StatusOK, bets)
+	jsonPastMatches := make(map[string]any)
+	for id, matchResult := range pastMatches {
+		jsonPastMatches[id] = convertMatchResultToJSON(matchResult)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"incomingMatches": jsonIncomingMatches,
+		"pastMatches":     jsonPastMatches,
+	})
 }
 
 type SaveBetRequest struct {
@@ -43,28 +91,19 @@ func saveBet(c *gin.Context) {
 		return
 	}
 
-	// Check if the matchId corresponds to one of our test matches
-	var match models.Match
-	if request.MatchID == match1.Id() {
-		match = match1
-	} else if request.MatchID == match2.Id() {
-		match = match2
-	} else {
+	game, _ := gameRepo.GetGame("1")
+	incomingMatches := game.GetIncomingMatches()
+	match, exists := incomingMatches[request.MatchID]
+	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Match %s not found", request.MatchID)})
 		return
 	}
 
-	bet := models.NewBet(match, request.PredictedHomeGoals, request.PredictedAwayGoals)
+	bet := models.NewBet(match.Match, request.PredictedHomeGoals, request.PredictedAwayGoals)
+	game.AddPlayerBet(models.Player{Name: "Player1"}, bet)
 
-	// TODO: Get the actual player from the session/authentication
-	// For now, we'll use a test player
-	_ = models.Player{Name: "TestPlayer"}
-
-	// TODO: Get the game service from dependency injection
-	// For now, we'll just return success
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Bet saved successfully",
 		"bet":     bet,
 	})
 }
-*/

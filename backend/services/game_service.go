@@ -58,33 +58,21 @@ func (g *GameServiceImpl) Play() ([]models.Player, error) {
 func (g *GameServiceImpl) handleUpdates(updates map[string]models.Match) {
 	for _, match := range updates {
 		log.Infof("Handling update for match %v", match.Id())
+		err := g.game.UpdateMatch(match)
+		if err != nil {
+			log.Errorf("Error updating match: %v", err)
+		}
 		if match.IsFinished() {
 			log.Infof("Match %v is finished, handling score update", match.Id())
 			g.handleScoreUpdate(match)
 		} else {
 			log.Infof("Match %v is being updated", match.Id())
-			err := g.game.UpdateMatch(match)
-			if err != nil {
-				log.Errorf("Error updating match: %v", err)
-			}
 		}
 	}
 }
 
 func (g *GameServiceImpl) handleScoreUpdate(match models.Match) {
-	bets, players, err := g.betRepo.GetBetsForMatch(match, g.gameId)
-	if err != nil {
-		log.Errorf("Error getting bets for match: %v", err)
-		return
-	}
-
-	betsMap := make(map[models.Player]*models.Bet)
-	for i, player := range players {
-		betsMap[player] = bets[i]
-	}
-
-	log.Infof("Bets map: %v", betsMap)
-	scores, err := g.game.CalculateMatchScores(match, betsMap)
+	scores, err := g.game.CalculateMatchScores(match)
 	if err != nil {
 		log.Errorf("Error calculating match scores: %v", err)
 		return
@@ -132,6 +120,7 @@ func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet,
 		log.Errorf("Error saving bet: %v", err)
 		return err
 	}
+	g.game.AddPlayerBet(player, bet)
 	return nil
 }
 

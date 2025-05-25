@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { SeasonMatch } from '../src/types/match';
+import { SeasonMatch, MatchResult, MatchesResponse } from '../src/types/match';
 
 export const API_BASE_URL = __DEV__ 
   ? 'http://192.168.1.121:8080/api'  // Development - local machine
-  : 'https://your-production-api.com/api';  // Production - replace with your actual API URL
+  : 'https://your-production-api.com/api';
 
 export const useMatches = () => {
-  const [matches, setMatches] = useState<SeasonMatch[]>([]);
+  const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
+  const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -18,22 +19,30 @@ export const useMatches = () => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
-        const matches = data.map((match: any) => new SeasonMatch(
-          match.homeTeam,
-          match.awayTeam,
-          match.homeGoals,
-          match.awayGoals,
-          match.homeTeamOdds,
-          match.awayTeamOdds,
-          match.drawOdds,
-          match.status,
-          match.seasonCode,
-          match.competitionCode,
-          match.date,
-          match.matchday
-        ));
-        setMatches(matches);
+        const data: MatchesResponse = await response.json();
+        
+        // Process incoming matches
+        const processedIncomingMatches: { [key: string]: MatchResult } = {};
+        for (const [matchId, matchResult] of Object.entries(data.incomingMatches)) {
+          processedIncomingMatches[matchId] = {
+            match: SeasonMatch.fromJSON(matchResult.match),
+            bets: matchResult.bets ? { 'Player1': matchResult.bets['Player1'] } : null,
+            scores: matchResult.scores ? { 'Player1': matchResult.scores['Player1'] } : null
+          };
+        }
+        setIncomingMatches(processedIncomingMatches);
+
+        // Process past matches
+        const processedPastMatches: { [key: string]: MatchResult } = {};
+        for (const [matchId, matchResult] of Object.entries(data.pastMatches)) {
+          processedPastMatches[matchId] = {
+            match: SeasonMatch.fromJSON(matchResult.match),
+            bets: matchResult.bets ? { 'Player1': matchResult.bets['Player1'] } : null,
+            scores: matchResult.scores ? { 'Player1': matchResult.scores['Player1'] } : null
+          };
+        }
+        setPastMatches(processedPastMatches);
+        
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to fetch matches'));
@@ -45,5 +54,5 @@ export const useMatches = () => {
     fetchMatches();
   }, []);
 
-  return { matches, loading, error };
+  return { incomingMatches, pastMatches, loading, error };
 }; 

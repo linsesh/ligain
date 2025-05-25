@@ -4,6 +4,7 @@ import (
 	"context"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
+	"liguain/backend/routes"
 	"liguain/backend/rules"
 	"liguain/backend/services"
 	"log"
@@ -46,7 +47,19 @@ var players = []models.Player{
 	{Name: "Player2"},
 }
 
-var matches = []models.Match{match1, match2}
+var bets = map[string]map[models.Player]*models.Bet{
+	match1.Id(): {
+		players[0]: models.NewBet(match1, 0, 2),
+		players[1]: models.NewBet(match1, 0, 3),
+	},
+}
+
+var scores = map[string]map[models.Player]int{
+	match1.Id(): {
+		players[0]: 0,
+		players[1]: 0,
+	},
+}
 
 type MatchWatcherServiceMock struct{}
 
@@ -63,7 +76,7 @@ func main() {
 
 	gameRepo := repositories.NewInMemoryGameRepository()
 	scorer := rules.ScorerOriginal{}
-	game := rules.NewGame("2023/2024", "Premier League", players, matches, &scorer)
+	game := rules.NewStartedGame("2023/2024", "Premier League", players, []models.Match{match2}, []models.Match{match1}, &scorer, bets, scores)
 	gameId, game, err := gameRepo.SaveGame(game)
 	if err != nil {
 		log.Fatal("Failed to save game:", err)
@@ -76,7 +89,7 @@ func main() {
 	//}
 	watcher := NewMatchWatcherServiceMock()
 	gameService := services.NewGameService(gameId, game, gameRepo, scoresRepo, betRepo, watcher, 10*time.Second)
-	gameService.Play()
+	go gameService.Play()
 	router := gin.Default()
 
 	// Setup CORS
@@ -92,7 +105,7 @@ func main() {
 	})
 
 	// Setup routes
-	//api.SetupMatchRoutes(router)
+	routes.SetupMatchRoutes(router)
 
 	// Start server
 	if err := router.Run(":8080"); err != nil {
