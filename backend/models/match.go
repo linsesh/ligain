@@ -12,6 +12,7 @@ type MatchStatus string
 const (
 	MatchStatusScheduled MatchStatus = "scheduled"
 	MatchStatusFinished  MatchStatus = "finished"
+	MatchStatusStarted   MatchStatus = "in-progress"
 )
 
 // Match represents a football match with teams, scores and odds
@@ -31,9 +32,12 @@ type Match interface {
 	IsDraw() bool
 	TotalGoals() int
 	AbsoluteDifferenceOddsBetweenHomeAndAway() float64
+	GetWinner() string
+	// Start marks the match as started
+	Start()
 	IsFinished() bool
 	Finish(homeGoals, awayGoals int)
-	GetWinner() string
+	IsInProgress() bool
 }
 
 // SeasonMatch represents a football match within a championship, like Ligue 1, Serie A, etc.
@@ -124,9 +128,12 @@ func (m *SeasonMatch) AbsoluteDifferenceOddsBetweenHomeAndAway() float64 {
 	return math.Abs(m.HomeTeamOdds - m.AwayTeamOdds)
 }
 
-// IsFinished returns true if the match has been played
 func (m *SeasonMatch) IsFinished() bool {
 	return m.Status == MatchStatusFinished
+}
+
+func (m *SeasonMatch) IsInProgress() bool {
+	return m.Status == MatchStatusStarted
 }
 
 // Finish marks the match as finished and sets the final score
@@ -178,4 +185,8 @@ func (m *SeasonMatch) GetAwayTeamOdds() float64 {
 
 func (m *SeasonMatch) GetDrawOdds() float64 {
 	return m.DrawOdds
+}
+
+func (m *SeasonMatch) Start() {
+	m.Status = MatchStatusStarted
 }

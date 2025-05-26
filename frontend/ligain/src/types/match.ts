@@ -1,6 +1,6 @@
 import { Bet } from './bet';
 
-export type MatchStatus = 'scheduled' | 'finished';
+export type MatchStatus = 'scheduled' | 'in-progress' | 'finished';
 
 export class SeasonMatch {
     private homeTeam: string;
@@ -84,6 +84,10 @@ export class SeasonMatch {
         return this.status === 'finished';
     }
 
+    isInProgress(): boolean {
+        return this.status === 'in-progress';
+    }
+
     getWinner(): string {
         if (this.homeGoals > this.awayGoals) {
             return this.homeTeam;
@@ -128,6 +132,10 @@ export class SeasonMatch {
         return this.matchday;
     }
 
+    hasStarted(now: Date): boolean {
+        return now >= this.date;
+    }
+
     static fromJSON(json: any): SeasonMatch {
         return new SeasonMatch(
             json.homeTeam,
@@ -149,6 +157,7 @@ export class SeasonMatch {
 export interface SimplifiedBet {
     predictedHomeGoals: number;
     predictedAwayGoals: number;
+    isModifiable(now: Date): boolean;
 }
 
 export interface MatchResult {

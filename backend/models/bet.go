@@ -1,6 +1,9 @@
 package models
 
-import "math"
+import (
+	"math"
+	"time"
+)
 
 // Match represents a bet made by one player
 type Bet struct {
@@ -61,4 +64,9 @@ func (b *Bet) GetPredictedResult() string {
 		return b.Match.GetAwayTeam()
 	}
 	return "Draw"
+}
+
+// IsModifiable checks if the bet can be modified based on the match's state and time
+func (b *Bet) IsModifiable(now time.Time) bool {
+	return !b.Match.IsFinished() && !b.Match.IsInProgress() && now.Before(b.Match.GetDate())
 }

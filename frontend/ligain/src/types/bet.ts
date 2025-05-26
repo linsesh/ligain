@@ -1,9 +1,7 @@
-import { SeasonMatch } from './match';
+import { SeasonMatch, SimplifiedBet } from './match';
 
-export interface Bet {
+export interface Bet extends SimplifiedBet {
     match: SeasonMatch;
-    predictedHomeGoals: number;
-    predictedAwayGoals: number;
     isBetCorrect(): boolean;
     isBetPerfect(): boolean;
     absoluteDifferenceGoalDifferenceWithMatch(): number;
@@ -64,6 +62,10 @@ export class BetImpl implements Bet {
             return this.match.getAwayTeam();
         }
         return 'Draw';
+    }
+
+    isModifiable(now: Date): boolean {
+        return !this.match.isFinished() && !this.match.isInProgress() && now < this.match.getDate();
     }
 
     static fromJSON(json: any, match: SeasonMatch): BetImpl {

@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+// Local imports
 import { useMatches } from '../../hooks/useMatches';
 import { useBetSubmission } from '../../hooks/useBetSubmission';
-import { Ionicons } from '@expo/vector-icons';
 import { MatchResult } from '../../src/types/match';
+import { MockTimeService } from '../../src/services/timeService';
+import { TimeServiceProvider, useTimeService } from '../../src/contexts/TimeServiceContext';
 
 interface TempScores {
   [key: string]: {
@@ -12,7 +16,151 @@ interface TempScores {
   };
 }
 
-export default function TabOneScreen() {
+function TeamInput({ 
+  teamName, 
+  value, 
+  onChange, 
+  canModify, 
+  isAway = false 
+}: { 
+  teamName: string; 
+  value: string; 
+  onChange: (value: string) => void; 
+  canModify: boolean; 
+  isAway?: boolean; 
+}) {
+  return (
+    <View style={styles.teamContainer}>
+      {!isAway && <Text style={styles.teamName}>{teamName}</Text>}
+      <TextInput
+        style={[
+          styles.betInput,
+          !canModify && { backgroundColor: '#e0e0e0' }
+        ]}
+        value={value}
+        onChangeText={onChange}
+        keyboardType="numeric"
+        maxLength={2}
+        placeholder="0"
+        editable={canModify}
+        returnKeyType="done"
+        onSubmitEditing={() => Keyboard.dismiss()}
+      />
+      {isAway && <Text style={[styles.teamName, styles.awayTeamName]}>{teamName}</Text>}
+    </View>
+  );
+}
+
+// Wrapper component that has access to the time service
+function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection }: {
+  matchResult: MatchResult;
+  tempScores: TempScores;
+  expandedMatches: { [key: string]: boolean };
+  onBetChange: (matchId: string, team: 'home' | 'away', value: string) => void;
+  onToggleBetSection: (matchId: string) => void;
+}) {
+  const timeService = useTimeService();
+  const now = timeService.now();
+  const canModify = !matchResult.match.isFinished() && 
+                   !matchResult.match.isInProgress() && 
+                   (matchResult.bets?.['Player1']?.isModifiable(now) ?? true);
+
+  return (
+    <View 
+      key={matchResult.match.id()} 
+      style={[
+        styles.matchCard,
+        matchResult.match.isFinished() && (
+          matchResult.scores && matchResult.scores['Player1'] > 0 
+            ? styles.successfulBetMatchCard 
+            : styles.finishedMatchCard
+        ),
+        matchResult.match.isInProgress() && styles.inProgressMatchCard
+      ]}
+    >
+      <View style={styles.bettingContainer}>
+        <TeamInput
+          teamName={matchResult.match.getHomeTeam()}
+          value={matchResult.match.isFinished() 
+            ? matchResult.match.getHomeGoals().toString() 
+            : (tempScores[matchResult.match.id()]?.home?.toString() || '')}
+          onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
+          canModify={canModify}
+        />
+        <Text style={styles.vsText}>vs</Text>
+        <TeamInput
+          teamName={matchResult.match.getAwayTeam()}
+          value={matchResult.match.isFinished() 
+            ? matchResult.match.getAwayGoals().toString() 
+            : (tempScores[matchResult.match.id()]?.away?.toString() || '')}
+          onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
+          canModify={canModify}
+          isAway
+        />
+      </View>
+      
+      {(matchResult.match.isFinished() || matchResult.match.isInProgress()) && (
+        <>
+          <TouchableOpacity 
+            style={styles.toggleButton} 
+            onPress={() => onToggleBetSection(matchResult.match.id())}
+          >
+            <Text style={styles.toggleButtonText}>
+              {matchResult.match.isFinished() 
+                ? (matchResult.scores?.['Player1'] !== undefined 
+                    ? `Your bet won you ${matchResult.scores['Player1']} points`
+                    : 'Other players\' bets')
+                : 'Other players\' bets'}
+            </Text>
+            <Ionicons 
+              name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"} 
+              size={24} 
+              color="#333" 
+            />
+          </TouchableOpacity>
+          
+          {expandedMatches[matchResult.match.id()] && (
+            <View style={styles.betResultContainer}>
+              {matchResult.scores ? (
+                <View style={styles.scoresContainer}>
+                  {Object.entries(matchResult.scores).map(([player, score]) => (
+                    <View key={player} style={styles.playerScoreRow}>
+                      <Text style={styles.scoreText}>
+                        {player}: {score} points
+                      </Text>
+                      {matchResult.bets?.[player] && (
+                        <Text style={styles.betResultText}>
+                          ({matchResult.bets[player].predictedHomeGoals} - {matchResult.bets[player].predictedAwayGoals})
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ) : matchResult.bets && (
+                <View style={styles.scoresContainer}>
+                  {Object.entries(matchResult.bets)
+                    .filter(([player]) => player !== 'Player1')
+                    .map(([player, bet]) => (
+                      <View key={player} style={styles.playerScoreRow}>
+                        <Text style={styles.scoreText}>
+                          {player}:
+                        </Text>
+                        <Text style={styles.betResultText}>
+                          ({bet.predictedHomeGoals} - {bet.predictedAwayGoals})
+                        </Text>
+                      </View>
+                    ))}
+                </View>
+              )}
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
+function MatchesList() {
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches();
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
@@ -126,109 +274,28 @@ export default function TabOneScreen() {
           return a.match.getDate().getTime() - b.match.getDate().getTime();
         })
         .map((matchResult: MatchResult) => (
-        <View 
-          key={matchResult.match.id()} 
-          style={[
-            styles.matchCard,
-            matchResult.match.isFinished() && (
-              matchResult.scores && matchResult.scores['Player1'] > 0 
-                ? styles.successfulBetMatchCard 
-                : styles.finishedMatchCard
-            )
-          ]}
-        >
-          <View style={styles.bettingContainer}>
-            <View style={styles.teamContainer}>
-              <Text style={styles.teamName}>{matchResult.match.getHomeTeam()}</Text>
-              <TextInput
-                style={styles.betInput}
-                value={matchResult.match.isFinished() 
-                  ? matchResult.match.getHomeGoals().toString() 
-                  : (tempScores[matchResult.match.id()]?.home?.toString() || '')}
-                onChangeText={(value) => handleBetChange(matchResult.match.id(), 'home', value)}
-                keyboardType="numeric"
-                maxLength={2}
-                placeholder="0"
-                editable={!matchResult.match.isFinished()}
-                returnKeyType="done"
-                onSubmitEditing={() => Keyboard.dismiss()}
-              />
-            </View>
-            <Text style={styles.vsText}>vs</Text>
-            <View style={styles.teamContainer}>
-              <TextInput
-                style={styles.betInput}
-                value={matchResult.match.isFinished() 
-                  ? matchResult.match.getAwayGoals().toString() 
-                  : (tempScores[matchResult.match.id()]?.away?.toString() || '')}
-                onChangeText={(value) => handleBetChange(matchResult.match.id(), 'away', value)}
-                keyboardType="numeric"
-                maxLength={2}
-                placeholder="0"
-                editable={!matchResult.match.isFinished()}
-                returnKeyType="done"
-                onSubmitEditing={() => Keyboard.dismiss()}
-              />
-              <Text style={[styles.teamName, styles.awayTeamName]}>{matchResult.match.getAwayTeam()}</Text>
-            </View>
-          </View>
-          
-          {matchResult.match.isFinished() && (
-            <>
-              <TouchableOpacity 
-                style={styles.toggleButton} 
-                onPress={() => toggleBetSection(matchResult.match.id())}
-              >
-                <Text style={styles.toggleButtonText}>
-                  {matchResult.scores?.['Player1'] !== undefined 
-                    ? `Your bet won you ${matchResult.scores['Player1']} points`
-                    : 'Your bet'}
-                </Text>
-                <Ionicons 
-                  name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#333" 
-                />
-              </TouchableOpacity>
-              
-              {expandedMatches[matchResult.match.id()] && (
-                <View style={styles.betResultContainer}>
-                  {matchResult.bets?.['Player1'] ? (
-                    <View style={styles.betResultContent}>
-                      <Text style={styles.betResultText}>
-                        {matchResult.match.getHomeTeam()}: {matchResult.bets['Player1'].predictedHomeGoals}
-                      </Text>
-                      <Text style={styles.betResultText}>
-                        {matchResult.match.getAwayTeam()}: {matchResult.bets['Player1'].predictedAwayGoals}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.betResultText}>No bet placed yet</Text>
-                  )}
-                  {matchResult.scores && (
-                    <View style={styles.scoresContainer}>
-                      <Text style={styles.scoresTitle}>All players' points:</Text>
-                      {Object.entries(matchResult.scores).map(([player, score]) => (
-                        <View key={player} style={styles.playerScoreRow}>
-                          <Text style={styles.scoreText}>
-                            {player}: {score} points
-                          </Text>
-                          {matchResult.bets?.[player] && (
-                            <Text style={styles.betResultText}>
-                              ({matchResult.bets[player].predictedHomeGoals} - {matchResult.bets[player].predictedAwayGoals})
-                            </Text>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              )}
-            </>
-          )}
-        </View>
-      ))}
+          <MatchCard
+            key={matchResult.match.id()}
+            matchResult={matchResult}
+            tempScores={tempScores}
+            expandedMatches={expandedMatches}
+            onBetChange={handleBetChange}
+            onToggleBetSection={toggleBetSection}
+          />
+        ))}
     </ScrollView>
+  );
+}
+
+// Wrap the app with the TimeServiceProvider using MockTimeService
+export default function TabOneScreen() {
+  const mockTime = new Date('2024-03-20T20:10:00');
+  const timeService = React.useMemo(() => new MockTimeService(mockTime), []);
+  
+  return (
+    <TimeServiceProvider service={timeService}>
+      <MatchesList />
+    </TimeServiceProvider>
   );
 }
 
@@ -256,6 +323,10 @@ const styles = StyleSheet.create({
   },
   successfulBetMatchCard: {
     backgroundColor: '#2e7d32',
+    opacity: 0.9,
+  },
+  inProgressMatchCard: {
+    backgroundColor: '#f5e663', // A softer but more yellow tone
     opacity: 0.9,
   },
   bettingContainer: {
@@ -303,9 +374,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#e8e8e8',
     borderRadius: 4,
     marginTop: 8,
+    marginBottom: 4,
   },
   toggleButtonText: {
     fontSize: 14,
@@ -316,37 +388,22 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#f8f8f8',
     borderRadius: 4,
-    marginTop: 4,
-  },
-  betResultContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   betResultText: {
     fontSize: 14,
     color: '#666',
   },
   scoresContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-  },
-  scoresTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  scoreText: {
-    fontSize: 14,
-    color: '#666',
-    marginVertical: 2,
+    marginTop: 6,
   },
   playerScoreRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 2,
+    marginVertical: 1,
+  },
+  scoreText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
