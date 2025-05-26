@@ -87,7 +87,15 @@ type SaveBetRequest struct {
 func saveBet(c *gin.Context) {
 	var request SaveBetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.WithFields(log.Fields{
+			"error":        err.Error(),
+			"request_body": c.Request.Body,
+			"content_type": c.GetHeader("Content-Type"),
+		}).Error("Failed to bind bet request")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":           fmt.Sprintf("Invalid request format: %v", err),
+			"expected_format": "{\"matchId\": \"string\", \"predictedHomeGoals\": number, \"predictedAwayGoals\": number}",
+		})
 		return
 	}
 

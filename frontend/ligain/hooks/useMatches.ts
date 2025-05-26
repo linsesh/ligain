@@ -25,8 +25,8 @@ export const useMatches = () => {
       for (const [matchId, matchResult] of Object.entries(data.incomingMatches)) {
         processedIncomingMatches[matchId] = {
           match: SeasonMatch.fromJSON(matchResult.match),
-          bets: matchResult.bets ? { 'Player1': matchResult.bets['Player1'] } : null,
-          scores: matchResult.scores ? { 'Player1': matchResult.scores['Player1'] } : null
+          bets: matchResult.bets,
+          scores: matchResult.scores
         };
       }
       setIncomingMatches(processedIncomingMatches);
@@ -36,8 +36,8 @@ export const useMatches = () => {
       for (const [matchId, matchResult] of Object.entries(data.pastMatches)) {
         processedPastMatches[matchId] = {
           match: SeasonMatch.fromJSON(matchResult.match),
-          bets: matchResult.bets ? { 'Player1': matchResult.bets['Player1'] } : null,
-          scores: matchResult.scores ? { 'Player1': matchResult.scores['Player1'] } : null
+          bets: matchResult.bets,
+          scores: matchResult.scores
         };
       }
       setPastMatches(processedPastMatches);

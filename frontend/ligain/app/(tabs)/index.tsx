@@ -130,7 +130,11 @@ export default function TabOneScreen() {
           key={matchResult.match.id()} 
           style={[
             styles.matchCard,
-            matchResult.match.isFinished() && styles.finishedMatchCard
+            matchResult.match.isFinished() && (
+              matchResult.scores && matchResult.scores['Player1'] > 0 
+                ? styles.successfulBetMatchCard 
+                : styles.finishedMatchCard
+            )
           ]}
         >
           <View style={styles.bettingContainer}>
@@ -201,6 +205,23 @@ export default function TabOneScreen() {
                   ) : (
                     <Text style={styles.betResultText}>No bet placed yet</Text>
                   )}
+                  {matchResult.scores && (
+                    <View style={styles.scoresContainer}>
+                      <Text style={styles.scoresTitle}>All players' points:</Text>
+                      {Object.entries(matchResult.scores).map(([player, score]) => (
+                        <View key={player} style={styles.playerScoreRow}>
+                          <Text style={styles.scoreText}>
+                            {player}: {score} points
+                          </Text>
+                          {matchResult.bets?.[player] && (
+                            <Text style={styles.betResultText}>
+                              ({matchResult.bets[player].predictedHomeGoals} - {matchResult.bets[player].predictedAwayGoals})
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
             </>
@@ -232,6 +253,10 @@ const styles = StyleSheet.create({
   finishedMatchCard: {
     backgroundColor: '#9e9e9e',
     opacity: 0.7,
+  },
+  successfulBetMatchCard: {
+    backgroundColor: '#2e7d32',
+    opacity: 0.9,
   },
   bettingContainer: {
     flexDirection: 'row',
@@ -300,5 +325,28 @@ const styles = StyleSheet.create({
   betResultText: {
     fontSize: 14,
     color: '#666',
+  },
+  scoresContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+  },
+  scoresTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  scoreText: {
+    fontSize: 14,
+    color: '#666',
+    marginVertical: 2,
+  },
+  playerScoreRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 2,
   },
 });
