@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { useMatches } from '../../hooks/useMatches';
 import { useBetSubmission } from '../../hooks/useBetSubmission';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,13 +13,20 @@ interface TempScores {
 }
 
 export default function TabOneScreen() {
-  const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError } = useMatches();
+  const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches();
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
+  const [refreshing, setRefreshing] = useState(false);
   const { submitBet, error: submitError } = useBetSubmission();
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
   // Initialize tempScores with existing bets
   useEffect(() => {
@@ -80,7 +87,7 @@ export default function TabOneScreen() {
     }
   };
 
-  if (matchesLoading) {
+  if (matchesLoading && !refreshing) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#0000ff" />
@@ -97,7 +104,19 @@ export default function TabOneScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#ffffff']}
+          tintColor="#ffffff"
+          progressBackgroundColor="#25292e"
+          progressViewOffset={20}
+        />
+      }
+    >
       <Text style={styles.title}>Matches</Text>
       {matches
         .sort((a: MatchResult, b: MatchResult) => {
@@ -131,6 +150,7 @@ export default function TabOneScreen() {
                 onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
+            <Text style={styles.vsText}>vs</Text>
             <View style={styles.teamContainer}>
               <TextInput
                 style={styles.betInput}
@@ -187,26 +207,26 @@ export default function TabOneScreen() {
           )}
         </View>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#25292e',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
+    margin: 16,
     color: '#fff',
   },
   matchCard: {
     backgroundColor: '#f5f5f5',
     padding: 16,
     borderRadius: 8,
+    marginHorizontal: 16,
     marginBottom: 12,
   },
   finishedMatchCard: {
@@ -233,6 +253,11 @@ const styles = StyleSheet.create({
   },
   awayTeamName: {
     textAlign: 'right',
+  },
+  vsText: {
+    fontSize: 14,
+    color: '#666',
+    marginHorizontal: 8,
   },
   betInput: {
     borderWidth: 1,

@@ -14,7 +14,8 @@ import (
 )
 
 var date1, _ = time.Parse(time.RFC3339, "2024-03-20T15:00:00Z")
-var date2, _ = time.Parse(time.RFC3339, "2024-03-21T15:00:00Z")
+var date2, _ = time.Parse(time.RFC3339, "2024-03-20T17:00:00Z")
+var date3, _ = time.Parse(time.RFC3339, "2024-03-21T15:00:00Z")
 
 var match1 = models.NewFinishedSeasonMatch(
 	"Bastia",
@@ -30,12 +31,26 @@ var match1 = models.NewFinishedSeasonMatch(
 	3.0,
 )
 
-var match2 = models.NewSeasonMatchWithKnownOdds(
+var match2 = models.NewFinishedSeasonMatch(
+	"Olympique de Marseille",
+	"Le Raincy",
+	0,
+	5,
+	"2024",
+	"Ligue 1",
+	date2,
+	1,
+	1.01,
+	14.0,
+	32.0,
+)
+
+var match3 = models.NewSeasonMatchWithKnownOdds(
 	"Arsenal",
 	"Chelsea",
 	"2024",
 	"Premier League",
-	date2,
+	date3,
 	1,
 	1.8,
 	2.2,
@@ -52,11 +67,19 @@ var bets = map[string]map[models.Player]*models.Bet{
 		players[0]: models.NewBet(match1, 0, 2),
 		players[1]: models.NewBet(match1, 0, 3),
 	},
+	match2.Id(): {
+		players[0]: models.NewBet(match2, 0, 3),
+		players[1]: models.NewBet(match2, 5, 1),
+	},
 }
 
 var scores = map[string]map[models.Player]int{
 	match1.Id(): {
 		players[0]: 0,
+		players[1]: 0,
+	},
+	match2.Id(): {
+		players[0]: 400,
 		players[1]: 0,
 	},
 }
@@ -76,7 +99,7 @@ func main() {
 
 	gameRepo := repositories.NewInMemoryGameRepository()
 	scorer := rules.ScorerOriginal{}
-	game := rules.NewStartedGame("2023/2024", "Premier League", players, []models.Match{match2}, []models.Match{match1}, &scorer, bets, scores)
+	game := rules.NewStartedGame("2023/2024", "Premier League", players, []models.Match{match3}, []models.Match{match1, match2}, &scorer, bets, scores)
 	gameId, game, err := gameRepo.SaveGame(game)
 	if err != nil {
 		log.Fatal("Failed to save game:", err)
