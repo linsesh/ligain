@@ -1,0 +1,12 @@
+FROM golang:1.21-alpine
+
+WORKDIR /app
+
+# Install golang-migrate
+RUN apk add --no-cache curl && \
+    curl -L https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz && \
+    mv migrate /usr/local/bin/migrate
+
+COPY migrations /app/migrations
+
+CMD ["sh", "-c", "migrate -path /app/migrations -database \"${DATABASE_URL}\" up"] 

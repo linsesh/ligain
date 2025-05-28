@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ligain
+      POSTGRES_PASSWORD: ligain
+      POSTGRES_DB: ligain
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ligain"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ligain:ligain@postgres:5432/ligain?sslmode=disable
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      cache_from:
+        - golang:1.24-alpine
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://ligain:ligain@postgres:5432/ligain?sslmode=disable
+
+volumes:
+  postgres_data: 
