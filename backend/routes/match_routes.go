@@ -10,7 +10,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var gameRepo = repositories.NewInMemoryGameRepository()
+// MatchHandler handles all match-related routes
+type MatchHandler struct {
+	gameRepo repositories.GameRepository
+}
+
+// NewMatchHandler creates a new MatchHandler instance
+func NewMatchHandler(gameRepo repositories.GameRepository) *MatchHandler {
+	return &MatchHandler{
+		gameRepo: gameRepo,
+	}
+}
 
 // SimplifiedBet represents a bet with only the essential information needed for the API
 type SimplifiedBet struct {
@@ -19,7 +29,7 @@ type SimplifiedBet struct {
 }
 
 // convertMatchResultToJSON converts a MatchResult to a JSON-friendly structure
-func convertMatchResultToJSON(matchResult *models.MatchResult) map[string]any {
+func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult) map[string]any {
 	result := map[string]any{
 		"match": matchResult.Match,
 	}
@@ -51,25 +61,26 @@ func convertMatchResultToJSON(matchResult *models.MatchResult) map[string]any {
 	return result
 }
 
-func SetupMatchRoutes(router *gin.Engine) {
-	router.GET("/api/matches", getMatches)
-	router.POST("/api/bet", saveBet)
+// SetupRoutes registers all match-related routes
+func (h *MatchHandler) SetupRoutes(router *gin.Engine) {
+	router.GET("/api/matches", h.getMatches)
+	router.POST("/api/bet", h.saveBet)
 }
 
-func getMatches(c *gin.Context) {
-	game, _ := gameRepo.GetGame("1")
+func (h *MatchHandler) getMatches(c *gin.Context) {
+	game, _ := h.gameRepo.GetGame("1")
 	incomingMatches := game.GetIncomingMatches()
 	pastMatches := game.GetPastResults()
 
 	// Convert MatchResults to JSON-friendly format
 	jsonIncomingMatches := make(map[string]any)
 	for id, matchResult := range incomingMatches {
-		jsonIncomingMatches[id] = convertMatchResultToJSON(matchResult)
+		jsonIncomingMatches[id] = h.convertMatchResultToJSON(matchResult)
 	}
 
 	jsonPastMatches := make(map[string]any)
 	for id, matchResult := range pastMatches {
-		jsonPastMatches[id] = convertMatchResultToJSON(matchResult)
+		jsonPastMatches[id] = h.convertMatchResultToJSON(matchResult)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -84,7 +95,7 @@ type SaveBetRequest struct {
 	PredictedAwayGoals int    `json:"predictedAwayGoals" binding:"required"`
 }
 
-func saveBet(c *gin.Context) {
+func (h *MatchHandler) saveBet(c *gin.Context) {
 	var request SaveBetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		log.WithFields(log.Fields{
@@ -99,7 +110,7 @@ func saveBet(c *gin.Context) {
 		return
 	}
 
-	game, _ := gameRepo.GetGame("1")
+	game, _ := h.gameRepo.GetGame("1")
 	incomingMatches := game.GetIncomingMatches()
 	match, exists := incomingMatches[request.MatchID]
 	if !exists {

@@ -146,7 +146,8 @@ func main() {
 	})
 
 	// Setup routes
-	routes.SetupMatchRoutes(router)
+	matchHandler := routes.NewMatchHandler(gameRepo)
+	matchHandler.SetupRoutes(router)
 
 	// Start server
 	if err := router.Run(":8080"); err != nil {
