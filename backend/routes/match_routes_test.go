@@ -24,8 +24,12 @@ func (m *MockGameRepository) GetGame(gameId string) (models.Game, error) {
 	return m.game, nil
 }
 
-func (m *MockGameRepository) SaveGame(game models.Game) (string, models.Game, error) {
-	return "1", game, nil
+func (m *MockGameRepository) CreateGame(game models.Game) (string, error) {
+	return "1", nil
+}
+
+func (m *MockGameRepository) SaveWithId(gameId string, game models.Game) error {
+	return nil
 }
 
 // MockGame implements models.Game for testing

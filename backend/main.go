@@ -117,7 +117,7 @@ func main() {
 	gameRepo := repositories.NewInMemoryGameRepository()
 	scorer := rules.ScorerOriginal{}
 	game := rules.NewStartedGame("2023/2024", "Premier League", players, []models.Match{match4}, []models.Match{match1, match2, match3}, &scorer, bets, scores)
-	gameId, game, err := gameRepo.SaveGame(game)
+	gameId, err := gameRepo.CreateGame(game)
 	if err != nil {
 		log.Fatal("Failed to save game:", err)
 	}

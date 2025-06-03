@@ -5,6 +5,8 @@ import (
 	"liguain/backend/models"
 )
 
+const betCacheSize = 5000 // Maximum number of bets to keep in cache
+
 type BetRepository interface {
 	// GetBets returns all bets for a given player
 	GetBets(gameId string, player models.Player) ([]*models.Bet, error)
@@ -14,67 +16,73 @@ type BetRepository interface {
 	GetBetsForMatch(match models.Match, gameId string) ([]*models.Bet, []models.Player, error)
 }
 
-// InMemoryBetRepository is a simple in-memory implementation of BetRepository
-type InMemoryBetRepository struct {
-	// bets maps gameId -> player -> matchId -> bet
-	bets map[string]map[models.Player]map[string]*models.Bet
+type BetEntry struct {
+	GameId  string
+	Player  models.Player
+	MatchId string
+	Bet     *models.Bet
+	BetId   string
 }
 
-// NewInMemoryBetRepository creates a new instance of InMemoryBetRepository
+type InMemoryBetRepository struct {
+	cache *Cache[string, BetEntry]
+}
+
 func NewInMemoryBetRepository() *InMemoryBetRepository {
 	return &InMemoryBetRepository{
-		bets: make(map[string]map[models.Player]map[string]*models.Bet),
+		cache: NewCache[string, BetEntry](betCacheSize),
 	}
 }
 
-// GetBets returns all bets for a given player in a game
 func (r *InMemoryBetRepository) GetBets(gameId string, player models.Player) ([]*models.Bet, error) {
-	if gameBets, ok := r.bets[gameId]; ok {
-		if playerBets, ok := gameBets[player]; ok {
-			bets := make([]*models.Bet, 0, len(playerBets))
-			for _, bet := range playerBets {
-				bets = append(bets, bet)
-			}
-			return bets, nil
+	var bets []*models.Bet
+	for _, entry := range r.cache.GetAll() {
+		if entry.Value.GameId == gameId && entry.Value.Player == player {
+			bets = append(bets, entry.Value.Bet)
 		}
 	}
-	return []*models.Bet{}, nil
+	return bets, nil
 }
 
-// SaveBet saves or updates a bet and returns the bet id
 func (r *InMemoryBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, error) {
 	matchId := bet.Match.Id()
-
-	// Initialize maps if they don't exist
-	if _, ok := r.bets[gameId]; !ok {
-		r.bets[gameId] = make(map[models.Player]map[string]*models.Bet)
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.Name, matchId)
+	entry := BetEntry{
+		GameId:  gameId,
+		Player:  player,
+		MatchId: matchId,
+		Bet:     bet,
+		BetId:   betKey,
 	}
-	if _, ok := r.bets[gameId][player]; !ok {
-		r.bets[gameId][player] = make(map[string]*models.Bet)
-	}
-
-	// Save or update the bet
-	r.bets[gameId][player][matchId] = bet
-
-	// Return a unique identifier for the bet
-	betId := fmt.Sprintf("%s-%s-%s", gameId, player.Name, matchId)
-	return betId, nil
+	r.cache.Set(betKey, entry)
+	return betKey, nil
 }
 
-// GetBetsForMatch returns all bets for a specific match
 func (r *InMemoryBetRepository) GetBetsForMatch(match models.Match, gameId string) ([]*models.Bet, []models.Player, error) {
 	matchId := match.Id()
 	var bets []*models.Bet
 	var players []models.Player
 
-	if gameBets, ok := r.bets[gameId]; ok {
-		for player, playerBets := range gameBets {
-			if bet, ok := playerBets[matchId]; ok {
-				bets = append(bets, bet)
-				players = append(players, player)
-			}
+	for _, entry := range r.cache.GetAll() {
+		if entry.Value.GameId == gameId && entry.Value.MatchId == matchId {
+			bets = append(bets, entry.Value.Bet)
+			players = append(players, entry.Value.Player)
 		}
 	}
 
 	return bets, players, nil
+}
+
+func (r *InMemoryBetRepository) SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error {
+	matchId := bet.Match.Id()
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.Name, matchId)
+	entry := BetEntry{
+		GameId:  gameId,
+		Player:  player,
+		MatchId: matchId,
+		Bet:     bet,
+		BetId:   betId,
+	}
+	r.cache.Set(betKey, entry)
+	return nil
 }

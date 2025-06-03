@@ -16,12 +16,16 @@ var matchTime = time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 // Mock implementations
 type GameRepositoryMock struct{}
 
-func (r *GameRepositoryMock) SaveGame(game models.Game) (string, models.Game, error) {
-	return "test-game-id", game, nil
+func (r *GameRepositoryMock) CreateGame(game models.Game) (string, error) {
+	return "test-game-id", nil
 }
 
 func (r *GameRepositoryMock) GetGame(gameId string) (models.Game, error) {
 	return nil, nil // Not used in tests
+}
+
+func (r *GameRepositoryMock) SaveWithId(gameId string, game models.Game) error {
+	return nil
 }
 
 type MatchWatcherServiceMock struct {

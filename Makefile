@@ -1,4 +1,4 @@
-.PHONY: test test-integration test-all build clean format mobile test-frontend
+.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down
 
 # Default target
 all: test test-frontend build
@@ -44,3 +44,13 @@ format:
 # Run iOS app
 mobile:
 	cd frontend/ligain && npx expo run:ios --device 
+
+# Docker commands
+docker-up:
+	docker compose up --build
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f 
