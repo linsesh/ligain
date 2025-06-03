@@ -14,6 +14,8 @@ type BetRepository interface {
 	SaveBet(gameId string, bet *models.Bet, player models.Player) (string, error)
 	// GetBetsForMatch returns all bets and their associated players for a specific match
 	GetBetsForMatch(match models.Match, gameId string) ([]*models.Bet, []models.Player, error)
+	// SaveWithId saves a bet with a specific ID
+	SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error
 }
 
 type BetEntry struct {

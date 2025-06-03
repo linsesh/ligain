@@ -12,13 +12,10 @@ type PostgresMatchRepository struct {
 	cache repositories.MatchRepository
 }
 
-func NewPostgresMatchRepository() (repositories.MatchRepository, error) {
-	baseRepo, err := NewPostgresRepository()
-	if err != nil {
-		return nil, err
-	}
+func NewPostgresMatchRepository(db *sql.DB) repositories.MatchRepository {
+	baseRepo := NewPostgresRepository(db)
 	cache := repositories.NewInMemoryMatchRepository()
-	return &PostgresMatchRepository{PostgresRepository: baseRepo, cache: cache}, nil
+	return &PostgresMatchRepository{PostgresRepository: baseRepo, cache: cache}
 }
 
 func (r *PostgresMatchRepository) SaveMatch(match models.Match) (string, error) {

@@ -12,13 +12,10 @@ type PostgresPlayerRepository struct {
 	cache repositories.PlayerRepository
 }
 
-func NewPostgresPlayerRepository() (repositories.PlayerRepository, error) {
-	baseRepo, err := NewPostgresRepository()
-	if err != nil {
-		return nil, err
-	}
+func NewPostgresPlayerRepository(db *sql.DB) repositories.PlayerRepository {
+	baseRepo := NewPostgresRepository(db)
 	cache := repositories.NewInMemoryPlayerRepository()
-	return &PostgresPlayerRepository{PostgresRepository: baseRepo, cache: cache}, nil
+	return &PostgresPlayerRepository{PostgresRepository: baseRepo, cache: cache}
 }
 
 func (r *PostgresPlayerRepository) SavePlayer(player models.Player) (string, error) {

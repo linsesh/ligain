@@ -10,35 +10,20 @@ import (
 
 type PostgresGameRepository struct {
 	*PostgresRepository
-	cache      repositories.GameRepository
-	matchRepo  repositories.MatchRepository
-	betRepo    repositories.BetRepository
-	playerRepo repositories.PlayerRepository
-	scoreRepo  repositories.ScoreRepository
+	cache     repositories.GameRepository
+	matchRepo repositories.MatchRepository
+	scoreRepo repositories.ScoreRepository
 }
 
-func NewPostgresGameRepository() (repositories.GameRepository, error) {
-	baseRepo, err := NewPostgresRepository()
-	if err != nil {
-		return nil, err
-	}
+func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) {
+	baseRepo := NewPostgresRepository(db)
 	cache := repositories.NewInMemoryGameRepository()
-	matchRepo, err := NewPostgresMatchRepository()
-	if err != nil {
-		return nil, fmt.Errorf("error creating match repository: %v", err)
-	}
-	betRepo := NewPostgresBetRepository(baseRepo.db)
-	playerRepo, err := NewPostgresPlayerRepository()
-	if err != nil {
-		return nil, fmt.Errorf("error creating player repository: %v", err)
-	}
-	scoreRepo := NewPostgresScoreRepository(baseRepo.db)
+	matchRepo := NewPostgresMatchRepository(db)
+	scoreRepo := NewPostgresScoreRepository(db)
 	return &PostgresGameRepository{
 		PostgresRepository: baseRepo,
 		cache:              cache,
 		matchRepo:          matchRepo,
-		betRepo:            betRepo,
-		playerRepo:         playerRepo,
 		scoreRepo:          scoreRepo,
 	}, nil
 }

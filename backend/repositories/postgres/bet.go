@@ -9,19 +9,14 @@ import (
 
 type PostgresBetRepository struct {
 	*PostgresRepository
-	cache     *repositories.InMemoryBetRepository
+	cache     repositories.BetRepository
 	matchRepo repositories.MatchRepository
 	// betIds maps bet key (gameId:player:matchId) to bet ID
 	betIds map[string]string
 }
 
-func NewPostgresBetRepository(db *sql.DB) repositories.BetRepository {
-	matchRepo, err := NewPostgresMatchRepository()
-	if err != nil {
-		// Since this is a constructor, we can't return an error
-		// The application will fail fast if the match repository can't be created
-		panic(fmt.Sprintf("failed to create match repository: %v", err))
-	}
+func NewPostgresBetRepository(db *sql.DB, cache repositories.BetRepository) repositories.BetRepository {
+	matchRepo := NewPostgresMatchRepository(db)
 	return &PostgresBetRepository{
 		PostgresRepository: &PostgresRepository{db: db},
 		cache:              repositories.NewInMemoryBetRepository(),

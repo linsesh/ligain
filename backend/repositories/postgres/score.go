@@ -9,15 +9,13 @@ import (
 
 type PostgresScoreRepository struct {
 	*PostgresRepository
-	cache   repositories.ScoreRepository
-	betRepo repositories.BetRepository
+	cache repositories.ScoreRepository
 }
 
 func NewPostgresScoreRepository(db *sql.DB) repositories.ScoreRepository {
 	return &PostgresScoreRepository{
 		PostgresRepository: &PostgresRepository{db: db},
 		cache:              repositories.NewInMemoryScoreRepository(),
-		betRepo:            NewPostgresBetRepository(db),
 	}
 }
 
