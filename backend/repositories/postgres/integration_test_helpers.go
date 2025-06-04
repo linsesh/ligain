@@ -13,6 +13,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -68,8 +69,8 @@ func setupTestDB(t *testing.T) *testDB {
 
 	// Set connection timeout
 	db.SetConnMaxLifetime(30 * time.Second)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
 
 	// Wait for database to be ready with timeout
 	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
@@ -118,9 +119,23 @@ func (db *testDB) cleanup(t *testing.T) {
 	}
 	log.Println("Tables dropped successfully")
 
-	// Initialize golang-migrate
+	// Get database URL for migration
+	port, err := db.container.MappedPort(context.Background(), "5432")
+	if err != nil {
+		t.Fatalf("Failed to get container port for migration: %v", err)
+	}
+	dbURL := fmt.Sprintf("postgres://postgres:postgres@localhost:%s/ligain_test?sslmode=disable", port.Port())
+
+	// Create separate connection for migration
+	migrationDB, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		t.Fatalf("Failed to create migration database connection: %v", err)
+	}
+	defer migrationDB.Close()
+
+	// Initialize golang-migrate with separate connection
 	log.Println("Initializing golang-migrate...")
-	driver, err := postgres.WithInstance(db.db, &postgres.Config{})
+	driver, err := postgres.WithInstance(migrationDB, &postgres.Config{})
 	if err != nil {
 		t.Fatalf("Failed to create postgres driver: %v", err)
 	}
@@ -133,6 +148,15 @@ func (db *testDB) cleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create migrate instance: %v", err)
 	}
+	defer func() {
+		sourceErr, dbErr := m.Close()
+		if sourceErr != nil {
+			t.Errorf("Failed to close migration source: %v", sourceErr)
+		}
+		if dbErr != nil {
+			t.Errorf("Failed to close migration database: %v", dbErr)
+		}
+	}()
 
 	// Run migrations with timeout
 	log.Println("Running migrations...")
@@ -155,27 +179,23 @@ func (db *testDB) cleanup(t *testing.T) {
 	}
 }
 
-func (db *testDB) setupTestFixtures(t *testing.T) {
-	// Add any common test data here
-}
-
-func (db *testDB) withTransaction(t *testing.T, fn func(tx *sql.Tx)) {
+func (db *testDB) withTransaction(t *testing.T, testFunc func(*sql.Tx)) {
 	tx, err := db.db.Begin()
-	if err != nil {
-		t.Fatalf("Failed to begin transaction: %v", err)
-	}
+	require.NoError(t, err)
 
 	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback()
-			panic(p)
+		if r := recover(); r != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != sql.ErrTxDone {
+				t.Logf("Failed to rollback transaction after panic: %v", rollbackErr)
+			}
+			panic(r)
 		}
 	}()
 
-	fn(tx)
+	testFunc(tx)
 
-	if err := tx.Rollback(); err != nil {
-		t.Fatalf("Failed to rollback transaction: %v", err)
+	if rollbackErr := tx.Rollback(); rollbackErr != nil && rollbackErr != sql.ErrTxDone {
+		t.Errorf("Failed to rollback transaction: %v", rollbackErr)
 	}
 }
 
@@ -187,4 +207,21 @@ func (db *testDB) Close() error {
 		return fmt.Errorf("failed to terminate container: %v", err)
 	}
 	return nil
+}
+
+// runTestWithTimeout runs a test function with a timeout.
+// This is a safety net for catching unexpected infinite loops or deadlocks.
+func runTestWithTimeout(t *testing.T, testFunc func(t *testing.T), timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		testFunc(t)
+	}()
+
+	select {
+	case <-time.After(timeout):
+		t.Fatal("Test timed out. This likely indicates a deadlock or infinite loop.")
+	case <-done:
+		// Test completed successfully
+	}
 }

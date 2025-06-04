@@ -14,61 +14,61 @@ func TestMatchRepository_Integration(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	testDB := setupTestDB(t)
-	defer testDB.Close()
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
 
-	matchRepo := NewPostgresMatchRepository(testDB.db)
+		matchRepo := NewPostgresMatchRepository(testDB.db)
 
-	testDB.setupTestFixtures(t)
+		t.Run("Save and Get Match", func(t *testing.T) {
+			// Create test data using raw SQL with proper UUID
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status)
+				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+			`)
+			require.NoError(t, err)
 
-	t.Run("Save and Get Match", func(t *testing.T) {
-		// Create test data using raw SQL
-		_, err := testDB.db.Exec(`
-			INSERT INTO game (id, name, description, created_at, updated_at)
-			VALUES ('test-game', 'Test Game', 'Test Description', $1, $1);
-		`, testTime)
-		require.NoError(t, err)
+			// Create match
+			match := models.NewSeasonMatch("Team A", "Team B", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
+			matchId, err := matchRepo.SaveMatch(match)
+			require.NoError(t, err)
+			require.NotEmpty(t, matchId)
 
-		// Create match
-		match := models.NewSeasonMatch("Team A", "Team B", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
-		matchId, err := matchRepo.SaveMatch(match)
-		require.NoError(t, err)
-		require.NotEmpty(t, matchId)
+			// Get match
+			retrievedMatch, err := matchRepo.GetMatch(matchId)
+			require.NoError(t, err)
+			require.Equal(t, match.GetHomeTeam(), retrievedMatch.GetHomeTeam())
+			require.Equal(t, match.GetAwayTeam(), retrievedMatch.GetAwayTeam())
+			require.Equal(t, match.GetDate().Unix(), retrievedMatch.GetDate().Unix())
+		})
 
-		// Get match
-		retrievedMatch, err := matchRepo.GetMatch(matchId)
-		require.NoError(t, err)
-		require.Equal(t, match.GetHomeTeam(), retrievedMatch.GetHomeTeam())
-		require.Equal(t, match.GetAwayTeam(), retrievedMatch.GetAwayTeam())
-		require.Equal(t, match.GetDate().Unix(), retrievedMatch.GetDate().Unix())
-	})
+		t.Run("Get All Matches", func(t *testing.T) {
+			// Create test data using raw SQL with proper UUID
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status)
+				VALUES ('223e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+			`)
+			require.NoError(t, err)
 
-	t.Run("Get All Matches", func(t *testing.T) {
-		// Create test data using raw SQL
-		_, err := testDB.db.Exec(`
-			INSERT INTO game (id, name, description, created_at, updated_at)
-			VALUES ('test-game-2', 'Test Game 2', 'Test Description', $1, $1);
-		`, testTime)
-		require.NoError(t, err)
+			// Create multiple matches
+			match1 := models.NewSeasonMatch("Team A", "Team B", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
+			match2 := models.NewSeasonMatch("Team C", "Team D", "2024", "Premier League", testTime.Add(48*time.Hour), 2)
 
-		// Create multiple matches
-		match1 := models.NewSeasonMatch("Team A", "Team B", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
-		match2 := models.NewSeasonMatch("Team C", "Team D", "2024", "Premier League", testTime.Add(48*time.Hour), 2)
+			_, err = matchRepo.SaveMatch(match1)
+			require.NoError(t, err)
+			_, err = matchRepo.SaveMatch(match2)
+			require.NoError(t, err)
 
-		_, err = matchRepo.SaveMatch(match1)
-		require.NoError(t, err)
-		_, err = matchRepo.SaveMatch(match2)
-		require.NoError(t, err)
+			// Get all matches
+			matches, err := matchRepo.GetMatches()
+			require.NoError(t, err)
+			require.Equal(t, 2, len(matches))
+		})
 
-		// Get all matches
-		matches, err := matchRepo.GetMatchesByGame("test-game-2")
-		require.NoError(t, err)
-		require.Equal(t, 2, len(matches))
-	})
-
-	t.Run("Get Match for Non-existent Game", func(t *testing.T) {
-		// Try to get match for non-existent game
-		_, err := matchRepo.GetMatch("non-existent-match")
-		require.Error(t, err)
-	})
+		t.Run("Get Match for Non-existent Game", func(t *testing.T) {
+			// Try to get match for non-existent match with proper UUID format
+			_, err := matchRepo.GetMatch("323e4567-e89b-12d3-a456-426614174999")
+			require.Error(t, err)
+		})
+	}, 10*time.Second)
 }

@@ -3,129 +3,175 @@ package postgres
 import (
 	"database/sql"
 	"testing"
+	"time"
 
 	"liguain/backend/models"
 
 	"github.com/stretchr/testify/require"
 )
 
+var betTestTime = time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC)
+
+// matchWithUUID wraps a match to provide a custom UUID
+type matchWithUUID struct {
+	*models.SeasonMatch
+	id string
+}
+
+func (m *matchWithUUID) Id() string {
+	return m.id
+}
+
 func TestBetRepository_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	testDB := setupTestDB(t)
-	defer testDB.Close()
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
 
-	betRepo := NewPostgresBetRepository(testDB.db, nil)
+		t.Run("Save and Get Bet", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Create repository with transaction dependency injection
+				betRepo := NewPostgresBetRepository(tx, nil)
 
-	testDB.setupTestFixtures(t)
+				// Setup test data using raw SQL with proper UUIDs
+				_, err := tx.Exec(`
+					INSERT INTO game (id, season_year, competition_name, status)
+					VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				`)
+				require.NoError(t, err)
 
-	t.Run("Save and Get Bet", func(t *testing.T) {
-		testDB.withTransaction(t, func(tx *sql.Tx) {
-			// Setup test data using raw SQL
-			_, err := tx.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('test-game', '2024', 'Premier League', 'started');
+				_, err = tx.Exec(`
+					INSERT INTO player (id, name)
+					VALUES ('123e4567-e89b-12d3-a456-426614174001', 'TestPlayer');
+				`)
+				require.NoError(t, err)
 
-				INSERT INTO player (id, name)
-				VALUES ('player1', 'TestPlayer');
+				_, err = tx.Exec(`
+					INSERT INTO match (id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
+					VALUES ('123e4567-e89b-12d3-a456-426614174002', 'Arsenal', 'Chelsea', $1, 'finished', '2024', 'Premier League', 1);
+				`, betTestTime)
+				require.NoError(t, err)
 
-				INSERT INTO match (id, game_id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
-				VALUES ('match1', 'test-game', 'Arsenal', 'Chelsea', $1, 'finished', '2024', 'Premier League', 1);
-			`, testTime)
-			require.NoError(t, err)
+				// Create bet with actual match UUID
+				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
+				bet := models.NewBet(match, 2, 1)
+				player := models.Player{Name: "TestPlayer"}
 
-			// Create bet
-			match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", testTime, 1)
-			bet := models.NewBet(match, 2, 1)
-			player := models.Player{Name: "TestPlayer"}
-			betId, err := betRepo.SaveBet("test-game", bet, player)
-			require.NoError(t, err)
-			require.NotEmpty(t, betId)
+				// Override the match ID to use the UUID from database
+				bet.Match = &matchWithUUID{
+					SeasonMatch: match,
+					id:          "123e4567-e89b-12d3-a456-426614174002",
+				}
 
-			// Get bet
-			bets, err := betRepo.GetBets("test-game", player)
-			require.NoError(t, err)
-			require.Equal(t, 1, len(bets))
-			require.Equal(t, bet.PredictedHomeGoals, bets[0].PredictedHomeGoals)
-			require.Equal(t, bet.PredictedAwayGoals, bets[0].PredictedAwayGoals)
+				// Use repository SaveBet method instead of raw SQL
+				_, err = betRepo.SaveBet("123e4567-e89b-12d3-a456-426614174000", bet, player)
+				require.NoError(t, err)
+
+				// Get bet using repository
+				bets, err := betRepo.GetBets("123e4567-e89b-12d3-a456-426614174000", player)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(bets))
+				require.Equal(t, bet.PredictedHomeGoals, bets[0].PredictedHomeGoals)
+				require.Equal(t, bet.PredictedAwayGoals, bets[0].PredictedAwayGoals)
+			})
 		})
-	})
 
-	t.Run("Get Bets for Match", func(t *testing.T) {
-		testDB.withTransaction(t, func(tx *sql.Tx) {
-			// Setup test data using raw SQL
-			_, err := tx.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('test-game', '2024', 'Premier League', 'started');
+		t.Run("Get Bets for Match", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Create repository with transaction dependency injection
+				betRepo := NewPostgresBetRepository(tx, nil)
 
-				INSERT INTO player (id, name)
-				VALUES 
-					('player1', 'Player1'),
-					('player2', 'Player2');
+				// Setup test data using raw SQL with proper UUIDs
+				_, err := tx.Exec(`
+					INSERT INTO game (id, season_year, competition_name, status)
+					VALUES ('223e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				`)
+				require.NoError(t, err)
 
-				INSERT INTO match (id, game_id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
-				VALUES ('match1', 'test-game', 'Liverpool', 'Man City', $1, 'finished', '2024', 'Premier League', 1);
-			`, testTime)
-			require.NoError(t, err)
+				_, err = tx.Exec(`
+					INSERT INTO player (id, name)
+					VALUES 
+						('223e4567-e89b-12d3-a456-426614174001', 'Player1'),
+						('223e4567-e89b-12d3-a456-426614174002', 'Player2');
+				`)
+				require.NoError(t, err)
 
-			// Create bets
-			match := models.NewSeasonMatch("Liverpool", "Man City", "2024", "Premier League", testTime, 1)
-			bet1 := models.NewBet(match, 2, 1)
-			bet2 := models.NewBet(match, 1, 1)
-			player1 := models.Player{Name: "Player1"}
-			player2 := models.Player{Name: "Player2"}
-			_, err = betRepo.SaveBet("test-game", bet1, player1)
-			require.NoError(t, err)
-			_, err = betRepo.SaveBet("test-game", bet2, player2)
-			require.NoError(t, err)
+				_, err = tx.Exec(`
+					INSERT INTO match (id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
+					VALUES ('223e4567-e89b-12d3-a456-426614174003', 'Liverpool', 'Man City', $1, 'finished', '2024', 'Premier League', 1);
+				`, betTestTime)
+				require.NoError(t, err)
 
-			// Get bets for match
-			bets, players, err := betRepo.GetBetsForMatch(match, "test-game")
-			require.NoError(t, err)
-			require.Equal(t, 2, len(bets))
-			require.Equal(t, 2, len(players))
+				// Create bets with actual match UUIDs
+				match := models.NewSeasonMatch("Liverpool", "Man City", "2024", "Premier League", betTestTime, 1)
+				matchWithID := &matchWithUUID{
+					SeasonMatch: match,
+					id:          "223e4567-e89b-12d3-a456-426614174003",
+				}
+				bet1 := models.NewBet(matchWithID, 2, 1)
+				bet2 := models.NewBet(matchWithID, 1, 1)
+				player1 := models.Player{Name: "Player1"}
+				player2 := models.Player{Name: "Player2"}
+				_, err = betRepo.SaveBet("223e4567-e89b-12d3-a456-426614174000", bet1, player1)
+				require.NoError(t, err)
+				_, err = betRepo.SaveBet("223e4567-e89b-12d3-a456-426614174000", bet2, player2)
+				require.NoError(t, err)
+
+				// Get bets for match
+				bets, players, err := betRepo.GetBetsForMatch(matchWithID, "223e4567-e89b-12d3-a456-426614174000")
+				require.NoError(t, err)
+				require.Equal(t, 2, len(bets))
+				require.Equal(t, 2, len(players))
+			})
 		})
-	})
 
-	t.Run("Save Bet with Invalid Match", func(t *testing.T) {
-		testDB.withTransaction(t, func(tx *sql.Tx) {
-			// Setup test data using raw SQL
-			_, err := tx.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('test-game', '2024', 'Premier League', 'started');
+		t.Run("Save Bet with Invalid Match", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Create repository with transaction dependency injection
+				betRepo := NewPostgresBetRepository(tx, nil)
 
-				INSERT INTO player (id, name)
-				VALUES ('player1', 'TestPlayer');
-			`)
-			require.NoError(t, err)
+				// Setup test data using raw SQL with proper UUIDs
+				_, err := tx.Exec(`
+					INSERT INTO game (id, season_year, competition_name, status)
+					VALUES ('323e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
 
-			// Create invalid match (no ID)
-			match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", testTime, 1)
-			bet := models.NewBet(match, 2, 1)
-			player := models.Player{Name: "TestPlayer"}
+					INSERT INTO player (id, name)
+					VALUES ('323e4567-e89b-12d3-a456-426614174001', 'TestPlayer');
+				`)
+				require.NoError(t, err)
 
-			// Try to save bet
-			_, err = betRepo.SaveBet("test-game", bet, player)
-			require.Error(t, err)
+				// Create invalid match (no ID)
+				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
+				bet := models.NewBet(match, 2, 1)
+				player := models.Player{Name: "TestPlayer"}
+
+				// Try to save bet
+				_, err = betRepo.SaveBet("323e4567-e89b-12d3-a456-426614174000", bet, player)
+				require.Error(t, err)
+			})
 		})
-	})
 
-	t.Run("Get Bets for Non-existent Player", func(t *testing.T) {
-		testDB.withTransaction(t, func(tx *sql.Tx) {
-			// Setup test data using raw SQL
-			_, err := tx.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('test-game', '2024', 'Premier League', 'started');
-			`)
-			require.NoError(t, err)
+		t.Run("Get Bets for Non-existent Player", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Create repository with transaction dependency injection
+				betRepo := NewPostgresBetRepository(tx, nil)
 
-			// Try to get bets for non-existent player
-			nonExistentPlayer := models.Player{Name: "NonExistentPlayer"}
-			bets, err := betRepo.GetBets("test-game", nonExistentPlayer)
-			require.NoError(t, err)
-			require.Empty(t, bets)
+				// Setup test data using raw SQL with proper UUIDs
+				_, err := tx.Exec(`
+					INSERT INTO game (id, season_year, competition_name, status)
+					VALUES ('423e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				`)
+				require.NoError(t, err)
+
+				// Try to get bets for non-existent player
+				nonExistentPlayer := models.Player{Name: "NonExistentPlayer"}
+				bets, err := betRepo.GetBets("423e4567-e89b-12d3-a456-426614174000", nonExistentPlayer)
+				require.NoError(t, err)
+				require.Empty(t, bets)
+			})
 		})
-	})
+	}, 10*time.Second)
 }

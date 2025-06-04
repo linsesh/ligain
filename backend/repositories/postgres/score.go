@@ -8,23 +8,22 @@ import (
 )
 
 type PostgresScoreRepository struct {
-	*PostgresRepository
+	db    DBExecutor
 	cache repositories.ScoreRepository
 }
 
-func NewPostgresScoreRepository(db *sql.DB) repositories.ScoreRepository {
+func NewPostgresScoreRepository(db DBExecutor) repositories.ScoreRepository {
 	return &PostgresScoreRepository{
-		PostgresRepository: &PostgresRepository{db: db},
-		cache:              repositories.NewInMemoryScoreRepository(),
+		db:    db,
+		cache: repositories.NewInMemoryScoreRepository(),
 	}
 }
 
 func (r *PostgresScoreRepository) SaveScore(gameId string, betId string, points int) error {
 	query := `
 		WITH bet_match AS (
-			SELECT m.game_id
+			SELECT b.game_id
 			FROM bet b
-			JOIN match m ON b.match_id = m.id
 			WHERE b.id = $1
 		)
 		INSERT INTO score (bet_id, points)
@@ -50,9 +49,8 @@ func (r *PostgresScoreRepository) GetScore(gameId string, betId string) (int, er
 
 	query := `
 		WITH bet_match AS (
-			SELECT m.game_id
+			SELECT b.game_id
 			FROM bet b
-			JOIN match m ON b.match_id = m.id
 			WHERE b.id = $1
 		)
 		SELECT s.points
@@ -82,8 +80,7 @@ func (r *PostgresScoreRepository) GetScores(gameId string) (map[string]int, erro
 		WITH game_bets AS (
 			SELECT b.id as bet_id
 			FROM bet b
-			JOIN match m ON b.match_id = m.id
-			WHERE m.game_id = $1
+			WHERE b.game_id = $1
 		)
 		SELECT gb.bet_id, COALESCE(s.points, 0) as points
 		FROM game_bets gb
@@ -120,7 +117,7 @@ func (r *PostgresScoreRepository) GetScoresByMatchAndPlayer(gameId string) (map[
 		JOIN bet b ON s.bet_id = b.id
 		JOIN match m ON b.match_id = m.id
 		JOIN player p ON b.player_id = p.id
-		WHERE m.game_id = $1`
+		WHERE b.game_id = $1`
 
 	rows, err := r.db.Query(query, gameId)
 	if err != nil {

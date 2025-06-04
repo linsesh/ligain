@@ -11,8 +11,8 @@ type MatchRepository interface {
 	SaveMatch(match models.Match) (string, error)
 	// GetMatch returns a match by its id
 	GetMatch(matchId string) (models.Match, error)
-	// GetMatchesByGame returns all matches for a given game
-	GetMatchesByGame(gameId string) ([]models.Match, error)
+
+	GetMatches() (map[string]models.Match, error)
 }
 
 // InMemoryMatchRepository is a simple in-memory implementation of MatchRepository
@@ -43,13 +43,10 @@ func (r *InMemoryMatchRepository) GetMatch(matchId string) (models.Match, error)
 	return nil, nil
 }
 
-// GetMatchesByGame returns all matches for a given game
-func (r *InMemoryMatchRepository) GetMatchesByGame(gameId string) ([]models.Match, error) {
-	var matches []models.Match
+func (r *InMemoryMatchRepository) GetMatches() (map[string]models.Match, error) {
+	matches := make(map[string]models.Match)
 	for _, entry := range r.cache.GetAll() {
-		if entry.Value.GetCompetitionCode() == gameId {
-			matches = append(matches, entry.Value)
-		}
+		matches[entry.Key] = entry.Value
 	}
 	return matches, nil
 }

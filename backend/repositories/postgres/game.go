@@ -75,16 +75,29 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		return nil, fmt.Errorf("error getting scores: %v", err)
 	}
 
-	gameImpl := rules.NewStartedGame(
-		seasonYear,
-		competitionName,
-		players,
-		pastMatches,
-		incomingMatches,
-		&rules.ScorerOriginal{},
-		bets,
-		playerScores,
-	)
+	var gameImpl models.Game
+
+	// Use NewFreshGame if no matches or bets exist, otherwise use NewStartedGame
+	if len(incomingMatches) == 0 && len(pastMatches) == 0 && len(bets) == 0 {
+		gameImpl = rules.NewFreshGame(
+			seasonYear,
+			competitionName,
+			players,
+			[]models.Match{}, // empty incoming matches
+			&rules.ScorerOriginal{},
+		)
+	} else {
+		gameImpl = rules.NewStartedGame(
+			seasonYear,
+			competitionName,
+			players,
+			pastMatches,
+			incomingMatches,
+			&rules.ScorerOriginal{},
+			bets,
+			playerScores,
+		)
+	}
 
 	// Populate cache
 	if err := r.saveGameToCache(gameId, gameImpl); err != nil {
@@ -123,7 +136,7 @@ func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, 
 func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Match, []models.Match, map[string]map[models.Player]*models.Bet, []models.Player, error) {
 	query := `
 		WITH match_data AS (
-			SELECT 
+			SELECT DISTINCT
 				m.id as match_id,
 				m.home_team_id,
 				m.away_team_id,
@@ -139,11 +152,11 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 				b.predicted_away_goals,
 				p.name as player_name,
 				s.points as score_points
-			FROM match m
-			LEFT JOIN bet b ON m.id = b.match_id
+			FROM bet b
+			JOIN match m ON m.id = b.match_id
 			LEFT JOIN player p ON b.player_id = p.id
 			LEFT JOIN score s ON b.id = s.bet_id
-			WHERE m.game_id = $1
+			WHERE b.game_id = $1
 		)
 		SELECT * FROM match_data`
 

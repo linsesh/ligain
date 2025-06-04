@@ -88,8 +88,7 @@ func (r *PostgresPlayerRepository) GetPlayers(gameId string) ([]models.Player, e
 			SELECT DISTINCT p.id, p.name
 			FROM player p
 			JOIN bet b ON p.id = b.player_id
-			JOIN match m ON b.match_id = m.id
-			WHERE m.game_id = $1
+			WHERE b.game_id = $1
 		)
 		SELECT id, name
 		FROM game_players

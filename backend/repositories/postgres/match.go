@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"liguain/backend/models"
@@ -21,20 +22,21 @@ func NewPostgresMatchRepository(db *sql.DB) repositories.MatchRepository {
 func (r *PostgresMatchRepository) SaveMatch(match models.Match) (string, error) {
 	/* We know that the match is a SeasonMatch */
 	seasonMatch := match.(*models.SeasonMatch)
+
 	query := `
-		INSERT INTO match (game_id, home_team_id, away_team_id, home_team_score, away_team_score,
+		INSERT INTO match (home_team_id, away_team_id, home_team_score, away_team_score,
 						 match_date, match_status, season_code, competition_code, matchday)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (id) DO UPDATE SET
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (home_team_id, away_team_id, season_code, competition_code, matchday) DO UPDATE SET
 			home_team_score = EXCLUDED.home_team_score,
 			away_team_score = EXCLUDED.away_team_score,
 			match_status = EXCLUDED.match_status
 		RETURNING id`
 
 	var id string
-	err := r.db.QueryRow(
+	err := r.db.QueryRowContext(
+		context.Background(),
 		query,
-		match.Id(),
 		match.GetHomeTeam(),
 		match.GetAwayTeam(),
 		match.GetHomeGoals(),
@@ -98,7 +100,7 @@ func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error)
 		FROM match
 		WHERE id = $1`
 
-	rows, err := r.db.Query(query, matchId)
+	rows, err := r.db.QueryContext(context.Background(), query, matchId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting match: %v", err)
 	}
@@ -113,35 +115,29 @@ func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error)
 		return nil, err
 	}
 
-	// Populate cache
-	if _, err := r.cache.SaveMatch(match); err != nil {
-		fmt.Printf("Warning: failed to update cache: %v\n", err)
-	}
-
 	return match, nil
 }
 
-func (r *PostgresMatchRepository) GetMatchesByGame(gameId string) ([]models.Match, error) {
+func (r *PostgresMatchRepository) GetMatches() (map[string]models.Match, error) {
 	query := `
 		SELECT id, home_team_id, away_team_id, home_team_score, away_team_score,
 			   match_date, match_status, season_code, competition_code, matchday
 		FROM match
-		WHERE game_id = $1
 		ORDER BY match_date ASC`
 
-	rows, err := r.db.Query(query, gameId)
+	rows, err := r.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, fmt.Errorf("error getting matches: %v", err)
 	}
 	defer rows.Close()
 
-	var matches []models.Match
+	matches := make(map[string]models.Match)
 	for rows.Next() {
 		match, err := scanMatchRow(rows)
 		if err != nil {
 			return nil, err
 		}
-		matches = append(matches, match)
+		matches[match.Id()] = match
 	}
 
 	return matches, nil
