@@ -1,4 +1,4 @@
-.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down
+.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down db-start db-stop db-create db-drop db-init
 
 # Default target
 all: test test-frontend build
@@ -54,3 +54,63 @@ docker-down:
 
 docker-logs:
 	docker compose logs -f 
+
+# Database configuration
+DB_USER := postgres
+DB_PASSWORD := postgres
+DB_NAME := ligain_test
+DB_PORT := 5432
+DB_HOST := localhost
+
+# Docker configuration
+POSTGRES_CONTAINER := ligain-postgres
+
+# Start PostgreSQL in Docker
+db-start:
+	@echo "Starting PostgreSQL container..."
+	@docker run --name $(POSTGRES_CONTAINER) \
+		-e POSTGRES_USER=$(DB_USER) \
+		-e POSTGRES_PASSWORD=$(DB_PASSWORD) \
+		-e POSTGRES_DB=$(DB_NAME) \
+		-p $(DB_PORT):5432 \
+		-d postgres:16-alpine
+	@echo "Waiting for PostgreSQL to be ready..."
+	@sleep 3
+
+# Stop and remove PostgreSQL container
+db-stop:
+	@echo "Stopping PostgreSQL container..."
+	@docker stop $(POSTGRES_CONTAINER) || true
+	@docker rm $(POSTGRES_CONTAINER) || true
+
+# Create database
+db-create:
+	@echo "Creating database..."
+	@PGPASSWORD=$(DB_PASSWORD) createdb -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) $(DB_NAME) || true
+
+# Drop database
+db-drop:
+	@echo "Dropping database..."
+	@PGPASSWORD=$(DB_PASSWORD) dropdb -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER) $(DB_NAME) || true
+
+# Install golang-migrate
+install-migrate:
+	@echo "Installing golang-migrate..."
+	@if ! command -v migrate > /dev/null; then \
+		go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest; \
+	fi
+
+# Run migrations manually
+migrate-up:
+	@echo "Running migrations..."
+	@migrate -path backend/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable" up
+
+# Rollback migrations
+migrate-down:
+	@echo "Rolling back migrations..."
+	@migrate -path backend/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable" down
+
+# Initialize database with schema and test data
+db-init: install-migrate db-create
+	@echo "Initializing database..."
+	@go run scripts/init_db.go 
