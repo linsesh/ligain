@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS game (
 
 CREATE TABLE IF NOT EXISTS match (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    local_id TEXT NOT NULL,
     home_team_id TEXT NOT NULL,
     away_team_id TEXT NOT NULL,
     home_team_score INT,
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS match (
     matchday INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (home_team_id, away_team_id, season_code, competition_code, matchday)
+    UNIQUE (local_id)
 );
 
 CREATE TABLE IF NOT EXISTS player (

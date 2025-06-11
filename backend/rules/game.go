@@ -51,10 +51,7 @@ func NewStartedGame(seasonCode, competitionCode string, players []models.Player,
 	}
 	g.bets = bets
 	g.scores = scores
-	// Initialize playersPoints from scores
-	for matchId, matchScores := range scores {
-		g.playersPoints[matchId] = matchScores
-	}
+	g.playersPoints = scores
 	g.gameStatus = models.GameStatusScheduled
 	return g
 }
@@ -74,14 +71,14 @@ func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet,
 }
 
 func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]int, error) {
-	existingMatch, exists := g.incomingMatches[match.Id()]
+	_, exists := g.incomingMatches[match.Id()]
 	if !exists {
 		return nil, fmt.Errorf("match not found")
 	}
 	if !match.IsFinished() {
 		return nil, fmt.Errorf("match is not finished")
 	}
-	scores := g.scoreMatch(existingMatch)
+	scores := g.scoreMatch(match)
 	return scores, nil
 }
 
@@ -92,8 +89,6 @@ func (g *GameImpl) ApplyMatchScores(match models.Match, scores map[models.Player
 
 // We assume that the match is correct since it's a private method
 func (g *GameImpl) finishMatch(match models.Match) {
-	existingMatch := g.incomingMatches[match.Id()]
-	existingMatch.Finish(match.GetHomeGoals(), match.GetAwayGoals())
 	delete(g.incomingMatches, match.Id())
 	g.pastMatches[match.Id()] = match
 	if len(g.incomingMatches) == 0 {
@@ -124,7 +119,11 @@ func (g *GameImpl) AddPlayerBet(player models.Player, bet *models.Bet) error {
 
 func (g *GameImpl) scoreMatch(match models.Match) map[models.Player]int {
 	bets := g.bets[match.Id()]
-	players := make([]models.Player, 0, len(g.players))
+	if bets == nil {
+		return make(map[models.Player]int)
+	}
+
+	players := make([]models.Player, 0, len(bets))
 	betList := make([]*models.Bet, 0, len(bets))
 	for player, bet := range bets {
 		players = append(players, player)

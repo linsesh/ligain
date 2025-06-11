@@ -10,21 +10,19 @@ import (
 
 type PostgresGameRepository struct {
 	*PostgresRepository
-	cache     repositories.GameRepository
 	matchRepo repositories.MatchRepository
-	scoreRepo repositories.ScoreRepository
+	betRepo   repositories.BetRepository
 }
 
 func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) {
 	baseRepo := NewPostgresRepository(db)
-	cache := repositories.NewInMemoryGameRepository()
+	betCache := repositories.NewInMemoryBetRepository()
 	matchRepo := NewPostgresMatchRepository(db)
-	scoreRepo := NewPostgresScoreRepository(db)
+	betRepo := NewPostgresBetRepository(db, betCache)
 	return &PostgresGameRepository{
 		PostgresRepository: baseRepo,
-		cache:              cache,
 		matchRepo:          matchRepo,
-		scoreRepo:          scoreRepo,
+		betRepo:            betRepo,
 	}, nil
 }
 
@@ -46,19 +44,10 @@ func (r *PostgresGameRepository) CreateGame(game models.Game) (string, error) {
 		return "", fmt.Errorf("error saving game: %v", err)
 	}
 
-	// Update cache
-	if err := r.cache.SaveWithId(id, game); err != nil {
-		return "", fmt.Errorf("error saving game to cache: %v", err)
-	}
-
 	return id, nil
 }
 
 func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
-	if game, err := r.getGameFromCache(gameId); err == nil && game != nil {
-		return game, nil
-	}
-
 	seasonYear, competitionName, err := r.getGameDetails(gameId)
 	if err != nil {
 		return nil, err
@@ -70,7 +59,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 	}
 
 	// Get scores organized by match and player
-	playerScores, err := r.scoreRepo.GetScoresByMatchAndPlayer(gameId)
+	playerScores, err := r.betRepo.GetScoresByMatchAndPlayer(gameId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting scores: %v", err)
 	}
@@ -91,24 +80,15 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 			seasonYear,
 			competitionName,
 			players,
-			pastMatches,
 			incomingMatches,
+			pastMatches,
 			&rules.ScorerOriginal{},
 			bets,
 			playerScores,
 		)
 	}
 
-	// Populate cache
-	if err := r.saveGameToCache(gameId, gameImpl); err != nil {
-		return nil, err
-	}
-
 	return gameImpl, nil
-}
-
-func (r *PostgresGameRepository) getGameFromCache(gameId string) (models.Game, error) {
-	return r.cache.GetGame(gameId)
 }
 
 func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, error) {
@@ -137,7 +117,7 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 	query := `
 		WITH match_data AS (
 			SELECT DISTINCT
-				m.id as match_id,
+				m.local_id as match_id,
 				m.home_team_id,
 				m.away_team_id,
 				m.home_team_score,
@@ -150,13 +130,13 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 				b.id as bet_id,
 				b.predicted_home_goals,
 				b.predicted_away_goals,
-				p.name as player_name,
-				s.points as score_points
-			FROM bet b
-			JOIN match m ON m.id = b.match_id
+				p.name as player_name
+			FROM match m
+			LEFT JOIN bet b ON m.id = b.match_id AND b.game_id = $1
 			LEFT JOIN player p ON b.player_id = p.id
 			LEFT JOIN score s ON b.id = s.bet_id
-			WHERE b.game_id = $1
+			WHERE m.season_code = (SELECT season_year FROM game WHERE id = $1)
+			AND m.competition_code = (SELECT competition_name FROM game WHERE id = $1)
 		)
 		SELECT * FROM match_data`
 
@@ -173,7 +153,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 	matchesById := make(map[string]*models.SeasonMatch)
 	bets := make(map[string]map[models.Player]*models.Bet)
 	players := make(map[string]models.Player)
-	scores := make(map[string]int)
 
 	for rows.Next() {
 		var matchId, homeTeamId, awayTeamId string
@@ -185,7 +164,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		var betId sql.NullString
 		var predictedHomeGoals, predictedAwayGoals sql.NullInt32
 		var playerName sql.NullString
-		var scorePoints sql.NullInt32
 
 		err := rows.Scan(
 			&matchId,
@@ -202,7 +180,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 			&predictedHomeGoals,
 			&predictedAwayGoals,
 			&playerName,
-			&scorePoints,
 		)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("error scanning match data: %v", err)
@@ -214,7 +191,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 			match = CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore)
 			matchesById[matchId] = match
 		}
-
 		// Create bet if all required fields are present
 		if betId.Valid && predictedHomeGoals.Valid && predictedAwayGoals.Valid && playerName.Valid {
 			player := models.Player{Name: playerName.String}
@@ -226,13 +202,8 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 			bet := r.createBet(match, int(predictedHomeGoals.Int32), int(predictedAwayGoals.Int32))
 			bets[matchId][player] = bet
 
-			// Store score if present
-			if scorePoints.Valid {
-				scores[betId.String] = int(scorePoints.Int32)
-			}
 		}
 	}
-
 	// Separate matches into incoming and past
 	var incomingMatches []models.Match
 	var pastMatches []models.Match
@@ -257,10 +228,6 @@ func (r *PostgresGameRepository) createBet(match models.Match, predictedHomeGoal
 	return models.NewBet(match, predictedHomeGoals, predictedAwayGoals)
 }
 
-func (r *PostgresGameRepository) saveGameToCache(gameId string, game models.Game) error {
-	return r.cache.SaveWithId(gameId, game)
-}
-
 func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) error {
 	query := `
 		INSERT INTO game (id, season_year, competition_name, status)
@@ -282,6 +249,5 @@ func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) err
 		return fmt.Errorf("error saving game: %v", err)
 	}
 
-	// Update cache
-	return r.cache.SaveWithId(gameId, game)
+	return nil
 }

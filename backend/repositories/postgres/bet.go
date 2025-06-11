@@ -11,8 +11,6 @@ import (
 type PostgresBetRepository struct {
 	db    DBExecutor
 	cache repositories.BetRepository
-	// betIds maps bet key (gameId:player:matchId) to bet ID
-	betIds map[string]string
 }
 
 func NewPostgresBetRepository(db DBExecutor, cache repositories.BetRepository) repositories.BetRepository {
@@ -20,32 +18,38 @@ func NewPostgresBetRepository(db DBExecutor, cache repositories.BetRepository) r
 		cache = repositories.NewInMemoryBetRepository()
 	}
 	return &PostgresBetRepository{
-		db:     db,
-		cache:  cache,
-		betIds: make(map[string]string),
+		db:    db,
+		cache: cache,
 	}
 }
 
-func (r *PostgresBetRepository) GetBetId(gameId string, player models.Player, matchId string) string {
-	key := fmt.Sprintf("%s:%s:%s", gameId, player.Name, matchId)
-	return r.betIds[key]
-}
-
-func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, error) {
+func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, *models.Bet, error) {
 	query := `
+		WITH match_id AS (
+			SELECT id FROM match 
+			WHERE home_team_id = $1 
+			AND away_team_id = $2 
+			AND season_code = $3 
+			AND competition_code = $4 
+			AND matchday = $5
+		)
 		INSERT INTO bet (game_id, match_id, player_id, predicted_home_goals, predicted_away_goals)
-		SELECT $1, $2, p.id, $3, $4
-		FROM player p 
-		WHERE p.name = $5
+		SELECT $6, m.id, p.id, $7, $8
+		FROM match_id m
+		JOIN player p ON p.name = $9
 		ON CONFLICT (match_id, player_id) DO UPDATE 
-		SET predicted_home_goals = $3, predicted_away_goals = $4, game_id = $1
+		SET predicted_home_goals = $7, predicted_away_goals = $8
 		RETURNING id`
 
 	var id string
 	err := r.db.QueryRow(
 		query,
+		bet.Match.GetHomeTeam(),
+		bet.Match.GetAwayTeam(),
+		bet.Match.GetSeasonCode(),
+		bet.Match.GetCompetitionCode(),
+		bet.Match.(*models.SeasonMatch).Matchday,
 		gameId,
-		bet.Match.Id(),
 		bet.PredictedHomeGoals,
 		bet.PredictedAwayGoals,
 		player.Name,
@@ -53,22 +57,29 @@ func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player m
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("player not found: %s", player.Name)
+			return "", nil, fmt.Errorf("player not found: %s", player.Name)
 		}
-		return "", fmt.Errorf("error saving bet: %v", err)
+		return "", nil, fmt.Errorf("error saving bet: %v", err)
 	}
 
 	// Update cache
-	_, err = r.cache.SaveBet(gameId, bet, player)
+	_, _, err = r.cache.SaveBet(gameId, bet, player)
 	if err != nil {
-		return "", fmt.Errorf("error saving bet to cache: %v", err)
+		return "", nil, fmt.Errorf("error saving bet to cache: %v", err)
 	}
 
-	// Update betIds map
-	key := fmt.Sprintf("%s:%s:%s", gameId, player.Name, bet.Match.Id())
-	r.betIds[key] = id
+	return id, bet, nil
+}
 
-	return id, nil
+// updateBetsCache updates the cache with the given bets and players
+func (r *PostgresBetRepository) updateBetsCache(gameId string, bets []*models.Bet, players []models.Player) error {
+	for i, bet := range bets {
+		_, _, err := r.cache.SaveBet(gameId, bet, players[i])
+		if err != nil {
+			return fmt.Errorf("error saving bet to cache: %v", err)
+		}
+	}
+	return nil
 }
 
 func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]*models.Bet, error) {
@@ -133,10 +144,6 @@ func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]
 		// Create bet
 		bet := models.NewBet(match, predictedHomeGoals, predictedAwayGoals)
 		bets = append(bets, bet)
-
-		// Update betIds map
-		key := fmt.Sprintf("%s:%s:%s", gameId, player.Name, matchId)
-		r.betIds[key] = id
 	}
 
 	if err = rows.Err(); err != nil {
@@ -144,11 +151,8 @@ func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]
 	}
 
 	// Update cache
-	for _, bet := range bets {
-		_, err = r.cache.SaveBet(gameId, bet, player)
-		if err != nil {
-			return nil, fmt.Errorf("error saving bet to cache: %v", err)
-		}
+	if err := r.updateBetsCache(gameId, bets, []models.Player{player}); err != nil {
+		return nil, err
 	}
 
 	return bets, nil
@@ -165,7 +169,8 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 		SELECT b.id, p.name, b.predicted_home_goals, b.predicted_away_goals
 		FROM bet b
 		JOIN player p ON b.player_id = p.id
-		WHERE b.game_id = $1 AND b.match_id = $2`
+		JOIN match m ON b.match_id = m.id
+		WHERE b.game_id = $1 AND m.local_id = $2`
 
 	rows, err := r.db.Query(query, gameId, match.Id())
 	if err != nil {
@@ -200,10 +205,6 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 		// Create player
 		player := models.Player{Name: playerName}
 		players = append(players, player)
-
-		// Update betIds map
-		key := fmt.Sprintf("%s:%s:%s", gameId, playerName, match.Id())
-		r.betIds[key] = id
 	}
 
 	if err = rows.Err(); err != nil {
@@ -211,52 +212,37 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 	}
 
 	// Update cache
-	for i, bet := range bets {
-		_, err = r.cache.SaveBet(gameId, bet, players[i])
-		if err != nil {
-			return nil, nil, fmt.Errorf("error saving bet to cache: %v", err)
-		}
+	if err := r.updateBetsCache(gameId, bets, players); err != nil {
+		return nil, nil, err
 	}
 
 	return bets, players, nil
 }
 
 func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error {
-	// Save match first using direct SQL
-	seasonMatch := bet.Match.(*models.SeasonMatch)
-
-	var matchId string
-	err := r.db.QueryRow(`
-		INSERT INTO match (home_team_id, away_team_id, home_team_score, away_team_score,
-						 match_date, match_status, season_code, competition_code, matchday)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (home_team_id, away_team_id, season_code, competition_code, matchday) DO UPDATE SET
-			home_team_score = EXCLUDED.home_team_score,
-			away_team_score = EXCLUDED.away_team_score,
-			match_status = EXCLUDED.match_status
-		RETURNING id
-	`, bet.Match.GetHomeTeam(), bet.Match.GetAwayTeam(), bet.Match.GetHomeGoals(),
-		bet.Match.GetAwayGoals(), bet.Match.GetDate(), bet.Match.IsFinished(),
-		bet.Match.GetSeasonCode(), bet.Match.GetCompetitionCode(), seasonMatch.Matchday).Scan(&matchId)
-
-	if err != nil {
-		return fmt.Errorf("error saving match: %w", err)
-	}
-
 	// Save bet with specific ID
-	_, err = r.db.Exec(`
+	_, err := r.db.Exec(`
 		WITH player_id AS (
 			SELECT id FROM player WHERE name = $1
+		),
+		match_id AS (
+			SELECT id FROM match 
+			WHERE home_team_id = $2 
+			AND away_team_id = $3 
+			AND season_code = $4 
+			AND competition_code = $5 
+			AND matchday = $6
 		)
-		INSERT INTO bet (id, match_id, player_id, predicted_home_goals, predicted_away_goals)
-		SELECT $2, $3, id, $4, $5
-		FROM player_id
+		INSERT INTO bet (id, match_id, player_id, predicted_home_goals, predicted_away_goals, game_id)
+		SELECT $7, m.id, p.id, $8, $9, $10
+		FROM player_id p, match_id m
 		ON CONFLICT (id) DO UPDATE SET
 			match_id = EXCLUDED.match_id,
 			player_id = EXCLUDED.player_id,
 			predicted_home_goals = EXCLUDED.predicted_home_goals,
-			predicted_away_goals = EXCLUDED.predicted_away_goals
-	`, player.Name, betId, matchId, bet.PredictedHomeGoals, bet.PredictedAwayGoals)
+			predicted_away_goals = EXCLUDED.predicted_away_goals,
+			game_id = EXCLUDED.game_id
+	`, player.Name, bet.Match.GetHomeTeam(), bet.Match.GetAwayTeam(), bet.Match.GetSeasonCode(), bet.Match.GetCompetitionCode(), bet.Match.(*models.SeasonMatch).Matchday, betId, bet.PredictedHomeGoals, bet.PredictedAwayGoals, gameId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("player not found: %s", player.Name)
@@ -266,4 +252,120 @@ func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *mod
 
 	// Update cache
 	return r.cache.SaveWithId(gameId, betId, bet, player)
+}
+
+func (r *PostgresBetRepository) SaveScore(gameId string, match models.Match, player models.Player, points int) error {
+	_, err := r.db.Exec(`
+		WITH match_id AS (
+			SELECT id FROM match 
+			WHERE home_team_id = $1 
+			AND away_team_id = $2 
+			AND season_code = $3 
+			AND competition_code = $4 
+			AND matchday = $5
+		)
+		INSERT INTO score (bet_id, points)
+		SELECT b.id, $6
+		FROM match_id m
+		JOIN bet b ON b.match_id = m.id
+		JOIN player p ON b.player_id = p.id
+		WHERE b.game_id = $7 
+		AND p.name = $8
+		ON CONFLICT (bet_id) DO UPDATE
+		SET points = EXCLUDED.points`,
+		match.GetHomeTeam(),
+		match.GetAwayTeam(),
+		match.GetSeasonCode(),
+		match.GetCompetitionCode(),
+		match.(*models.SeasonMatch).Matchday,
+		points,
+		gameId,
+		player.Name)
+	if err != nil {
+		return fmt.Errorf("error saving score: %v", err)
+	}
+
+	// Update cache
+	return r.cache.SaveScore(gameId, match, player, points)
+}
+
+func (r *PostgresBetRepository) GetScore(gameId string, betId string) (int, error) {
+	var points sql.NullInt32
+	err := r.db.QueryRow(`
+		SELECT s.points
+		FROM bet b
+		LEFT JOIN score s ON s.bet_id = b.id
+		WHERE b.game_id = $1 AND b.id = $2`,
+		gameId, betId).Scan(&points)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, repositories.ErrScoreNotFound
+		}
+		return 0, fmt.Errorf("error getting score: %v", err)
+	}
+	if !points.Valid {
+		return 0, repositories.ErrScoreNotFound
+	}
+	return int(points.Int32), nil
+}
+
+func (r *PostgresBetRepository) GetScores(gameId string) (map[string]int, error) {
+	rows, err := r.db.Query(`
+		SELECT b.id, COALESCE(s.points, 0)
+		FROM bet b
+		LEFT JOIN score s ON s.bet_id = b.id
+		WHERE b.game_id = $1`,
+		gameId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting scores: %v", err)
+	}
+	defer rows.Close()
+
+	scores := make(map[string]int)
+	for rows.Next() {
+		var betId string
+		var points int
+		err := rows.Scan(&betId, &points)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning score row: %v", err)
+		}
+		scores[betId] = points
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating score rows: %v", err)
+	}
+	return scores, nil
+}
+
+func (r *PostgresBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[models.Player]int, error) {
+	rows, err := r.db.Query(`
+		SELECT m.local_id, p.name, COALESCE(s.points, 0)
+		FROM bet b
+		JOIN player p ON b.player_id = p.id
+		JOIN match m ON b.match_id = m.id
+		LEFT JOIN score s ON s.bet_id = b.id
+		WHERE b.game_id = $1`,
+		gameId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting scores by match and player: %v", err)
+	}
+	defer rows.Close()
+
+	scores := make(map[string]map[models.Player]int)
+	for rows.Next() {
+		var matchId, playerName string
+		var points int
+		err := rows.Scan(&matchId, &playerName, &points)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning score row: %v", err)
+		}
+		if _, ok := scores[matchId]; !ok {
+			scores[matchId] = make(map[models.Player]int)
+		}
+		scores[matchId][models.Player{Name: playerName}] = points
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating score rows: %v", err)
+	}
+	return scores, nil
 }

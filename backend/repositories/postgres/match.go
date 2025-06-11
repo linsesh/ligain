@@ -6,58 +6,53 @@ import (
 	"fmt"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
+	"time"
 )
 
+// PostgresMatchRepository is a PostgreSQL implementation of MatchRepository
 type PostgresMatchRepository struct {
 	*PostgresRepository
 	cache repositories.MatchRepository
+	db    *sql.DB
 }
 
-func NewPostgresMatchRepository(db *sql.DB) repositories.MatchRepository {
+// NewPostgresMatchRepository creates a new instance of PostgresMatchRepository
+func NewPostgresMatchRepository(db *sql.DB) *PostgresMatchRepository {
 	baseRepo := NewPostgresRepository(db)
 	cache := repositories.NewInMemoryMatchRepository()
-	return &PostgresMatchRepository{PostgresRepository: baseRepo, cache: cache}
+	return &PostgresMatchRepository{PostgresRepository: baseRepo, cache: cache, db: db}
 }
 
-func (r *PostgresMatchRepository) SaveMatch(match models.Match) (string, error) {
-	/* We know that the match is a SeasonMatch */
-	seasonMatch := match.(*models.SeasonMatch)
+// SaveMatch saves or updates a match
+func (r *PostgresMatchRepository) SaveMatch(match models.Match) error {
+	localId := match.Id()
 
-	query := `
-		INSERT INTO match (home_team_id, away_team_id, home_team_score, away_team_score,
-						 match_date, match_status, season_code, competition_code, matchday)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (home_team_id, away_team_id, season_code, competition_code, matchday) DO UPDATE SET
+	_, err := r.db.Exec(`
+		INSERT INTO match (
+			local_id, home_team_id, away_team_id, 
+			home_team_score, away_team_score, match_date,
+			match_status, season_code, competition_code, matchday
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (local_id) DO UPDATE SET
 			home_team_score = EXCLUDED.home_team_score,
 			away_team_score = EXCLUDED.away_team_score,
-			match_status = EXCLUDED.match_status
-		RETURNING id`
-
-	var id string
-	err := r.db.QueryRowContext(
-		context.Background(),
-		query,
-		match.GetHomeTeam(),
-		match.GetAwayTeam(),
-		match.GetHomeGoals(),
-		match.GetAwayGoals(),
-		match.GetDate(),
-		match.IsFinished(),
-		match.GetSeasonCode(),
-		match.GetCompetitionCode(),
-		seasonMatch.Matchday,
-	).Scan(&id)
+			match_status = EXCLUDED.match_status,
+			updated_at = CURRENT_TIMESTAMP
+	`, localId, match.GetHomeTeam(), match.GetAwayTeam(),
+		match.GetHomeGoals(), match.GetAwayGoals(), match.GetDate(),
+		match.GetStatus(), match.GetSeasonCode(), match.GetCompetitionCode(),
+		match.(*models.SeasonMatch).Matchday)
 
 	if err != nil {
-		return "", fmt.Errorf("error saving match: %v", err)
+		return err
 	}
 
 	// Update cache
-	if _, err := r.cache.SaveMatch(match); err != nil {
+	if err := r.cache.SaveMatch(match); err != nil {
 		fmt.Printf("Warning: failed to update cache: %v\n", err)
 	}
 
-	return id, nil
+	return nil
 }
 
 // scanMatchRow scans a single row from a match query into a Match object
@@ -87,6 +82,7 @@ func scanMatchRow(rows *sql.Rows) (models.Match, error) {
 	return CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore), nil
 }
 
+// GetMatch returns a match by its id
 func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error) {
 	// Try cache first
 	match, err := r.cache.GetMatch(matchId)
@@ -94,36 +90,40 @@ func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error)
 		return match, nil
 	}
 
-	query := `
-		SELECT id, home_team_id, away_team_id, home_team_score, away_team_score,
-			   match_date, match_status, season_code, competition_code, matchday
+	var seasonMatch models.SeasonMatch
+	var date time.Time
+
+	err = r.db.QueryRow(`
+		SELECT local_id, home_team_id, away_team_id,
+			   home_team_score, away_team_score, match_date,
+			   match_status, season_code, competition_code, matchday
 		FROM match
-		WHERE id = $1`
+		WHERE local_id = $1
+	`, matchId).Scan(
+		&seasonMatch.HomeTeam, &seasonMatch.AwayTeam,
+		&seasonMatch.HomeGoals, &seasonMatch.AwayGoals, &date,
+		&seasonMatch.Status, &seasonMatch.SeasonCode, &seasonMatch.CompetitionCode,
+		&seasonMatch.Matchday)
 
-	rows, err := r.db.QueryContext(context.Background(), query, matchId)
-	if err != nil {
-		return nil, fmt.Errorf("error getting match: %v", err)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("match not found: %s", matchId)
 	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, fmt.Errorf("match %s not found", matchId)
-	}
-
-	match, err = scanMatchRow(rows)
 	if err != nil {
 		return nil, err
 	}
 
-	return match, nil
+	seasonMatch.Date = date
+	return &seasonMatch, nil
 }
 
+// GetMatches returns all matches
 func (r *PostgresMatchRepository) GetMatches() (map[string]models.Match, error) {
 	query := `
-		SELECT id, home_team_id, away_team_id, home_team_score, away_team_score,
-			   match_date, match_status, season_code, competition_code, matchday
+		SELECT local_id, home_team_id, away_team_id,
+			   home_team_score, away_team_score, match_date,
+			   match_status, season_code, competition_code, matchday
 		FROM match
-		ORDER BY match_date ASC`
+	`
 
 	rows, err := r.db.QueryContext(context.Background(), query)
 	if err != nil {
@@ -133,11 +133,22 @@ func (r *PostgresMatchRepository) GetMatches() (map[string]models.Match, error) 
 
 	matches := make(map[string]models.Match)
 	for rows.Next() {
-		match, err := scanMatchRow(rows)
+		var seasonMatch models.SeasonMatch
+		var date time.Time
+		var localId string
+
+		err := rows.Scan(
+			&localId, &seasonMatch.HomeTeam, &seasonMatch.AwayTeam,
+			&seasonMatch.HomeGoals, &seasonMatch.AwayGoals, &date,
+			&seasonMatch.Status, &seasonMatch.SeasonCode, &seasonMatch.CompetitionCode,
+			&seasonMatch.Matchday)
+
 		if err != nil {
 			return nil, err
 		}
-		matches[match.Id()] = match
+
+		seasonMatch.Date = date
+		matches[localId] = &seasonMatch
 	}
 
 	return matches, nil

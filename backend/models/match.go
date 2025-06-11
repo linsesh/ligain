@@ -38,6 +38,7 @@ type Match interface {
 	IsFinished() bool
 	Finish(homeGoals, awayGoals int)
 	IsInProgress() bool
+	GetStatus() MatchStatus
 }
 
 // SeasonMatch represents a football match within a championship, like Ligue 1, Serie A, etc.
@@ -189,4 +190,8 @@ func (m *SeasonMatch) GetDrawOdds() float64 {
 
 func (m *SeasonMatch) Start() {
 	m.Status = MatchStatusStarted
+}
+
+func (m *SeasonMatch) GetStatus() MatchStatus {
+	return m.Status
 }

@@ -82,8 +82,8 @@ func TestPlayerRepository_Integration(t *testing.T) {
 
 			// Create match with proper UUID
 			_, err = testDB.db.Exec(`
-				INSERT INTO match (id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
-				VALUES ('123e4567-e89b-12d3-a456-426614174003', 'Team A', 'Team B', $1, 'scheduled', '2024', 'Premier League', 1);
+				INSERT INTO match (id, local_id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
+				VALUES ('123e4567-e89b-12d3-a456-426614174003', 'Premier League-2024-Team A-Team B-1', 'Team A', 'Team B', $1, 'scheduled', '2024', 'Premier League', 1);
 			`, testTime.Add(24*time.Hour))
 			require.NoError(t, err)
 

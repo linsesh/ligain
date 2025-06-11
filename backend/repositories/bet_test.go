@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"liguain/backend/models"
+	"liguain/backend/testutils"
 	"testing"
 	"time"
 )
@@ -15,12 +16,15 @@ func TestInMemoryBetRepository_SaveAndGetBets(t *testing.T) {
 	bet := models.NewBet(match, 2, 1)
 
 	// Test saving a bet
-	betId, err := repo.SaveBet("test-id", bet, player)
+	betId, savedBet, err := repo.SaveBet("test-id", bet, player)
 	if err != nil {
 		t.Errorf("Failed to save bet: %v", err)
 	}
 	if betId == "" {
 		t.Error("Expected non-empty bet ID")
+	}
+	if savedBet == nil {
+		t.Error("Expected non-nil saved bet")
 	}
 
 	// Test retrieving the bet
@@ -43,16 +47,22 @@ func TestInMemoryBetRepository_UpdateBet(t *testing.T) {
 
 	// Save initial bet
 	initialBet := models.NewBet(match, 2, 1)
-	_, err := repo.SaveBet("test-id", initialBet, player)
+	_, savedBet, err := repo.SaveBet("test-id", initialBet, player)
 	if err != nil {
 		t.Errorf("Failed to save initial bet: %v", err)
+	}
+	if savedBet == nil {
+		t.Error("Expected non-nil saved bet")
 	}
 
 	// Update the bet
 	updatedBet := models.NewBet(match, 3, 2)
-	_, err = repo.SaveBet("test-id", updatedBet, player)
+	_, savedBet, err = repo.SaveBet("test-id", updatedBet, player)
 	if err != nil {
 		t.Errorf("Failed to update bet: %v", err)
+	}
+	if savedBet == nil {
+		t.Error("Expected non-nil saved bet")
 	}
 
 	// Verify only one bet exists (the updated one)
@@ -78,13 +88,19 @@ func TestInMemoryBetRepository_GetBetsForMatch(t *testing.T) {
 	// Save bets for both players
 	bet1 := models.NewBet(match, 2, 1)
 	bet2 := models.NewBet(match, 1, 1)
-	_, err := repo.SaveBet("test-id", bet1, player1)
+	_, savedBet1, err := repo.SaveBet("test-id", bet1, player1)
 	if err != nil {
 		t.Errorf("Failed to save bet1: %v", err)
 	}
-	_, err = repo.SaveBet("test-id", bet2, player2)
+	if savedBet1 == nil {
+		t.Error("Expected non-nil saved bet1")
+	}
+	_, savedBet2, err := repo.SaveBet("test-id", bet2, player2)
 	if err != nil {
 		t.Errorf("Failed to save bet2: %v", err)
+	}
+	if savedBet2 == nil {
+		t.Error("Expected non-nil saved bet2")
 	}
 
 	// Get all bets for the match
@@ -137,5 +153,162 @@ func TestInMemoryBetRepository_EmptyResults(t *testing.T) {
 	}
 	if len(players) != 0 {
 		t.Errorf("Expected 0 players for non-existent match, got %d", len(players))
+	}
+}
+
+func TestInMemoryBetRepository_SaveAndGetScore(t *testing.T) {
+	repo := NewInMemoryBetRepository()
+	player := models.Player{Name: "TestPlayer"}
+	match := &testutils.MockMatch{} // Use the mock match from testutils
+	bet := models.NewBet(match, 2, 1)
+
+	// Save bet first
+	betId, savedBet, err := repo.SaveBet("test-id", bet, player)
+	if err != nil {
+		t.Errorf("Failed to save bet: %v", err)
+	}
+	if savedBet == nil {
+		t.Error("Expected non-nil saved bet")
+	}
+
+	// Test saving a score
+	err = repo.SaveScore("test-id", match, player, 3)
+	if err != nil {
+		t.Errorf("Failed to save score: %v", err)
+	}
+
+	// Test retrieving the score
+	score, err := repo.GetScore("test-id", betId)
+	if err != nil {
+		t.Errorf("Failed to get score: %v", err)
+	}
+	if score != 3 {
+		t.Errorf("Expected score 3, got %d", score)
+	}
+}
+
+func TestInMemoryBetRepository_GetScoreNotFound(t *testing.T) {
+	repo := NewInMemoryBetRepository()
+	player := models.Player{Name: "TestPlayer"}
+	match := &testutils.MockMatch{}
+	bet := models.NewBet(match, 2, 1)
+
+	// Save bet without score
+	betId, savedBet, err := repo.SaveBet("test-id", bet, player)
+	if err != nil {
+		t.Errorf("Failed to save bet: %v", err)
+	}
+	if savedBet == nil {
+		t.Error("Expected non-nil saved bet")
+	}
+
+	// Try to get non-existent score
+	_, err = repo.GetScore("test-id", betId)
+	if err != ErrScoreNotFound {
+		t.Errorf("Expected ErrScoreNotFound, got %v", err)
+	}
+}
+
+func TestInMemoryBetRepository_GetScores(t *testing.T) {
+	repo := NewInMemoryBetRepository()
+	player1 := models.Player{Name: "Player1"}
+	player2 := models.Player{Name: "Player2"}
+	match := &testutils.MockMatch{}
+
+	// Save bets and scores
+	bet1 := models.NewBet(match, 2, 1)
+	bet2 := models.NewBet(match, 1, 1)
+	betId1, savedBet1, err := repo.SaveBet("test-id", bet1, player1)
+	if err != nil {
+		t.Errorf("Failed to save bet1: %v", err)
+	}
+	if savedBet1 == nil {
+		t.Error("Expected non-nil saved bet1")
+	}
+	betId2, savedBet2, err := repo.SaveBet("test-id", bet2, player2)
+	if err != nil {
+		t.Errorf("Failed to save bet2: %v", err)
+	}
+	if savedBet2 == nil {
+		t.Error("Expected non-nil saved bet2")
+	}
+
+	// Save scores
+	err = repo.SaveScore("test-id", match, player1, 3)
+	if err != nil {
+		t.Errorf("Failed to save score1: %v", err)
+	}
+	err = repo.SaveScore("test-id", match, player2, 1)
+	if err != nil {
+		t.Errorf("Failed to save score2: %v", err)
+	}
+
+	// Get all scores
+	scores, err := repo.GetScores("test-id")
+	if err != nil {
+		t.Errorf("Failed to get scores: %v", err)
+	}
+	if len(scores) != 2 {
+		t.Errorf("Expected 2 scores, got %d", len(scores))
+	}
+	if scores[betId1] != 3 {
+		t.Errorf("Expected score 3 for bet1, got %d", scores[betId1])
+	}
+	if scores[betId2] != 1 {
+		t.Errorf("Expected score 1 for bet2, got %d", scores[betId2])
+	}
+}
+
+func TestInMemoryBetRepository_GetScoresByMatchAndPlayer(t *testing.T) {
+	repo := NewInMemoryBetRepository()
+	player1 := models.Player{Name: "Player1"}
+	player2 := models.Player{Name: "Player2"}
+	match := &testutils.MockMatch{}
+
+	// Save bets and scores
+	bet1 := models.NewBet(match, 2, 1)
+	bet2 := models.NewBet(match, 1, 1)
+	_, savedBet1, err := repo.SaveBet("test-id", bet1, player1)
+	if err != nil {
+		t.Errorf("Failed to save bet1: %v", err)
+	}
+	if savedBet1 == nil {
+		t.Error("Expected non-nil saved bet1")
+	}
+	_, savedBet2, err := repo.SaveBet("test-id", bet2, player2)
+	if err != nil {
+		t.Errorf("Failed to save bet2: %v", err)
+	}
+	if savedBet2 == nil {
+		t.Error("Expected non-nil saved bet2")
+	}
+
+	// Save scores
+	err = repo.SaveScore("test-id", match, player1, 3)
+	if err != nil {
+		t.Errorf("Failed to save score1: %v", err)
+	}
+	err = repo.SaveScore("test-id", match, player2, 1)
+	if err != nil {
+		t.Errorf("Failed to save score2: %v", err)
+	}
+
+	// Get scores by match and player
+	scores, err := repo.GetScoresByMatchAndPlayer("test-id")
+	if err != nil {
+		t.Errorf("Failed to get scores by match and player: %v", err)
+	}
+	if len(scores) != 1 {
+		t.Errorf("Expected scores for 1 match, got %d", len(scores))
+	}
+	matchScores := scores[match.Id()]
+	if len(matchScores) != 2 {
+		t.Errorf("Expected scores for 2 players, got %d", len(matchScores))
+	}
+	if matchScores[player1] != 3 {
+		t.Errorf("Expected score 3 for player1, got %d", matchScores[player1])
+	}
+	if matchScores[player2] != 1 {
+		t.Errorf("Expected score 1 for player2, got %d", matchScores[player2])
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"liguain/backend/models"
+	"liguain/backend/repositories"
 	"liguain/backend/rules"
 
 	"github.com/stretchr/testify/require"
@@ -107,123 +108,122 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		// Past match (finished)
 		pastMatch := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", testTime.Add(-24*time.Hour), 1)
 		pastMatch.Finish(2, 1)
-		pastMatchId, err := matchRepo.SaveMatch(pastMatch)
+		err = matchRepo.SaveMatch(pastMatch)
 		require.NoError(t, err)
 
 		// Current match (in progress)
 		currentMatch := models.NewSeasonMatch("Liverpool", "Man City", "2024", "Premier League", testTime, 2)
-		currentMatchId, err := matchRepo.SaveMatch(currentMatch)
+		err = matchRepo.SaveMatch(currentMatch)
 		require.NoError(t, err)
 
 		// Future match (not started)
 		futureMatch := models.NewSeasonMatch("Man United", "Tottenham", "2024", "Premier League", testTime.Add(24*time.Hour), 3)
-		futureMatchId, err := matchRepo.SaveMatch(futureMatch)
+		err = matchRepo.SaveMatch(futureMatch)
 		require.NoError(t, err)
 
 		// Create bets
-		betRepo := NewPostgresBetRepository(testDB.db, nil)
+		betCache := repositories.NewInMemoryBetRepository()
+		betRepo := NewPostgresBetRepository(testDB.db, betCache)
 		postgresBetRepo := betRepo.(*PostgresBetRepository)
 
 		// Player 1 bets
 		pastBet1 := models.NewBet(pastMatch, 2, 1) // Correct prediction
-		_, err = postgresBetRepo.SaveBet(gameId, pastBet1, player1)
+		_, _, err = postgresBetRepo.SaveBet(gameId, pastBet1, player1)
 		require.NoError(t, err)
 
 		currentBet1 := models.NewBet(currentMatch, 1, 1)
-		_, err = postgresBetRepo.SaveBet(gameId, currentBet1, player1)
+		_, _, err = postgresBetRepo.SaveBet(gameId, currentBet1, player1)
 		require.NoError(t, err)
 
 		futureBet1 := models.NewBet(futureMatch, 2, 0)
-		_, err = postgresBetRepo.SaveBet(gameId, futureBet1, player1)
+		_, _, err = postgresBetRepo.SaveBet(gameId, futureBet1, player1)
 		require.NoError(t, err)
 
 		// Player 2 bets
 		pastBet2 := models.NewBet(pastMatch, 1, 2) // Wrong prediction
-		_, err = postgresBetRepo.SaveBet(gameId, pastBet2, player2)
+		_, _, err = postgresBetRepo.SaveBet(gameId, pastBet2, player2)
 		require.NoError(t, err)
 
 		currentBet2 := models.NewBet(currentMatch, 2, 1)
-		_, err = postgresBetRepo.SaveBet(gameId, currentBet2, player2)
+		_, _, err = postgresBetRepo.SaveBet(gameId, currentBet2, player2)
 		require.NoError(t, err)
 
 		futureBet2 := models.NewBet(futureMatch, 1, 1)
-		_, err = postgresBetRepo.SaveBet(gameId, futureBet2, player2)
+		_, _, err = postgresBetRepo.SaveBet(gameId, futureBet2, player2)
 		require.NoError(t, err)
 
 		// Save scores for past match
-		scoreRepo := NewPostgresScoreRepository(testDB.db)
-		pastBet1Id := postgresBetRepo.GetBetId(gameId, player1, pastMatchId)
-		pastBet2Id := postgresBetRepo.GetBetId(gameId, player2, pastMatchId)
-		err = scoreRepo.SaveScore(gameId, pastBet1Id, 3) // Player 1 got 3 points for correct prediction
+		_, _, err = postgresBetRepo.SaveBet(gameId, pastBet1, player1)
 		require.NoError(t, err)
-		err = scoreRepo.SaveScore(gameId, pastBet2Id, 0) // Player 2 got 0 points for wrong prediction
+		_, _, err = postgresBetRepo.SaveBet(gameId, pastBet2, player2)
+		require.NoError(t, err)
+		err = postgresBetRepo.SaveScore(gameId, pastMatch, player1, 3) // Player 1 got 3 points for correct prediction
+		require.NoError(t, err)
+		err = postgresBetRepo.SaveScore(gameId, pastMatch, player2, 0) // Player 2 got 0 points for wrong prediction
 		require.NoError(t, err)
 
-		// Now test restoring the game state
 		t.Run("Restore Game State", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Get the game
 				restoredGame, err := gameRepo.GetGame(gameId)
 				require.NoError(t, err)
 				require.NotNil(t, restoredGame)
+
+				// Verify basic game properties
 				require.Equal(t, game.GetSeasonYear(), restoredGame.GetSeasonYear())
 				require.Equal(t, game.GetCompetitionName(), restoredGame.GetCompetitionName())
 
-				// Get all matches
-				matches, err := matchRepo.GetMatches()
-				require.NoError(t, err)
-				require.Equal(t, 3, len(matches))
+				// Get past and incoming matches
+				pastResults := restoredGame.GetPastResults()
+				incomingMatches := restoredGame.GetIncomingMatches()
 
 				// Verify past match
-				pastMatch := matches[pastMatchId]
-				require.Equal(t, pastMatchId, pastMatch.Id())
-				require.True(t, pastMatch.IsFinished())
-				require.Equal(t, 2, pastMatch.GetHomeGoals())
-				require.Equal(t, 1, pastMatch.GetAwayGoals())
+				pastMatchResult, exists := pastResults[pastMatch.Id()]
+				require.True(t, exists, "Past match should exist in results")
+				require.NotNil(t, pastMatchResult)
+				require.Equal(t, pastMatch.Id(), pastMatchResult.Match.Id())
+				require.True(t, pastMatchResult.Match.IsFinished())
+				require.Equal(t, 2, pastMatchResult.Match.GetHomeGoals())
+				require.Equal(t, 1, pastMatchResult.Match.GetAwayGoals())
 
 				// Verify current match
-				currentMatch := matches[currentMatchId]
-				require.Equal(t, currentMatchId, currentMatch.Id())
-				require.False(t, currentMatch.IsFinished())
+				currentMatchResult, exists := incomingMatches[currentMatch.Id()]
+				require.True(t, exists, "Current match should exist in incoming matches")
+				require.NotNil(t, currentMatchResult)
+				require.Equal(t, currentMatch.Id(), currentMatchResult.Match.Id())
+				require.False(t, currentMatchResult.Match.IsFinished())
 
 				// Verify future match
-				futureMatch := matches[futureMatchId]
-				require.Equal(t, futureMatchId, futureMatch.Id())
-				require.False(t, futureMatch.IsFinished())
+				futureMatchResult, exists := incomingMatches[futureMatch.Id()]
+				require.True(t, exists, "Future match should exist in incoming matches")
+				require.NotNil(t, futureMatchResult)
+				require.Equal(t, futureMatch.Id(), futureMatchResult.Match.Id())
+				require.False(t, futureMatchResult.Match.IsFinished())
 
-				// Get bets for each player
-				player1Bets, err := postgresBetRepo.GetBets(gameId, player1)
-				require.NoError(t, err)
-				require.Equal(t, 3, len(player1Bets))
-
-				player2Bets, err := postgresBetRepo.GetBets(gameId, player2)
-				require.NoError(t, err)
-				require.Equal(t, 3, len(player2Bets))
-
-				// Verify scores
-				scores, err := scoreRepo.GetScores(gameId)
-				require.NoError(t, err)
-				require.Equal(t, 2, len(scores))        // Two scores for the past match
-				require.Equal(t, 3, scores[pastBet1Id]) // Player 1 got 3 points
-				require.Equal(t, 0, scores[pastBet2Id]) // Player 2 got 0 points
-
-				// Verify bets for past match
-				pastBets, players, err := postgresBetRepo.GetBetsForMatch(pastMatch, gameId)
-				require.NoError(t, err)
-				require.Equal(t, 2, len(pastBets))
-				require.Equal(t, 2, len(players))
+				// Verify bets and scores for past match
+				require.NotNil(t, pastMatchResult.Bets)
+				require.NotNil(t, pastMatchResult.Scores)
+				require.Equal(t, 2, len(pastMatchResult.Bets))   // Two players made bets
+				require.Equal(t, 2, len(pastMatchResult.Scores)) // Two players have scores
 
 				// Verify bets for current match
-				currentBets, players, err := postgresBetRepo.GetBetsForMatch(currentMatch, gameId)
-				require.NoError(t, err)
-				require.Equal(t, 2, len(currentBets))
-				require.Equal(t, 2, len(players))
+				require.NotNil(t, currentMatchResult.Bets)
+				require.Equal(t, 2, len(currentMatchResult.Bets)) // Two players made bets
 
 				// Verify bets for future match
-				futureBets, players, err := postgresBetRepo.GetBetsForMatch(futureMatch, gameId)
-				require.NoError(t, err)
-				require.Equal(t, 2, len(futureBets))
-				require.Equal(t, 2, len(players))
+				require.NotNil(t, futureMatchResult.Bets)
+				require.Equal(t, 2, len(futureMatchResult.Bets)) // Two players made bets
+
+				// Verify player points
+				playerPoints := restoredGame.GetPlayersPoints()
+				require.Equal(t, 2, len(playerPoints)) // Two players have points
+				for player, points := range playerPoints {
+					if player.Name == "Player1" {
+						require.Equal(t, 3, points) // Player 1 got 3 points for correct prediction
+					} else {
+						require.Equal(t, 0, points) // Player 2 got 0 points for wrong prediction
+					}
+				}
 			})
 		})
 	}, 10*time.Second)

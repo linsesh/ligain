@@ -7,8 +7,8 @@ import (
 const matchCacheSize = 1000 // Maximum number of matches to keep in cache
 
 type MatchRepository interface {
-	// SaveMatch saves or updates a match and returns the match id
-	SaveMatch(match models.Match) (string, error)
+	// SaveMatch saves or updates a match
+	SaveMatch(match models.Match) error
 	// GetMatch returns a match by its id
 	GetMatch(matchId string) (models.Match, error)
 
@@ -28,10 +28,9 @@ func NewInMemoryMatchRepository() *InMemoryMatchRepository {
 }
 
 // SaveMatch saves or updates a match and returns the match id
-func (r *InMemoryMatchRepository) SaveMatch(match models.Match) (string, error) {
-	id := match.Id()
-	r.cache.Set(id, match)
-	return id, nil
+func (r *InMemoryMatchRepository) SaveMatch(match models.Match) error {
+	r.cache.Set(match.Id(), match)
+	return nil
 }
 
 // GetMatch returns a match by its id

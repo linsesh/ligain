@@ -2,104 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
+	"liguain/backend/repositories/postgres"
 	"liguain/backend/routes"
-	"liguain/backend/rules"
 	"liguain/backend/services"
 	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
-
-var date1, _ = time.Parse(time.RFC3339, "2024-03-20T15:00:00Z")
-var date2, _ = time.Parse(time.RFC3339, "2024-03-20T17:00:00Z")
-var date3, _ = time.Parse(time.RFC3339, "2024-03-20T20:00:00Z")
-var date4, _ = time.Parse(time.RFC3339, "2024-03-21T15:00:00Z")
-
-var match1 = models.NewFinishedSeasonMatch(
-	"Bastia",
-	"Liverpool",
-	4,
-	0,
-	"2024",
-	"Champions's League",
-	date1,
-	1,
-	1.5,
-	2.0,
-	3.0,
-)
-
-var match2 = models.NewFinishedSeasonMatch(
-	"Olympique de Marseille",
-	"Le Raincy",
-	0,
-	5,
-	"2024",
-	"Ligue 1",
-	date2,
-	1,
-	1.01,
-	14.0,
-	32.0,
-)
-
-var match3 = models.NewSeasonMatchWithKnownOdds(
-	"Paris Saint-Germain",
-	"Inter Milan",
-	"2024",
-	"Champions's League",
-	date3,
-	1,
-	1.8,
-	2.2,
-	3.5,
-)
-
-var match4 = models.NewSeasonMatchWithKnownOdds(
-	"Arsenal",
-	"Chelsea",
-	"2024",
-	"Premier League",
-	date4,
-	1,
-	1.8,
-	2.2,
-	3.5,
-)
-
-var players = []models.Player{
-	{Name: "Player1"},
-	{Name: "Player2"},
-}
-
-var bets = map[string]map[models.Player]*models.Bet{
-	match1.Id(): {
-		players[0]: models.NewBet(match1, 0, 2),
-		players[1]: models.NewBet(match1, 0, 3),
-	},
-	match2.Id(): {
-		players[0]: models.NewBet(match2, 0, 3),
-		players[1]: models.NewBet(match2, 5, 1),
-	},
-	match3.Id(): {
-		players[0]: models.NewBet(match3, 0, 3),
-		players[1]: models.NewBet(match3, 5, 1),
-	},
-}
-
-var scores = map[string]map[models.Player]int{
-	match1.Id(): {
-		players[0]: 0,
-		players[1]: 0,
-	},
-	match2.Id(): {
-		players[0]: 400,
-		players[1]: 0,
-	},
-}
 
 type MatchWatcherServiceMock struct{}
 
@@ -113,24 +26,35 @@ func NewMatchWatcherServiceMock() services.MatchWatcherService {
 }
 
 func main() {
-
-	gameRepo := repositories.NewInMemoryGameRepository()
-	scorer := rules.ScorerOriginal{}
-	game := rules.NewStartedGame("2023/2024", "Premier League", players, []models.Match{match4}, []models.Match{match1, match2, match3}, &scorer, bets, scores)
-	gameId, err := gameRepo.CreateGame(game)
+	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost:5432/ligain_test?sslmode=disable")
 	if err != nil {
-		log.Fatal("Failed to save game:", err)
+		log.Fatal("Failed to connect to database:", err)
 	}
-	match3.Start()
-	scoresRepo := repositories.NewInMemoryScoresRepository()
-	betRepo := repositories.NewInMemoryBetRepository()
+	defer db.Close()
+
+	gameRepo, err := postgres.NewPostgresGameRepository(db)
+	if err != nil {
+		log.Fatal("Failed to create game repository:", err)
+	}
+
+	// Use the hardcoded game ID from init_db.go
+	gameId := "123e4567-e89b-12d3-a456-426614174000"
+
+	// Get the game from the database
+	game, err := gameRepo.GetGame(gameId)
+	if err != nil {
+		log.Fatal("Failed to get game:", err)
+	}
+
+	betRepo := postgres.NewPostgresBetRepository(db, repositories.NewInMemoryBetRepository())
 	//watcher, err := services.NewMatchWatcherServiceSportsmonk("local")
 	//if err != nil {
 	//	log.Fatal("Failed to create match watcher service:", err)
 	//}
 	watcher := NewMatchWatcherServiceMock()
-	gameService := services.NewGameService(gameId, game, gameRepo, scoresRepo, betRepo, watcher, 10*time.Second)
+	gameService := services.NewGameService(gameId, game, gameRepo, betRepo, watcher, 10*time.Second)
 	go gameService.Play()
+
 	router := gin.Default()
 
 	// Setup CORS

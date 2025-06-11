@@ -30,12 +30,11 @@ func TestMatchRepository_Integration(t *testing.T) {
 
 			// Create match
 			match := models.NewSeasonMatch("Team A", "Team B", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
-			matchId, err := matchRepo.SaveMatch(match)
+			err = matchRepo.SaveMatch(match)
 			require.NoError(t, err)
-			require.NotEmpty(t, matchId)
 
 			// Get match
-			retrievedMatch, err := matchRepo.GetMatch(matchId)
+			retrievedMatch, err := matchRepo.GetMatch(match.Id())
 			require.NoError(t, err)
 			require.Equal(t, match.GetHomeTeam(), retrievedMatch.GetHomeTeam())
 			require.Equal(t, match.GetAwayTeam(), retrievedMatch.GetAwayTeam())
@@ -54,9 +53,9 @@ func TestMatchRepository_Integration(t *testing.T) {
 			match1 := models.NewSeasonMatch("Team A", "Team B", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
 			match2 := models.NewSeasonMatch("Team C", "Team D", "2024", "Premier League", testTime.Add(48*time.Hour), 2)
 
-			_, err = matchRepo.SaveMatch(match1)
+			err = matchRepo.SaveMatch(match1)
 			require.NoError(t, err)
-			_, err = matchRepo.SaveMatch(match2)
+			err = matchRepo.SaveMatch(match2)
 			require.NoError(t, err)
 
 			// Get all matches
