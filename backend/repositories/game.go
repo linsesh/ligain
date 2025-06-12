@@ -22,16 +22,11 @@ type InMemoryGameRepository struct {
 	lastId int
 }
 
-var instance *InMemoryGameRepository
-
 func NewInMemoryGameRepository() GameRepository {
-	if instance == nil {
-		instance = &InMemoryGameRepository{
-			cache:  NewCache[string, models.Game](gameCacheSize),
-			lastId: 1,
-		}
+	return &InMemoryGameRepository{
+		cache:  NewCache[string, models.Game](gameCacheSize),
+		lastId: 1,
 	}
-	return instance
 }
 
 func (r *InMemoryGameRepository) CreateGame(game models.Game) (string, error) {

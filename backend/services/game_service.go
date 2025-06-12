@@ -13,6 +13,9 @@ type GameService interface {
 	Play() ([]models.Player, error)
 	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
 	GetPlayerBets(player models.Player) ([]*models.Bet, error)
+	GetMatchResults() map[string]*models.MatchResult
+	GetIncomingMatches() map[string]*models.MatchResult
+	HandleUpdates(updates map[string]models.Match) error
 }
 
 // GameService is used to really run a game
@@ -37,6 +40,14 @@ func NewGameService(gameId string, game models.Game, gameRepo repositories.GameR
 	}
 }
 
+func (g *GameServiceImpl) GetMatchResults() map[string]*models.MatchResult {
+	return g.game.GetPastResults()
+}
+
+func (g *GameServiceImpl) GetIncomingMatches() map[string]*models.MatchResult {
+	return g.game.GetIncomingMatches()
+}
+
 // Play returns the winner(s) of the game when it ends
 func (g *GameServiceImpl) Play() ([]models.Player, error) {
 	log.Infof("Playing game %v", g.gameId)
@@ -45,7 +56,7 @@ func (g *GameServiceImpl) Play() ([]models.Player, error) {
 		if err != nil {
 			log.Errorf("Error getting updates: %v", err)
 		} else {
-			g.handleUpdates(updates)
+			g.HandleUpdates(updates)
 		}
 	}
 	winners := g.game.GetWinner()
@@ -53,38 +64,45 @@ func (g *GameServiceImpl) Play() ([]models.Player, error) {
 	return winners, nil
 }
 
-func (g *GameServiceImpl) handleUpdates(updates map[string]models.Match) {
+func (g *GameServiceImpl) HandleUpdates(updates map[string]models.Match) error {
 	for _, match := range updates {
 		log.Infof("Handling update for match %v", match.Id())
 		err := g.game.UpdateMatch(match)
 		if err != nil {
 			log.Errorf("Error updating match: %v", err)
+			return err
 		}
 		if match.IsFinished() {
 			log.Infof("Match %v is finished, handling score update", match.Id())
-			g.handleScoreUpdate(match)
+			err = g.handleScoreUpdate(match)
+			if err != nil {
+				log.Errorf("Error handling score update: %v", err)
+				return err
+			}
 		} else {
 			log.Infof("Match %v is being updated", match.Id())
 		}
 	}
+	return nil
 }
 
-func (g *GameServiceImpl) handleScoreUpdate(match models.Match) {
+func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 	scores, err := g.game.CalculateMatchScores(match)
 	if err != nil {
 		log.Errorf("Error calculating match scores: %v", err)
-		return
+		return err
 	}
 	for player, score := range scores {
 		err = g.betRepo.SaveScore(g.gameId, match, player, score)
 		if err != nil {
 			log.Errorf("Error saving score for player %v: %v", player, err)
-			continue
+			return err
 		}
 		log.Infof("Player %v has earned %v points for match %v", player, score, match.Id())
 	}
 
 	g.game.ApplyMatchScores(match, scores)
+	return nil
 }
 
 func (g *GameServiceImpl) getUpdates() (map[string]models.Match, error) {
@@ -117,7 +135,6 @@ func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet,
 	g.game.AddPlayerBet(player, savedBet)
 	return nil
 }
-
 func (g *GameServiceImpl) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
 	return g.betRepo.GetBets(g.gameId, player)
 }

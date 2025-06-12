@@ -118,6 +118,28 @@ func (s *MockScorer) Score(match models.Match, bets []*models.Bet) []int {
 	return scores
 }
 
+type mockMatchWatcherService struct {
+	updates map[string]models.Match
+}
+
+func newMockMatchWatcherService() *mockMatchWatcherService {
+	return &mockMatchWatcherService{
+		updates: make(map[string]models.Match),
+	}
+}
+
+func (m *mockMatchWatcherService) WatchMatches(matches []models.Match) {
+	// For testing, we don't need to do anything
+}
+
+func (m *mockMatchWatcherService) GetUpdates(ctx context.Context, done chan MatchWatcherServiceResult) {
+	// For testing, we return an empty map
+	done <- MatchWatcherServiceResult{
+		Value: make(map[string]models.Match),
+		Err:   nil,
+	}
+}
+
 // Test cases
 func TestGameService_Play_SingleMatch(t *testing.T) {
 	// Setup test data
@@ -343,8 +365,9 @@ func TestGameService_HandleScoreUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Handle score update
-	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-	service.handleUpdates(map[string]models.Match{finishedMatch.Id(): finishedMatch})
+	match.Finish(2, 1)
+	err = service.HandleUpdates(map[string]models.Match{match.Id(): match})
+	require.NoError(t, err)
 
 	// Verify game state
 	assert.True(t, game.IsFinished(), "Expected game to be finished after score update")
@@ -360,4 +383,245 @@ func TestGameService_HandleScoreUpdate(t *testing.T) {
 	player2Bets, err := service.GetPlayerBets(players[1])
 	require.NoError(t, err)
 	require.Len(t, player2Bets, 1)
+}
+
+func setupTestGameService() (*GameServiceImpl, *mockMatchWatcherService, models.Match) {
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	matches := []models.Match{match}
+
+	game := rules.NewFreshGame("2024", "Premier League", players, matches, &scorerMock{})
+	gameRepo := &gameRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
+	watcher := newMockMatchWatcherService()
+	waitTime := 10 * time.Millisecond
+
+	service := NewGameService("test-game", game, gameRepo, betRepo, watcher, waitTime)
+	return service, watcher, match
+}
+
+func TestGameService_GetMatchResult(t *testing.T) {
+	service, _, match := setupTestGameService()
+
+	t.Run("returns nil for non-existent match", func(t *testing.T) {
+		matchResults := service.GetMatchResults()
+		require.NotNil(t, matchResults)
+		result := matchResults["non-existent"]
+		assert.Nil(t, result)
+	})
+
+	t.Run("returns match result for incoming match with bets", func(t *testing.T) {
+		// Get the first match from the game
+		incomingMatches := service.GetIncomingMatches()
+		require.NotEmpty(t, incomingMatches)
+		matchId := match.Id()
+		matchResult, exists := incomingMatches[matchId]
+		require.True(t, exists)
+		match := matchResult.Match
+		require.NotNil(t, match)
+
+		// Add a bet for the match
+		player := models.Player{Name: "Player1"}
+		bet := models.NewBet(match, 2, 1)
+		err := service.UpdatePlayerBet(player, bet, match.GetDate())
+		require.NoError(t, err)
+
+		// Get match result and verify it has bets but no scores
+		incomingMatches = service.GetIncomingMatches()
+		require.NotNil(t, incomingMatches)
+		result := incomingMatches[matchId]
+		require.NotNil(t, result)
+		assert.Equal(t, matchId, result.Match.Id())
+		assert.NotNil(t, result.Bets)
+		assert.Equal(t, 1, len(result.Bets))
+		assert.Nil(t, result.Scores)
+
+		// Finish the match
+		match.Finish(2, 1)
+		err = service.HandleUpdates(map[string]models.Match{match.Id(): match})
+		require.NoError(t, err)
+
+		// Get match result and verify it has both bets and scores
+		pastMatches := service.GetMatchResults()
+		require.NotNil(t, pastMatches)
+		result = pastMatches[matchId]
+		require.NotNil(t, result)
+		assert.Equal(t, matchId, result.Match.Id())
+		assert.NotNil(t, result.Bets)
+		assert.Equal(t, 1, len(result.Bets))
+		assert.NotNil(t, result.Scores)
+		assert.Equal(t, 1, len(result.Scores))
+
+		// Verify that all matches are included
+		incomingMatches = service.GetIncomingMatches()
+		pastMatches = service.GetMatchResults()
+		assert.Equal(t, 0, len(incomingMatches), "No incoming matches after match is finished")
+		assert.Equal(t, 1, len(pastMatches), "One past match after match is finished")
+	})
+}
+
+func TestGameService_GetAllMatchResults(t *testing.T) {
+	t.Run("returns all matches with proper bets and scores", func(t *testing.T) {
+		// Create a service with multiple matches
+		match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+		match2 := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime.Add(time.Hour), 2)
+		match3 := models.NewSeasonMatch("Team5", "Team6", "2024", "Premier League", matchTime.Add(2*time.Hour), 3)
+		players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+		matches := []models.Match{match1, match2, match3}
+
+		game := rules.NewFreshGame("2024", "Premier League", players, matches, &scorerMock{})
+		gameRepo := &gameRepositoryMock{}
+		betRepo := repositories.NewInMemoryBetRepository()
+		watcher := newMockMatchWatcherService()
+		service := NewGameService("test-game", game, gameRepo, betRepo, watcher, 10*time.Millisecond)
+
+		// Add bets for all matches
+		player := models.Player{Name: "Player1"}
+		bet1 := models.NewBet(match1, 2, 1)
+		bet2 := models.NewBet(match2, 1, 1)
+		bet3 := models.NewBet(match3, 3, 0)
+		err := service.UpdatePlayerBet(player, bet1, match1.GetDate())
+		require.NoError(t, err)
+		err = service.UpdatePlayerBet(player, bet2, match2.GetDate())
+		require.NoError(t, err)
+		err = service.UpdatePlayerBet(player, bet3, match3.GetDate())
+		require.NoError(t, err)
+
+		// Initially all matches should be incoming
+		incomingMatches := service.GetIncomingMatches()
+		pastMatches := service.GetMatchResults()
+		assert.Equal(t, 3, len(incomingMatches), "Expected three incoming matches initially")
+		assert.Equal(t, 0, len(pastMatches), "Expected no past matches initially")
+
+		// Finish first match
+		match1.Finish(2, 1)
+		err = service.HandleUpdates(map[string]models.Match{match1.Id(): match1})
+		require.NoError(t, err)
+
+		// Should have 2 incoming and 1 past match
+		incomingMatches = service.GetIncomingMatches()
+		pastMatches = service.GetMatchResults()
+		assert.Equal(t, 2, len(incomingMatches), "Expected two incoming matches after finishing one")
+		assert.Equal(t, 1, len(pastMatches), "Expected one past match after finishing one")
+
+		// Finish second match
+		match2.Finish(1, 1)
+		err = service.HandleUpdates(map[string]models.Match{match2.Id(): match2})
+		require.NoError(t, err)
+
+		// Should have 1 incoming and 2 past matches
+		incomingMatches = service.GetIncomingMatches()
+		pastMatches = service.GetMatchResults()
+		assert.Equal(t, 1, len(incomingMatches), "Expected one incoming match after finishing two")
+		assert.Equal(t, 2, len(pastMatches), "Expected two past matches after finishing two")
+
+		// Finish last match
+		match3.Finish(3, 0)
+		err = service.HandleUpdates(map[string]models.Match{match3.Id(): match3})
+		require.NoError(t, err)
+
+		// Should have 0 incoming and 3 past matches
+		incomingMatches = service.GetIncomingMatches()
+		pastMatches = service.GetMatchResults()
+		assert.Equal(t, 0, len(incomingMatches), "Expected no incoming matches after finishing all")
+		assert.Equal(t, 3, len(pastMatches), "Expected three past matches after finishing all")
+
+		// Verify the content of past matches
+		for _, match := range []models.Match{match1, match2, match3} {
+			result := pastMatches[match.Id()]
+			require.NotNil(t, result, "Expected to find result for match %s", match.Id())
+			assert.Equal(t, match.Id(), result.Match.Id())
+			assert.NotNil(t, result.Bets)
+			assert.Equal(t, 1, len(result.Bets))
+			assert.NotNil(t, result.Scores)
+			assert.Equal(t, 1, len(result.Scores))
+		}
+	})
+}
+
+func TestGameService_SaveBet(t *testing.T) {
+	service, _, match := setupTestGameService()
+
+	t.Run("saves valid bet", func(t *testing.T) {
+		// Get the first match from the game
+
+		player := models.Player{Name: "Player1"}
+		bet := models.NewBet(match, 2, 1)
+
+		err := service.UpdatePlayerBet(player, bet, match.GetDate())
+		require.NoError(t, err)
+
+		// Verify bet was saved
+		bets, err := service.GetPlayerBets(player)
+		require.NoError(t, err)
+		assert.Len(t, bets, 1)
+		assert.Equal(t, 2, bets[0].PredictedHomeGoals)
+		assert.Equal(t, 1, bets[0].PredictedAwayGoals)
+	})
+
+	t.Run("fails to save bet for non-existent match", func(t *testing.T) {
+		player := models.Player{Name: "Player1"}
+		nonExistentMatch := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime, 1)
+		bet := models.NewBet(nonExistentMatch, 2, 1)
+
+		err := service.UpdatePlayerBet(player, bet, nonExistentMatch.GetDate())
+		assert.Error(t, err)
+	})
+}
+
+func TestGameService_GetBetsForMatch(t *testing.T) {
+	service, _, match := setupTestGameService()
+
+	t.Run("returns empty for non-existent player", func(t *testing.T) {
+		bets, err := service.GetPlayerBets(models.Player{Name: "non-existent"})
+		require.NoError(t, err)
+		assert.Empty(t, bets)
+	})
+
+	t.Run("returns bets for match with bets", func(t *testing.T) {
+		// Get the first match from the game
+
+		// Add a bet
+		player := models.Player{Name: "Player1"}
+		bet := models.NewBet(match, 2, 1)
+		err := service.UpdatePlayerBet(player, bet, match.GetDate())
+		require.NoError(t, err)
+
+		// Get bets for match
+		bets, err := service.GetPlayerBets(player)
+		require.NoError(t, err)
+		assert.Len(t, bets, 1)
+		assert.Equal(t, 2, bets[0].PredictedHomeGoals)
+		assert.Equal(t, 1, bets[0].PredictedAwayGoals)
+	})
+}
+
+func TestGameService_UpdateMatch(t *testing.T) {
+	service, _, match := setupTestGameService()
+
+	t.Run("updates existing match", func(t *testing.T) {
+		// Create an updated match
+		match.Finish(2, 1)
+		err := service.HandleUpdates(map[string]models.Match{match.Id(): match})
+		require.NoError(t, err)
+
+		// Verify match was updated
+		pastMatches := service.GetMatchResults()
+		require.NotNil(t, pastMatches)
+		result := pastMatches[match.Id()]
+		assert.NotNil(t, result)
+		assert.True(t, result.Match.IsFinished())
+		assert.Equal(t, 2, result.Match.GetHomeGoals())
+		assert.Equal(t, 1, result.Match.GetAwayGoals())
+
+		// Verify no incoming matches
+		incomingMatches := service.GetIncomingMatches()
+		assert.Equal(t, 0, len(incomingMatches), "Expected no incoming matches after match is finished")
+	})
+
+	t.Run("fails to update non-existent match", func(t *testing.T) {
+		nonExistentMatch := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime, 1)
+		err := service.HandleUpdates(map[string]models.Match{nonExistentMatch.Id(): nonExistentMatch})
+		assert.Error(t, err)
+	})
 }

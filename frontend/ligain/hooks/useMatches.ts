@@ -4,6 +4,7 @@ import { BetImpl } from '../src/types/bet';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 
 export const API_BASE_URL = 'http://192.168.1.184:8080';
+export const GAME_ID = '123e4567-e89b-12d3-a456-426614174000';
 
 export const useMatches = () => {
   const timeService = useTimeService();
@@ -14,7 +15,7 @@ export const useMatches = () => {
 
   const fetchMatches = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/matches`);
+      const response = await fetch(`${API_BASE_URL}/api/game/${GAME_ID}/matches`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);

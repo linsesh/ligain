@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE_URL } from './useMatches';
+import { API_BASE_URL, GAME_ID } from './useMatches';
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000; // 2 seconds
@@ -18,7 +18,7 @@ export const useBetSubmission = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/bet`, {
+      const response = await fetch(`${API_BASE_URL}/api/game/${GAME_ID}/bet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -70,7 +70,9 @@ func main() {
 	})
 
 	// Setup routes
-	matchHandler := routes.NewMatchHandler(gameRepo)
+	matchHandler := routes.NewMatchHandler(map[string]services.GameService{
+		"123e4567-e89b-12d3-a456-426614174000": gameService,
+	})
 	matchHandler.SetupRoutes(router)
 
 	// Start server

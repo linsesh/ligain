@@ -3,7 +3,7 @@ package routes
 import (
 	"fmt"
 	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"liguain/backend/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,13 +12,13 @@ import (
 
 // MatchHandler handles all match-related routes
 type MatchHandler struct {
-	gameRepo repositories.GameRepository
+	gameServices map[string]services.GameService
 }
 
 // NewMatchHandler creates a new MatchHandler instance
-func NewMatchHandler(gameRepo repositories.GameRepository) *MatchHandler {
+func NewMatchHandler(gameServices map[string]services.GameService) *MatchHandler {
 	return &MatchHandler{
-		gameRepo: gameRepo,
+		gameServices: gameServices,
 	}
 }
 
@@ -63,20 +63,26 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult)
 
 // SetupRoutes registers all match-related routes
 func (h *MatchHandler) SetupRoutes(router *gin.Engine) {
-	router.GET("/api/matches", h.getMatches)
-	router.POST("/api/bet", h.saveBet)
+	router.GET("/api/game/:game-id/matches", h.getMatches)
+	router.POST("/api/game/:game-id/bet", h.saveBet)
 }
 
 func (h *MatchHandler) getMatches(c *gin.Context) {
-	game, err := h.gameRepo.GetGame("123e4567-e89b-12d3-a456-426614174000")
-	if err != nil {
-		log.Error("Failed to get game:", err)
+	gameId := c.Param("game-id")
+	if gameId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "game-id is required"})
+		return
+	}
+
+	gameService, exists := h.gameServices[gameId]
+	if !exists {
+		log.Error("Failed to get game service")
 		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
 		return
 	}
 
-	incomingMatches := game.GetIncomingMatches()
-	pastMatches := game.GetPastResults()
+	incomingMatches := gameService.GetIncomingMatches()
+	pastMatches := gameService.GetMatchResults()
 
 	// Convert MatchResults to JSON-friendly format
 	jsonIncomingMatches := make(map[string]any)
@@ -102,7 +108,14 @@ type SaveBetRequest struct {
 }
 
 func (h *MatchHandler) saveBet(c *gin.Context) {
+	gameId := c.Param("game-id")
+	if gameId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "game-id is required"})
+		return
+	}
+
 	var request SaveBetRequest
+	log.Info("request", request)
 	if err := c.ShouldBindJSON(&request); err != nil {
 		log.WithFields(log.Fields{
 			"error":        err.Error(),
@@ -116,8 +129,14 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 		return
 	}
 
-	game, _ := h.gameRepo.GetGame("1")
-	incomingMatches := game.GetIncomingMatches()
+	gameService, exists := h.gameServices[gameId]
+	if !exists {
+		log.Error("Failed to get game service")
+		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
+		return
+	}
+
+	incomingMatches := gameService.GetIncomingMatches()
 	match, exists := incomingMatches[request.MatchID]
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Match %s not found", request.MatchID)})
@@ -125,7 +144,12 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 	}
 
 	bet := models.NewBet(match.Match, request.PredictedHomeGoals, request.PredictedAwayGoals)
-	game.AddPlayerBet(models.Player{Name: "Player1"}, bet)
+	err := gameService.UpdatePlayerBet(models.Player{Name: "Player1"}, bet, match.Match.GetDate())
+	if err != nil {
+		log.Error("Failed to update player bet", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Bet saved successfully",

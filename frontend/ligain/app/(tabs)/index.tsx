@@ -264,14 +264,6 @@ function MatchesList() {
     );
   }
 
-  if (matchesError) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Error: {matchesError?.message}</Text>
-      </View>
-    );
-  }
-
   // Filter matches to only show the one that is being edited, if any, else show all matches
   const filteredMatches = matches.filter((matchResult: MatchResult) => 
     !editingMatchId || matchResult.match.id() === editingMatchId
@@ -296,25 +288,32 @@ function MatchesList() {
           />
         }
       >
-        {filteredMatches
-          .sort((a: MatchResult, b: MatchResult) => {
-            if (a.match.getMatchday() !== b.match.getMatchday()) {
-              return a.match.getMatchday() - b.match.getMatchday();
-            }
-            return a.match.getDate().getTime() - b.match.getDate().getTime();
-          })
-          .map((matchResult: MatchResult) => (
-            <MatchCard
-              key={matchResult.match.id()}
-              matchResult={matchResult}
-              tempScores={tempScores}
-              expandedMatches={expandedMatches}
-              onBetChange={handleBetChange}
-              onToggleBetSection={toggleBetSection}
-              onFocus={() => handleFocus(matchResult.match.id())}
-              onBlur={handleBlur}
-            />
-          ))}
+        {matchesError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Failed to load matches: {matchesError.message}</Text>
+            <Text style={styles.refreshHint}>Pull down to refresh</Text>
+          </View>
+        ) : (
+          filteredMatches
+            .sort((a: MatchResult, b: MatchResult) => {
+              if (a.match.getMatchday() !== b.match.getMatchday()) {
+                return a.match.getMatchday() - b.match.getMatchday();
+              }
+              return a.match.getDate().getTime() - b.match.getDate().getTime();
+            })
+            .map((matchResult: MatchResult) => (
+              <MatchCard
+                key={matchResult.match.id()}
+                matchResult={matchResult}
+                tempScores={tempScores}
+                expandedMatches={expandedMatches}
+                onBetChange={handleBetChange}
+                onToggleBetSection={toggleBetSection}
+                onFocus={() => handleFocus(matchResult.match.id())}
+                onBlur={handleBlur}
+              />
+            ))
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -400,9 +399,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     backgroundColor: '#fff',
   },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
+  },
   errorText: {
     color: 'red',
     fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  refreshHint: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
   },
   toggleButton: {
     flexDirection: 'row',
@@ -441,5 +453,11 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 14,
     color: '#666',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
   },
 });

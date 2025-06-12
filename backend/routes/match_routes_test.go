@@ -3,8 +3,9 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"liguain/backend/models"
+	"liguain/backend/repositories"
+	"liguain/backend/services"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,27 +16,6 @@ import (
 )
 
 var testTime = time.Date(2024, 3, 15, 15, 0, 0, 0, time.UTC)
-
-// MockGameRepository implements repositories.GameRepository for testing
-type MockGameRepository struct {
-	game models.Game
-	err  error
-}
-
-func (m *MockGameRepository) GetGame(gameId string) (models.Game, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.game, nil
-}
-
-func (m *MockGameRepository) CreateGame(game models.Game) (string, error) {
-	return "1", nil
-}
-
-func (m *MockGameRepository) SaveWithId(gameId string, game models.Game) error {
-	return nil
-}
 
 // MockGame implements models.Game for testing
 type MockGame struct {
@@ -107,36 +87,39 @@ func (m *MockGame) GetWinner() []models.Player {
 	return nil
 }
 
-func setupTestRouter() (*gin.Engine, *MockGameRepository) {
+func setupTestRouter() (*gin.Engine, *MockGame) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
-	mockRepo := &MockGameRepository{
-		game: &MockGame{
-			incomingMatches: make(map[string]*models.MatchResult),
-			pastMatches:     make(map[string]*models.MatchResult),
-			bets:            make(map[string]map[models.Player]*models.Bet),
-		},
+	gameRepo := repositories.NewInMemoryGameRepository()
+	betRepo := repositories.NewInMemoryBetRepository()
+	game := &MockGame{
+		incomingMatches: make(map[string]*models.MatchResult),
+		pastMatches:     make(map[string]*models.MatchResult),
+		bets:            make(map[string]map[models.Player]*models.Bet),
 	}
+	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
+	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", game, gameRepo, betRepo, nil, 10*time.Second)
 
-	handler := NewMatchHandler(mockRepo)
+	handler := NewMatchHandler(map[string]services.GameService{
+		"123e4567-e89b-12d3-a456-426614174000": gameService,
+	})
 	handler.SetupRoutes(router)
 
-	return router, mockRepo
+	return router, game
 }
 
 func TestGetMatches(t *testing.T) {
-	router, mockRepo := setupTestRouter()
+	router, mockGame := setupTestRouter()
 
 	// Setup test data
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matchResult := models.NewMatchWithBets(match, nil)
 
-	mockGame := mockRepo.game.(*MockGame)
-	mockGame.incomingMatches[match.Id()] = matchResult
+	mockGame.GetIncomingMatches()[match.Id()] = matchResult
 
 	// Create request
-	req := httptest.NewRequest("GET", "/api/matches", nil)
+	req := httptest.NewRequest("GET", "/api/game/123e4567-e89b-12d3-a456-426614174000/matches", nil)
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -146,7 +129,8 @@ func TestGetMatches(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response map[string]any
-	err := json.Unmarshal(w.Body.Bytes(), &response)
+	var err error
+	err = json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
 	// Verify response structure
@@ -160,14 +144,13 @@ func TestGetMatches(t *testing.T) {
 }
 
 func TestSaveBet_Success(t *testing.T) {
-	router, mockRepo := setupTestRouter()
+	router, game := setupTestRouter()
 
 	// Setup test data
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matchResult := models.NewMatchWithBets(match, nil)
 
-	mockGame := mockRepo.game.(*MockGame)
-	mockGame.incomingMatches[match.Id()] = matchResult
+	game.GetIncomingMatches()[match.Id()] = matchResult
 
 	// Create request body
 	betRequest := SaveBetRequest{
@@ -175,10 +158,11 @@ func TestSaveBet_Success(t *testing.T) {
 		PredictedHomeGoals: 2,
 		PredictedAwayGoals: 1,
 	}
-	jsonBody, _ := json.Marshal(betRequest)
+	jsonBody, err := json.Marshal(betRequest)
+	assert.NoError(t, err)
 
 	// Create request
-	req := httptest.NewRequest("POST", "/api/bet", bytes.NewBuffer(jsonBody))
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -188,23 +172,13 @@ func TestSaveBet_Success(t *testing.T) {
 	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Verify the bet was saved by retrieving matches
-	req = httptest.NewRequest("GET", "/api/matches", nil)
-	w = httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	var response map[string]any
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-
-	incomingMatches := response["incomingMatches"].(map[string]any)
-	matchData := incomingMatches[match.Id()].(map[string]any)
-	bets := matchData["bets"].(map[string]any)
-
-	// Verify the bet exists and has correct values
-	playerBet := bets["Player1"].(map[string]any)
-	assert.Equal(t, float64(2), playerBet["predictedHomeGoals"])
-	assert.Equal(t, float64(1), playerBet["predictedAwayGoals"])
+	// Verify the bet was saved in the mock game
+	playerBets := game.bets[match.Id()]
+	assert.NotNil(t, playerBets)
+	playerBet := playerBets[models.Player{Name: "Player1"}]
+	assert.NotNil(t, playerBet)
+	assert.Equal(t, 2, playerBet.PredictedHomeGoals)
+	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
 }
 
 func TestSaveBet_InvalidRequest(t *testing.T) {
@@ -214,7 +188,7 @@ func TestSaveBet_InvalidRequest(t *testing.T) {
 	invalidBody := []byte(`{"invalid": "json"`)
 
 	// Create request
-	req := httptest.NewRequest("POST", "/api/bet", bytes.NewBuffer(invalidBody))
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(invalidBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -242,7 +216,7 @@ func TestSaveBet_MatchNotFound(t *testing.T) {
 	jsonBody, _ := json.Marshal(betRequest)
 
 	// Create request
-	req := httptest.NewRequest("POST", "/api/bet", bytes.NewBuffer(jsonBody))
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -259,13 +233,10 @@ func TestSaveBet_MatchNotFound(t *testing.T) {
 }
 
 func TestGetMatches_GameNotFound(t *testing.T) {
-	router, mockRepo := setupTestRouter()
-
-	// Set the mock repository to return an error
-	mockRepo.err = fmt.Errorf("game not found")
+	router, _ := setupTestRouter()
 
 	// Create request
-	req := httptest.NewRequest("GET", "/api/matches", nil)
+	req := httptest.NewRequest("GET", "/api/game/non-existent-game/matches", nil)
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -278,4 +249,111 @@ func TestGetMatches_GameNotFound(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "Your game was not found", response["error"])
+}
+
+func TestSaveBet_UpdateExistingBet(t *testing.T) {
+	router, game := setupTestRouter()
+
+	// Setup test data
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matchResult := models.NewMatchWithBets(match, nil)
+
+	game.GetIncomingMatches()[match.Id()] = matchResult
+
+	// First bet
+	initialBet := SaveBetRequest{
+		MatchID:            match.Id(),
+		PredictedHomeGoals: 2,
+		PredictedAwayGoals: 1,
+	}
+	jsonBody, err := json.Marshal(initialBet)
+	assert.NoError(t, err)
+
+	// Create and perform initial bet request
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Verify initial bet in mock game
+	playerBets := game.bets[match.Id()]
+	assert.NotNil(t, playerBets)
+	playerBet := playerBets[models.Player{Name: "Player1"}]
+	assert.NotNil(t, playerBet)
+	assert.Equal(t, 2, playerBet.PredictedHomeGoals)
+	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
+
+	// Updated bet
+	updatedBet := SaveBetRequest{
+		MatchID:            match.Id(),
+		PredictedHomeGoals: 3,
+		PredictedAwayGoals: 2,
+	}
+	jsonBody, err = json.Marshal(updatedBet)
+	assert.NoError(t, err)
+
+	// Create and perform update bet request
+	req = httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Verify updated bet in mock game
+	playerBets = game.bets[match.Id()]
+	assert.NotNil(t, playerBets)
+	playerBet = playerBets[models.Player{Name: "Player1"}]
+	assert.NotNil(t, playerBet)
+	assert.Equal(t, 3, playerBet.PredictedHomeGoals)
+	assert.Equal(t, 2, playerBet.PredictedAwayGoals)
+}
+
+// Add new test for missing gameId
+func TestGetMatches_MissingGameId(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Create request without gameId
+	req := httptest.NewRequest("GET", "/api/game//matches", nil)
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response map[string]any
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "game-id is required", response["error"])
+}
+
+// Add new test for missing gameId in bet
+func TestSaveBet_MissingGameId(t *testing.T) {
+	router, _ := setupTestRouter()
+
+	// Create request body
+	betRequest := SaveBetRequest{
+		MatchID:            "some-match",
+		PredictedHomeGoals: 2,
+		PredictedAwayGoals: 1,
+	}
+	jsonBody, _ := json.Marshal(betRequest)
+
+	// Create request without gameId
+	req := httptest.NewRequest("POST", "/api/game//bet", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response map[string]any
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "game-id is required", response["error"])
 }
