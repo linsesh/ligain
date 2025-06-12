@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Local imports
@@ -21,13 +21,17 @@ function TeamInput({
   value, 
   onChange, 
   canModify, 
-  isAway = false 
+  isAway = false,
+  onFocus,
+  onBlur
 }: { 
   teamName: string; 
   value: string; 
   onChange: (value: string) => void; 
   canModify: boolean; 
-  isAway?: boolean; 
+  isAway?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }) {
   return (
     <View style={styles.teamContainer}>
@@ -45,6 +49,8 @@ function TeamInput({
         editable={canModify}
         returnKeyType="done"
         onSubmitEditing={() => Keyboard.dismiss()}
+        onFocus={onFocus}
+        onBlur={onBlur}
       />
       {isAway && <Text style={[styles.teamName, styles.awayTeamName]}>{teamName}</Text>}
     </View>
@@ -52,12 +58,14 @@ function TeamInput({
 }
 
 // Wrapper component that has access to the time service
-function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection }: {
+function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur }: {
   matchResult: MatchResult;
   tempScores: TempScores;
   expandedMatches: { [key: string]: boolean };
   onBetChange: (matchId: string, team: 'home' | 'away', value: string) => void;
   onToggleBetSection: (matchId: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
 }) {
   const timeService = useTimeService();
   const now = timeService.now();
@@ -86,6 +94,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             : (tempScores[matchResult.match.id()]?.home?.toString() || '')}
           onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
           canModify={canModify}
+          onFocus={() => onFocus()}
+          onBlur={() => onBlur()}
         />
         <Text style={styles.vsText}>vs</Text>
         <TeamInput
@@ -96,6 +106,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
           canModify={canModify}
           isAway
+          onFocus={() => onFocus()}
+          onBlur={() => onBlur()}
         />
       </View>
       
@@ -165,6 +177,7 @@ function MatchesList() {
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const { submitBet, error: submitError } = useBetSubmission();
 
   // Combine incoming and past matches
@@ -235,6 +248,14 @@ function MatchesList() {
     }
   };
 
+  const handleFocus = (matchId: string) => {
+    setEditingMatchId(matchId);
+  };
+
+  const handleBlur = () => {
+    setEditingMatchId(null);
+  };
+
   if (matchesLoading && !refreshing) {
     return (
       <View style={styles.container}>
@@ -251,39 +272,51 @@ function MatchesList() {
     );
   }
 
+  // Filter matches to only show the one that is being edited, if any, else show all matches
+  const filteredMatches = matches.filter((matchResult: MatchResult) => 
+    !editingMatchId || matchResult.match.id() === editingMatchId
+  );
+
   return (
-    <ScrollView 
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#ffffff']}
-          tintColor="#ffffff"
-          progressBackgroundColor="#25292e"
-          progressViewOffset={20}
-        />
-      }
     >
       <Text style={styles.title}>Matches</Text>
-      {matches
-        .sort((a: MatchResult, b: MatchResult) => {
-          if (a.match.getMatchday() !== b.match.getMatchday()) {
-            return a.match.getMatchday() - b.match.getMatchday();
-          }
-          return a.match.getDate().getTime() - b.match.getDate().getTime();
-        })
-        .map((matchResult: MatchResult) => (
-          <MatchCard
-            key={matchResult.match.id()}
-            matchResult={matchResult}
-            tempScores={tempScores}
-            expandedMatches={expandedMatches}
-            onBetChange={handleBetChange}
-            onToggleBetSection={toggleBetSection}
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#ffffff']}
+            tintColor="#ffffff"
+            progressBackgroundColor="#25292e"
+            progressViewOffset={20}
           />
-        ))}
-    </ScrollView>
+        }
+      >
+        {filteredMatches
+          .sort((a: MatchResult, b: MatchResult) => {
+            if (a.match.getMatchday() !== b.match.getMatchday()) {
+              return a.match.getMatchday() - b.match.getMatchday();
+            }
+            return a.match.getDate().getTime() - b.match.getDate().getTime();
+          })
+          .map((matchResult: MatchResult) => (
+            <MatchCard
+              key={matchResult.match.id()}
+              matchResult={matchResult}
+              tempScores={tempScores}
+              expandedMatches={expandedMatches}
+              onBetChange={handleBetChange}
+              onToggleBetSection={toggleBetSection}
+              onFocus={() => handleFocus(matchResult.match.id())}
+              onBlur={handleBlur}
+            />
+          ))}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -303,6 +336,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#25292e',
+  },
+  scrollView: {
+    flex: 1,
   },
   title: {
     fontSize: 24,
