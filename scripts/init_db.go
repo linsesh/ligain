@@ -27,25 +27,36 @@ func main() {
 	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
 
+	log.Printf("Connecting to database with URL: %s", dbURL)
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+
+	// Test the connection
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
+	log.Println("Successfully connected to database")
 
 	// Run migrations
+	log.Println("Starting migrations...")
 	err = runMigrations(db)
 	if err != nil {
-		log.Fatal("Failed to run migrations:", err)
+		log.Fatalf("Failed to run migrations: %v", err)
 	}
+	log.Println("Migrations completed successfully")
 
 	// Insert test data
+	log.Println("Starting test data insertion...")
 	err = insertTestData(db)
 	if err != nil {
-		log.Fatal("Failed to insert test data:", err)
+		log.Fatalf("Failed to insert test data: %v", err)
 	}
 
 	log.Println("Database initialized successfully!")
+	db.Close()
 }
 
 func runMigrations(db *sql.DB) error {
@@ -63,12 +74,13 @@ func runMigrations(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %v", err)
 	}
-	defer m.Close()
 
 	// Run migrations
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("failed to run migrations: %v", err)
 	}
+
+	// Do NOT call m.Close() here, as it will close the shared db connection
 
 	return nil
 }
@@ -155,14 +167,23 @@ func insertTestData(db *sql.DB) error {
 
 	matchIds := make(map[string]string)
 	for _, m := range matches {
+		// Create a SeasonMatch object to get the proper local_id
+		match := models.NewSeasonMatch(m.homeTeam, m.awayTeam, m.season, m.competition, m.date, m.matchday)
+		if m.status == string(models.MatchStatusFinished) && m.homeScore != nil && m.awayScore != nil {
+			match.Finish(*m.homeScore, *m.awayScore)
+		} else if m.status == string(models.MatchStatusStarted) {
+			match.Start()
+		}
+
 		var matchId string
 		err := db.QueryRow(`
 			INSERT INTO match (
-				home_team_id, away_team_id, home_team_score, away_team_score,
+				local_id, home_team_id, away_team_id, home_team_score, away_team_score,
 				match_date, match_status, season_code, competition_code, matchday
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			RETURNING id`,
+			match.Id(),
 			m.homeTeam, m.awayTeam, m.homeScore, m.awayScore,
 			m.date, m.status, m.season, m.competition, m.matchday,
 		).Scan(&matchId)

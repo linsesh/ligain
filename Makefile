@@ -103,12 +103,12 @@ install-migrate:
 # Run migrations manually
 migrate-up:
 	@echo "Running migrations..."
-	@migrate -path backend/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable" up
+	@PATH="$(shell go env GOPATH)/bin:$(PATH)" migrate -path backend/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable" up
 
 # Rollback migrations
 migrate-down:
 	@echo "Rolling back migrations..."
-	@migrate -path backend/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable" down
+	@PATH="$(shell go env GOPATH)/bin:$(PATH)" migrate -path backend/migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable" down
 
 # Initialize database with schema and test data
 db-init: install-migrate db-create
