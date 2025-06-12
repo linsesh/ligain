@@ -68,7 +68,13 @@ func (h *MatchHandler) SetupRoutes(router *gin.Engine) {
 }
 
 func (h *MatchHandler) getMatches(c *gin.Context) {
-	game, _ := h.gameRepo.GetGame("1")
+	game, err := h.gameRepo.GetGame("123e4567-e89b-12d3-a456-426614174000")
+	if err != nil {
+		log.Error("Failed to get game:", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
+		return
+	}
+
 	incomingMatches := game.GetIncomingMatches()
 	pastMatches := game.GetPastResults()
 

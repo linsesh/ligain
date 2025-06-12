@@ -116,7 +116,7 @@ func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, 
 func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Match, []models.Match, map[string]map[models.Player]*models.Bet, []models.Player, error) {
 	query := `
 		WITH match_data AS (
-			SELECT DISTINCT
+			SELECT
 				m.local_id as match_id,
 				m.home_team_id,
 				m.away_team_id,
@@ -155,6 +155,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 	players := make(map[string]models.Player)
 
 	for rows.Next() {
+		fmt.Println("Processing match data")
 		var matchId, homeTeamId, awayTeamId string
 		var homeTeamScore, awayTeamScore sql.NullInt32
 		var matchDate sql.NullTime
@@ -184,6 +185,8 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("error scanning match data: %v", err)
 		}
+		fmt.Println(matchId)
+		fmt.Println(betId)
 
 		// Create or get match
 		match, exists := matchesById[matchId]
@@ -204,6 +207,8 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 
 		}
 	}
+	fmt.Println(matchesById)
+	fmt.Println(bets)
 	// Separate matches into incoming and past
 	var incomingMatches []models.Match
 	var pastMatches []models.Match

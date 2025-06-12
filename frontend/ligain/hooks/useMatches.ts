@@ -3,7 +3,7 @@ import { SeasonMatch, MatchResult } from '../src/types/match';
 import { BetImpl } from '../src/types/bet';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 
-export const API_BASE_URL = 'http://192.168.1.37:8080';
+export const API_BASE_URL = 'http://192.168.1.184:8080';
 
 export const useMatches = () => {
   const timeService = useTimeService();
@@ -16,7 +16,8 @@ export const useMatches = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/matches`);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
       }
       
       const data = await response.json();

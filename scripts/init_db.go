@@ -91,7 +91,7 @@ func insertTestData(db *sql.DB) error {
 	_, err := db.Exec(`
 		INSERT INTO game (id, season_year, competition_name, status)
 		VALUES ($1, $2, $3, $4)`,
-		gameId, "2024", "Premier League", "started")
+		gameId, "2024", "Ligue 1", "started")
 	if err != nil {
 		return fmt.Errorf("failed to insert game: %v", err)
 	}
@@ -131,7 +131,7 @@ func insertTestData(db *sql.DB) error {
 			date:        parseTime("2024-03-20T15:00:00Z"),
 			status:      string(models.MatchStatusFinished),
 			season:      "2024",
-			competition: "Champions's League",
+			competition: "Ligue 1",
 			matchday:    1,
 		},
 		{
@@ -151,7 +151,7 @@ func insertTestData(db *sql.DB) error {
 			date:        parseTime("2024-03-20T20:00:00Z"),
 			status:      string(models.MatchStatusStarted),
 			season:      "2024",
-			competition: "Champions's League",
+			competition: "Ligue 1",
 			matchday:    1,
 		},
 		{
@@ -160,7 +160,7 @@ func insertTestData(db *sql.DB) error {
 			date:        parseTime("2024-03-21T15:00:00Z"),
 			status:      string(models.MatchStatusScheduled),
 			season:      "2024",
-			competition: "Premier League",
+			competition: "Ligue 1",
 			matchday:    1,
 		},
 	}

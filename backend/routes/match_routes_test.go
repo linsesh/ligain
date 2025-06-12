@@ -3,6 +3,7 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"liguain/backend/models"
 	"net/http"
 	"net/http/httptest"
@@ -18,9 +19,13 @@ var testTime = time.Date(2024, 3, 15, 15, 0, 0, 0, time.UTC)
 // MockGameRepository implements repositories.GameRepository for testing
 type MockGameRepository struct {
 	game models.Game
+	err  error
 }
 
 func (m *MockGameRepository) GetGame(gameId string) (models.Game, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 	return m.game, nil
 }
 
@@ -251,4 +256,26 @@ func TestSaveBet_MatchNotFound(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Contains(t, response["error"], "Match non-existent-match not found")
+}
+
+func TestGetMatches_GameNotFound(t *testing.T) {
+	router, mockRepo := setupTestRouter()
+
+	// Set the mock repository to return an error
+	mockRepo.err = fmt.Errorf("game not found")
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/matches", nil)
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	var response map[string]any
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "Your game was not found", response["error"])
 }
