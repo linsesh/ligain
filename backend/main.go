@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"liguain/backend/repositories/postgres"
 	"liguain/backend/routes"
 	"liguain/backend/services"
 	"log"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +28,11 @@ func NewMatchWatcherServiceMock() services.MatchWatcherService {
 }
 
 func main() {
+	// Set Gin to release mode in production
+	if os.Getenv("ENV") == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost:5432/ligain_test?sslmode=disable")
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
@@ -57,17 +64,33 @@ func main() {
 
 	router := gin.Default()
 
-	// Setup CORS
+	// Setup CORS with specific origins
+	allowedOrigins := []string{
+		"https://your-mobile-app-domain.com", // Replace with your mobile app domain
+		"http://localhost:3000",              // For local development
+	}
+
 	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
 		}
 		c.Next()
 	})
+
+	// Apply API key authentication middleware
+	router.Use(middleware.APIKeyAuth())
 
 	// Setup routes
 	matchHandler := routes.NewMatchHandler(map[string]services.GameService{
@@ -76,7 +99,11 @@ func main() {
 	matchHandler.SetupRoutes(router)
 
 	// Start server
-	if err := router.Run(":8080"); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if err := router.Run(":" + port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }
