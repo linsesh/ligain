@@ -33,11 +33,23 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost:5432/ligain_test?sslmode=disable")
+	// Get database URL from environment variable
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL environment variable is not set")
+	}
+
+	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
+
+	// Test the database connection
+	if err := db.Ping(); err != nil {
+		log.Fatal("Failed to ping database:", err)
+	}
+	log.Println("Successfully connected to database")
 
 	gameRepo, err := postgres.NewPostgresGameRepository(db)
 	if err != nil {

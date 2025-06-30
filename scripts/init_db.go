@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"liguain/backend/models"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -23,9 +24,8 @@ const (
 )
 
 func main() {
-	// Connect to database
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
-		dbUser, dbPassword, dbHost, dbPort, dbName)
+	// Get database URL from environment or use default
+	dbURL := getDatabaseURL()
 
 	log.Printf("Connecting to database with URL: %s", dbURL)
 	db, err := sql.Open("postgres", dbURL)
@@ -57,6 +57,17 @@ func main() {
 
 	log.Println("Database initialized successfully!")
 	db.Close()
+}
+
+func getDatabaseURL() string {
+	// Check if DATABASE_URL environment variable is set
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		return dbURL
+	}
+
+	// Fall back to default local database configuration
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		dbUser, dbPassword, dbHost, dbPort, dbName)
 }
 
 func runMigrations(db *sql.DB) error {
