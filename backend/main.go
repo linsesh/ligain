@@ -11,6 +11,7 @@ import (
 	"liguain/backend/services"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -77,10 +78,11 @@ func main() {
 	router := gin.Default()
 
 	// Setup CORS with specific origins
-	allowedOrigins := []string{
-		"https://your-mobile-app-domain.com", // Replace with your mobile app domain
-		"http://localhost:3000",              // For local development
+	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOriginsStr == "" {
+		allowedOriginsStr = "http://localhost:3000" // Default fallback
 	}
+	allowedOrigins := strings.Split(allowedOriginsStr, ",")
 
 	router.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")

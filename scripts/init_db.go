@@ -91,8 +91,6 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to run migrations: %v", err)
 	}
 
-	// Do NOT call m.Close() here, as it will close the shared db connection
-
 	return nil
 }
 

@@ -19,8 +19,7 @@ func APIKeyAuth() gin.HandlerFunc {
 
 		// Get allowed API keys from environment variables
 		allowedKeys := []string{
-			os.Getenv("MOBILE_APP_API_KEY"),
-			os.Getenv("DEV_API_KEY"),
+			os.Getenv("API_KEY"),
 		}
 
 		// Check if the provided API key is valid

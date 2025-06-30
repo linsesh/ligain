@@ -1,11 +1,9 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/cloudrun"
-	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/cloudscheduler"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
@@ -17,9 +15,16 @@ func main() {
 
 		// Configuration
 		cfg := config.New(ctx, "gcp")
+		ligainCfg := config.New(ctx, "ligain")
 		projectID := cfg.Require("project")
 		region := cfg.Require("region")
 		serviceName := fmt.Sprintf("server-%s", stack)
+
+		// Get environment variables from config
+		databaseURL := ligainCfg.Require("database_url")
+		apiKey := ligainCfg.Require("api_key")
+		allowedOrigins := ligainCfg.Require("allowed_origins")
+		sportsmonkToken := ligainCfg.Require("sportsmonk_api_token")
 
 		// Create a Cloud Run service
 		service, err := cloudrun.NewService(ctx, serviceName, &cloudrun.ServiceArgs{
@@ -37,7 +42,7 @@ func main() {
 							Image: pulumi.Sprintf("gcr.io/%s/%s:latest", projectID, serviceName),
 							Ports: cloudrun.ServiceTemplateSpecContainerPortArray{
 								&cloudrun.ServiceTemplateSpecContainerPortArgs{
-									ContainerPort: pulumi.Int(3000),
+									ContainerPort: pulumi.Int(8080), // Fixed: match Dockerfile port
 								},
 							},
 							Resources: &cloudrun.ServiceTemplateSpecContainerResourcesArgs{
@@ -48,8 +53,28 @@ func main() {
 							},
 							Envs: cloudrun.ServiceTemplateSpecContainerEnvArray{
 								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
-									Name:  pulumi.String("NODE_ENV"),
+									Name:  pulumi.String("ENV"),
 									Value: pulumi.String(stack),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("DATABASE_URL"),
+									Value: pulumi.String(databaseURL),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("API_KEY"),
+									Value: pulumi.String(apiKey),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("ALLOWED_ORIGINS"),
+									Value: pulumi.String(allowedOrigins),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("SPORTSMONK_API_TOKEN"),
+									Value: pulumi.String(sportsmonkToken),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("PORT"),
+									Value: pulumi.String("8080"),
 								},
 							},
 						},
@@ -59,57 +84,6 @@ func main() {
 		})
 		if err != nil {
 			return err
-		}
-
-		// Only create scheduler jobs for dev environment
-		if stack == "dev" {
-			// Create Cloud Scheduler job to start the service at 4 PM
-			startBody := `{"spec":{"template":{"metadata":{"annotations":{"autoscaling.knative.dev/minScale":"1"}}}}}`
-			startBodyBase64 := base64.StdEncoding.EncodeToString([]byte(startBody))
-
-			_, err = cloudscheduler.NewJob(ctx, fmt.Sprintf("%s-start", serviceName), &cloudscheduler.JobArgs{
-				Schedule:    pulumi.String("0 16 * * *"), // 4 PM every day
-				TimeZone:    pulumi.String("Europe/Paris"),
-				Description: pulumi.String("Start the Cloud Run service"),
-				HttpTarget: &cloudscheduler.JobHttpTargetArgs{
-					Uri:        pulumi.Sprintf("https://%s-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/%s/services/%s", region, projectID, serviceName),
-					HttpMethod: pulumi.String("PATCH"),
-					Headers: pulumi.StringMap{
-						"Content-Type": pulumi.String("application/json"),
-					},
-					Body: pulumi.String(startBodyBase64),
-					OauthToken: &cloudscheduler.JobHttpTargetOauthTokenArgs{
-						ServiceAccountEmail: pulumi.Sprintf("cloud-scheduler@%s.iam.gserviceaccount.com", projectID),
-					},
-				},
-			})
-			if err != nil {
-				return err
-			}
-
-			// Create Cloud Scheduler job to stop the service at 10 PM
-			stopBody := `{"spec":{"template":{"metadata":{"annotations":{"autoscaling.knative.dev/minScale":"0"}}}}}`
-			stopBodyBase64 := base64.StdEncoding.EncodeToString([]byte(stopBody))
-
-			_, err = cloudscheduler.NewJob(ctx, fmt.Sprintf("%s-stop", serviceName), &cloudscheduler.JobArgs{
-				Schedule:    pulumi.String("0 22 * * *"), // 10 PM every day
-				TimeZone:    pulumi.String("Europe/Paris"),
-				Description: pulumi.String("Stop the Cloud Run service"),
-				HttpTarget: &cloudscheduler.JobHttpTargetArgs{
-					Uri:        pulumi.Sprintf("https://%s-run.googleapis.com/apis/serving.knative.dev/v1/namespaces/%s/services/%s", region, projectID, serviceName),
-					HttpMethod: pulumi.String("PATCH"),
-					Headers: pulumi.StringMap{
-						"Content-Type": pulumi.String("application/json"),
-					},
-					Body: pulumi.String(stopBodyBase64),
-					OauthToken: &cloudscheduler.JobHttpTargetOauthTokenArgs{
-						ServiceAccountEmail: pulumi.Sprintf("cloud-scheduler@%s.iam.gserviceaccount.com", projectID),
-					},
-				},
-			})
-			if err != nil {
-				return err
-			}
 		}
 
 		// Allow unauthenticated access to the service
@@ -131,8 +105,8 @@ func main() {
 }
 
 func getMemoryLimit(stack string) string {
-	// Same minimal resources for both environments
-	return "64Mi"
+	// Minimum memory required for 100m CPU in Cloud Run
+	return "128Mi"
 }
 
 func getCPULimit(stack string) string {
@@ -142,7 +116,7 @@ func getCPULimit(stack string) string {
 
 func getMinScale(stack string) string {
 	if stack == "dev" {
-		return "0" // Dev starts with 0 instances and is scheduled
+		return "0" // Dev starts with 0 instances and is managed manually
 	}
 	return "1" // Prod always runs
 }
