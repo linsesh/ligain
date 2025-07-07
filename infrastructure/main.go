@@ -72,10 +72,6 @@ func main() {
 									Name:  pulumi.String("SPORTSMONK_API_TOKEN"),
 									Value: pulumi.String(sportsmonkToken),
 								},
-								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
-									Name:  pulumi.String("PORT"),
-									Value: pulumi.String("8080"),
-								},
 							},
 						},
 					},
@@ -87,18 +83,29 @@ func main() {
 		}
 
 		// Allow unauthenticated access to the service
-		_, err = cloudrun.NewIamMember(ctx, fmt.Sprintf("%s-public", serviceName), &cloudrun.IamMemberArgs{
-			Location: pulumi.String(region),
-			Service:  service.Name,
-			Role:     pulumi.String("roles/run.invoker"),
-			Member:   pulumi.String("allUsers"),
-		})
-		if err != nil {
-			return err
-		}
+		// Commented out to make service private - only authenticated users can access
+		/*
+			_, err = cloudrun.NewIamMember(ctx, fmt.Sprintf("%s-public", serviceName), &cloudrun.IamMemberArgs{
+				Location: pulumi.String(region),
+				Service:  service.Name,
+				Role:     pulumi.String("roles/run.invoker"),
+				Member:   pulumi.String("allUsers"),
+			})
+			if err != nil {
+				return err
+			}
+		*/
 
 		// Export the service URL
-		ctx.Export("serviceUrl", service.Statuses.Index(pulumi.Int(0)).Url())
+		ctx.Export("serviceUrl", service.Statuses.ApplyT(func(statuses []cloudrun.ServiceStatus) (string, error) {
+			if len(statuses) == 0 {
+				return "", nil // Return empty string instead of error
+			}
+			if statuses[0].Url == nil {
+				return "", nil // Return empty string instead of error
+			}
+			return *statuses[0].Url, nil
+		}))
 
 		return nil
 	})

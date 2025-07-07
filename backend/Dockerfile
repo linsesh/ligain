@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine
+FROM --platform=linux/amd64 golang:1.24-alpine
 
 WORKDIR /app
 
@@ -11,8 +11,8 @@ COPY go.mod go.sum ./
 # Download dependencies
 RUN go mod download
 
-# Copy the source code
-COPY . .
+# Copy the backend source code
+COPY backend/ ./backend/
 
 # Build the application
 RUN go build -o ligain ./backend

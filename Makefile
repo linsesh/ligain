@@ -1,4 +1,4 @@
-.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down db-start db-stop db-create db-drop db-init
+.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down docker-build db-start db-stop db-create db-drop db-init docker-push docker-build-push docker-deploy deploy
 
 # Default target
 all: test test-frontend build
@@ -22,6 +22,25 @@ test-all: test test-frontend test-integration
 # Build the application
 build:
 	go build -o backend/bin/app ./backend/...
+
+# Build Docker image
+docker-build:
+	docker build -t gcr.io/woven-century-307314/server-dev:latest -f backend/Dockerfile .
+
+# Push Docker image to GCR
+docker-push:
+	docker push gcr.io/woven-century-307314/server-dev:latest
+
+# Build and push Docker image
+docker-build-push:
+	docker buildx build --platform linux/amd64 -t gcr.io/woven-century-307314/server-dev:latest -f backend/Dockerfile . --push
+
+# Deploy to GCP (requires image to be pushed first)
+docker-deploy:
+	cd infrastructure && pulumi up --yes
+
+# Complete deployment workflow
+deploy: docker-build-push docker-deploy
 
 # Clean build artifacts
 clean:

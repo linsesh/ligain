@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+LICENSE
+
+# Frontend (not needed for backend build)
+frontend/
+node_modules/
+
+# Infrastructure (separate module)
+infrastructure/
+
+# Scripts (not needed in container)
+scripts/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build artifacts
+backend/bin/
+backend/dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+*_test.go
+test/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.pre-commit-config.yaml
+
+# Temporary files
+*.tmp
+*.temp 
