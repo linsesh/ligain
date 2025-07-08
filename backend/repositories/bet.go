@@ -26,7 +26,7 @@ type BetRepository interface {
 	// GetScores returns all scores for a game
 	GetScores(gameId string) (map[string]int, error)
 	// GetScoresByMatchAndPlayer returns scores organized by match ID and player
-	GetScoresByMatchAndPlayer(gameId string) (map[string]map[models.Player]int, error)
+	GetScoresByMatchAndPlayer(gameId string) (map[string]map[string]int, error)
 }
 
 type BetEntry struct {
@@ -60,7 +60,7 @@ func (r *InMemoryBetRepository) GetBets(gameId string, player models.Player) ([]
 
 func (r *InMemoryBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, *models.Bet, error) {
 	matchId := bet.Match.Id()
-	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.Name, matchId)
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), matchId)
 	entry := BetEntry{
 		GameId:  gameId,
 		Player:  player,
@@ -89,7 +89,7 @@ func (r *InMemoryBetRepository) GetBetsForMatch(match models.Match, gameId strin
 
 func (r *InMemoryBetRepository) SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error {
 	matchId := bet.Match.Id()
-	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.Name, matchId)
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), matchId)
 	entry := BetEntry{
 		GameId:  gameId,
 		Player:  player,
@@ -102,10 +102,10 @@ func (r *InMemoryBetRepository) SaveWithId(gameId string, betId string, bet *mod
 }
 
 func (r *InMemoryBetRepository) SaveScore(gameId string, match models.Match, player models.Player, points int) error {
-	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.Name, match.Id())
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), match.Id())
 	entry, err := r.cache.Get(betKey)
 	if err != nil {
-		return fmt.Errorf("no bet found for match %s and player %s", match.Id(), player.Name)
+		return fmt.Errorf("no bet found for match %s and player %s", match.Id(), player.GetName())
 	}
 	entry.Points = &points
 	r.cache.Set(betKey, entry)
@@ -133,14 +133,14 @@ func (r *InMemoryBetRepository) GetScores(gameId string) (map[string]int, error)
 	return result, nil
 }
 
-func (r *InMemoryBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[models.Player]int, error) {
-	playerScores := make(map[string]map[models.Player]int)
+func (r *InMemoryBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[string]int, error) {
+	playerScores := make(map[string]map[string]int)
 	for _, entry := range r.cache.GetAll() {
 		if entry.Value.GameId == gameId && entry.Value.Points != nil {
 			if _, ok := playerScores[entry.Value.MatchId]; !ok {
-				playerScores[entry.Value.MatchId] = make(map[models.Player]int)
+				playerScores[entry.Value.MatchId] = make(map[string]int)
 			}
-			playerScores[entry.Value.MatchId][entry.Value.Player] = *entry.Value.Points
+			playerScores[entry.Value.MatchId][entry.Value.Player.GetID()] = *entry.Value.Points
 		}
 	}
 	return playerScores, nil

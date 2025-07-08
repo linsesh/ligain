@@ -13,16 +13,16 @@ type GameImpl struct {
 	competitionCode string
 	players         []models.Player
 	// PlayersPoints is a map of match id to a map of player to points
-	playersPoints map[string]map[models.Player]int
+	playersPoints map[string]map[string]int
 	// IncomingMatches is a map of match id to match
 	incomingMatches map[string]models.Match
 	// Bets is a map of match id to a map of player to bet
-	bets map[string]map[models.Player]*models.Bet
+	bets map[string]map[string]*models.Bet
 	// PastMatches is a map of match id to match
 	pastMatches map[string]models.Match
 	gameStatus  models.GameStatus
 	scorer      Scorer
-	scores      map[string]map[models.Player]int
+	scores      map[string]map[string]int
 }
 
 func NewFreshGame(seasonCode, competitionCode string, players []models.Player, incomingMatches []models.Match, scorer Scorer) *GameImpl {
@@ -31,12 +31,12 @@ func NewFreshGame(seasonCode, competitionCode string, players []models.Player, i
 		competitionCode: competitionCode,
 		players:         players,
 		gameStatus:      models.GameStatusNotStarted,
-		playersPoints:   make(map[string]map[models.Player]int),
+		playersPoints:   make(map[string]map[string]int),
 		incomingMatches: make(map[string]models.Match),
 		pastMatches:     make(map[string]models.Match),
-		bets:            make(map[string]map[models.Player]*models.Bet),
+		bets:            make(map[string]map[string]*models.Bet),
 		scorer:          scorer,
-		scores:          make(map[string]map[models.Player]int),
+		scores:          make(map[string]map[string]int),
 	}
 	for _, match := range incomingMatches {
 		g.incomingMatches[match.Id()] = match
@@ -44,7 +44,7 @@ func NewFreshGame(seasonCode, competitionCode string, players []models.Player, i
 	return g
 }
 
-func NewStartedGame(seasonCode, competitionCode string, players []models.Player, incomingMatches []models.Match, pastMatches []models.Match, scorer Scorer, bets map[string]map[models.Player]*models.Bet, scores map[string]map[models.Player]int) models.Game {
+func NewStartedGame(seasonCode, competitionCode string, players []models.Player, incomingMatches []models.Match, pastMatches []models.Match, scorer Scorer, bets map[string]map[string]*models.Bet, scores map[string]map[string]int) models.Game {
 	g := NewFreshGame(seasonCode, competitionCode, players, incomingMatches, scorer)
 	for _, match := range pastMatches {
 		g.pastMatches[match.Id()] = match
@@ -70,7 +70,7 @@ func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet,
 	return nil
 }
 
-func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]int, error) {
+func (g *GameImpl) CalculateMatchScores(match models.Match) (map[string]int, error) {
 	_, exists := g.incomingMatches[match.Id()]
 	if !exists {
 		return nil, fmt.Errorf("match not found")
@@ -82,7 +82,7 @@ func (g *GameImpl) CalculateMatchScores(match models.Match) (map[models.Player]i
 	return scores, nil
 }
 
-func (g *GameImpl) ApplyMatchScores(match models.Match, scores map[models.Player]int) {
+func (g *GameImpl) ApplyMatchScores(match models.Match, scores map[string]int) {
 	g.updatePlayersPoints(match, scores)
 	g.finishMatch(match)
 }
@@ -111,38 +111,38 @@ func (g *GameImpl) AddPlayerBet(player models.Player, bet *models.Bet) error {
 		return fmt.Errorf("match not found")
 	}
 	if _, exists := g.bets[bet.Match.Id()]; !exists {
-		g.bets[bet.Match.Id()] = make(map[models.Player]*models.Bet)
+		g.bets[bet.Match.Id()] = make(map[string]*models.Bet)
 	}
-	g.bets[bet.Match.Id()][player] = bet
+	g.bets[bet.Match.Id()][player.GetID()] = bet
 	return nil
 }
 
-func (g *GameImpl) scoreMatch(match models.Match) map[models.Player]int {
+func (g *GameImpl) scoreMatch(match models.Match) map[string]int {
 	bets := g.bets[match.Id()]
 	if bets == nil {
-		return make(map[models.Player]int)
+		return make(map[string]int)
 	}
 
-	players := make([]models.Player, 0, len(bets))
+	playerIDs := make([]string, 0, len(bets))
 	betList := make([]*models.Bet, 0, len(bets))
-	for player, bet := range bets {
-		players = append(players, player)
+	for playerID, bet := range bets {
+		playerIDs = append(playerIDs, playerID)
 		betList = append(betList, bet)
 	}
 	scores := g.scorer.Score(match, betList)
-	scoresMap := make(map[models.Player]int)
+	scoresMap := make(map[string]int)
 	for i, score := range scores {
-		scoresMap[players[i]] = score
+		scoresMap[playerIDs[i]] = score
 	}
 	return scoresMap
 }
 
-func (g *GameImpl) updatePlayersPoints(match models.Match, scores map[models.Player]int) {
-	for player, score := range scores {
+func (g *GameImpl) updatePlayersPoints(match models.Match, scores map[string]int) {
+	for playerID, score := range scores {
 		if _, exists := g.playersPoints[match.Id()]; !exists {
-			g.playersPoints[match.Id()] = make(map[models.Player]int)
+			g.playersPoints[match.Id()] = make(map[string]int)
 		}
-		g.playersPoints[match.Id()][player] = score
+		g.playersPoints[match.Id()][playerID] = score
 	}
 }
 
@@ -161,24 +161,60 @@ func (g *GameImpl) GetGameStatus() models.GameStatus {
 func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
 	results := make(map[string]*models.MatchResult)
 	for _, match := range g.pastMatches {
-		results[match.Id()] = models.NewScoredMatch(match, g.bets[match.Id()], g.playersPoints[match.Id()])
+		// Convert map[string]*models.Bet to map[models.Player]*models.Bet for NewScoredMatch
+		playerBets := make(map[models.Player]*models.Bet)
+		for playerID, bet := range g.bets[match.Id()] {
+			// Find the player by ID
+			for _, player := range g.players {
+				if player.GetID() == playerID {
+					playerBets[player] = bet
+					break
+				}
+			}
+		}
+
+		// Convert map[string]int to map[models.Player]int for NewScoredMatch
+		playerScores := make(map[models.Player]int)
+		for playerID, score := range g.playersPoints[match.Id()] {
+			// Find the player by ID
+			for _, player := range g.players {
+				if player.GetID() == playerID {
+					playerScores[player] = score
+					break
+				}
+			}
+		}
+
+		results[match.Id()] = models.NewScoredMatch(match, playerBets, playerScores)
 	}
 	return results
 }
 
-func (g *GameImpl) GetIncomingMatches() map[string]*models.MatchResult {
+func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
 	matches := make(map[string]*models.MatchResult)
 	for _, match := range g.incomingMatches {
-		matches[match.Id()] = models.NewMatchWithBets(match, g.bets[match.Id()])
+		playerBets := make(map[models.Player]*models.Bet)
+		if bets, exists := g.bets[match.Id()]; exists {
+			for playerID, bet := range bets {
+				// Find the player by ID
+				for _, p := range g.players {
+					if p.GetID() == playerID && p.GetName() == player.GetName() {
+						playerBets[p] = bet
+						break
+					}
+				}
+			}
+		}
+		matches[match.Id()] = models.NewMatchWithBets(match, playerBets)
 	}
 	return matches
 }
 
-func (g *GameImpl) GetPlayersPoints() map[models.Player]int {
-	points := make(map[models.Player]int)
+func (g *GameImpl) GetPlayersPoints() map[string]int {
+	points := make(map[string]int)
 	for _, matchPoints := range g.playersPoints {
-		for player, score := range matchPoints {
-			points[player] += score
+		for playerID, score := range matchPoints {
+			points[playerID] += score
 		}
 	}
 	return points
@@ -188,16 +224,32 @@ func (g *GameImpl) IsFinished() bool {
 	return g.gameStatus == models.GameStatusFinished
 }
 
+func (g *GameImpl) GetPlayers() []models.Player {
+	return g.players
+}
+
 func (g *GameImpl) GetWinner() []models.Player {
 	bestScore := 0
 	winners := make([]models.Player, 0)
 	totalPlayerPoints := g.GetPlayersPoints()
-	for player, points := range totalPlayerPoints {
+	for playerID, points := range totalPlayerPoints {
 		if points > bestScore {
 			bestScore = points
-			winners = []models.Player{player}
+			// Find the player by ID
+			for _, player := range g.players {
+				if player.GetID() == playerID {
+					winners = []models.Player{player}
+					break
+				}
+			}
 		} else if points == bestScore {
-			winners = append(winners, player)
+			// Find the player by ID
+			for _, player := range g.players {
+				if player.GetID() == playerID {
+					winners = append(winners, player)
+					break
+				}
+			}
 		}
 	}
 	return winners

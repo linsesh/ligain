@@ -10,12 +10,11 @@ import (
 )
 
 type GameService interface {
+	GetIncomingMatches(player models.Player) map[string]*models.MatchResult
+	GetMatchResults() map[string]*models.MatchResult
 	Play() ([]models.Player, error)
 	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
 	GetPlayerBets(player models.Player) ([]*models.Bet, error)
-	GetMatchResults() map[string]*models.MatchResult
-	GetIncomingMatches() map[string]*models.MatchResult
-	HandleUpdates(updates map[string]models.Match) error
 }
 
 // GameService is used to really run a game
@@ -44,8 +43,8 @@ func (g *GameServiceImpl) GetMatchResults() map[string]*models.MatchResult {
 	return g.game.GetPastResults()
 }
 
-func (g *GameServiceImpl) GetIncomingMatches() map[string]*models.MatchResult {
-	return g.game.GetIncomingMatches()
+func (g *GameServiceImpl) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
+	return g.game.GetIncomingMatches(player)
 }
 
 // Play returns the winner(s) of the game when it ends
@@ -92,7 +91,20 @@ func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 		log.Errorf("Error calculating match scores: %v", err)
 		return err
 	}
-	for player, score := range scores {
+	for playerID, score := range scores {
+		// Find the player by ID
+		var player models.Player
+		for _, p := range g.game.GetPlayers() {
+			if p.GetID() == playerID {
+				player = p
+				break
+			}
+		}
+		if player == nil {
+			log.Errorf("Player with ID %v not found", playerID)
+			continue
+		}
+
 		err = g.betRepo.SaveScore(g.gameId, match, player, score)
 		if err != nil {
 			log.Errorf("Error saving score for player %v: %v", player, err)

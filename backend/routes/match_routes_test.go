@@ -2,7 +2,9 @@ package routes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"liguain/backend/services"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 var testTime = time.Date(2024, 3, 15, 15, 0, 0, 0, time.UTC)
@@ -21,10 +24,10 @@ var testTime = time.Date(2024, 3, 15, 15, 0, 0, 0, time.UTC)
 type MockGame struct {
 	incomingMatches map[string]*models.MatchResult
 	pastMatches     map[string]*models.MatchResult
-	bets            map[string]map[models.Player]*models.Bet
+	bets            map[string]map[string]*models.Bet
 }
 
-func (m *MockGame) GetIncomingMatches() map[string]*models.MatchResult {
+func (m *MockGame) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
 	return m.incomingMatches
 }
 
@@ -50,33 +53,44 @@ func (m *MockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet,
 
 func (m *MockGame) AddPlayerBet(player models.Player, bet *models.Bet) error {
 	if m.bets == nil {
-		m.bets = make(map[string]map[models.Player]*models.Bet)
+		m.bets = make(map[string]map[string]*models.Bet)
 	}
 	if m.bets[bet.Match.Id()] == nil {
-		m.bets[bet.Match.Id()] = make(map[models.Player]*models.Bet)
+		m.bets[bet.Match.Id()] = make(map[string]*models.Bet)
 	}
-	m.bets[bet.Match.Id()][player] = bet
+	m.bets[bet.Match.Id()][player.GetName()] = bet
 
 	// Update the MatchResult in incomingMatches
 	if _, exists := m.incomingMatches[bet.Match.Id()]; exists {
-		m.incomingMatches[bet.Match.Id()] = models.NewMatchWithBets(bet.Match, m.bets[bet.Match.Id()])
+		// Convert map[string]*models.Bet to map[models.Player]*models.Bet for NewMatchWithBets
+		playerBets := make(map[models.Player]*models.Bet)
+		for playerName, bet := range m.bets[bet.Match.Id()] {
+			playerBets[&models.PlayerData{Name: playerName}] = bet
+		}
+		m.incomingMatches[bet.Match.Id()] = models.NewMatchWithBets(bet.Match, playerBets)
 	}
 	return nil
 }
 
-func (m *MockGame) CalculateMatchScores(match models.Match) (map[models.Player]int, error) {
-	return nil, nil
+func (m *MockGame) CalculateMatchScores(match models.Match) (map[string]int, error) {
+	// Convert internal map[string]int to map[string]int if needed
+	return make(map[string]int), nil
 }
 
-func (m *MockGame) ApplyMatchScores(match models.Match, scores map[models.Player]int) {
+func (m *MockGame) ApplyMatchScores(match models.Match, scores map[string]int) {
+	// No-op for test
 }
 
 func (m *MockGame) UpdateMatch(match models.Match) error {
 	return nil
 }
 
-func (m *MockGame) GetPlayersPoints() map[models.Player]int {
-	return nil
+func (m *MockGame) GetPlayersPoints() map[string]int {
+	return make(map[string]int)
+}
+
+func (m *MockGame) GetPlayers() []models.Player {
+	return []models.Player{}
 }
 
 func (m *MockGame) IsFinished() bool {
@@ -85,6 +99,32 @@ func (m *MockGame) IsFinished() bool {
 
 func (m *MockGame) GetWinner() []models.Player {
 	return nil
+}
+
+// MockBetAuthService for bet tests
+// Only implements ValidateToken
+// (other methods can panic if called)
+type MockBetAuthService struct {
+	mock.Mock
+}
+
+func (m *MockBetAuthService) ValidateToken(ctx context.Context, token string) (*models.PlayerData, error) {
+	testPlayer := &models.PlayerData{Name: "Player1"}
+	return testPlayer, nil
+}
+func (m *MockBetAuthService) Authenticate(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
+	panic("not implemented")
+}
+func (m *MockBetAuthService) Logout(ctx context.Context, token string) error {
+	panic("not implemented")
+}
+func (m *MockBetAuthService) CleanupExpiredTokens(ctx context.Context) error {
+	panic("not implemented")
+}
+
+func (m *MockBetAuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error) {
+	testPlayer := &models.PlayerData{Name: displayName}
+	return testPlayer, nil
 }
 
 func setupTestRouter() (*gin.Engine, *MockGame) {
@@ -96,15 +136,20 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 	game := &MockGame{
 		incomingMatches: make(map[string]*models.MatchResult),
 		pastMatches:     make(map[string]*models.MatchResult),
-		bets:            make(map[string]map[models.Player]*models.Bet),
+		bets:            make(map[string]map[string]*models.Bet),
 	}
 	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
 	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", game, gameRepo, betRepo, nil, 10*time.Second)
 
+	mockAuthService := &MockBetAuthService{}
+
 	handler := NewMatchHandler(map[string]services.GameService{
 		"123e4567-e89b-12d3-a456-426614174000": gameService,
-	})
-	handler.SetupRoutes(router)
+	}, mockAuthService)
+
+	// Add middleware to routes manually for testing
+	router.GET("/api/game/:game-id/matches", middleware.PlayerAuth(mockAuthService), handler.getMatches)
+	router.POST("/api/game/:game-id/bet", middleware.PlayerAuth(mockAuthService), handler.saveBet)
 
 	return router, game
 }
@@ -116,10 +161,11 @@ func TestGetMatches(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matchResult := models.NewMatchWithBets(match, nil)
 
-	mockGame.GetIncomingMatches()[match.Id()] = matchResult
+	mockGame.GetIncomingMatches(nil)[match.Id()] = matchResult
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/game/123e4567-e89b-12d3-a456-426614174000/matches", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -150,7 +196,7 @@ func TestSaveBet_Success(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matchResult := models.NewMatchWithBets(match, nil)
 
-	game.GetIncomingMatches()[match.Id()] = matchResult
+	game.GetIncomingMatches(nil)[match.Id()] = matchResult
 
 	// Create request body
 	betRequest := SaveBetRequest{
@@ -164,6 +210,7 @@ func TestSaveBet_Success(t *testing.T) {
 	// Create request
 	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -175,7 +222,7 @@ func TestSaveBet_Success(t *testing.T) {
 	// Verify the bet was saved in the mock game
 	playerBets := game.bets[match.Id()]
 	assert.NotNil(t, playerBets)
-	playerBet := playerBets[models.Player{Name: "Player1"}]
+	playerBet := playerBets["Player1"]
 	assert.NotNil(t, playerBet)
 	assert.Equal(t, 2, playerBet.PredictedHomeGoals)
 	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
@@ -190,6 +237,7 @@ func TestSaveBet_InvalidRequest(t *testing.T) {
 	// Create request
 	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(invalidBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -218,6 +266,7 @@ func TestSaveBet_MatchNotFound(t *testing.T) {
 	// Create request
 	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -237,6 +286,7 @@ func TestGetMatches_GameNotFound(t *testing.T) {
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/game/non-existent-game/matches", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -258,7 +308,7 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matchResult := models.NewMatchWithBets(match, nil)
 
-	game.GetIncomingMatches()[match.Id()] = matchResult
+	game.GetIncomingMatches(nil)[match.Id()] = matchResult
 
 	// First bet
 	initialBet := SaveBetRequest{
@@ -272,6 +322,7 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	// Create and perform initial bet request
 	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -279,7 +330,7 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	// Verify initial bet in mock game
 	playerBets := game.bets[match.Id()]
 	assert.NotNil(t, playerBets)
-	playerBet := playerBets[models.Player{Name: "Player1"}]
+	playerBet := playerBets["Player1"]
 	assert.NotNil(t, playerBet)
 	assert.Equal(t, 2, playerBet.PredictedHomeGoals)
 	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
@@ -296,6 +347,7 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	// Create and perform update bet request
 	req = httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -303,7 +355,7 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	// Verify updated bet in mock game
 	playerBets = game.bets[match.Id()]
 	assert.NotNil(t, playerBets)
-	playerBet = playerBets[models.Player{Name: "Player1"}]
+	playerBet = playerBets["Player1"]
 	assert.NotNil(t, playerBet)
 	assert.Equal(t, 3, playerBet.PredictedHomeGoals)
 	assert.Equal(t, 2, playerBet.PredictedAwayGoals)
@@ -315,6 +367,7 @@ func TestGetMatches_MissingGameId(t *testing.T) {
 
 	// Create request without gameId
 	req := httptest.NewRequest("GET", "/api/game//matches", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request
@@ -344,6 +397,7 @@ func TestSaveBet_MissingGameId(t *testing.T) {
 	// Create request without gameId
 	req := httptest.NewRequest("POST", "/api/game//bet", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
 	w := httptest.NewRecorder()
 
 	// Perform request

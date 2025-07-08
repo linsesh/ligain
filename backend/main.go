@@ -67,6 +67,8 @@ func main() {
 	}
 
 	betRepo := postgres.NewPostgresBetRepository(db, repositories.NewInMemoryBetRepository())
+	playerRepo := postgres.NewPostgresPlayerRepository(db)
+
 	//watcher, err := services.NewMatchWatcherServiceSportsmonk("local")
 	//if err != nil {
 	//	log.Fatal("Failed to create match watcher service:", err)
@@ -74,6 +76,9 @@ func main() {
 	watcher := NewMatchWatcherServiceMock()
 	gameService := services.NewGameService(gameId, game, gameRepo, betRepo, watcher, 10*time.Second)
 	go gameService.Play()
+
+	// Initialize authentication service
+	authService := services.NewAuthService(playerRepo)
 
 	router := gin.Default()
 
@@ -109,8 +114,12 @@ func main() {
 	// Setup routes
 	matchHandler := routes.NewMatchHandler(map[string]services.GameService{
 		"123e4567-e89b-12d3-a456-426614174000": gameService,
-	})
+	}, authService)
 	matchHandler.SetupRoutes(router)
+
+	// Setup authentication routes
+	authHandler := routes.NewAuthHandler(authService)
+	authHandler.SetupRoutes(router)
 
 	// Start server
 	port := os.Getenv("PORT")

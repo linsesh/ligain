@@ -49,7 +49,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create bet with actual match UUID
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := models.Player{Name: "TestPlayer"}
+				player := newTestPlayer("TestPlayer")
 
 				// Use repository SaveBet method instead of raw SQL
 				_, _, err = betRepo.SaveBet("123e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -96,8 +96,8 @@ func TestBetRepository_Integration(t *testing.T) {
 				match := models.NewSeasonMatch("Liverpool", "Man City", "2024", "Premier League", betTestTime, 1)
 				bet1 := models.NewBet(match, 2, 1)
 				bet2 := models.NewBet(match, 1, 1)
-				player1 := models.Player{Name: "Player1"}
-				player2 := models.Player{Name: "Player2"}
+				player1 := newTestPlayer("Player1")
+				player2 := newTestPlayer("Player2")
 				_, _, err = betRepo.SaveBet("223e4567-e89b-12d3-a456-426614174000", bet1, player1)
 				if err != nil {
 					t.Errorf("Failed to save bet1: %v", err)
@@ -140,7 +140,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match with proper UUID
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := models.Player{Name: "TestPlayer"}
+				player := newTestPlayer("TestPlayer")
 
 				// Try to save bet
 				_, _, err = betRepo.SaveBet("323e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -161,7 +161,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				require.NoError(t, err)
 
 				// Try to get bets for non-existent player
-				nonExistentPlayer := models.Player{Name: "NonExistentPlayer"}
+				nonExistentPlayer := newTestPlayer("NonExistentPlayer")
 				bets, err := betRepo.GetBets("423e4567-e89b-12d3-a456-426614174000", nonExistentPlayer)
 				require.NoError(t, err)
 				require.Empty(t, bets)
@@ -193,7 +193,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match and bet
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := models.Player{Name: "TestPlayer"}
+				player := newTestPlayer("TestPlayer")
 
 				// Save bet
 				betId, _, err := betRepo.SaveBet("423e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -236,7 +236,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match and bet without score
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := models.Player{Name: "TestPlayer"}
+				player := newTestPlayer("TestPlayer")
 
 				// Save bet
 				betId, _, err := betRepo.SaveBet("523e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -277,8 +277,8 @@ func TestBetRepository_Integration(t *testing.T) {
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet1 := models.NewBet(match, 2, 1)
 				bet2 := models.NewBet(match, 1, 1)
-				player1 := models.Player{Name: "Player1"}
-				player2 := models.Player{Name: "Player2"}
+				player1 := newTestPlayer("Player1")
+				player2 := newTestPlayer("Player2")
 
 				// Save bets and scores
 				betId1, _, err := betRepo.SaveBet("623e4567-e89b-12d3-a456-426614174000", bet1, player1)
@@ -331,8 +331,8 @@ func TestBetRepository_Integration(t *testing.T) {
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet1 := models.NewBet(match, 2, 1)
 				bet2 := models.NewBet(match, 1, 1)
-				player1 := models.Player{Name: "Player1"}
-				player2 := models.Player{Name: "Player2"}
+				player1 := newTestPlayer("Player1")
+				player2 := newTestPlayer("Player2")
 
 				// Save bets and scores
 				betId1, _, err := betRepo.SaveBet("723e4567-e89b-12d3-a456-426614174000", bet1, player1)
@@ -363,8 +363,10 @@ func TestBetRepository_Integration(t *testing.T) {
 				matchScores := scores[matchId]
 				require.NotNil(t, matchScores)
 				require.Equal(t, 2, len(matchScores))
-				require.Equal(t, 3, matchScores[player1])
-				require.Equal(t, 1, matchScores[player2])
+
+				// The method now returns player IDs as keys
+				require.Equal(t, 3, matchScores["723e4567-e89b-12d3-a456-426614174001"])
+				require.Equal(t, 1, matchScores["723e4567-e89b-12d3-a456-426614174002"])
 			})
 		})
 
@@ -392,7 +394,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match with proper UUID
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := models.Player{Name: "TestPlayer"}
+				player := newTestPlayer("TestPlayer")
 
 				// Save bet with specific ID
 				err = betRepo.SaveWithId("823e4567-e89b-12d3-a456-426614174000", "823e4567-e89b-12d3-a456-426614174003", bet, player)

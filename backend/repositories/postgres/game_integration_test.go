@@ -87,19 +87,19 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		gameRepo, err := NewPostgresGameRepository(testDB.db)
 		require.NoError(t, err)
 
-		// Create test data with proper UUID
-		gameId := "323e4567-e89b-12d3-a456-426614174000"
-		game := rules.NewFreshGame("2024", "Premier League", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
-		err = gameRepo.SaveWithId(gameId, game)
-		require.NoError(t, err)
-
-		// Create players
-		player1 := models.Player{Name: "Player1"}
-		player2 := models.Player{Name: "Player2"}
+		// Create players first
+		player1 := newTestPlayer("Player1")
+		player2 := newTestPlayer("Player2")
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
 		_, err = playerRepo.SavePlayer(player1)
 		require.NoError(t, err)
 		_, err = playerRepo.SavePlayer(player2)
+		require.NoError(t, err)
+
+		// Create test data with proper UUID
+		gameId := "323e4567-e89b-12d3-a456-426614174000"
+		game := rules.NewFreshGame("2024", "Premier League", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+		err = gameRepo.SaveWithId(gameId, game)
 		require.NoError(t, err)
 
 		// Create matches
@@ -175,7 +175,9 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 				// Get past and incoming matches
 				pastResults := restoredGame.GetPastResults()
-				incomingMatches := restoredGame.GetIncomingMatches()
+				// Use the first player for getting incoming matches
+				player1 := newTestPlayer("Player1")
+				incomingMatches := restoredGame.GetIncomingMatches(player1)
 
 				// Verify past match
 				pastMatchResult, exists := pastResults[pastMatch.Id()]
@@ -217,8 +219,16 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 				// Verify player points
 				playerPoints := restoredGame.GetPlayersPoints()
 				require.Equal(t, 2, len(playerPoints)) // Two players have points
-				for player, points := range playerPoints {
-					if player.Name == "Player1" {
+				for playerID, points := range playerPoints {
+					// Find the player by ID to check their name
+					var playerName string
+					for _, player := range restoredGame.GetPlayers() {
+						if player.GetID() == playerID {
+							playerName = player.GetName()
+							break
+						}
+					}
+					if playerName == "Player1" {
 						require.Equal(t, 3, points) // Player 1 got 3 points for correct prediction
 					} else {
 						require.Equal(t, 0, points) // Player 2 got 0 points for wrong prediction

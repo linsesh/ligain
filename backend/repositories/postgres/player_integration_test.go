@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"liguain/backend/models"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,22 +19,15 @@ func TestPlayerRepository_Integration(t *testing.T) {
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
 
 		t.Run("Save and Get Player", func(t *testing.T) {
-			// Create test data using raw SQL
-			_, err := testDB.db.Exec(`
-				INSERT INTO player (name)
-				VALUES ('TestPlayer');
-			`)
-			require.NoError(t, err)
-
-			// Get player
-			player := models.Player{Name: "TestPlayer"}
+			// Save player via repository
+			player := newTestPlayer("TestPlayer")
 			id, err := playerRepo.SavePlayer(player)
 			require.NoError(t, err)
 			require.NotEmpty(t, id)
 
 			retrieved, err := playerRepo.GetPlayer(id)
 			require.NoError(t, err)
-			require.Equal(t, player.Name, retrieved.Name)
+			require.Equal(t, player.GetName(), retrieved.GetName())
 		})
 
 		t.Run("Save Duplicate Player", func(t *testing.T) {
@@ -47,7 +38,7 @@ func TestPlayerRepository_Integration(t *testing.T) {
 			`)
 			require.NoError(t, err)
 
-			player := models.Player{Name: "DuplicatePlayer"}
+			player := newTestPlayer("DuplicatePlayer")
 			id1, err := playerRepo.SavePlayer(player)
 			require.NoError(t, err)
 			require.NotEmpty(t, id1)
@@ -100,8 +91,8 @@ func TestPlayerRepository_Integration(t *testing.T) {
 			players, err := playerRepo.GetPlayers("123e4567-e89b-12d3-a456-426614174000")
 			require.NoError(t, err)
 			require.Equal(t, 2, len(players))
-			require.Contains(t, []string{players[0].Name, players[1].Name}, "Player1")
-			require.Contains(t, []string{players[0].Name, players[1].Name}, "Player2")
+			require.Contains(t, []string{players[0].GetName(), players[1].GetName()}, "Player1")
+			require.Contains(t, []string{players[0].GetName(), players[1].GetName()}, "Player2")
 		})
 	}, 10*time.Second)
 }

@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type GameStatus string
 
@@ -10,20 +12,20 @@ const (
 	GameStatusFinished   GameStatus = "finished"
 )
 
+// Game represents a game with players, matches, and bets
 type Game interface {
+	GetIncomingMatches(player Player) map[string]*MatchResult
+	GetPastResults() map[string]*MatchResult
 	GetSeasonYear() string
 	GetCompetitionName() string
 	GetGameStatus() GameStatus
 	CheckPlayerBetValidity(player Player, bet *Bet, datetime time.Time) error
 	AddPlayerBet(player Player, bet *Bet) error
-	CalculateMatchScores(match Match) (map[Player]int, error)
-	ApplyMatchScores(match Match, scores map[Player]int)
+	CalculateMatchScores(match Match) (map[string]int, error)
+	ApplyMatchScores(match Match, scores map[string]int)
 	UpdateMatch(match Match) error
-	// GetPastResults returns a map of match id to scored match, with the scores filled
-	GetPastResults() map[string]*MatchResult
-	// GetIncomingMatches returns a map of match id to scored match
-	GetIncomingMatches() map[string]*MatchResult
-	GetPlayersPoints() map[Player]int
+	GetPlayersPoints() map[string]int
+	GetPlayers() []Player
 	IsFinished() bool
 	GetWinner() []Player
 }

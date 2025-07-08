@@ -117,5 +117,5 @@ func TestGetSeasonFixtures_Integration(t *testing.T) {
 		if len(fixtures) != 306 {
 			t.Errorf("Expected 306 fixtures, got %d", len(fixtures))
 		}
-	}, 10*time.Second)
+	}, 30*time.Second)
 }

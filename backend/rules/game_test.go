@@ -20,11 +20,28 @@ func (s *ScorerTest) Score(match models.Match, bets []*models.Bet) []int {
 	return scores
 }
 
+// testPlayer is a concrete implementation of models.Player for testing
+type testPlayer struct {
+	id   string
+	name string
+}
+
+func (p *testPlayer) GetID() string   { return p.id }
+func (p *testPlayer) GetName() string { return p.name }
+
+// newTestPlayer creates a new test player
+func newTestPlayer(name string) models.Player {
+	return &testPlayer{
+		id:   name, // Use name as ID for simplicity in tests
+		name: name,
+	}
+}
+
 // Reference time for all tests
 var testTime = time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC)
 
 func TestGameBasicProperties(t *testing.T) {
-	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	matches := []models.Match{
 		models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1),
 	}
@@ -45,7 +62,7 @@ func TestGameBasicProperties(t *testing.T) {
 }
 
 func TestCheckPlayerBetValidity(t *testing.T) {
-	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
@@ -75,7 +92,7 @@ func TestCheckPlayerBetValidity(t *testing.T) {
 		},
 		{
 			name:          "Invalid player",
-			player:        models.Player{Name: "NonExistentPlayer"},
+			player:        newTestPlayer("NonExistentPlayer"),
 			bet:           models.NewBet(match, 2, 1),
 			checkTime:     testTime.Add(-1 * time.Hour),
 			expectedError: true,
@@ -93,7 +110,7 @@ func TestCheckPlayerBetValidity(t *testing.T) {
 }
 
 func TestAddPlayerBetAndGetIncomingMatches(t *testing.T) {
-	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
@@ -108,7 +125,7 @@ func TestAddPlayerBetAndGetIncomingMatches(t *testing.T) {
 	}
 
 	// Verify bet is in incoming matches
-	incomingMatches := game.GetIncomingMatches()
+	incomingMatches := game.GetIncomingMatches(players[0])
 	if len(incomingMatches) != 1 {
 		t.Errorf("Expected 1 incoming match, got %d", len(incomingMatches))
 	}
@@ -122,13 +139,13 @@ func TestAddPlayerBetAndGetIncomingMatches(t *testing.T) {
 		t.Errorf("Expected 1 bet for match, got %d", len(matchResult.Bets))
 	}
 
-	if matchResult.Bets[players[0]] != bet {
-		t.Errorf("Expected bet %v for player, got %v", bet, matchResult.Bets[players[0]])
+	if matchResult.Bets[players[0].GetID()] != bet {
+		t.Errorf("Expected bet %v for player, got %v", bet, matchResult.Bets[players[0].GetID()])
 	}
 }
 
 func TestCalculateAndApplyMatchScores(t *testing.T) {
-	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
@@ -152,11 +169,11 @@ func TestCalculateAndApplyMatchScores(t *testing.T) {
 	}
 
 	// Verify scores
-	if scores[players[0]] != 500 {
-		t.Errorf("Expected 500 points for correct bet, got %d", scores[players[0]])
+	if scores[players[0].GetID()] != 500 {
+		t.Errorf("Expected 500 points for correct bet, got %d", scores[players[0].GetID()])
 	}
-	if scores[players[1]] != 0 {
-		t.Errorf("Expected 0 points for wrong bet, got %d", scores[players[1]])
+	if scores[players[1].GetID()] != 0 {
+		t.Errorf("Expected 0 points for wrong bet, got %d", scores[players[1].GetID()])
 	}
 
 	// Apply scores
@@ -170,16 +187,16 @@ func TestCalculateAndApplyMatchScores(t *testing.T) {
 
 	// Verify total points
 	totalPoints := game.GetPlayersPoints()
-	if totalPoints[players[0]] != 500 {
-		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints[players[0]])
+	if totalPoints[players[0].GetID()] != 500 {
+		t.Errorf("Expected 500 total points for Player1, got %d", totalPoints[players[0].GetID()])
 	}
-	if totalPoints[players[1]] != 0 {
-		t.Errorf("Expected 0 total points for Player2, got %d", totalPoints[players[1]])
+	if totalPoints[players[1].GetID()] != 0 {
+		t.Errorf("Expected 0 total points for Player2, got %d", totalPoints[players[1].GetID()])
 	}
 }
 
 func TestGameFinishAndWinner(t *testing.T) {
-	players := []models.Player{{Name: "Player1"}, {Name: "Player2"}}
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
@@ -219,7 +236,7 @@ func TestGameFinishAndWinner(t *testing.T) {
 }
 
 func TestUpdateMatch(t *testing.T) {
-	players := []models.Player{{Name: "Player1"}}
+	players := []models.Player{newTestPlayer("Player1")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
@@ -234,7 +251,7 @@ func TestUpdateMatch(t *testing.T) {
 	}
 
 	// Verify update in incoming matches
-	incomingMatches := game.GetIncomingMatches()
+	incomingMatches := game.GetIncomingMatches(players[0])
 	updatedResult := incomingMatches[match.Id()]
 	if updatedResult.Match.GetDate() != testTime.Add(24*time.Hour) {
 		t.Error("Match time was not updated correctly")

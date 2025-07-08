@@ -52,12 +52,12 @@ func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player m
 		gameId,
 		bet.PredictedHomeGoals,
 		bet.PredictedAwayGoals,
-		player.Name,
+		player.GetName(),
 	).Scan(&id)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", nil, fmt.Errorf("player not found: %s", player.Name)
+			return "", nil, fmt.Errorf("player not found: %s", player.GetName())
 		}
 		return "", nil, fmt.Errorf("error saving bet: %v", err)
 	}
@@ -98,7 +98,7 @@ func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]
 		JOIN player p ON b.player_id = p.id
 		WHERE b.game_id = $1 AND p.name = $2`
 
-	rows, err := r.db.Query(query, gameId, player.Name)
+	rows, err := r.db.Query(query, gameId, player.GetName())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []*models.Bet{}, nil
@@ -164,9 +164,9 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 		return bets, players, nil
 	}
 
-	// Query database with JOIN to get player names
+	// Query database with JOIN to get player names and IDs
 	query := `
-		SELECT b.id, p.name, b.predicted_home_goals, b.predicted_away_goals
+		SELECT b.id, p.id, p.name, b.predicted_home_goals, b.predicted_away_goals
 		FROM bet b
 		JOIN player p ON b.player_id = p.id
 		JOIN match m ON b.match_id = m.id
@@ -189,11 +189,12 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 	for rows.Next() {
 		var (
 			id                                     string
+			playerId                               string
 			playerName                             string
 			predictedHomeGoals, predictedAwayGoals int
 		)
 
-		err := rows.Scan(&id, &playerName, &predictedHomeGoals, &predictedAwayGoals)
+		err := rows.Scan(&id, &playerId, &playerName, &predictedHomeGoals, &predictedAwayGoals)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error scanning bet row: %v", err)
 		}
@@ -202,8 +203,8 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 		bet := models.NewBet(match, predictedHomeGoals, predictedAwayGoals)
 		bets = append(bets, bet)
 
-		// Create player
-		player := models.Player{Name: playerName}
+		// Create player with proper ID
+		player := models.NewSimplePlayer(playerId, playerName)
 		players = append(players, player)
 	}
 
@@ -242,10 +243,10 @@ func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *mod
 			predicted_home_goals = EXCLUDED.predicted_home_goals,
 			predicted_away_goals = EXCLUDED.predicted_away_goals,
 			game_id = EXCLUDED.game_id
-	`, player.Name, bet.Match.GetHomeTeam(), bet.Match.GetAwayTeam(), bet.Match.GetSeasonCode(), bet.Match.GetCompetitionCode(), bet.Match.(*models.SeasonMatch).Matchday, betId, bet.PredictedHomeGoals, bet.PredictedAwayGoals, gameId)
+	`, player.GetName(), bet.Match.GetHomeTeam(), bet.Match.GetAwayTeam(), bet.Match.GetSeasonCode(), bet.Match.GetCompetitionCode(), bet.Match.(*models.SeasonMatch).Matchday, betId, bet.PredictedHomeGoals, bet.PredictedAwayGoals, gameId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("player not found: %s", player.Name)
+			return fmt.Errorf("player not found: %s", player.GetName())
 		}
 		return fmt.Errorf("error saving bet: %w", err)
 	}
@@ -280,7 +281,7 @@ func (r *PostgresBetRepository) SaveScore(gameId string, match models.Match, pla
 		match.(*models.SeasonMatch).Matchday,
 		points,
 		gameId,
-		player.Name)
+		player.GetName())
 	if err != nil {
 		return fmt.Errorf("error saving score: %v", err)
 	}
@@ -337,9 +338,9 @@ func (r *PostgresBetRepository) GetScores(gameId string) (map[string]int, error)
 	return scores, nil
 }
 
-func (r *PostgresBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[models.Player]int, error) {
+func (r *PostgresBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[string]int, error) {
 	rows, err := r.db.Query(`
-		SELECT m.local_id, p.name, COALESCE(s.points, 0)
+		SELECT m.local_id, p.id, p.name, COALESCE(s.points, 0)
 		FROM bet b
 		JOIN player p ON b.player_id = p.id
 		JOIN match m ON b.match_id = m.id
@@ -351,18 +352,18 @@ func (r *PostgresBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[st
 	}
 	defer rows.Close()
 
-	scores := make(map[string]map[models.Player]int)
+	scores := make(map[string]map[string]int)
 	for rows.Next() {
-		var matchId, playerName string
+		var matchId, playerId, playerName string
 		var points int
-		err := rows.Scan(&matchId, &playerName, &points)
+		err := rows.Scan(&matchId, &playerId, &playerName, &points)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning score row: %v", err)
 		}
 		if _, ok := scores[matchId]; !ok {
-			scores[matchId] = make(map[models.Player]int)
+			scores[matchId] = make(map[string]int)
 		}
-		scores[matchId][models.Player{Name: playerName}] = points
+		scores[matchId][playerId] = points
 	}
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating score rows: %v", err)

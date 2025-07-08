@@ -1,113 +1,210 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type PostgresPlayerRepository struct {
-	*PostgresRepository
-	cache repositories.PlayerRepository
+	db *sql.DB
 }
 
-func NewPostgresPlayerRepository(db *sql.DB) repositories.PlayerRepository {
-	baseRepo := NewPostgresRepository(db)
-	cache := repositories.NewInMemoryPlayerRepository()
-	return &PostgresPlayerRepository{PostgresRepository: baseRepo, cache: cache}
+func NewPostgresPlayerRepository(db *sql.DB) *PostgresPlayerRepository {
+	return &PostgresPlayerRepository{db: db}
 }
 
+// Legacy methods for backward compatibility
 func (r *PostgresPlayerRepository) SavePlayer(player models.Player) (string, error) {
-	query := `
-		WITH player_data AS (
-			SELECT id, name
-			FROM player
-			WHERE name = $1
-		)
-		INSERT INTO player (name)
-		SELECT $1
-		WHERE NOT EXISTS (SELECT 1 FROM player_data)
-		RETURNING id`
-
-	var id string
-	err := r.db.QueryRow(query, player.Name).Scan(&id)
-	if err == sql.ErrNoRows {
-		// If no rows were inserted, get the existing player's ID
-		err = r.db.QueryRow("SELECT id FROM player WHERE name = $1", player.Name).Scan(&id)
-		if err != nil {
-			return "", fmt.Errorf("error getting existing player: %v", err)
-		}
-	} else if err != nil {
-		return "", fmt.Errorf("error saving player: %v", err)
+	var playerId string
+	err := r.db.QueryRow(`
+		INSERT INTO player (id, name) 
+		VALUES (gen_random_uuid(), $1)
+		ON CONFLICT (name) DO UPDATE SET name = player.name
+		RETURNING id`,
+		player.GetName()).Scan(&playerId)
+	if err != nil {
+		return "", err
 	}
-
-	// Update cache
-	if _, err := r.cache.SavePlayer(player); err != nil {
-		fmt.Printf("Warning: failed to update cache: %v\n", err)
-	}
-
-	return id, nil
+	return playerId, nil
 }
 
 func (r *PostgresPlayerRepository) GetPlayer(playerId string) (models.Player, error) {
-	// Try cache first
-	player, err := r.cache.GetPlayer(playerId)
-	if err == nil && player.Name != "" {
-		return player, nil
-	}
-
-	query := `
-		SELECT id, name
-		FROM player
-		WHERE id = $1`
-
-	var id, name string
-	err = r.db.QueryRow(query, playerId).Scan(&id, &name)
-
-	if err == sql.ErrNoRows {
-		return models.Player{}, fmt.Errorf("player %s not found", playerId)
-	}
+	var player models.PlayerData
+	err := r.db.QueryRow("SELECT id, name FROM player WHERE id = $1", playerId).Scan(&player.ID, &player.Name)
 	if err != nil {
-		return models.Player{}, fmt.Errorf("error getting player: %v", err)
+		return &models.PlayerData{}, err
 	}
-
-	player = models.Player{Name: name}
-
-	// Populate cache
-	if _, err := r.cache.SavePlayer(player); err != nil {
-		fmt.Printf("Warning: failed to update cache: %v\n", err)
-	}
-
-	return player, nil
+	return &player, nil
 }
 
 func (r *PostgresPlayerRepository) GetPlayers(gameId string) ([]models.Player, error) {
-	query := `
-		WITH game_players AS (
-			SELECT DISTINCT p.id, p.name
-			FROM player p
-			JOIN bet b ON p.id = b.player_id
-			WHERE b.game_id = $1
-		)
-		SELECT id, name
-		FROM game_players
-		ORDER BY name ASC`
-
-	rows, err := r.db.Query(query, gameId)
+	rows, err := r.db.Query(`
+		SELECT DISTINCT p.id, p.name 
+		FROM player p
+		JOIN bet b ON p.id = b.player_id
+		WHERE b.game_id = $1
+	`, gameId)
 	if err != nil {
-		return nil, fmt.Errorf("error getting players: %v", err)
+		return nil, err
 	}
 	defer rows.Close()
 
 	var players []models.Player
 	for rows.Next() {
-		var id, name string
-		if err := rows.Scan(&id, &name); err != nil {
-			return nil, fmt.Errorf("error scanning player: %v", err)
+		var player models.PlayerData
+		if err := rows.Scan(&player.ID, &player.Name); err != nil {
+			return nil, err
 		}
-		players = append(players, models.Player{Name: name})
+		players = append(players, &player)
+	}
+	return players, nil
+}
+
+// Authentication methods
+func (r *PostgresPlayerRepository) CreatePlayer(ctx context.Context, player *models.PlayerData) error {
+	query := `
+		INSERT INTO player (id, name, email, provider, provider_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		player.ID, player.Name, player.Email, player.Provider, player.ProviderID,
+		player.CreatedAt, player.UpdatedAt)
+	return err
+}
+
+func (r *PostgresPlayerRepository) GetPlayerByID(ctx context.Context, id string) (*models.PlayerData, error) {
+	var player models.PlayerData
+	query := `
+		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		FROM player WHERE id = $1
+	`
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
+		&player.CreatedAt, &player.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
+}
+
+func (r *PostgresPlayerRepository) GetPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
+	var player models.PlayerData
+	query := `
+		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		FROM player WHERE email = $1
+	`
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
+		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
+		&player.CreatedAt, &player.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
+}
+
+func (r *PostgresPlayerRepository) GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
+	var player models.PlayerData
+	query := `
+		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		FROM player WHERE provider = $1 AND provider_id = $2
+	`
+	err := r.db.QueryRowContext(ctx, query, provider, providerID).Scan(
+		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
+		&player.CreatedAt, &player.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
+}
+
+func (r *PostgresPlayerRepository) GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error) {
+	var player models.PlayerData
+	query := `
+		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		FROM player WHERE name = $1
+	`
+	err := r.db.QueryRowContext(ctx, query, name).Scan(
+		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
+		&player.CreatedAt, &player.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &player, nil
+}
+
+func (r *PostgresPlayerRepository) UpdatePlayer(ctx context.Context, player *models.PlayerData) error {
+	query := `
+		UPDATE player 
+		SET name = $2, email = $3, provider = $4, provider_id = $5, updated_at = $6
+		WHERE id = $1
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		player.ID, player.Name, player.Email, player.Provider, player.ProviderID, player.UpdatedAt)
+	return err
+}
+
+func (r *PostgresPlayerRepository) CreateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	if token.ID == "" {
+		token.ID = uuid.New().String()
 	}
 
-	return players, nil
+	token.CreatedAt = time.Now()
+
+	query := `
+		INSERT INTO auth_tokens (id, player_id, token, expires_at, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := r.db.ExecContext(ctx, query,
+		token.ID,
+		token.PlayerID,
+		token.Token,
+		token.ExpiresAt,
+		token.CreatedAt,
+	)
+
+	return err
+}
+
+func (r *PostgresPlayerRepository) GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error) {
+	query := `
+		SELECT id, player_id, token, expires_at, created_at
+		FROM auth_tokens
+		WHERE token = $1
+	`
+
+	var authToken models.AuthToken
+	err := r.db.QueryRowContext(ctx, query, token).Scan(
+		&authToken.ID,
+		&authToken.PlayerID,
+		&authToken.Token,
+		&authToken.ExpiresAt,
+		&authToken.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &authToken, nil
+}
+
+func (r *PostgresPlayerRepository) DeleteAuthToken(ctx context.Context, token string) error {
+	query := `DELETE FROM auth_tokens WHERE token = $1`
+	_, err := r.db.ExecContext(ctx, query, token)
+	return err
+}
+
+func (r *PostgresPlayerRepository) DeleteExpiredTokens(ctx context.Context) error {
+	query := `DELETE FROM auth_tokens WHERE expires_at < NOW()`
+	_, err := r.db.ExecContext(ctx, query)
+	return err
 }

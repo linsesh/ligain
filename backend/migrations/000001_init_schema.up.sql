@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS match (
     match_status VARCHAR(255) NOT NULL,
     season_code VARCHAR(255) NOT NULL,
     competition_code VARCHAR(255) NOT NULL,
-    matchday INTEGER NOT NULL DEFAULT 0,
+    matchday INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (local_id)
@@ -27,8 +27,23 @@ CREATE TABLE IF NOT EXISTS match (
 CREATE TABLE IF NOT EXISTS player (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) UNIQUE,
+    provider VARCHAR(50), -- 'google' or 'apple'
+    provider_id VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add unique constraint for provider + provider_id combination
+ALTER TABLE player ADD CONSTRAINT unique_provider_id UNIQUE(provider, provider_id);
+
+-- Add auth_tokens table
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    player_id UUID NOT NULL REFERENCES player(id) ON DELETE CASCADE,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS bet (

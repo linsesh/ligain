@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"liguain/backend/models"
 	"log"
 	"testing"
 	"time"
@@ -17,6 +18,23 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+// testPlayer is a concrete implementation of models.Player for testing
+type testPlayer struct {
+	id   string
+	name string
+}
+
+func (p *testPlayer) GetID() string   { return p.id }
+func (p *testPlayer) GetName() string { return p.name }
+
+// newTestPlayer creates a new test player
+func newTestPlayer(name string) models.Player {
+	return &testPlayer{
+		id:   name, // Use name as ID for simplicity in tests
+		name: name,
+	}
+}
 
 type testDB struct {
 	db        *sql.DB

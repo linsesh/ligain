@@ -9,9 +9,26 @@ import (
 
 var testTime = time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC)
 
+// testPlayer is a concrete implementation of models.Player for testing
+type testPlayer struct {
+	id   string
+	name string
+}
+
+func (p *testPlayer) GetID() string   { return p.id }
+func (p *testPlayer) GetName() string { return p.name }
+
+// newTestPlayer creates a new test player
+func newTestPlayer(name string) models.Player {
+	return &testPlayer{
+		id:   name, // Use name as ID for simplicity in tests
+		name: name,
+	}
+}
+
 func TestInMemoryBetRepository_SaveAndGetBets(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player := models.Player{Name: "TestPlayer"}
+	player := newTestPlayer("TestPlayer")
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	bet := models.NewBet(match, 2, 1)
 
@@ -42,7 +59,7 @@ func TestInMemoryBetRepository_SaveAndGetBets(t *testing.T) {
 
 func TestInMemoryBetRepository_UpdateBet(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player := models.Player{Name: "TestPlayer"}
+	player := newTestPlayer("TestPlayer")
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 
 	// Save initial bet
@@ -81,8 +98,8 @@ func TestInMemoryBetRepository_UpdateBet(t *testing.T) {
 
 func TestInMemoryBetRepository_GetBetsForMatch(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player1 := models.Player{Name: "Player1"}
-	player2 := models.Player{Name: "Player2"}
+	player1 := newTestPlayer("Player1")
+	player2 := newTestPlayer("Player2")
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 
 	// Save bets for both players
@@ -118,7 +135,7 @@ func TestInMemoryBetRepository_GetBetsForMatch(t *testing.T) {
 	// Verify the bets and players match
 	playerBets := make(map[string]*models.Bet)
 	for i, player := range players {
-		playerBets[player.Name] = bets[i]
+		playerBets[player.GetName()] = bets[i]
 	}
 
 	if bet, ok := playerBets["Player1"]; !ok || bet.PredictedHomeGoals != 2 || bet.PredictedAwayGoals != 1 {
@@ -131,7 +148,7 @@ func TestInMemoryBetRepository_GetBetsForMatch(t *testing.T) {
 
 func TestInMemoryBetRepository_EmptyResults(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player := models.Player{Name: "TestPlayer"}
+	player := newTestPlayer("TestPlayer")
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 
 	// Test getting bets for non-existent game
@@ -158,7 +175,7 @@ func TestInMemoryBetRepository_EmptyResults(t *testing.T) {
 
 func TestInMemoryBetRepository_SaveAndGetScore(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player := models.Player{Name: "TestPlayer"}
+	player := newTestPlayer("TestPlayer")
 	match := &testutils.MockMatch{} // Use the mock match from testutils
 	bet := models.NewBet(match, 2, 1)
 
@@ -189,7 +206,7 @@ func TestInMemoryBetRepository_SaveAndGetScore(t *testing.T) {
 
 func TestInMemoryBetRepository_GetScoreNotFound(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player := models.Player{Name: "TestPlayer"}
+	player := newTestPlayer("TestPlayer")
 	match := &testutils.MockMatch{}
 	bet := models.NewBet(match, 2, 1)
 
@@ -211,8 +228,8 @@ func TestInMemoryBetRepository_GetScoreNotFound(t *testing.T) {
 
 func TestInMemoryBetRepository_GetScores(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player1 := models.Player{Name: "Player1"}
-	player2 := models.Player{Name: "Player2"}
+	player1 := newTestPlayer("Player1")
+	player2 := newTestPlayer("Player2")
 	match := &testutils.MockMatch{}
 
 	// Save bets and scores
@@ -261,8 +278,8 @@ func TestInMemoryBetRepository_GetScores(t *testing.T) {
 
 func TestInMemoryBetRepository_GetScoresByMatchAndPlayer(t *testing.T) {
 	repo := NewInMemoryBetRepository()
-	player1 := models.Player{Name: "Player1"}
-	player2 := models.Player{Name: "Player2"}
+	player1 := newTestPlayer("Player1")
+	player2 := newTestPlayer("Player2")
 	match := &testutils.MockMatch{}
 
 	// Save bets and scores
@@ -305,10 +322,10 @@ func TestInMemoryBetRepository_GetScoresByMatchAndPlayer(t *testing.T) {
 	if len(matchScores) != 2 {
 		t.Errorf("Expected scores for 2 players, got %d", len(matchScores))
 	}
-	if matchScores[player1] != 3 {
-		t.Errorf("Expected score 3 for player1, got %d", matchScores[player1])
+	if matchScores[player1.GetID()] != 3 {
+		t.Errorf("Expected score 3 for player1, got %d", matchScores[player1.GetID()])
 	}
-	if matchScores[player2] != 1 {
-		t.Errorf("Expected score 1 for player2, got %d", matchScores[player2])
+	if matchScores[player2.GetID()] != 1 {
+		t.Errorf("Expected score 1 for player2, got %d", matchScores[player2.GetID()])
 	}
 }

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"fmt"
+	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/services"
 	"net/http"
@@ -13,12 +14,14 @@ import (
 // MatchHandler handles all match-related routes
 type MatchHandler struct {
 	gameServices map[string]services.GameService
+	authService  services.AuthServiceInterface
 }
 
 // NewMatchHandler creates a new MatchHandler instance
-func NewMatchHandler(gameServices map[string]services.GameService) *MatchHandler {
+func NewMatchHandler(gameServices map[string]services.GameService, authService services.AuthServiceInterface) *MatchHandler {
 	return &MatchHandler{
 		gameServices: gameServices,
+		authService:  authService,
 	}
 }
 
@@ -26,6 +29,19 @@ func NewMatchHandler(gameServices map[string]services.GameService) *MatchHandler
 type SimplifiedBet struct {
 	PredictedHomeGoals int `json:"predictedHomeGoals"`
 	PredictedAwayGoals int `json:"predictedAwayGoals"`
+}
+
+// getAuthenticatedPlayer extracts the authenticated player from the context
+func (h *MatchHandler) getAuthenticatedPlayer(c *gin.Context) (models.Player, error) {
+	playerInterface, exists := c.Get("player")
+	if !exists || playerInterface == nil {
+		return nil, fmt.Errorf("player not found in context")
+	}
+	player, ok := playerInterface.(models.Player)
+	if !ok {
+		return nil, fmt.Errorf("invalid player type in context")
+	}
+	return player, nil
 }
 
 // convertMatchResultToJSON converts a MatchResult to a JSON-friendly structure
@@ -37,8 +53,8 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult)
 	log.Info("matchResult.Bets", matchResult.Bets)
 	if matchResult.Bets != nil {
 		simplifiedBets := make(map[string]SimplifiedBet)
-		for player, bet := range matchResult.Bets {
-			simplifiedBets[player.Name] = SimplifiedBet{
+		for playerID, bet := range matchResult.Bets {
+			simplifiedBets[playerID] = SimplifiedBet{
 				PredictedHomeGoals: bet.PredictedHomeGoals,
 				PredictedAwayGoals: bet.PredictedAwayGoals,
 			}
@@ -50,8 +66,8 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult)
 
 	if matchResult.Scores != nil {
 		simplifiedScores := make(map[string]int)
-		for player, score := range matchResult.Scores {
-			simplifiedScores[player.Name] = score
+		for playerID, score := range matchResult.Scores {
+			simplifiedScores[playerID] = score
 		}
 		result["scores"] = simplifiedScores
 	} else {
@@ -63,8 +79,8 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult)
 
 // SetupRoutes registers all match-related routes
 func (h *MatchHandler) SetupRoutes(router *gin.Engine) {
-	router.GET("/api/game/:game-id/matches", h.getMatches)
-	router.POST("/api/game/:game-id/bet", h.saveBet)
+	router.GET("/api/game/:game-id/matches", middleware.PlayerAuth(h.authService), h.getMatches)
+	router.POST("/api/game/:game-id/bet", middleware.PlayerAuth(h.authService), h.saveBet)
 }
 
 func (h *MatchHandler) getMatches(c *gin.Context) {
@@ -81,7 +97,14 @@ func (h *MatchHandler) getMatches(c *gin.Context) {
 		return
 	}
 
-	incomingMatches := gameService.GetIncomingMatches()
+	// Get authenticated player from context
+	player, err := h.getAuthenticatedPlayer(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	incomingMatches := gameService.GetIncomingMatches(player) // Get matches filtered for this player
 	pastMatches := gameService.GetMatchResults()
 
 	// Convert MatchResults to JSON-friendly format
@@ -136,18 +159,27 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 		return
 	}
 
-	incomingMatches := gameService.GetIncomingMatches()
-	match, exists := incomingMatches[request.MatchID]
+	// Get authenticated player from context
+	player, err := h.getAuthenticatedPlayer(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get incoming matches filtered for this player only
+	incomingMatches := gameService.GetIncomingMatches(player)
+	matchResult, exists := incomingMatches[request.MatchID]
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Match %s not found", request.MatchID)})
 		return
 	}
+	match := matchResult.Match
 
-	bet := models.NewBet(match.Match, request.PredictedHomeGoals, request.PredictedAwayGoals)
-	err := gameService.UpdatePlayerBet(models.Player{Name: "Player1"}, bet, match.Match.GetDate())
-	if err != nil {
-		log.Error("Failed to update player bet", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	bet := models.NewBet(match, request.PredictedHomeGoals, request.PredictedAwayGoals)
+	updateErr := gameService.UpdatePlayerBet(player, bet, match.GetDate())
+	if updateErr != nil {
+		log.Error("Failed to update player bet", updateErr)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": updateErr.Error()})
 		return
 	}
 

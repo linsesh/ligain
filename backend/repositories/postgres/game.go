@@ -113,7 +113,7 @@ func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, 
 	return seasonYear, competitionName, nil
 }
 
-func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Match, []models.Match, map[string]map[models.Player]*models.Bet, []models.Player, error) {
+func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Match, []models.Match, map[string]map[string]*models.Bet, []models.Player, error) {
 	query := `
 		WITH match_data AS (
 			SELECT
@@ -130,6 +130,7 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 				b.id as bet_id,
 				b.predicted_home_goals,
 				b.predicted_away_goals,
+				p.id as player_id,
 				p.name as player_name
 			FROM match m
 			LEFT JOIN bet b ON m.id = b.match_id AND b.game_id = $1
@@ -149,9 +150,9 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 	return r.processMatchData(rows)
 }
 
-func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Match, []models.Match, map[string]map[models.Player]*models.Bet, []models.Player, error) {
+func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Match, []models.Match, map[string]map[string]*models.Bet, []models.Player, error) {
 	matchesById := make(map[string]*models.SeasonMatch)
-	bets := make(map[string]map[models.Player]*models.Bet)
+	match_id_to_player_id_to_bet := make(map[string]map[string]*models.Bet)
 	players := make(map[string]models.Player)
 
 	for rows.Next() {
@@ -164,6 +165,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		var matchday int
 		var betId sql.NullString
 		var predictedHomeGoals, predictedAwayGoals sql.NullInt32
+		var playerId sql.NullString
 		var playerName sql.NullString
 
 		err := rows.Scan(
@@ -180,6 +182,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 			&betId,
 			&predictedHomeGoals,
 			&predictedAwayGoals,
+			&playerId,
 			&playerName,
 		)
 		if err != nil {
@@ -196,19 +199,23 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		}
 		// Create bet if all required fields are present
 		if betId.Valid && predictedHomeGoals.Valid && predictedAwayGoals.Valid && playerName.Valid {
-			player := models.Player{Name: playerName.String}
+			playerID := ""
+			if playerId.Valid {
+				playerID = playerId.String
+			}
+			player := models.NewSimplePlayer(playerID, playerName.String)
 			players[playerName.String] = player
 
-			if _, ok := bets[matchId]; !ok {
-				bets[matchId] = make(map[models.Player]*models.Bet)
+			if _, ok := match_id_to_player_id_to_bet[matchId]; !ok {
+				match_id_to_player_id_to_bet[matchId] = make(map[string]*models.Bet)
 			}
 			bet := r.createBet(match, int(predictedHomeGoals.Int32), int(predictedAwayGoals.Int32))
-			bets[matchId][player] = bet
+			match_id_to_player_id_to_bet[matchId][playerID] = bet
 
 		}
 	}
 	fmt.Println(matchesById)
-	fmt.Println(bets)
+	fmt.Println(match_id_to_player_id_to_bet)
 	// Separate matches into incoming and past
 	var incomingMatches []models.Match
 	var pastMatches []models.Match
@@ -226,7 +233,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		playerSlice = append(playerSlice, player)
 	}
 
-	return incomingMatches, pastMatches, bets, playerSlice, nil
+	return incomingMatches, pastMatches, match_id_to_player_id_to_bet, playerSlice, nil
 }
 
 func (r *PostgresGameRepository) createBet(match models.Match, predictedHomeGoals, predictedAwayGoals int) *models.Bet {
