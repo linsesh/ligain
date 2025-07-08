@@ -5,6 +5,8 @@ import { RealTimeService } from '../src/services/timeService';
 import { AuthGuard } from '../src/components/AuthGuard';
 
 export default function Layout() {
+  console.log('🏗️ Layout - Rendering main layout');
+  
   return (
     <AuthProvider>
       <TimeServiceProvider service={new RealTimeService()}>

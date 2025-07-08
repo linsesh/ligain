@@ -7,7 +7,11 @@ export const API_CONFIG = {
 } as const;
 
 export const getApiHeaders = (additionalHeaders?: Record<string, string>) => {
+  console.log('🔧 API - API_KEY configured:', !!API_CONFIG.API_KEY);
+  console.log('🔧 API - BASE_URL:', API_CONFIG.BASE_URL);
+  
   if (!API_CONFIG.API_KEY) {
+    console.error('❌ API - API_KEY is not configured!');
     throw new Error('API_KEY is not configured. Please set it in your environment variables.');
   }
   return {

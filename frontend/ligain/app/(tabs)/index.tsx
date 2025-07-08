@@ -173,6 +173,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
 }
 
 function MatchesList() {
+  console.log('📋 MatchesList - Rendering matches list');
+  
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches();
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
@@ -321,6 +323,8 @@ function MatchesList() {
 
 // Wrap the app with the TimeServiceProvider using MockTimeService
 export default function TabOneScreen() {
+  console.log('🏠 TabOneScreen - Rendering main tabs screen');
+  
   const mockTime = new Date('2024-03-20T20:10:00');
   const timeService = React.useMemo(() => new MockTimeService(mockTime), []);
   

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_CONFIG, getApiHeaders } from '../config/api';
+import { getItem, setItem, multiRemove, isUsingMemoryFallback } from '../utils/storage';
 
 export interface Player {
   id: string;
@@ -48,11 +48,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuth = async () => {
     try {
+      console.log('🔍 AuthContext - Starting checkAuth');
       setIsLoading(true);
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-      const playerData = await AsyncStorage.getItem(PLAYER_DATA_KEY);
+      
+      // Check if we're using memory fallback (AsyncStorage not available)
+      if (isUsingMemoryFallback()) {
+        console.warn('⚠️ Using memory storage fallback - data will be lost on app restart');
+      }
+      
+      const token = await getItem(AUTH_TOKEN_KEY);
+      const playerData = await getItem(PLAYER_DATA_KEY);
+      
+      console.log('🔍 AuthContext - Token exists:', !!token, 'PlayerData exists:', !!playerData);
 
       if (token && playerData) {
+        console.log('🔍 AuthContext - Validating token with backend');
         // Validate token with backend
         const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/me`, {
           headers: {
@@ -61,21 +71,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           },
         });
 
+        console.log('🔍 AuthContext - Backend response status:', response.status);
+
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ AuthContext - Token valid, setting player:', data.player?.name);
           setPlayer(data.player);
         } else {
+          console.log('❌ AuthContext - Token invalid, clearing storage');
           // Token is invalid, clear storage
-          await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
+          await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
           setPlayer(null);
         }
       } else {
+        console.log('❌ AuthContext - No token or player data found');
         setPlayer(null);
       }
     } catch (error) {
-      console.error('Error checking auth:', error);
+      console.error('❌ AuthContext - Error checking auth:', error);
       setPlayer(null);
     } finally {
+      console.log('🔍 AuthContext - Setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -106,8 +122,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       
       // Store token and player data
-      await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
-      await AsyncStorage.setItem(PLAYER_DATA_KEY, JSON.stringify(data.player));
+      await setItem(AUTH_TOKEN_KEY, data.token);
+      await setItem(PLAYER_DATA_KEY, JSON.stringify(data.player));
       
       setPlayer(data.player);
     } catch (error) {
@@ -120,7 +136,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      const token = await getItem(AUTH_TOKEN_KEY);
       
       if (token) {
         // Call backend to invalidate token
@@ -136,7 +152,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Sign out error:', error);
     } finally {
       // Clear local storage regardless of backend response
-      await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
+      await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
       setPlayer(null);
     }
   };

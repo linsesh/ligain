@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
+import { AsyncStorageDebug } from '../../src/components/AsyncStorageDebug';
 
 export default function ProfileScreen() {
   const { player, signOut } = useAuth();
+  const [showDebug, setShowDebug] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -113,7 +115,26 @@ export default function ProfileScreen() {
             <Text style={[styles.actionButtonText, { color: colors.error }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Debug section - only show in development */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Development</Text>
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => setShowDebug(!showDebug)}
+            >
+              <Ionicons name="bug-outline" size={20} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>
+                {showDebug ? 'Hide' : 'Show'} AsyncStorage Debug
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
+
+      {/* Debug component */}
+      {__DEV__ && showDebug && <AsyncStorageDebug />}
     </ScrollView>
   );
 }

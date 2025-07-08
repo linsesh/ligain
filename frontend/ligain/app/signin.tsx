@@ -17,6 +17,8 @@ import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
 
 export default function SignInScreen() {
+  console.log('🔐 SignInScreen - Rendering signin screen');
+  
   const [isLoading, setIsLoading] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | null>(null);
@@ -297,17 +299,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   devNotice: {
-    backgroundColor: '#FFF3CD',
+    backgroundColor: '#1a1a1a',
     padding: 12,
     borderRadius: 8,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#FFEAA7',
+    borderColor: '#4a9eff',
   },
   devText: {
     fontSize: 12,
     textAlign: 'center',
-    color: '#856404',
+    color: '#4a9eff',
   },
   footer: {
     alignItems: 'center',

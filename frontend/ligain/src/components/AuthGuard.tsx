@@ -12,12 +12,18 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const { player, isLoading } = useAuth();
   const router = useRouter();
 
+  console.log('🔐 AuthGuard - isLoading:', isLoading, 'player:', player ? 'exists' : 'null');
+
   useEffect(() => {
+    console.log('🔄 AuthGuard useEffect - isLoading:', isLoading, 'player:', player ? 'exists' : 'null');
+    
     if (!isLoading) {
       if (player) {
+        console.log('✅ AuthGuard - User authenticated, navigating to /(tabs)');
         // User is authenticated, navigate to main app
         router.replace('/(tabs)');
       } else {
+        console.log('❌ AuthGuard - User not authenticated, navigating to /signin');
         // User is not authenticated, navigate to sign in
         router.replace('/signin');
       }
@@ -25,6 +31,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   }, [player, isLoading, router]);
 
   if (isLoading) {
+    console.log('⏳ AuthGuard - Showing loading spinner');
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.link} />
@@ -32,7 +39,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     );
   }
 
-  return null;
+  console.log('✅ AuthGuard - Rendering children (allowing navigation to work)');
+  return <>{children}</>;
 };
 
 const styles = StyleSheet.create({
