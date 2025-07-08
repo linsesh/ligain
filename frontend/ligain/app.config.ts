@@ -18,7 +18,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'light',
   newArchEnabled: true,
   scheme: 'ligain',
-  plugins: ['expo-router'],
+  plugins: [
+    'expo-router'
+  ],
   splash: {
     image: './assets/images/splash-icon.png',
     resizeMode: 'contain',

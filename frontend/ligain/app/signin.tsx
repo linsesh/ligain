@@ -15,9 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
+import { API_CONFIG, getApiHeaders } from '../src/config/api';
 
 export default function SignInScreen() {
   console.log('🔐 SignInScreen - Rendering signin screen');
+  console.log('🔐 SignInScreen - Platform:', Platform.OS);
+  console.log('🔐 SignInScreen - API_CONFIG:', {
+    BASE_URL: API_CONFIG.BASE_URL,
+    API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED',
+    GAME_ID: API_CONFIG.GAME_ID
+  });
   
   const [isLoading, setIsLoading] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
@@ -29,47 +36,79 @@ export default function SignInScreen() {
 
   // Get available providers for current platform
   const availableProviders = AuthService.getAvailableProviders();
+  console.log('🔐 SignInScreen - Available providers:', availableProviders);
 
   // Test provider availability in development
   React.useEffect(() => {
     if (__DEV__) {
+      console.log('🔐 SignInScreen - Testing provider availability in dev mode');
       AuthService.testProviderAvailability();
     }
   }, []);
 
   const handleSignIn = async (provider: 'google' | 'apple') => {
+    console.log(`🔐 SignInScreen - Starting sign in with ${provider}`);
     try {
       setIsLoading(true);
       setSelectedProvider(provider);
+      
+      console.log(`🔐 SignInScreen - Using ${__DEV__ ? 'mock' : 'real'} authentication`);
       
       let result;
       
       // Use mock authentication for development
       if (__DEV__) {
+        console.log('🔐 SignInScreen - Calling mockSignIn');
         result = await AuthService.mockSignIn(provider);
+        console.log('🔐 SignInScreen - Mock sign in result:', {
+          provider: result.provider,
+          email: result.email,
+          name: result.name,
+          token: result.token ? '***token***' : 'NO_TOKEN'
+        });
       } else {
         // Use real authentication in production
+        console.log('🔐 SignInScreen - Calling real authentication');
         if (provider === 'google') {
           result = await AuthService.signInWithGoogle();
         } else {
           result = await AuthService.signInWithApple();
         }
+        console.log('🔐 SignInScreen - Real sign in result:', {
+          provider: result.provider,
+          email: result.email,
+          name: result.name,
+          token: result.token ? '***token***' : 'NO_TOKEN'
+        });
       }
 
       setAuthResult(result);
       setShowNameModal(true);
+      console.log('🔐 SignInScreen - Showing name modal');
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('🔐 SignInScreen - Sign in error:', error);
+      console.error('🔐 SignInScreen - Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
       Alert.alert(
         'Sign In Failed',
         error instanceof Error ? error.message : 'An unexpected error occurred'
       );
     } finally {
       setIsLoading(false);
+      console.log('🔐 SignInScreen - Sign in process completed');
     }
   };
 
   const handleNameSubmit = async () => {
+    console.log('🔐 SignInScreen - Starting name submission');
+    console.log('🔐 SignInScreen - Display name:', displayName);
+    console.log('🔐 SignInScreen - Selected provider:', selectedProvider);
+    console.log('🔐 SignInScreen - Auth result exists:', !!authResult);
+    
     if (!displayName.trim()) {
       Alert.alert('Error', 'Please enter a display name');
       return;
@@ -88,6 +127,14 @@ export default function SignInScreen() {
     try {
       setIsLoading(true);
       
+      console.log('🔐 SignInScreen - Calling signIn with context');
+      console.log('🔐 SignInScreen - Sign in parameters:', {
+        provider: selectedProvider,
+        email: authResult?.email,
+        name: displayName.trim(),
+        token: authResult?.token ? '***token***' : 'NO_TOKEN'
+      });
+      
       await signIn(
         selectedProvider!,
         authResult.token,
@@ -95,21 +142,30 @@ export default function SignInScreen() {
         displayName.trim()
       );
 
+      console.log('🔐 SignInScreen - Sign in successful, cleaning up');
       setShowNameModal(false);
       setDisplayName('');
       setAuthResult(null);
       setSelectedProvider(null);
 
       // Navigate to main app
+      console.log('🔐 SignInScreen - Navigating to main app');
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('🔐 SignInScreen - Sign in error in handleNameSubmit:', error);
+      console.error('🔐 SignInScreen - Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
       Alert.alert(
         'Sign In Failed',
         error instanceof Error ? error.message : 'An unexpected error occurred'
       );
     } finally {
       setIsLoading(false);
+      console.log('🔐 SignInScreen - Name submission completed');
     }
   };
 
@@ -323,9 +379,10 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     padding: 20,
+    paddingTop: 100, // Move modal higher on screen with more space
   },
   modalContent: {
     width: '100%',
