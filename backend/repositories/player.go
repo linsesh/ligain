@@ -11,8 +11,6 @@ import (
 const playerCacheSize = 1000 // Maximum number of players to keep in cache
 
 type PlayerRepository interface {
-	// SavePlayer saves or updates a player and returns the player id
-	SavePlayer(player models.Player) (string, error)
 	GetPlayer(playerId string) (models.Player, error)
 	// GetPlayers returns all players who have made bets in a game
 	GetPlayers(gameId string) ([]models.Player, error)
@@ -39,13 +37,6 @@ func NewInMemoryPlayerRepository() *InMemoryPlayerRepository {
 	return &InMemoryPlayerRepository{
 		players: make(map[string]models.Player),
 	}
-}
-
-// SavePlayer saves or updates a player and returns the player id
-func (r *InMemoryPlayerRepository) SavePlayer(player models.Player) (string, error) {
-	playerId := uuid.New().String()
-	r.players[playerId] = player
-	return playerId, nil
 }
 
 func (r *InMemoryPlayerRepository) GetPlayer(playerId string) (models.Player, error) {

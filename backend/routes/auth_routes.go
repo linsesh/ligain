@@ -32,28 +32,48 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 
 // SignIn handles authentication with Google or Apple
 func (h *AuthHandler) SignIn(c *gin.Context) {
+	fmt.Printf("🔐 SignIn - Request received from %s\n", c.ClientIP())
+	fmt.Printf("🔐 SignIn - Headers: %+v\n", c.Request.Header)
+
 	var req models.AuthRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("❌ SignIn - JSON binding error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
+	fmt.Printf("🔐 SignIn - Request body: provider=%s, email=%s, name=%s, token=%s\n",
+		req.Provider, req.Email, req.Name,
+		func() string {
+			if len(req.Token) > 10 {
+				return req.Token[:10] + "..."
+			} else {
+				return req.Token
+			}
+		}())
+
 	if req.Provider == "" || req.Token == "" || req.Email == "" || req.Name == "" {
+		fmt.Printf("❌ SignIn - Missing required fields: provider=%t, token=%t, email=%t, name=%t\n",
+			req.Provider != "", req.Token != "", req.Email != "", req.Name != "")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
 		return
 	}
 
 	if req.Provider != "google" && req.Provider != "apple" {
+		fmt.Printf("❌ SignIn - Invalid provider: %s\n", req.Provider)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 		return
 	}
 
+	fmt.Printf("🔐 SignIn - Calling authService.Authenticate\n")
 	response, err := h.authService.Authenticate(c.Request.Context(), &req)
 	if err != nil {
+		fmt.Printf("❌ SignIn - Authentication error: %v\n", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
+	fmt.Printf("✅ SignIn - Authentication successful for user: %s\n", response.Player.Name)
 	c.JSON(http.StatusOK, response)
 }
 

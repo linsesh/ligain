@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { getItem } from '../utils/storage';
 
 export const API_CONFIG = {
   BASE_URL: Constants.expoConfig?.extra?.apiBaseUrl || 'https://server-dev-5be58e3-uyqlakruuq-ew.a.run.app',
@@ -18,4 +19,28 @@ export const getApiHeaders = (additionalHeaders?: Record<string, string>) => {
     'X-API-Key': API_CONFIG.API_KEY,
     ...additionalHeaders,
   };
+};
+
+export const getAuthenticatedHeaders = async (additionalHeaders?: Record<string, string>): Promise<Record<string, string>> => {
+  console.log('🔧 API - Getting authenticated headers');
+  
+  const baseHeaders = getApiHeaders(additionalHeaders);
+  
+  try {
+    const token = await getItem('auth_token');
+    console.log('🔧 API - Auth token exists:', !!token);
+    
+    if (token) {
+      return {
+        ...baseHeaders,
+        'Authorization': `Bearer ${token}`,
+      };
+    } else {
+      console.warn('⚠️ API - No auth token found, returning unauthenticated headers');
+      return baseHeaders;
+    }
+  } catch (error) {
+    console.error('❌ API - Error getting auth token:', error);
+    return baseHeaders;
+  }
 }; 

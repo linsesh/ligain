@@ -193,19 +193,19 @@ func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
 func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
 	matches := make(map[string]*models.MatchResult)
 	for _, match := range g.incomingMatches {
-		playerBets := make(map[models.Player]*models.Bet)
+		playerBets := make(map[string]*models.Bet)
 		if bets, exists := g.bets[match.Id()]; exists {
 			for playerID, bet := range bets {
 				// Find the player by ID
 				for _, p := range g.players {
-					if p.GetID() == playerID && p.GetName() == player.GetName() {
-						playerBets[p] = bet
+					if p.GetID() == playerID {
+						playerBets[playerID] = bet
 						break
 					}
 				}
 			}
 		}
-		matches[match.Id()] = models.NewMatchWithBets(match, playerBets)
+		matches[match.Id()] = models.NewMatchWithBetsWithIDs(match, playerBets)
 	}
 	return matches
 }

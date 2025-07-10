@@ -199,6 +199,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		}
 		// Create bet if all required fields are present
 		if betId.Valid && predictedHomeGoals.Valid && predictedAwayGoals.Valid && playerName.Valid {
+			fmt.Println("Bet is valid")
 			playerID := ""
 			if playerId.Valid {
 				playerID = playerId.String
@@ -214,8 +215,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 
 		}
 	}
-	fmt.Println(matchesById)
-	fmt.Println(match_id_to_player_id_to_bet)
 	// Separate matches into incoming and past
 	var incomingMatches []models.Match
 	var pastMatches []models.Match

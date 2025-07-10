@@ -1,22 +1,11 @@
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 
-// Complete the auth session
-WebBrowser.maybeCompleteAuthSession();
-
-// Google OAuth configuration
-const GOOGLE_CLIENT_ID = '628283030166-t524lojsr97phq29002qm062kdbok7ec.apps.googleusercontent.com';
-const GOOGLE_REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: 'ligain',
-  path: 'auth',
-});
-
-// Apple OAuth configuration (for iOS only)
-const APPLE_CLIENT_ID = 'com.ligain.app';
-const APPLE_REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: 'ligain',
-  path: 'auth',
+// Configure Google Sign-In (only once, here)
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID, // Required for getting the idToken on iOS
+  iosClientId: process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID, // Required for iOS
+  offlineAccess: true, // if you want to access Google API on behalf of the user
 });
 
 export interface AuthResult {
@@ -28,50 +17,121 @@ export interface AuthResult {
 
 export class AuthService {
   static async signInWithGoogle(): Promise<AuthResult> {
-    const request = new AuthSession.AuthRequest({
-      clientId: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'profile', 'email'],
-      redirectUri: GOOGLE_REDIRECT_URI,
-      responseType: AuthSession.ResponseType.Code,
-      extraParams: {
-        access_type: 'offline',
-      },
+    console.log('🔐 Google Sign-In - Starting sign in process');
+    
+    // Check if Google Sign-In is properly configured
+    const webClientId = process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID;
+    const iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
+    
+    console.log('🔐 Google Sign-In - Configuration check:', {
+      webClientId: webClientId ? 'configured' : 'NOT_CONFIGURED',
+      iosClientId: iosClientId ? 'configured' : 'NOT_CONFIGURED',
     });
+    
+    if (!webClientId || !iosClientId) {
+      throw new Error('Google Sign-In not properly configured. Please check your environment variables.');
+    }
+    
+    try {
+      // Check if your device supports Google Play
+      await GoogleSignin.hasPlayServices();
+      
+      // Sign in - userInfo is the User object directly
+      const userInfo = await GoogleSignin.signIn();
+      console.log('🔐 Google Sign-In - Sign in successful:', userInfo);
+      console.log('🔐 Google Sign-In - User info structure:', {
+        hasUser: !!userInfo,
+        userKeys: userInfo ? Object.keys(userInfo as any) : 'no user object',
+        email: (userInfo as any)?.email,
+        name: (userInfo as any)?.name,
+        givenName: (userInfo as any)?.givenName,
+        familyName: (userInfo as any)?.familyName,
+      });
+      
+      // Log the entire userInfo object to see its structure
+      console.log('🔐 Google Sign-In - Full userInfo object:', JSON.stringify(userInfo, null, 2));
+      
+      // Simple debug: log each property individually
+      console.log('🔐 Google Sign-In - Debug individual properties:');
+      console.log('  - userInfo type:', typeof userInfo);
+      console.log('  - userInfo keys:', userInfo ? Object.keys(userInfo as any) : 'null');
+      console.log('  - userInfo.email:', (userInfo as any)?.email);
+      console.log('  - userInfo.name:', (userInfo as any)?.name);
+      console.log('  - userInfo.givenName:', (userInfo as any)?.givenName);
+      console.log('  - userInfo.familyName:', (userInfo as any)?.familyName);
 
-    const result = await request.promptAsync({
-      authorizationEndpoint: 'https://accounts.google.com/oauth/authorize',
-    });
+      // Get tokens separately
+      const tokens = await GoogleSignin.getTokens();
+      console.log('🔐 Google Sign-In - Tokens retrieved:', {
+        accessToken: tokens.accessToken ? '***token***' : 'NO_TOKEN',
+        idToken: tokens.idToken ? '***token***' : 'NO_TOKEN'
+      });
 
-    if (result.type === 'success') {
-      // Exchange code for token
-      const tokenResponse = await AuthSession.exchangeCodeAsync(
-        {
-          clientId: GOOGLE_CLIENT_ID,
-          code: result.params.code,
-          redirectUri: GOOGLE_REDIRECT_URI,
-          extraParams: {
-            code_verifier: request.codeVerifier!,
-          },
-        },
-        {
-          tokenEndpoint: 'https://oauth2.googleapis.com/token',
+      // Extract email and name from userInfo (userInfo is the User object directly)
+      let email = (userInfo as any)?.data?.user?.email || '';
+      let name = (userInfo as any)?.data?.user?.name || 
+                 ((userInfo as any)?.data?.user?.givenName && (userInfo as any)?.data?.user?.familyName 
+                   ? `${(userInfo as any).data.user.givenName} ${(userInfo as any).data.user.familyName}` 
+                   : (userInfo as any)?.data?.user?.givenName || (userInfo as any)?.data?.user?.familyName || '');
+
+      // If email is still empty, try to extract it from the ID token
+      if (!email && tokens.idToken) {
+        try {
+          // Decode the JWT token to get user info
+          const tokenParts = tokens.idToken.split('.');
+          if (tokenParts.length === 3) {
+            const payload = tokenParts[1];
+            // Add padding if needed
+            const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+            const decodedPayload = atob(paddedPayload.replace(/-/g, '+').replace(/_/g, '/'));
+            const claims = JSON.parse(decodedPayload);
+            
+            console.log('🔐 Google Sign-In - JWT claims:', {
+              email: claims.email,
+              name: claims.name,
+              given_name: claims.given_name,
+              family_name: claims.family_name,
+            });
+            
+            // Use JWT claims as fallback
+            if (!email && claims.email) {
+              email = claims.email;
+            }
+            if (!name && claims.name) {
+              name = claims.name;
+            } else if (!name && claims.given_name && claims.family_name) {
+              name = `${claims.given_name} ${claims.family_name}`;
+            }
+          }
+        } catch (decodeError) {
+          console.warn('🔐 Google Sign-In - Failed to decode JWT token:', decodeError);
         }
-      );
+      }
 
-      // Get user info
-      const userInfoResponse = await fetch(
-        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokenResponse.accessToken}`
-      );
-      const userInfo = await userInfoResponse.json();
+      console.log('🔐 Google Sign-In - Final extracted user data:', { email, name });
+
+      if (!email) {
+        throw new Error('Email not provided by Google Sign-In');
+      }
 
       return {
         provider: 'google',
-        token: tokenResponse.accessToken,
-        email: userInfo.email,
-        name: userInfo.name,
+        token: tokens.idToken!, // Use ID token for backend verification
+        email: email,
+        name: name,
       };
-    } else {
-      throw new Error('Google sign-in was cancelled or failed');
+    } catch (error: any) {
+      console.error('🔐 Google Sign-In - Error during sign in:', error);
+      
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        throw new Error('Sign-in was cancelled');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        throw new Error('Sign-in is already in progress');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        throw new Error('Google Play Services not available');
+      } else {
+        throw new Error(`Sign-in failed: ${error.message}`);
+      }
     }
   }
 
@@ -80,48 +140,9 @@ export class AuthService {
       throw new Error('Apple sign-in is only supported on iOS');
     }
 
-    const request = new AuthSession.AuthRequest({
-      clientId: APPLE_CLIENT_ID,
-      scopes: ['name', 'email'],
-      redirectUri: APPLE_REDIRECT_URI,
-      responseType: AuthSession.ResponseType.Code,
-      extraParams: {
-        response_mode: 'form_post',
-      },
-    });
-
-    const result = await request.promptAsync({
-      authorizationEndpoint: 'https://appleid.apple.com/auth/authorize',
-    });
-
-    if (result.type === 'success') {
-      // Exchange code for token
-      const tokenResponse = await AuthSession.exchangeCodeAsync(
-        {
-          clientId: APPLE_CLIENT_ID,
-          code: result.params.code,
-          redirectUri: APPLE_REDIRECT_URI,
-          extraParams: {
-            code_verifier: request.codeVerifier!,
-          },
-        },
-        {
-          tokenEndpoint: 'https://appleid.apple.com/auth/token',
-        }
-      );
-
-      // Parse user info from the response
-      const userInfo = result.params.user ? JSON.parse(result.params.user) : {};
-
-      return {
-        provider: 'apple',
-        token: tokenResponse.accessToken,
-        email: userInfo.email || '',
-        name: userInfo.name ? `${userInfo.name.firstName} ${userInfo.name.lastName}` : '',
-      };
-    } else {
-      throw new Error('Apple sign-in was cancelled or failed');
-    }
+    // For now, return a mock result for Apple
+    // TODO: Implement real Apple Sign-In
+    throw new Error('Apple Sign-In not yet implemented');
   }
 
   // Get available sign-in options for the current platform
@@ -142,30 +163,21 @@ export class AuthService {
         resolve({
           provider,
           token: `mock_${provider}_token_${Date.now()}`,
-          email: `test@${provider}.com`,
-          name: `Test ${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
+          email: `mock_${provider}_user@example.com`,
+          name: `Mock ${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
         });
       }, 1000);
     });
   }
 
-  // Test function to verify provider availability (for development)
+  // Test provider availability in development
   static testProviderAvailability(): void {
-    const providers = this.getAvailableProviders();
-    console.log(`Available providers on ${Platform.OS}:`, providers);
-    
-    if (Platform.OS === 'ios') {
-      console.log('✅ iOS: Should show Google and Apple');
-      console.log('Expected: ["google", "apple"]');
-      console.log('Actual:', providers);
-    } else if (Platform.OS === 'android') {
-      console.log('✅ Android: Should show Google only');
-      console.log('Expected: ["google"]');
-      console.log('Actual:', providers);
-    } else {
-      console.log('✅ Web: Should show Google only');
-      console.log('Expected: ["google"]');
-      console.log('Actual:', providers);
-    }
+    console.log('🔐 AuthService - Testing provider availability');
+    console.log('🔐 AuthService - Available providers:', this.getAvailableProviders());
+    console.log('🔐 AuthService - Platform:', Platform.OS);
+    console.log('🔐 AuthService - Google Sign-In configured:', {
+      webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
+      iosClientId: process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
+    });
   }
 } 

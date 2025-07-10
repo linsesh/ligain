@@ -6,6 +6,7 @@ all: test test-frontend build
 # Run tests
 test:
 	go test ./... -short
+	cd frontend/ligain && npm test
 
 # Run frontend tests
 test-frontend:

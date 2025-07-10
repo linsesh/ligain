@@ -28,6 +28,14 @@ func NewMatchWithBets(match Match, bets map[Player]*Bet) *MatchResult {
 	}
 }
 
+func NewMatchWithBetsWithIDs(match Match, bets map[string]*Bet) *MatchResult {
+	return &MatchResult{
+		Match:  match,
+		Bets:   bets,
+		Scores: nil,
+	}
+}
+
 func NewScoredMatch(match Match, bets map[Player]*Bet, scores map[Player]int) *MatchResult {
 	// Convert map[Player]*Bet to map[string]*Bet
 	playerBets := make(map[string]*Bet)

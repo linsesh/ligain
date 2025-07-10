@@ -18,21 +18,6 @@ func NewPostgresPlayerRepository(db *sql.DB) *PostgresPlayerRepository {
 	return &PostgresPlayerRepository{db: db}
 }
 
-// Legacy methods for backward compatibility
-func (r *PostgresPlayerRepository) SavePlayer(player models.Player) (string, error) {
-	var playerId string
-	err := r.db.QueryRow(`
-		INSERT INTO player (id, name) 
-		VALUES (gen_random_uuid(), $1)
-		ON CONFLICT (name) DO UPDATE SET name = player.name
-		RETURNING id`,
-		player.GetName()).Scan(&playerId)
-	if err != nil {
-		return "", err
-	}
-	return playerId, nil
-}
-
 func (r *PostgresPlayerRepository) GetPlayer(playerId string) (models.Player, error) {
 	var player models.PlayerData
 	err := r.db.QueryRow("SELECT id, name FROM player WHERE id = $1", playerId).Scan(&player.ID, &player.Name)
@@ -68,12 +53,13 @@ func (r *PostgresPlayerRepository) GetPlayers(gameId string) ([]models.Player, e
 // Authentication methods
 func (r *PostgresPlayerRepository) CreatePlayer(ctx context.Context, player *models.PlayerData) error {
 	query := `
-		INSERT INTO player (id, name, email, provider, provider_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO player (name, email, provider, provider_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id
 	`
-	_, err := r.db.ExecContext(ctx, query,
-		player.ID, player.Name, player.Email, player.Provider, player.ProviderID,
-		player.CreatedAt, player.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, query,
+		player.Name, player.Email, player.Provider, player.ProviderID,
+		player.CreatedAt, player.UpdatedAt).Scan(&player.ID)
 	return err
 }
 
@@ -102,6 +88,9 @@ func (r *PostgresPlayerRepository) GetPlayerByEmail(ctx context.Context, email s
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
 		&player.CreatedAt, &player.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &player, nil
@@ -117,6 +106,9 @@ func (r *PostgresPlayerRepository) GetPlayerByProvider(ctx context.Context, prov
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
 		&player.CreatedAt, &player.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &player, nil
@@ -132,6 +124,9 @@ func (r *PostgresPlayerRepository) GetPlayerByName(ctx context.Context, name str
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
 		&player.CreatedAt, &player.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &player, nil

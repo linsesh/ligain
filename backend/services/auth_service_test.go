@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"liguain/backend/models"
 	"testing"
 	"time"
@@ -21,17 +20,6 @@ func NewMockPlayerRepository() *MockPlayerRepository {
 		players: make(map[string]*models.PlayerData),
 		tokens:  make(map[string]*models.AuthToken),
 	}
-}
-
-func (m *MockPlayerRepository) SavePlayer(player models.Player) (string, error) {
-	if pd, ok := player.(*models.PlayerData); ok {
-		if pd.ID == "" {
-			pd.ID = "mock_id_" + time.Now().String()
-		}
-		m.players[pd.ID] = pd
-		return pd.ID, nil
-	}
-	return "", errors.New("invalid player type")
 }
 
 func (m *MockPlayerRepository) GetPlayer(playerId string) (models.Player, error) {

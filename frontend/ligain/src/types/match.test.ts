@@ -10,16 +10,16 @@ describe('Match', () => {
         return new SeasonMatch(
             homeTeam,
             awayTeam,
-            '2024',
-            'Premier League',
-            new Date('2024-01-01T15:00:00Z'),
-            1,
+            homeGoals,
+            awayGoals,
             1.0,
             2.0,
             3.0,
-            homeGoals,
-            awayGoals,
-            'finished'
+            'finished',
+            '2024',
+            'Premier League',
+            new Date('2024-01-01T15:00:00Z'),
+            1
         );
     };
 
@@ -67,6 +67,12 @@ describe('Match', () => {
         const match = new SeasonMatch(
             'Manchester United',
             'Liverpool',
+            0,
+            0,
+            1.0,
+            2.0,
+            3.0,
+            'scheduled',
             '2024',
             'Premier League',
             new Date('2024-01-01T15:00:00Z'),

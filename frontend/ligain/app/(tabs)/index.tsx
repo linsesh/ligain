@@ -79,7 +79,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
       style={[
         styles.matchCard,
         matchResult.match.isFinished() && (
-          matchResult.scores && matchResult.scores['Player1'] > 0 
+          matchResult.scores && Object.values(matchResult.scores).some(scoreData => scoreData.points > 0)
             ? styles.successfulBetMatchCard 
             : styles.finishedMatchCard
         ),
@@ -119,8 +119,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           >
             <Text style={styles.toggleButtonText}>
               {matchResult.match.isFinished() 
-                ? (matchResult.scores?.['Player1'] !== undefined 
-                    ? `Your bet won you ${matchResult.scores['Player1']} points`
+                ? (matchResult.scores && Object.values(matchResult.scores).some(scoreData => scoreData.points > 0)
+                    ? `Your bet won you ${Object.values(matchResult.scores).find(scoreData => scoreData.points > 0)?.points || 0} points`
                     : 'Other players\' bets')
                 : 'Other players\' bets'}
             </Text>
@@ -135,14 +135,14 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             <View style={styles.betResultContainer}>
               {matchResult.scores ? (
                 <View style={styles.scoresContainer}>
-                  {Object.entries(matchResult.scores).map(([player, score]) => (
-                    <View key={player} style={styles.playerScoreRow}>
+                  {Object.entries(matchResult.scores).map(([playerId, scoreData]) => (
+                    <View key={playerId} style={styles.playerScoreRow}>
                       <Text style={styles.scoreText}>
-                        {player}: {score} points
+                        {scoreData.playerName}: {scoreData.points} points
                       </Text>
-                      {matchResult.bets?.[player] && (
+                      {matchResult.bets?.[playerId] && (
                         <Text style={styles.betResultText}>
-                          ({matchResult.bets[player].predictedHomeGoals} - {matchResult.bets[player].predictedAwayGoals})
+                          ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals})
                         </Text>
                       )}
                     </View>
@@ -151,14 +151,13 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               ) : matchResult.bets && (
                 <View style={styles.scoresContainer}>
                   {Object.entries(matchResult.bets)
-                    .filter(([player]) => player !== 'Player1')
-                    .map(([player, bet]) => (
-                      <View key={player} style={styles.playerScoreRow}>
+                    .map(([playerId, betData]) => (
+                      <View key={playerId} style={styles.playerScoreRow}>
                         <Text style={styles.scoreText}>
-                          {player}:
+                          {betData.playerName}:
                         </Text>
                         <Text style={styles.betResultText}>
-                          ({bet.predictedHomeGoals} - {bet.predictedAwayGoals})
+                          ({betData.predictedHomeGoals} - {betData.predictedAwayGoals})
                         </Text>
                       </View>
                     ))}
@@ -195,10 +194,14 @@ function MatchesList() {
   useEffect(() => {
     const initialTempScores: TempScores = {};
     [...Object.values(incomingMatches), ...Object.values(pastMatches)].forEach((matchResult: MatchResult) => {
-      if (matchResult.bets?.['Player1']) {
+      // Find the current user's bet (we'll need to get this from auth context later)
+      // For now, we'll use the first bet as a placeholder
+      if (matchResult.bets && Object.keys(matchResult.bets).length > 0) {
+        const firstBetId = Object.keys(matchResult.bets)[0];
+        const firstBet = matchResult.bets[firstBetId];
         initialTempScores[matchResult.match.id()] = {
-          home: matchResult.bets['Player1'].predictedHomeGoals,
-          away: matchResult.bets['Player1'].predictedAwayGoals
+          home: firstBet.predictedHomeGoals,
+          away: firstBet.predictedAwayGoals
         };
       }
     });

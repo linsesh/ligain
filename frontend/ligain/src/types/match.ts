@@ -155,15 +155,23 @@ export class SeasonMatch {
 }
 
 export interface SimplifiedBet {
+    playerId: string;
+    playerName: string;
     predictedHomeGoals: number;
     predictedAwayGoals: number;
     isModifiable(now: Date): boolean;
 }
 
+export interface SimplifiedScore {
+    playerId: string;
+    playerName: string;
+    points: number;
+}
+
 export interface MatchResult {
     match: SeasonMatch;
     bets: { [key: string]: SimplifiedBet } | null;
-    scores: { [key: string]: number } | null;
+    scores: { [key: string]: SimplifiedScore } | null;
 }
 
 export interface MatchesResponse {

@@ -15,6 +15,7 @@ type GameService interface {
 	Play() ([]models.Player, error)
 	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
 	GetPlayerBets(player models.Player) ([]*models.Bet, error)
+	GetPlayers() []models.Player
 }
 
 // GameService is used to really run a game
@@ -149,4 +150,8 @@ func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet,
 }
 func (g *GameServiceImpl) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
 	return g.betRepo.GetBets(g.gameId, player)
+}
+
+func (g *GameServiceImpl) GetPlayers() []models.Player {
+	return g.game.GetPlayers()
 }

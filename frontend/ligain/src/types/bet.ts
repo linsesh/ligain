@@ -16,7 +16,9 @@ export class BetImpl implements Bet {
     constructor(
         public match: SeasonMatch,
         public predictedHomeGoals: number,
-        public predictedAwayGoals: number
+        public predictedAwayGoals: number,
+        public playerId: string = '',
+        public playerName: string = ''
     ) {}
 
     isBetCorrect(): boolean {
@@ -72,7 +74,9 @@ export class BetImpl implements Bet {
         return new BetImpl(
             match,
             json.predictedHomeGoals,
-            json.predictedAwayGoals
+            json.predictedAwayGoals,
+            json.playerId || '',
+            json.playerName || ''
         );
     }
 

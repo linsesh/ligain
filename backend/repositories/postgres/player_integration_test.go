@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"context"
+	"liguain/backend/models"
 	"testing"
 	"time"
 
@@ -18,40 +20,126 @@ func TestPlayerRepository_Integration(t *testing.T) {
 
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
 
-		t.Run("Save and Get Player", func(t *testing.T) {
-			// Save player via repository
-			player := newTestPlayer("TestPlayer")
-			id, err := playerRepo.SavePlayer(player)
-			require.NoError(t, err)
-			require.NotEmpty(t, id)
+		t.Run("Create and Get Player", func(t *testing.T) {
+			// Create player via new authentication flow
+			player := &models.PlayerData{
+				Name:       "TestPlayer",
+				Email:      stringPtr("test@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_user_123"),
+			}
 
-			retrieved, err := playerRepo.GetPlayer(id)
+			err := playerRepo.CreatePlayer(context.Background(), player)
 			require.NoError(t, err)
-			require.Equal(t, player.GetName(), retrieved.GetName())
+			require.NotEmpty(t, player.ID)
+
+			// Test GetPlayerByID
+			retrieved, err := playerRepo.GetPlayerByID(context.Background(), player.ID)
+			require.NoError(t, err)
+			require.Equal(t, player.Name, retrieved.Name)
+			require.Equal(t, *player.Email, *retrieved.Email)
+			require.Equal(t, *player.Provider, *retrieved.Provider)
+			require.Equal(t, *player.ProviderID, *retrieved.ProviderID)
 		})
 
-		t.Run("Save Duplicate Player", func(t *testing.T) {
-			// Create test data using raw SQL
-			_, err := testDB.db.Exec(`
-				INSERT INTO player (name)
-				VALUES ('DuplicatePlayer');
-			`)
+		t.Run("Get Player by Email", func(t *testing.T) {
+			player := &models.PlayerData{
+				Name:       "EmailTestPlayer",
+				Email:      stringPtr("emailtest@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_user_456"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
 			require.NoError(t, err)
 
-			player := newTestPlayer("DuplicatePlayer")
-			id1, err := playerRepo.SavePlayer(player)
+			retrieved, err := playerRepo.GetPlayerByEmail(context.Background(), "emailtest@example.com")
 			require.NoError(t, err)
-			require.NotEmpty(t, id1)
-
-			id2, err := playerRepo.SavePlayer(player)
-			require.NoError(t, err)
-			require.Equal(t, id1, id2) // Should return the same ID
+			require.Equal(t, player.Name, retrieved.Name)
+			require.Equal(t, *player.Email, *retrieved.Email)
 		})
 
-		t.Run("Get Non-existent Player", func(t *testing.T) {
-			// Try to get non-existent player
-			_, err := playerRepo.GetPlayer("non-existent-id")
-			require.Error(t, err)
+		t.Run("Get Player by Provider", func(t *testing.T) {
+			player := &models.PlayerData{
+				Name:       "ProviderTestPlayer",
+				Email:      stringPtr("providertest@example.com"),
+				Provider:   stringPtr("apple"),
+				ProviderID: stringPtr("apple_user_789"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			retrieved, err := playerRepo.GetPlayerByProvider(context.Background(), "apple", "apple_user_789")
+			require.NoError(t, err)
+			require.Equal(t, player.Name, retrieved.Name)
+			require.Equal(t, *player.Provider, *retrieved.Provider)
+			require.Equal(t, *player.ProviderID, *retrieved.ProviderID)
+		})
+
+		t.Run("Get Player by Name", func(t *testing.T) {
+			player := &models.PlayerData{
+				Name:       "NameTestPlayer",
+				Email:      stringPtr("nametest@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_user_999"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			retrieved, err := playerRepo.GetPlayerByName(context.Background(), "NameTestPlayer")
+			require.NoError(t, err)
+			require.Equal(t, player.Name, retrieved.Name)
+		})
+
+		t.Run("Update Player", func(t *testing.T) {
+			player := &models.PlayerData{
+				Name:       "UpdateTestPlayer",
+				Email:      stringPtr("updatetest@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_user_111"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			// Update the player
+			player.Name = "UpdatedPlayerName"
+			err = playerRepo.UpdatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			// Verify the update
+			retrieved, err := playerRepo.GetPlayerByID(context.Background(), player.ID)
+			require.NoError(t, err)
+			require.Equal(t, "UpdatedPlayerName", retrieved.Name)
+		})
+
+		t.Run("Create Auth Token", func(t *testing.T) {
+			player := &models.PlayerData{
+				Name:       "TokenTestPlayer",
+				Email:      stringPtr("tokentest@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_user_222"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			authToken := &models.AuthToken{
+				PlayerID:  player.ID,
+				Token:     "test_token_123",
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+			}
+
+			err = playerRepo.CreateAuthToken(context.Background(), authToken)
+			require.NoError(t, err)
+
+			// Verify token was created
+			retrieved, err := playerRepo.GetAuthToken(context.Background(), "test_token_123")
+			require.NoError(t, err)
+			require.Equal(t, player.ID, retrieved.PlayerID)
+			require.Equal(t, "test_token_123", retrieved.Token)
 		})
 
 		t.Run("Get Players by Game", func(t *testing.T) {
@@ -95,4 +183,9 @@ func TestPlayerRepository_Integration(t *testing.T) {
 			require.Contains(t, []string{players[0].GetName(), players[1].GetName()}, "Player2")
 		})
 	}, 10*time.Second)
+}
+
+// Helper function to create string pointers
+func stringPtr(s string) *string {
+	return &s
 }

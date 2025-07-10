@@ -19,7 +19,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   newArchEnabled: true,
   scheme: 'ligain',
   plugins: [
-    'expo-router'
+    'expo-router',
+    [
+      '@react-native-google-signin/google-signin',
+      {
+        iosUrlScheme: 'com.googleusercontent.apps.628283030166-unsbr5lm16u1fgps9re6bp46u32l2gh2'
+      }
+    ]
   ],
   splash: {
     image: './assets/images/splash-icon.png',

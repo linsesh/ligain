@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"liguain/backend/services"
 	"net/http"
 	"os"
@@ -13,7 +14,11 @@ import (
 func APIKeyAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
+		fmt.Printf("🔑 APIKeyAuth - Request to %s from %s\n", c.Request.URL.Path, c.ClientIP())
+		fmt.Printf("🔑 APIKeyAuth - X-API-Key header present: %t\n", apiKey != "")
+
 		if apiKey == "" {
+			fmt.Printf("❌ APIKeyAuth - No API key provided\n")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "API key is required"})
 			c.Abort()
 			return
@@ -23,6 +28,8 @@ func APIKeyAuth() gin.HandlerFunc {
 		allowedKeys := []string{
 			os.Getenv("API_KEY"),
 		}
+
+		fmt.Printf("🔑 APIKeyAuth - Environment API_KEY configured: %t\n", os.Getenv("API_KEY") != "")
 
 		// Check if the provided API key is valid
 		isValid := false
@@ -34,11 +41,13 @@ func APIKeyAuth() gin.HandlerFunc {
 		}
 
 		if !isValid {
+			fmt.Printf("❌ APIKeyAuth - Invalid API key provided\n")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
 			c.Abort()
 			return
 		}
 
+		fmt.Printf("✅ APIKeyAuth - API key validation successful\n")
 		c.Next()
 	}
 }

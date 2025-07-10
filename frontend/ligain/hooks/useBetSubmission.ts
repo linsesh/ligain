@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_CONFIG, getApiHeaders } from '../src/config/api';
+import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000; // 2 seconds
@@ -18,11 +18,17 @@ export const useBetSubmission = () => {
     setError(null);
 
     try {
+      const headers = await getAuthenticatedHeaders({
+        'Content-Type': 'application/json',
+      });
+      console.log('🔧 useBetSubmission - Using authenticated headers:', {
+        hasApiKey: !!headers['X-API-Key'],
+        hasAuth: !!headers['Authorization']
+      });
+      
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${API_CONFIG.GAME_ID}/bet`, {
         method: 'POST',
-        headers: getApiHeaders({
-          'Content-Type': 'application/json',
-        }),
+        headers,
         body: JSON.stringify({
           matchId,
           predictedHomeGoals: homeGoals,

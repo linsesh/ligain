@@ -26,60 +26,70 @@ describe('Bet', () => {
 
     test('home team wins - correct prediction', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(3, 1);
         const bet = new BetImpl(match, 1, 0);
         expect(bet.isBetCorrect()).toBe(true);
     });
 
     test('away team wins - correct prediction', () => {
         const match = createMatch('Arsenal', 'Chelsea', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(0, 2);
         const bet = new BetImpl(match, 0, 2);
         expect(bet.isBetCorrect()).toBe(true);
     });
 
     test('draw - correct prediction', () => {
         const match = createMatch('Tottenham', 'West Ham', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(1, 1);
         const bet = new BetImpl(match, 0, 0);
         expect(bet.isBetCorrect()).toBe(true);
     });
 
     test('home team wins but predicted wrong', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(3, 1);
         const bet = new BetImpl(match, 0, 2);
         expect(bet.isBetCorrect()).toBe(false);
     });
 
     test('away team wins but predicted wrong', () => {
         const match = createMatch('Arsenal', 'Chelsea', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(0, 2);
         const bet = new BetImpl(match, 2, 0);
         expect(bet.isBetCorrect()).toBe(false);
     });
 
     test('draw but predicted wrong', () => {
         const match = createMatch('Tottenham', 'West Ham', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(1, 1);
         const bet = new BetImpl(match, 2, 0);
         expect(bet.isBetCorrect()).toBe(false);
     });
 
     test('perfect prediction', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(3, 1);
         const bet = new BetImpl(match, 3, 1);
         expect(bet.isBetPerfect()).toBe(true);
     });
 
     test('not perfect prediction', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(3, 1);
         const bet = new BetImpl(match, 2, 1);
         expect(bet.isBetPerfect()).toBe(false);
     });
 
     test('goal difference same as match', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(2, 0);
         const bet = new BetImpl(match, 2, 0);
         expect(bet.isGoalDifferenceTheSameAsMatch()).toBe(true);
     });
 
     test('goal difference different from match', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(2, 0);
         const bet = new BetImpl(match, 1, 0);
         expect(bet.isGoalDifferenceTheSameAsMatch()).toBe(false);
     });
@@ -92,6 +102,7 @@ describe('Bet', () => {
 
     test('absolute difference total goals with match', () => {
         const match = createMatch('Manchester United', 'Liverpool', new Date('2024-01-01T15:00:00Z'), 'finished');
+        match.finish(3, 1);
         const bet = new BetImpl(match, 2, 1);
         expect(bet.absoluteDifferenceTotalGoalsWithMatch()).toBe(1);
     });

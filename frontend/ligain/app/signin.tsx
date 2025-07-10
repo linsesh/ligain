@@ -9,13 +9,15 @@ import {
   Platform,
   TextInput,
   Modal,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
-import { API_CONFIG, getApiHeaders } from '../src/config/api';
+import { API_CONFIG } from '../src/config/api';
+import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
 
 export default function SignInScreen() {
   console.log('🔐 SignInScreen - Rendering signin screen');
@@ -31,6 +33,8 @@ export default function SignInScreen() {
   const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | null>(null);
   const [authResult, setAuthResult] = useState<any>(null);
   const [displayName, setDisplayName] = useState('');
+  const [useRealAuth, setUseRealAuth] = useState(false); // Toggle for real OAuth in dev
+
   const { signIn } = useAuth();
   const router = useRouter();
 
@@ -52,22 +56,14 @@ export default function SignInScreen() {
       setIsLoading(true);
       setSelectedProvider(provider);
       
-      console.log(`🔐 SignInScreen - Using ${__DEV__ ? 'mock' : 'real'} authentication`);
+      // Determine whether to use real or mock authentication
+      const shouldUseRealAuth = !__DEV__ || useRealAuth;
+      console.log(`🔐 SignInScreen - Using ${shouldUseRealAuth ? 'real' : 'mock'} authentication`);
       
       let result;
       
-      // Use mock authentication for development
-      if (__DEV__) {
-        console.log('🔐 SignInScreen - Calling mockSignIn');
-        result = await AuthService.mockSignIn(provider);
-        console.log('🔐 SignInScreen - Mock sign in result:', {
-          provider: result.provider,
-          email: result.email,
-          name: result.name,
-          token: result.token ? '***token***' : 'NO_TOKEN'
-        });
-      } else {
-        // Use real authentication in production
+      if (shouldUseRealAuth) {
+        // Use real authentication
         console.log('🔐 SignInScreen - Calling real authentication');
         if (provider === 'google') {
           result = await AuthService.signInWithGoogle();
@@ -75,6 +71,16 @@ export default function SignInScreen() {
           result = await AuthService.signInWithApple();
         }
         console.log('🔐 SignInScreen - Real sign in result:', {
+          provider: result.provider,
+          email: result.email,
+          name: result.name,
+          token: result.token ? '***token***' : 'NO_TOKEN'
+        });
+      } else {
+        // Use mock authentication for development
+        console.log('🔐 SignInScreen - Calling mockSignIn');
+        result = await AuthService.mockSignIn(provider);
+        console.log('🔐 SignInScreen - Mock sign in result:', {
           provider: result.provider,
           email: result.email,
           name: result.name,
@@ -182,20 +188,36 @@ export default function SignInScreen() {
         <View style={styles.buttonContainer}>
           {/* Google Sign In */}
           {availableProviders.includes('google') && (
-            <TouchableOpacity
-              style={[styles.button, styles.googleButton]}
-              onPress={() => handleSignIn('google')}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#4285F4" />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={24} color="#4285F4" />
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            useRealAuth ? (
+              <GoogleSignInButton
+                onSignInSuccess={(result) => {
+                  console.log('Google Sign-In success:', result);
+                  setAuthResult(result);
+                  setSelectedProvider('google');
+                  setShowNameModal(true);
+                }}
+                onSignInError={(error) => {
+                  console.error('Google Sign-In error:', error);
+                  Alert.alert('Sign-In Failed', error.message);
+                }}
+                disabled={isLoading}
+              />
+            ) : (
+              <TouchableOpacity
+                style={[styles.button, styles.googleButton]}
+                onPress={() => handleSignIn('google')}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#4285F4" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={24} color="#4285F4" />
+                    <Text style={styles.googleButtonText}>Continue with Google (Mock)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )
           )}
 
           {/* Apple Sign In (iOS only) */}
@@ -210,7 +232,7 @@ export default function SignInScreen() {
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
-                  <Text style={styles.appleButtonText}>Continue with Apple</Text>
+                  <Text style={styles.appleButtonText}>Continue with Apple {!useRealAuth && '(Mock)'}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -219,11 +241,35 @@ export default function SignInScreen() {
           {/* Development notice */}
           {__DEV__ && (
             <View style={styles.devNotice}>
-              <Text style={[styles.devText, { color: colors.text }]}>
-                🧪 Development Mode: Using mock authentication
+              <View style={styles.devToggleContainer}>
+                <Text style={[styles.devText, { color: colors.text }]}>
+                  🧪 Development Mode: {useRealAuth ? 'Real OAuth' : 'Mock Authentication'}
+                </Text>
+                <View style={styles.toggleContainer}>
+                  <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
+                    Mock
+                  </Text>
+                  <Switch
+                    value={useRealAuth}
+                    onValueChange={setUseRealAuth}
+                    trackColor={{ false: colors.border, true: colors.link }}
+                    thumbColor={useRealAuth ? '#FFFFFF' : '#FFFFFF'}
+                  />
+                  <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
+                    Real
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.devSubtext, { color: colors.textSecondary }]}>
+                {useRealAuth 
+                  ? '⚠️ Will open Google/Apple sign-in (requires real OAuth setup)'
+                  : '✅ Using mock data for development'
+                }
               </Text>
             </View>
           )}
+
+
         </View>
 
         <View style={styles.footer}>
@@ -362,10 +408,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#4a9eff',
   },
+  devToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   devText: {
     fontSize: 12,
-    textAlign: 'center',
     color: '#4a9eff',
+    flex: 1,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toggleLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  devSubtext: {
+    fontSize: 10,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   footer: {
     alignItems: 'center',

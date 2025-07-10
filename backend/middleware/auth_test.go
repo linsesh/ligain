@@ -30,17 +30,6 @@ func NewMockPlayerRepository() *MockPlayerRepository {
 	}
 }
 
-func (m *MockPlayerRepository) SavePlayer(player models.Player) (string, error) {
-	if pd, ok := player.(*models.PlayerData); ok {
-		if pd.ID == "" {
-			pd.ID = "mock_id"
-		}
-		m.players[pd.ID] = pd
-		return pd.ID, nil
-	}
-	return "", nil
-}
-
 func (m *MockPlayerRepository) GetPlayer(playerId string) (models.Player, error) {
 	if player, exists := m.players[playerId]; exists {
 		return player, nil

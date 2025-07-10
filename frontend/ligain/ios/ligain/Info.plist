@@ -37,6 +37,12 @@
           <string>exp+ligain</string>
         </array>
       </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>com.googleusercontent.apps.628283030166-unsbr5lm16u1fgps9re6bp46u32l2gh2</string>
+        </array>
+      </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>

@@ -1,7 +1,9 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -88,15 +90,25 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create players first
-		player1 := newTestPlayer("Player1")
-		player2 := newTestPlayer("Player2")
+		player1 := &models.PlayerData{
+			Name:       "Player1",
+			Email:      stringPtr("player1@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_1"),
+		}
+		player2 := &models.PlayerData{
+			Name:       "Player2",
+			Email:      stringPtr("player2@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_2"),
+		}
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
-		_, err = playerRepo.SavePlayer(player1)
+		err = playerRepo.CreatePlayer(context.Background(), player1)
 		require.NoError(t, err)
-		_, err = playerRepo.SavePlayer(player2)
+		err = playerRepo.CreatePlayer(context.Background(), player2)
 		require.NoError(t, err)
 
-		// Create test data with proper UUID
+		// Now that player1 and player2 have IDs, create the game
 		gameId := "323e4567-e89b-12d3-a456-426614174000"
 		game := rules.NewFreshGame("2024", "Premier League", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
 		err = gameRepo.SaveWithId(gameId, game)
@@ -132,7 +144,9 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		require.NoError(t, err)
 
 		currentBet1 := models.NewBet(currentMatch, 1, 1)
-		_, _, err = postgresBetRepo.SaveBet(gameId, currentBet1, player1)
+		id1, bet1, err := postgresBetRepo.SaveBet(gameId, currentBet1, player1)
+		fmt.Println(id1)
+		fmt.Println(bet1)
 		require.NoError(t, err)
 
 		futureBet1 := models.NewBet(futureMatch, 2, 0)
@@ -145,18 +159,15 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		require.NoError(t, err)
 
 		currentBet2 := models.NewBet(currentMatch, 2, 1)
-		_, _, err = postgresBetRepo.SaveBet(gameId, currentBet2, player2)
+		id, bet, err := postgresBetRepo.SaveBet(gameId, currentBet2, player2)
+		fmt.Println(id)
+		fmt.Println(bet)
 		require.NoError(t, err)
 
 		futureBet2 := models.NewBet(futureMatch, 1, 1)
 		_, _, err = postgresBetRepo.SaveBet(gameId, futureBet2, player2)
 		require.NoError(t, err)
 
-		// Save scores for past match
-		_, _, err = postgresBetRepo.SaveBet(gameId, pastBet1, player1)
-		require.NoError(t, err)
-		_, _, err = postgresBetRepo.SaveBet(gameId, pastBet2, player2)
-		require.NoError(t, err)
 		err = postgresBetRepo.SaveScore(gameId, pastMatch, player1, 3) // Player 1 got 3 points for correct prediction
 		require.NoError(t, err)
 		err = postgresBetRepo.SaveScore(gameId, pastMatch, player2, 0) // Player 2 got 0 points for wrong prediction
@@ -175,9 +186,20 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 				// Get past and incoming matches
 				pastResults := restoredGame.GetPastResults()
-				// Use the first player for getting incoming matches
-				player1 := newTestPlayer("Player1")
-				incomingMatches := restoredGame.GetIncomingMatches(player1)
+				// Use the actual player1 from restoredGame.GetPlayers()
+				var restoredPlayer1 models.Player
+				for _, p := range restoredGame.GetPlayers() {
+					if p.GetName() == "Player1" {
+						restoredPlayer1 = p
+						break
+					}
+				}
+				require.NotNil(t, restoredPlayer1, "restored player1 should not be nil")
+				incomingMatches := restoredGame.GetIncomingMatches(restoredPlayer1)
+
+				// Debug: print bets and scores for past match
+				fmt.Printf("Past match bets: %v\n", pastResults[pastMatch.Id()].Bets)
+				fmt.Printf("Past match scores: %v\n", pastResults[pastMatch.Id()].Scores)
 
 				// Verify past match
 				pastMatchResult, exists := pastResults[pastMatch.Id()]
@@ -210,6 +232,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 				// Verify bets for current match
 				require.NotNil(t, currentMatchResult.Bets)
+				fmt.Printf("Here are all the bets for the match %s: %v\n", currentMatchResult.Match.Id(), currentMatchResult.Bets)
 				require.Equal(t, 2, len(currentMatchResult.Bets)) // Two players made bets
 
 				// Verify bets for future match
