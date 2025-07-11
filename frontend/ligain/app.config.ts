@@ -48,8 +48,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/images/favicon.png',
   },
   extra: {
-    apiBaseUrl: process.env.API_BASE_URL || 'https://server-dev-5be58e3-uyqlakruuq-ew.a.run.app',
+    apiBaseUrl: process.env.API_BASE_URL || 'https://server-dev-09f6d83f-uyqlakruuq-ew.a.run.app',
     apiKey: process.env.API_KEY, // Required - no default value
     environment: process.env.NODE_ENV || 'development',
+    eas: {
+      projectId: '55e40a95-c826-4c19-9d13-dfe6b906019b'
+    }
   },
 }); 

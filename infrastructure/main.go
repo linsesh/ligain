@@ -25,6 +25,7 @@ func main() {
 		apiKey := ligainCfg.Require("api_key")
 		allowedOrigins := ligainCfg.Require("allowed_origins")
 		sportsmonkToken := ligainCfg.Require("sportsmonk_api_token")
+		googleClientID := ligainCfg.Get("google_client_id") // Optional for now
 
 		// Create a Cloud Run service
 		service, err := cloudrun.NewService(ctx, serviceName, &cloudrun.ServiceArgs{
@@ -71,6 +72,10 @@ func main() {
 								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
 									Name:  pulumi.String("SPORTSMONK_API_TOKEN"),
 									Value: pulumi.String(sportsmonkToken),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("GOOGLE_CLIENT_ID"),
+									Value: pulumi.String(googleClientID),
 								},
 							},
 						},

@@ -2,7 +2,7 @@
 
 PROJECT_ID="woven-century-307314"
 REGION="europe-west1"
-SERVICE_NAME="server-dev-5be58e3"
+SERVICE_NAME="server-dev-9f6d83f"
 
 case "$1" in
   "start")

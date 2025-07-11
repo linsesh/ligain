@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "ios": {
+      "bundleIdentifier": "com.ligain.app"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "55e40a95-c826-4c19-9d13-dfe6b906019b"
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ import (
 	"liguain/backend/models"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -93,6 +94,8 @@ func TestSignInHandler(t *testing.T) {
 		expectedStatus int
 		expectedError  bool
 		authService    *MockAuthService
+		includeAPIKey  bool
+		apiKey         string
 	}{
 		{
 			name: "successful sign in",
@@ -105,6 +108,7 @@ func TestSignInHandler(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectedError:  false,
 			authService:    &MockAuthService{},
+			includeAPIKey:  false, // Test without API key middleware
 		},
 		{
 			name:           "invalid JSON",
@@ -112,6 +116,7 @@ func TestSignInHandler(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  true,
 			authService:    &MockAuthService{},
+			includeAPIKey:  false,
 		},
 		{
 			name: "authentication failure",
@@ -124,6 +129,35 @@ func TestSignInHandler(t *testing.T) {
 			expectedStatus: http.StatusUnauthorized, // was InternalServerError, now Unauthorized
 			expectedError:  true,
 			authService:    &MockAuthService{shouldFail: true},
+			includeAPIKey:  false,
+		},
+		{
+			name: "missing API key",
+			requestBody: `{
+				"provider": "google",
+				"token": "mock_token",
+				"name": "Test User",
+				"email": "test@example.com"
+			}`,
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  true,
+			authService:    &MockAuthService{},
+			includeAPIKey:  true,
+			apiKey:         "", // No API key
+		},
+		{
+			name: "invalid API key",
+			requestBody: `{
+				"provider": "google",
+				"token": "mock_token",
+				"name": "Test User",
+				"email": "test@example.com"
+			}`,
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  true,
+			authService:    &MockAuthService{},
+			includeAPIKey:  true,
+			apiKey:         "wrong_key",
 		},
 	}
 
@@ -132,12 +166,33 @@ func TestSignInHandler(t *testing.T) {
 			// Create a new Gin router
 			router := gin.New()
 			authHandler := NewAuthHandler(tt.authService)
+
+			// Add API key middleware if requested
+			if tt.includeAPIKey {
+				// Set environment variable for API key
+				originalAPIKey := os.Getenv("API_KEY")
+				defer os.Setenv("API_KEY", originalAPIKey)
+
+				if tt.apiKey != "" {
+					os.Setenv("API_KEY", "test_api_key")
+				} else {
+					os.Unsetenv("API_KEY")
+				}
+
+				router.Use(middleware.APIKeyAuth())
+			}
+
 			router.POST("/signin", authHandler.SignIn)
 
 			// Create request
 			req, err := http.NewRequest("POST", "/signin", strings.NewReader(tt.requestBody))
 			assert.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
+
+			// Add API key header if testing with API key
+			if tt.includeAPIKey && tt.apiKey != "" {
+				req.Header.Set("X-API-Key", tt.apiKey)
+			}
 
 			// Create response recorder
 			w := httptest.NewRecorder()
