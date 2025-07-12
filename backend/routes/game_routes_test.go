@@ -35,6 +35,14 @@ func (m *MockGameCreationService) CleanupExpiredCodes() error {
 	return args.Error(0)
 }
 
+func (m *MockGameCreationService) JoinGame(code string, player models.Player) (*services.JoinGameResponse, error) {
+	args := m.Called(code, player)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*services.JoinGameResponse), args.Error(1)
+}
+
 // MockAuthService is a mock implementation of AuthServiceInterface
 type MockGameAuthService struct {
 	mock.Mock

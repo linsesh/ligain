@@ -6,6 +6,9 @@ import (
 	"liguain/backend/services"
 	"net/http"
 
+	"liguain/backend/models"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,6 +30,7 @@ func NewGameHandler(gameCreationService services.GameCreationServiceInterface, a
 // SetupRoutes registers all game-related routes
 func (h *GameHandler) SetupRoutes(router *gin.Engine) {
 	router.POST("/api/games", middleware.PlayerAuth(h.authService), h.createGame)
+	router.POST("/api/games/join", middleware.PlayerAuth(h.authService), h.joinGame)
 }
 
 // createGame handles the creation of a new game with a unique code
@@ -73,4 +77,47 @@ func (h *GameHandler) createGame(c *gin.Context) {
 	}).Info("Game created successfully")
 
 	c.JSON(http.StatusCreated, response)
+}
+
+// joinGame handles joining a game by code
+func (h *GameHandler) joinGame(c *gin.Context) {
+	type joinRequest struct {
+		Code string `json:"code" binding:"required"`
+	}
+	var req joinRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+		return
+	}
+
+	// Get authenticated player from context
+	player, exists := c.Get("player")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
+		return
+	}
+
+	// Call service to join game by code
+	response, err := h.gameCreationService.JoinGame(req.Code, player.(models.Player))
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid game code") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if strings.Contains(err.Error(), "expired") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		log.WithError(err).Error("Failed to join game")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join game"})
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"gameId": response.GameID,
+		"code":   req.Code,
+		"player": player.(models.Player).GetName(),
+	}).Info("Player joined game successfully")
+
+	c.JSON(http.StatusOK, response)
 }

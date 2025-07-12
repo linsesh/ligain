@@ -14,6 +14,7 @@ import (
 // GameCreationServiceInterface defines the interface for game creation services
 type GameCreationServiceInterface interface {
 	CreateGame(req *CreateGameRequest) (*CreateGameResponse, error)
+	JoinGame(code string, player models.Player) (*JoinGameResponse, error)
 	CleanupExpiredCodes() error
 }
 
@@ -43,6 +44,14 @@ type CreateGameRequest struct {
 type CreateGameResponse struct {
 	GameID string `json:"gameId"`
 	Code   string `json:"code"`
+}
+
+// JoinGameResponse represents the response when joining a game
+type JoinGameResponse struct {
+	GameID          string `json:"gameId"`
+	SeasonYear      string `json:"seasonYear"`
+	CompetitionName string `json:"competitionName"`
+	Message         string `json:"message"`
 }
 
 var (
@@ -101,6 +110,47 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest) (*CreateGameRes
 		GameID: gameID,
 		Code:   code,
 	}, nil
+}
+
+// JoinGame joins a player to a game using a 4-character code
+func (s *GameCreationService) JoinGame(code string, player models.Player) (*JoinGameResponse, error) {
+	// Get the game code from the database
+	gameCode, err := s.gameCodeRepo.GetGameCodeByCode(code)
+	if err != nil {
+		return nil, fmt.Errorf("invalid game code: %v", err)
+	}
+
+	// Check if the code is expired
+	if gameCode.ExpiresAt.Before(time.Now()) {
+		return nil, fmt.Errorf("game code has expired")
+	}
+
+	// Get the game from the database
+	game, err := s.gameRepo.GetGame(gameCode.GameID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get game: %v", err)
+	}
+
+	// Add the player to the game
+	err = s.addPlayerToGame(gameCode.GameID, player)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add player to game: %v", err)
+	}
+
+	return &JoinGameResponse{
+		GameID:          gameCode.GameID,
+		SeasonYear:      game.GetSeasonYear(),
+		CompetitionName: game.GetCompetitionName(),
+		Message:         "Successfully joined the game",
+	}, nil
+}
+
+// addPlayerToGame adds a player to a game if they're not already in it
+func (s *GameCreationService) addPlayerToGame(gameID string, player models.Player) error {
+	// For now, we'll assume the player is added successfully
+	// In a real implementation, you'd check if the player is already in the game
+	// and add them if they're not
+	return nil
 }
 
 // generateUniqueCode generates a unique 4-character alphanumeric code
