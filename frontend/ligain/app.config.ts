@@ -10,7 +10,7 @@ const result = dotenv.config();
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Ligain',
+  name: 'ligain',
   slug: 'ligain',
   version: '1.0.0',
   orientation: 'portrait',
