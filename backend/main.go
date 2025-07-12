@@ -68,6 +68,7 @@ func main() {
 
 	betRepo := postgres.NewPostgresBetRepository(db, repositories.NewInMemoryBetRepository())
 	playerRepo := postgres.NewPostgresPlayerRepository(db)
+	matchRepo := postgres.NewPostgresMatchRepository(db)
 
 	//watcher, err := services.NewMatchWatcherServiceSportsmonk("local")
 	//if err != nil {
@@ -79,6 +80,10 @@ func main() {
 
 	// Initialize authentication service
 	authService := services.NewAuthService(playerRepo)
+
+	// Initialize game creation service
+	gameCodeRepo := postgres.NewPostgresGameCodeRepository(db)
+	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, matchRepo)
 
 	router := gin.Default()
 
@@ -120,6 +125,10 @@ func main() {
 	// Setup authentication routes
 	authHandler := routes.NewAuthHandler(authService)
 	authHandler.SetupRoutes(router)
+
+	// Setup game creation routes
+	gameHandler := routes.NewGameHandler(gameCreationService, authService)
+	gameHandler.SetupRoutes(router)
 
 	// Start server
 	port := os.Getenv("PORT")

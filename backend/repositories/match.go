@@ -13,6 +13,8 @@ type MatchRepository interface {
 	GetMatch(matchId string) (models.Match, error)
 
 	GetMatches() (map[string]models.Match, error)
+	// GetMatchesByCompetitionAndSeason returns all matches for a specific competition and season
+	GetMatchesByCompetitionAndSeason(competitionCode, seasonCode string) ([]models.Match, error)
 }
 
 // InMemoryMatchRepository is a simple in-memory implementation of MatchRepository
@@ -46,6 +48,17 @@ func (r *InMemoryMatchRepository) GetMatches() (map[string]models.Match, error) 
 	matches := make(map[string]models.Match)
 	for _, entry := range r.cache.GetAll() {
 		matches[entry.Key] = entry.Value
+	}
+	return matches, nil
+}
+
+func (r *InMemoryMatchRepository) GetMatchesByCompetitionAndSeason(competitionCode, seasonCode string) ([]models.Match, error) {
+	var matches []models.Match
+	for _, entry := range r.cache.GetAll() {
+		match := entry.Value
+		if match.GetCompetitionCode() == competitionCode && match.GetSeasonCode() == seasonCode {
+			matches = append(matches, match)
+		}
 	}
 	return matches, nil
 }

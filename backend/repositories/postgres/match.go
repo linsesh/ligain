@@ -153,3 +153,36 @@ func (r *PostgresMatchRepository) GetMatches() (map[string]models.Match, error) 
 
 	return matches, nil
 }
+
+// GetMatchesByCompetitionAndSeason returns all matches for a specific competition and season
+func (r *PostgresMatchRepository) GetMatchesByCompetitionAndSeason(competitionCode, seasonCode string) ([]models.Match, error) {
+	query := `
+		SELECT local_id, home_team_id, away_team_id,
+			   home_team_score, away_team_score, match_date,
+			   match_status, season_code, competition_code, matchday
+		FROM match
+		WHERE competition_code = $1 AND season_code = $2
+		ORDER BY matchday, match_date
+	`
+
+	rows, err := r.db.QueryContext(context.Background(), query, competitionCode, seasonCode)
+	if err != nil {
+		return nil, fmt.Errorf("error getting matches by competition and season: %v", err)
+	}
+	defer rows.Close()
+
+	var matches []models.Match
+	for rows.Next() {
+		match, err := scanMatchRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		matches = append(matches, match)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating match rows: %v", err)
+	}
+
+	return matches, nil
+}
