@@ -1,7 +1,10 @@
 {
   "expo": {
     "ios": {
-      "bundleIdentifier": "com.ligain.app"
+      "bundleIdentifier": "com.ligain.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "extra": {
       "eas": {
