@@ -322,6 +322,8 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Context, resultChan chan<- map[int]models.Match, errChan chan<- error) {
 	// Map to store all fixtures across pages
 	allFixtures := make(map[int]models.Match)
+	// Map to track matches by their unique ID to handle duplicates
+	matchIdToFixtureId := make(map[string]int)
 	currentPage := 1
 	hasMore := true
 
@@ -369,6 +371,14 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		fixtureCount := len(responseBody.Data)
 		log.Printf("Received %d fixtures on page %d for season ID %d", fixtureCount, currentPage, seasonId)
 
+		// Log first few fixtures for debugging
+		for i, fixture := range responseBody.Data {
+			if i < 3 { // Only log first 3 fixtures per page to avoid spam
+				log.Printf("  Fixture %d: ID=%d, Name='%s', StartingAt='%s', Round='%s'",
+					i+1, fixture.ID, fixture.Name, fixture.StartingAt, fixture.Round.Name)
+			}
+		}
+
 		// Convert the fixtures to a map of models.Match and add to our collection
 		for _, fixture := range responseBody.Data {
 			match, err := fixture.toMatch()
@@ -376,6 +386,30 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 				errChan <- err
 				return
 			}
+
+			matchId := match.Id()
+
+			// Check if we already have a fixture for this match
+			if existingFixtureId, exists := matchIdToFixtureId[matchId]; exists {
+				existingMatch := allFixtures[existingFixtureId]
+				log.Printf("Duplicate match found: %s", matchId)
+				log.Printf("  Existing fixture ID %d: %s vs %s (%s)", existingFixtureId, existingMatch.GetHomeTeam(), existingMatch.GetAwayTeam(), existingMatch.GetDate().Format("2006-01-02 15:04"))
+				log.Printf("  New fixture ID %d: %s vs %s (%s)", fixture.ID, match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"))
+
+				// Keep the fixture with the later time (more likely to be the current schedule)
+				if match.GetDate().After(existingMatch.GetDate()) {
+					log.Printf("  Replacing with later time fixture")
+					delete(allFixtures, existingFixtureId)
+					matchIdToFixtureId[matchId] = fixture.ID
+					allFixtures[fixture.ID] = match
+				} else {
+					log.Printf("  Keeping existing fixture (earlier time)")
+				}
+				continue
+			}
+
+			// This is a new match, add it
+			matchIdToFixtureId[matchId] = fixture.ID
 			allFixtures[fixture.ID] = match
 		}
 
@@ -386,7 +420,7 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		log.Printf("Processed page %d for season ID %d. Has more pages: %v", currentPage-1, seasonId, hasMore)
 	}
 
-	log.Printf("Completed fetching all fixtures for season ID %d. Total fixtures: %d", seasonId, len(allFixtures))
+	log.Printf("Completed fetching all fixtures for season ID %d. Total fixtures: %d (after deduplication)", seasonId, len(allFixtures))
 	resultChan <- allFixtures
 }
 

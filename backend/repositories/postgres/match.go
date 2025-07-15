@@ -36,6 +36,7 @@ func (r *PostgresMatchRepository) SaveMatch(match models.Match) error {
 		ON CONFLICT (local_id) DO UPDATE SET
 			home_team_score = EXCLUDED.home_team_score,
 			away_team_score = EXCLUDED.away_team_score,
+			match_date = EXCLUDED.match_date,
 			match_status = EXCLUDED.match_status,
 			updated_at = CURRENT_TIMESTAMP
 	`, localId, match.GetHomeTeam(), match.GetAwayTeam(),
