@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../constants/colors';
 
@@ -11,24 +11,27 @@ interface AuthGuardProps {
 export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const { player, isLoading } = useAuth();
   const router = useRouter();
+  const segments = useSegments();
 
-  console.log('🔐 AuthGuard - isLoading:', isLoading, 'player:', player ? 'exists' : 'null');
+  console.log('🔐 AuthGuard - isLoading:', isLoading, 'player:', player ? 'exists' : 'null', 'segments:', segments);
 
   useEffect(() => {
-    console.log('🔄 AuthGuard useEffect - isLoading:', isLoading, 'player:', player ? 'exists' : 'null');
+    console.log('🔄 AuthGuard useEffect - isLoading:', isLoading, 'player:', player ? 'exists' : 'null', 'segments:', segments);
     
     if (!isLoading) {
-      if (player) {
+      const inAuthGroup = segments[0] === '(tabs)';
+      
+      if (player && !inAuthGroup) {
         console.log('✅ AuthGuard - User authenticated, navigating to /(tabs)');
-        // User is authenticated, navigate to main app
+        // User is authenticated but not in the main app, navigate to main app
         router.replace('/(tabs)');
-      } else {
+      } else if (!player && inAuthGroup) {
         console.log('❌ AuthGuard - User not authenticated, navigating to /signin');
-        // User is not authenticated, navigate to sign in
+        // User is not authenticated but in the main app, navigate to sign in
         router.replace('/signin');
       }
     }
-  }, [player, isLoading, router]);
+  }, [player, isLoading, segments, router]);
 
   if (isLoading) {
     console.log('⏳ AuthGuard - Showing loading spinner');

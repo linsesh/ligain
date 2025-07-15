@@ -104,7 +104,6 @@ func (h *AuthHandler) SignOut(c *gin.Context) {
 
 // GetCurrentPlayer returns the current authenticated player
 func (h *AuthHandler) GetCurrentPlayer(c *gin.Context) {
-	fmt.Println("ta grosse mere")
 	player, exists := c.Get("player")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})

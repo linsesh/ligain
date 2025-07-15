@@ -31,6 +31,7 @@ func NewGameHandler(gameCreationService services.GameCreationServiceInterface, a
 func (h *GameHandler) SetupRoutes(router *gin.Engine) {
 	router.POST("/api/games", middleware.PlayerAuth(h.authService), h.createGame)
 	router.POST("/api/games/join", middleware.PlayerAuth(h.authService), h.joinGame)
+	router.GET("/api/games", middleware.PlayerAuth(h.authService), h.getPlayerGames)
 }
 
 // createGame handles the creation of a new game with a unique code
@@ -120,4 +121,29 @@ func (h *GameHandler) joinGame(c *gin.Context) {
 	}).Info("Player joined game successfully")
 
 	c.JSON(http.StatusOK, response)
+}
+
+// getPlayerGames handles getting all games for the authenticated player
+func (h *GameHandler) getPlayerGames(c *gin.Context) {
+	// Get authenticated player from context
+	player, exists := c.Get("player")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
+		return
+	}
+
+	// Call service to get games for player
+	games, err := h.gameCreationService.GetPlayerGames(player.(models.Player))
+	if err != nil {
+		log.WithError(err).Error("Failed to get player games")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get player games"})
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"player": player.(models.Player).GetName(),
+		"count":  len(games),
+	}).Info("Retrieved player games successfully")
+
+	c.JSON(http.StatusOK, gin.H{"games": games})
 }

@@ -43,6 +43,14 @@ func (m *MockGameCreationService) JoinGame(code string, player models.Player) (*
 	return args.Get(0).(*services.JoinGameResponse), args.Error(1)
 }
 
+func (m *MockGameCreationService) GetPlayerGames(player models.Player) ([]services.PlayerGame, error) {
+	args := m.Called(player)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]services.PlayerGame), args.Error(1)
+}
+
 // MockAuthService is a mock implementation of AuthServiceInterface
 type MockGameAuthService struct {
 	mock.Mock
@@ -93,6 +101,7 @@ func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuth
 
 	// Add middleware to routes manually for testing
 	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
+	router.GET("/api/games", middleware.PlayerAuth(mockAuthService), handler.getPlayerGames)
 
 	return router, mockGameCreationService, mockAuthService
 }
@@ -397,4 +406,200 @@ func TestCreateGame_InvalidSeasonYear(t *testing.T) {
 	// Verify mocks
 	mockGameCreationService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
+}
+
+func TestGetPlayerGames_Success(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+
+	// Setup test data
+	player := &models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}
+
+	expectedGames := []services.PlayerGame{
+		{
+			GameID:          "game-1",
+			SeasonYear:      "2025/2026",
+			CompetitionName: "Ligue 1",
+			Status:          "active",
+		},
+		{
+			GameID:          "game-2",
+			SeasonYear:      "2025/2026",
+			CompetitionName: "Ligue 1",
+			Status:          "in progress",
+		},
+	}
+
+	// Mock expectations
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(&models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}, nil)
+	mockGameCreationService.On("GetPlayerGames", player).Return(expectedGames, nil)
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/games", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Contains(t, response, "games")
+
+	games := response["games"].([]interface{})
+	assert.Len(t, games, 2)
+
+	// Verify first game
+	game1 := games[0].(map[string]interface{})
+	assert.Equal(t, "game-1", game1["gameId"])
+	assert.Equal(t, "2025/2026", game1["seasonYear"])
+	assert.Equal(t, "Ligue 1", game1["competitionName"])
+	assert.Equal(t, "active", game1["status"])
+
+	// Verify second game
+	game2 := games[1].(map[string]interface{})
+	assert.Equal(t, "game-2", game2["gameId"])
+	assert.Equal(t, "2025/2026", game2["seasonYear"])
+	assert.Equal(t, "Ligue 1", game2["competitionName"])
+	assert.Equal(t, "in progress", game2["status"])
+
+	// Verify mocks
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
+}
+
+func TestGetPlayerGames_EmptyList(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+
+	// Setup test data
+	player := &models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}
+
+	// Mock expectations
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(&models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}, nil)
+	mockGameCreationService.On("GetPlayerGames", player).Return([]services.PlayerGame{}, nil)
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/games", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Contains(t, response, "games")
+
+	games := response["games"].([]interface{})
+	assert.Len(t, games, 0)
+
+	// Verify mocks
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
+}
+
+func TestGetPlayerGames_ServiceError(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+
+	// Setup test data
+	player := &models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}
+
+	// Mock expectations
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(&models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}, nil)
+	mockGameCreationService.On("GetPlayerGames", player).Return(nil, repositories.ErrGameCodeNotFound)
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/games", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "Failed to get player games", response["error"])
+
+	// Verify mocks
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
+}
+
+func TestGetPlayerGames_Unauthorized(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+
+	// Mock expectations - authentication fails
+	mockAuthService.On("ValidateToken", mock.Anything, "invalidtoken").Return(nil, repositories.ErrGameCodeNotFound)
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/games", nil)
+	req.Header.Set("Authorization", "Bearer invalidtoken")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "Invalid or expired token", response["error"])
+
+	// Verify no service calls were made
+	mockGameCreationService.AssertNotCalled(t, "GetPlayerGames")
+	mockAuthService.AssertExpectations(t)
+}
+
+func TestGetPlayerGames_NoAuthHeader(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+
+	// Create request without authorization header
+	req := httptest.NewRequest("GET", "/api/games", nil)
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "Authorization header is required", response["error"])
+
+	// Verify no service calls were made
+	mockGameCreationService.AssertNotCalled(t, "GetPlayerGames")
+	mockAuthService.AssertNotCalled(t, "ValidateToken")
 }

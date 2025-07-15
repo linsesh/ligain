@@ -1,341 +1,339 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Clipboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 // Local imports
-import { useMatches } from '../../hooks/useMatches';
-import { useBetSubmission } from '../../hooks/useBetSubmission';
-import { MatchResult } from '../../src/types/match';
-import { MockTimeService } from '../../src/services/timeService';
-import { TimeServiceProvider, useTimeService } from '../../src/contexts/TimeServiceContext';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
 
-interface TempScores {
-  [key: string]: {
-    home?: number;
-    away?: number;
-  };
+interface Game {
+  gameId: string;
+  seasonYear: string;
+  competitionName: string;
+  status: string;
 }
 
-function TeamInput({ 
-  teamName, 
-  value, 
-  onChange, 
-  canModify, 
-  isAway = false,
-  onFocus,
-  onBlur
-}: { 
-  teamName: string; 
-  value: string; 
-  onChange: (value: string) => void; 
-  canModify: boolean; 
-  isAway?: boolean;
-  onFocus?: () => void;
-  onBlur?: () => void;
-}) {
-  return (
-    <View style={styles.teamContainer}>
-      {!isAway && <Text style={styles.teamName}>{teamName}</Text>}
-      <TextInput
-        style={[
-          styles.betInput,
-          !canModify && { backgroundColor: '#e0e0e0' }
-        ]}
-        value={value}
-        onChangeText={onChange}
-        keyboardType="numeric"
-        maxLength={2}
-        placeholder="0"
-        editable={canModify}
-        returnKeyType="done"
-        onSubmitEditing={() => Keyboard.dismiss()}
-        onFocus={onFocus}
-        onBlur={onBlur}
-      />
-      {isAway && <Text style={[styles.teamName, styles.awayTeamName]}>{teamName}</Text>}
-    </View>
-  );
+interface CreateGameResponse {
+  gameId: string;
+  code: string;
 }
 
-// Wrapper component that has access to the time service
-function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur }: {
-  matchResult: MatchResult;
-  tempScores: TempScores;
-  expandedMatches: { [key: string]: boolean };
-  onBetChange: (matchId: string, team: 'home' | 'away', value: string) => void;
-  onToggleBetSection: (matchId: string) => void;
-  onFocus: () => void;
-  onBlur: () => void;
-}) {
-  const timeService = useTimeService();
-  const now = timeService.now();
-  const canModify = !matchResult.match.isFinished() && 
-                   !matchResult.match.isInProgress() && 
-                   (matchResult.bets?.['Player1']?.isModifiable(now) ?? true);
-
-  return (
-    <View 
-      key={matchResult.match.id()} 
-      style={[
-        styles.matchCard,
-        matchResult.match.isFinished() && (
-          matchResult.scores && Object.values(matchResult.scores).some(scoreData => scoreData.points > 0)
-            ? styles.successfulBetMatchCard 
-            : styles.finishedMatchCard
-        ),
-        matchResult.match.isInProgress() && styles.inProgressMatchCard
-      ]}
-    >
-      <View style={styles.bettingContainer}>
-        <TeamInput
-          teamName={matchResult.match.getHomeTeam()}
-          value={matchResult.match.isFinished() 
-            ? matchResult.match.getHomeGoals().toString() 
-            : (tempScores[matchResult.match.id()]?.home?.toString() || '')}
-          onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
-          canModify={canModify}
-          onFocus={() => onFocus()}
-          onBlur={() => onBlur()}
-        />
-        <Text style={styles.vsText}>vs</Text>
-        <TeamInput
-          teamName={matchResult.match.getAwayTeam()}
-          value={matchResult.match.isFinished() 
-            ? matchResult.match.getAwayGoals().toString() 
-            : (tempScores[matchResult.match.id()]?.away?.toString() || '')}
-          onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
-          canModify={canModify}
-          isAway
-          onFocus={() => onFocus()}
-          onBlur={() => onBlur()}
-        />
-      </View>
-      
-      {(matchResult.match.isFinished() || matchResult.match.isInProgress()) && (
-        <>
-          <TouchableOpacity 
-            style={styles.toggleButton} 
-            onPress={() => onToggleBetSection(matchResult.match.id())}
-          >
-            <Text style={styles.toggleButtonText}>
-              {matchResult.match.isFinished() 
-                ? (matchResult.scores && Object.values(matchResult.scores).some(scoreData => scoreData.points > 0)
-                    ? `Your bet won you ${Object.values(matchResult.scores).find(scoreData => scoreData.points > 0)?.points || 0} points`
-                    : 'Other players\' bets')
-                : 'Other players\' bets'}
-            </Text>
-            <Ionicons 
-              name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"} 
-              size={24} 
-              color="#333" 
-            />
-          </TouchableOpacity>
-          
-          {expandedMatches[matchResult.match.id()] && (
-            <View style={styles.betResultContainer}>
-              {matchResult.scores ? (
-                <View style={styles.scoresContainer}>
-                  {Object.entries(matchResult.scores).map(([playerId, scoreData]) => (
-                    <View key={playerId} style={styles.playerScoreRow}>
-                      <Text style={styles.scoreText}>
-                        {scoreData.playerName}: {scoreData.points} points
-                      </Text>
-                      {matchResult.bets?.[playerId] && (
-                        <Text style={styles.betResultText}>
-                          ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals})
-                        </Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              ) : matchResult.bets && (
-                <View style={styles.scoresContainer}>
-                  {Object.entries(matchResult.bets)
-                    .map(([playerId, betData]) => (
-                      <View key={playerId} style={styles.playerScoreRow}>
-                        <Text style={styles.scoreText}>
-                          {betData.playerName}:
-                        </Text>
-                        <Text style={styles.betResultText}>
-                          ({betData.predictedHomeGoals} - {betData.predictedAwayGoals})
-                        </Text>
-                      </View>
-                    ))}
-                </View>
-              )}
-            </View>
-          )}
-        </>
-      )}
-    </View>
-  );
+interface JoinGameResponse {
+  gameId: string;
+  seasonYear: string;
+  competitionName: string;
+  message: string;
 }
 
-function MatchesList() {
-  console.log('📋 MatchesList - Rendering matches list');
-  
-  const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches();
-  const [tempScores, setTempScores] = useState<TempScores>({});
-  const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
+function GamesList() {
+  const { player } = useAuth();
+  const router = useRouter();
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
-  const { submitBet, error: submitError } = useBetSubmission();
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [creatingGame, setCreatingGame] = useState(false);
+  const [joiningGame, setJoiningGame] = useState(false);
+  const [newGameCode, setNewGameCode] = useState<string | null>(null);
 
-  // Combine incoming and past matches
-  const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
+  const fetchGames = async () => {
+    try {
+      const headers = await getAuthenticatedHeaders();
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
+        headers,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+      }
+      
+      const data = await response.json();
+      let gamesList = data.games || [];
+      // Add hardcoded game if not present
+      const hardcodedGameId = '123e4567-e89b-12d3-a456-426614174000';
+      if (!(gamesList as Game[]).some((g: Game) => g.gameId === hardcodedGameId)) {
+        gamesList = [
+          ...gamesList,
+          {
+            gameId: hardcodedGameId,
+            seasonYear: '2025/2026',
+            competitionName: 'Ligue 1',
+            status: 'in progress',
+          },
+        ];
+      }
+      setGames(gamesList);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch games');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createGame = async () => {
+    setCreatingGame(true);
+    try {
+      const headers = await getAuthenticatedHeaders({
+        'Content-Type': 'application/json',
+      });
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          seasonYear: '2025/2026',
+          competitionName: 'Ligue 1'
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+      }
+      
+      const data: CreateGameResponse = await response.json();
+      setNewGameCode(data.code);
+      
+      // Refresh games list
+      await fetchGames();
+      
+      Alert.alert(
+        'Game Created!',
+        `Your game code is: ${data.code}`,
+        [
+          { text: 'Copy Code', onPress: () => copyToClipboard(data.code) },
+          { text: 'OK', onPress: () => setNewGameCode(null) }
+        ]
+      );
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create game');
+    } finally {
+      setCreatingGame(false);
+    }
+  };
+
+  const joinGame = async () => {
+    if (!joinCode.trim()) {
+      Alert.alert('Error', 'Please enter a game code');
+      return;
+    }
+    
+    setJoiningGame(true);
+    try {
+      const headers = await getAuthenticatedHeaders({
+        'Content-Type': 'application/json',
+      });
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games/join`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          code: joinCode.trim().toUpperCase()
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+      }
+      
+      const data: JoinGameResponse = await response.json();
+      setJoinCode('');
+      setShowJoinModal(false);
+      
+      // Refresh games list
+      await fetchGames();
+      
+      Alert.alert('Success', data.message);
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to join game');
+    } finally {
+      setJoiningGame(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await Clipboard.setString(text);
+      Alert.alert('Copied!', 'Game code copied to clipboard');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
+  };
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await fetchGames();
     setRefreshing(false);
-  }, [refresh]);
-
-  // Initialize tempScores with existing bets
-  useEffect(() => {
-    const initialTempScores: TempScores = {};
-    [...Object.values(incomingMatches), ...Object.values(pastMatches)].forEach((matchResult: MatchResult) => {
-      // Find the current user's bet (we'll need to get this from auth context later)
-      // For now, we'll use the first bet as a placeholder
-      if (matchResult.bets && Object.keys(matchResult.bets).length > 0) {
-        const firstBetId = Object.keys(matchResult.bets)[0];
-        const firstBet = matchResult.bets[firstBetId];
-        initialTempScores[matchResult.match.id()] = {
-          home: firstBet.predictedHomeGoals,
-          away: firstBet.predictedAwayGoals
-        };
-      }
-    });
-    setTempScores(initialTempScores);
-  }, [incomingMatches, pastMatches]);
+  }, []);
 
   useEffect(() => {
-    if (submitError) {
-      Alert.alert(
-        "Bet Not Saved",
-        "We couldn't save your bet. Please check your internet connection and try again.",
-        [{ text: "OK" }]
-      );
-    }
-  }, [submitError]);
+    fetchGames();
+  }, []);
 
-  const toggleBetSection = (matchId: string) => {
-    setExpandedMatches(prev => ({
-      ...prev,
-      [matchId]: !prev[matchId]
-    }));
-  };
-
-  const handleBetChange = async (matchId: string, team: 'home' | 'away', value: string) => {
-    const matchResult = matches.find((m: MatchResult) => m.match.id() === matchId);
-    if (!matchResult) return;
-
-    // Update temporary scores
-    const currentTempScores = tempScores[matchId] || {};
-    const newTempScores = {
-      ...currentTempScores,
-      [team]: value ? parseInt(value) : undefined
-    };
-
-    setTempScores(prev => ({
-      ...prev,
-      [matchId]: newTempScores
-    }));
-
-    // Submit bet if both scores are provided and are valid numbers
-    if (newTempScores.home !== undefined && newTempScores.away !== undefined) {
-      const homeGoals = Number(newTempScores.home);
-      const awayGoals = Number(newTempScores.away);
-      
-      // Only submit if both values are valid numbers
-      if (!isNaN(homeGoals) && !isNaN(awayGoals)) {
-        await submitBet(matchId, homeGoals, awayGoals);
-      }
-    }
-  };
-
-  const handleFocus = (matchId: string) => {
-    setEditingMatchId(matchId);
-  };
-
-  const handleBlur = () => {
-    setEditingMatchId(null);
-  };
-
-  if (matchesLoading && !refreshing) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="#ffd33d" />
       </View>
     );
   }
-
-  // Filter matches to only show the one that is being edited, if any, else show all matches
-  const filteredMatches = matches.filter((matchResult: MatchResult) => 
-    !editingMatchId || matchResult.match.id() === editingMatchId
-  );
 
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <Text style={styles.title}>Matches</Text>
+      <Text style={styles.title}>My Games</Text>
+      
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.createButton, { marginRight: 8 }]} 
+          onPress={createGame}
+          disabled={creatingGame}
+        >
+          {creatingGame ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="add-circle" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Create Game</Text>
+            </>
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.joinButton, { marginLeft: 8 }]} 
+          onPress={() => setShowJoinModal(true)}
+        >
+          <Ionicons name="people" size={20} color="#fff" />
+          <Text style={styles.actionButtonText}>Join Game</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* New Game Code Display */}
+      {newGameCode && (
+        <View style={styles.codeContainer}>
+          <Text style={styles.codeLabel}>Your Game Code:</Text>
+          <View style={styles.codeDisplay}>
+            <Text style={styles.codeText}>{newGameCode}</Text>
+            <TouchableOpacity 
+              style={styles.copyButton}
+              onPress={() => copyToClipboard(newGameCode)}
+            >
+              <Ionicons name="copy" size={16} color="#ffd33d" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#ffffff']}
-            tintColor="#ffffff"
+            colors={['#ffd33d']}
+            tintColor="#ffd33d"
             progressBackgroundColor="#25292e"
             progressViewOffset={20}
           />
         }
       >
-        {matchesError ? (
+        {error ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Failed to load matches: {matchesError.message}</Text>
+            <Text style={styles.errorText}>Failed to load games: {error}</Text>
             <Text style={styles.refreshHint}>Pull down to refresh</Text>
           </View>
+        ) : games.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="game-controller-outline" size={64} color="#666" />
+            <Text style={styles.emptyText}>No games yet</Text>
+            <Text style={styles.emptySubtext}>Create a game or join one to get started!</Text>
+          </View>
         ) : (
-          filteredMatches
-            .sort((a: MatchResult, b: MatchResult) => {
-              if (a.match.getMatchday() !== b.match.getMatchday()) {
-                return a.match.getMatchday() - b.match.getMatchday();
-              }
-              return a.match.getDate().getTime() - b.match.getDate().getTime();
-            })
-            .map((matchResult: MatchResult) => (
-              <MatchCard
-                key={matchResult.match.id()}
-                matchResult={matchResult}
-                tempScores={tempScores}
-                expandedMatches={expandedMatches}
-                onBetChange={handleBetChange}
-                onToggleBetSection={toggleBetSection}
-                onFocus={() => handleFocus(matchResult.match.id())}
-                onBlur={handleBlur}
-              />
-            ))
+          games.map((game) => (
+            <TouchableOpacity 
+              key={game.gameId} 
+              style={styles.gameCard}
+              onPress={() => {
+                console.log('🎮 Game card pressed, navigating to game:', game.gameId);
+                router.push('/(tabs)/games/game/' + game.gameId);
+              }}
+            >
+              <View style={styles.gameHeader}>
+                <Text style={styles.gameTitle}>{game.competitionName}</Text>
+                <Text style={styles.gameSeason}>{game.seasonYear}</Text>
+              </View>
+              <View style={styles.gameStatus}>
+                <Text style={styles.statusText}>Status: {game.status}</Text>
+              </View>
+            </TouchableOpacity>
+          ))
         )}
       </ScrollView>
+
+      {/* Join Game Modal */}
+      {showJoinModal && (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Join a Game</Text>
+            <Text style={styles.modalSubtitle}>Enter the 4-letter game code</Text>
+            
+            <TextInput
+              style={styles.codeInput}
+              value={joinCode}
+              onChangeText={setJoinCode}
+              placeholder="ABCD"
+              placeholderTextColor="#666"
+              maxLength={4}
+              autoCapitalize="characters"
+              autoFocus
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => {
+                  setShowJoinModal(false);
+                  setJoinCode('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton]} 
+                onPress={joinGame}
+                disabled={joiningGame}
+              >
+                {joiningGame ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Join</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </KeyboardAvoidingView>
   );
 }
 
-// Wrap the app with the TimeServiceProvider using MockTimeService
 export default function TabOneScreen() {
-  console.log('🏠 TabOneScreen - Rendering main tabs screen');
+  console.log('🏠 TabOneScreen - Rendering games screen');
   
-  const mockTime = new Date('2024-03-20T20:10:00');
-  const timeService = React.useMemo(() => new MockTimeService(mockTime), []);
-  
-  return (
-    <TimeServiceProvider service={timeService}>
-      <MatchesList />
-    </TimeServiceProvider>
-  );
+  return <GamesList />;
 }
 
 const styles = StyleSheet.create({
@@ -352,59 +350,62 @@ const styles = StyleSheet.create({
     margin: 16,
     color: '#fff',
   },
-  matchCard: {
-    backgroundColor: '#f5f5f5',
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+  },
+  createButton: {
+    backgroundColor: '#4CAF50',
+    flex: 1,
+  },
+  joinButton: {
+    backgroundColor: '#2196F3',
+    flex: 1,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  codeContainer: {
+    backgroundColor: '#333',
     padding: 16,
     borderRadius: 8,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 16,
+    alignItems: 'center',
   },
-  finishedMatchCard: {
-    backgroundColor: '#9e9e9e',
-    opacity: 0.7,
+  codeLabel: {
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 8,
   },
-  successfulBetMatchCard: {
-    backgroundColor: '#2e7d32',
-    opacity: 0.9,
-  },
-  inProgressMatchCard: {
-    backgroundColor: '#f5e663', // A softer but more yellow tone
-    opacity: 0.9,
-  },
-  bettingContainer: {
+  codeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  teamContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  teamName: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    textAlign: 'left',
-  },
-  awayTeamName: {
-    textAlign: 'right',
-  },
-  vsText: {
-    fontSize: 14,
-    color: '#666',
-    marginHorizontal: 8,
-  },
-  betInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
+    backgroundColor: '#444',
+    borderRadius: 6,
     padding: 8,
-    width: 40,
-    textAlign: 'center',
-    backgroundColor: '#fff',
+  },
+  codeText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffd33d',
+    marginRight: 8,
+  },
+  copyButton: {
+    padding: 4,
   },
   errorContainer: {
     padding: 20,
@@ -423,48 +424,122 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  toggleButton: {
-    flexDirection: 'row',
+  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#e8e8e8',
-    borderRadius: 4,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  toggleButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  betResultContainer: {
-    padding: 8,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 4,
-  },
-  betResultText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  scoresContainer: {
-    marginTop: 6,
-  },
-  playerScoreRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 1,
-  },
-  scoreText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  loadingContainer: {
     padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
     minHeight: 200,
+  },
+  emptyText: {
+    fontSize: 20,
+    color: '#666',
+    marginTop: 10,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 5,
+  },
+  gameCard: {
+    backgroundColor: '#333',
+    padding: 16,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  gameHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  gameTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  gameSeason: {
+    fontSize: 14,
+    color: '#999',
+  },
+  gameStatus: {
+    backgroundColor: '#444',
+    padding: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#ffd33d',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  modal: {
+    backgroundColor: '#25292e',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 15,
+  },
+  codeInput: {
+    borderWidth: 1,
+    borderColor: '#666',
+    borderRadius: 6,
+    padding: 12,
+    width: '100%',
+    fontSize: 18,
+    color: '#fff',
+    backgroundColor: '#444',
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 20,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+  },
+  cancelButton: {
+    backgroundColor: '#666',
+    flex: 1,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  confirmButton: {
+    backgroundColor: '#4CAF50',
+    flex: 1,
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

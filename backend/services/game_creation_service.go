@@ -15,6 +15,7 @@ import (
 type GameCreationServiceInterface interface {
 	CreateGame(req *CreateGameRequest) (*CreateGameResponse, error)
 	JoinGame(code string, player models.Player) (*JoinGameResponse, error)
+	GetPlayerGames(player models.Player) ([]PlayerGame, error)
 	CleanupExpiredCodes() error
 }
 
@@ -52,6 +53,14 @@ type JoinGameResponse struct {
 	SeasonYear      string `json:"seasonYear"`
 	CompetitionName string `json:"competitionName"`
 	Message         string `json:"message"`
+}
+
+// PlayerGame represents a game that a player is part of
+type PlayerGame struct {
+	GameID          string `json:"gameId"`
+	SeasonYear      string `json:"seasonYear"`
+	CompetitionName string `json:"competitionName"`
+	Status          string `json:"status"`
 }
 
 var (
@@ -192,4 +201,20 @@ func (s *GameCreationService) generateRandomCode(length int, charset string) str
 // CleanupExpiredCodes removes all expired game codes
 func (s *GameCreationService) CleanupExpiredCodes() error {
 	return s.gameCodeRepo.DeleteExpiredCodes()
+}
+
+// GetPlayerGames returns all games that a player is part of
+func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame, error) {
+	// For now, we'll return an empty list since we need to implement
+	// the logic to find games where the player has made bets
+	// This would typically involve querying the bet repository
+	// to find all games where the player has bets
+
+	// TODO: Implement proper logic to get games for player
+	// This would involve:
+	// 1. Querying the bet repository to find all game IDs where the player has bets
+	// 2. For each game ID, getting the game details from the game repository
+	// 3. Converting to PlayerGame structs
+
+	return []PlayerGame{}, nil
 }

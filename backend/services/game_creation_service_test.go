@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-var testTime = time.Date(2025, 7, 12, 12, 0, 0, 0, time.UTC)
+var testTime = time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
 
 // MockGameRepository is a mock implementation of GameRepository
 type MockGameRepository struct {
@@ -503,7 +503,7 @@ func TestGameCreationService_JoinGame_ExpiredCode(t *testing.T) {
 	gameCode := &models.GameCode{
 		GameID:    "game1",
 		Code:      code,
-		ExpiresAt: testTime.Add(-24 * time.Hour), // Expired
+		ExpiresAt: time.Now().Add(-24 * time.Hour), // Actually expired
 	}
 
 	// Mock expectations
