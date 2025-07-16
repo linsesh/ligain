@@ -29,6 +29,7 @@ func main() {
 
 		// Create a Cloud Run service
 		service, err := cloudrun.NewService(ctx, serviceName, &cloudrun.ServiceArgs{
+			Name:     pulumi.String(serviceName), // Ensure consistent service name
 			Location: pulumi.String(region),
 			Template: &cloudrun.ServiceTemplateArgs{
 				Metadata: &cloudrun.ServiceTemplateMetadataArgs{
