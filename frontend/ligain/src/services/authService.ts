@@ -14,6 +14,7 @@ export interface AuthResult {
   token: string;
   email: string;
   name: string;
+  playerId?: string; // Optional for guest users
 }
 
 export class AuthService {
@@ -69,14 +70,14 @@ export class AuthService {
       });
 
       // Extract email and name from userInfo (userInfo is the User object directly)
-      let email = (userInfo as any)?.data?.user?.email || '';
-      let name = (userInfo as any)?.data?.user?.name || 
-                 ((userInfo as any)?.data?.user?.givenName && (userInfo as any)?.data?.user?.familyName 
-                   ? `${(userInfo as any).data.user.givenName} ${(userInfo as any).data.user.familyName}` 
-                   : (userInfo as any)?.data?.user?.givenName || (userInfo as any)?.data?.user?.familyName || '');
+      let email = (userInfo as any)?.email || '';
+      let name = (userInfo as any)?.name || 
+                 ((userInfo as any)?.givenName && (userInfo as any)?.familyName 
+                   ? `${(userInfo as any).givenName} ${(userInfo as any).familyName}` 
+                   : (userInfo as any)?.givenName || (userInfo as any)?.familyName || '');
 
-      // If email is still empty, try to extract it from the ID token
-      if (!email && tokens.idToken) {
+      // If email or name is still empty, try to extract it from the ID token
+      if ((!email || !name) && tokens.idToken) {
         try {
           // Decode the JWT token to get user info
           const tokenParts = tokens.idToken.split('.');
@@ -102,6 +103,10 @@ export class AuthService {
               name = claims.name;
             } else if (!name && claims.given_name && claims.family_name) {
               name = `${claims.given_name} ${claims.family_name}`;
+            } else if (!name && claims.given_name) {
+              name = claims.given_name;
+            } else if (!name && claims.family_name) {
+              name = claims.family_name;
             }
           }
         } catch (decodeError) {
@@ -113,6 +118,10 @@ export class AuthService {
 
       if (!email) {
         throw new Error('Email not provided by Google Sign-In');
+      }
+
+      if (!name) {
+        throw new Error('Name not provided by Google Sign-In');
       }
 
       return {
@@ -200,6 +209,7 @@ export class AuthService {
         token: data.token,
         email: '', // Guest users don't have email
         name: data.player.name,
+        playerId: data.player.id, // Include the player ID from backend
       };
     } catch (error) {
       console.error('🔐 Guest Sign-In - Error:', error);

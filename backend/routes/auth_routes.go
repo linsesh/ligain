@@ -53,9 +53,9 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 			}
 		}())
 
-	if req.Provider == "" || req.Token == "" || req.Email == "" || req.Name == "" {
-		fmt.Printf("❌ SignIn - Missing required fields: provider=%t, token=%t, email=%t, name=%t\n",
-			req.Provider != "", req.Token != "", req.Email != "", req.Name != "")
+	if req.Provider == "" || req.Token == "" || req.Email == "" {
+		fmt.Printf("❌ SignIn - Missing required fields: provider=%t, token=%t, email=%t\n",
+			req.Provider != "", req.Token != "", req.Email != "")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
 		return
 	}

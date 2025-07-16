@@ -17,6 +17,7 @@ import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
 import { API_CONFIG } from '../src/config/api';
 import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
+import { setItem } from '../src/utils/storage';
 
 export default function SignInScreen() {
   console.log('🔐 SignInScreen - Rendering signin screen');
@@ -28,12 +29,9 @@ export default function SignInScreen() {
   });
   
   const [isLoading, setIsLoading] = useState(false);
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | 'guest' | null>(null);
-  const [authResult, setAuthResult] = useState<any>(null);
   const [displayName, setDisplayName] = useState('');
-
-  const { signIn } = useAuth();
+  
+    const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
   const router = useRouter();
 
   // Get available providers for current platform
@@ -47,6 +45,11 @@ export default function SignInScreen() {
       AuthService.testProviderAvailability();
     }
   }, []);
+
+  // Debug modal state
+  React.useEffect(() => {
+    console.log('🔐 SignInScreen - Modal state changed - showNameModal:', showNameModal);
+  }, [showNameModal]);
 
   const handleSignIn = async (provider: 'google' | 'apple' | 'guest') => {
     console.log(`🔐 SignInScreen - Starting sign in with ${provider}`);
@@ -66,41 +69,31 @@ export default function SignInScreen() {
           name: result.name,
           token: result.token ? '***token***' : 'NO_TOKEN'
         });
-      } else {
-        // OAuth authentication - always use real authentication
-        console.log('🔐 SignInScreen - Using real OAuth authentication');
         
-        if (provider === 'google') {
-          result = await AuthService.signInWithGoogle();
-        } else {
-          result = await AuthService.signInWithApple();
-        }
-        console.log('🔐 SignInScreen - OAuth sign in result:', {
-          provider: result.provider,
-          email: result.email,
-          name: result.name,
-          token: result.token ? '***token***' : 'NO_TOKEN'
-        });
-      }
-
-      setAuthResult(result);
-      
-      if (provider === 'guest') {
         // For guest authentication, skip the name modal and sign in directly
         console.log('🔐 SignInScreen - Guest authentication, signing in directly');
-        await signIn(
-          'guest',
-          result.token,
-          result.email,
-          result.name
-        );
+        
+        // Store the result directly since AuthService.signInAsGuest already made the API call
+        console.log('🔐 SignInScreen - Storing guest authentication result');
+        await setItem('auth_token', result.token);
+        await setItem('player_data', JSON.stringify({ 
+          id: result.playerId, // Use the actual player ID from backend
+          name: result.name 
+        }));
+        
+        // Update the auth context state directly to avoid double API call
+        setPlayer({ 
+          id: result.playerId || 'guest-player', // Use the actual player ID from backend
+          name: result.name || 'Guest Player'
+        });
         
         // Navigate to main app
         console.log('🔐 SignInScreen - Navigating to main app');
         router.replace('/(tabs)');
       } else {
-        setShowNameModal(true);
-        console.log('🔐 SignInScreen - Showing name modal');
+        // OAuth authentication - handled by individual buttons
+        console.log('🔐 SignInScreen - OAuth authentication should be handled by individual buttons');
+        throw new Error('OAuth authentication should be handled by individual buttons');
       }
     } catch (error) {
       console.error('🔐 SignInScreen - Sign in error:', error);
@@ -152,6 +145,10 @@ export default function SignInScreen() {
         token: authResult?.token ? '***token***' : 'NO_TOKEN'
       });
       
+      if (!authResult?.token || !authResult?.email) {
+        throw new Error('Missing authentication data');
+      }
+      
       await signIn(
         selectedProvider!,
         authResult.token,
@@ -201,10 +198,15 @@ export default function SignInScreen() {
           {availableProviders.includes('google') && (
             <GoogleSignInButton
               onSignInSuccess={(result) => {
-                console.log('Google Sign-In success:', result);
+                console.log('Google Sign-In success for existing user:', result);
+              }}
+              onNewUser={(result) => {
+                console.log('Google Sign-In - User needs to choose display name:', result);
+                console.log('🔐 SignInScreen - Setting modal state to true');
                 setAuthResult(result);
                 setSelectedProvider('google');
                 setShowNameModal(true);
+                console.log('🔐 SignInScreen - Modal state should now be true');
               }}
               onSignInError={(error) => {
                 console.error('Google Sign-In error:', error);
@@ -218,7 +220,46 @@ export default function SignInScreen() {
           {availableProviders.includes('apple') && (
             <TouchableOpacity
               style={[styles.button, styles.appleButton]}
-              onPress={() => handleSignIn('apple')}
+              onPress={async () => {
+                try {
+                  const result = await AuthService.signInWithApple();
+                  console.log('Apple Sign-In success:', result);
+                  
+                  // Always try to authenticate without a display name first
+                  // This will fail for new users, triggering the display name modal
+                  try {
+                    console.log('Apple Sign-In - Attempting authentication without display name');
+                    await signIn(
+                      'apple',
+                      result.token,
+                      result.email,
+                      '' // Never use Apple name, always require user to choose
+                    );
+                    
+                    // If successful, navigate to main app (existing user)
+                    console.log('Apple Sign-In - Existing user authenticated successfully');
+                    router.replace('/(tabs)');
+                  } catch (authError: any) {
+                    console.log('Apple Sign-In - Authentication failed:', authError.message);
+                    
+                    // Check if this is a "display name required" error for new users
+                    if (authError.message === 'display name is required for new users') {
+                      console.log('Apple Sign-In - New user detected, showing display name modal');
+                      setAuthResult(result);
+                      setSelectedProvider('apple');
+                      setShowNameModal(true);
+                      console.log('Apple Sign-In - Showing name modal for user');
+                    } else {
+                      // For other authentication errors, show error alert
+                      console.error('Apple Sign-In - Authentication error:', authError.message);
+                      Alert.alert('Authentication Error', authError.message);
+                    }
+                  }
+                } catch (error: any) {
+                  console.error('Apple Sign-In error:', error);
+                  Alert.alert('Sign-In Failed', error.message);
+                }
+              }}
               disabled={isLoading}
             >
               {isLoading ? (
@@ -269,7 +310,9 @@ export default function SignInScreen() {
         visible={showNameModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowNameModal(false)}
+        onRequestClose={() => {
+          setShowNameModal(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -277,7 +320,7 @@ export default function SignInScreen() {
               Choose Your Display Name
             </Text>
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-              This name will be displayed to other players
+              Choose a display name that will be shown to other players
             </Text>
             
             <TextInput

@@ -174,20 +174,11 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 	verifiedEmail := verifiedUser["email"].(string)
 	verifiedID := verifiedUser["id"].(string)
 
-	if verifiedEmail == "" || displayName == "" {
+	if verifiedEmail == "" {
 		return nil, errors.New("invalid user information from OAuth provider")
 	}
 
-	// Check if display name is already taken
-	existingPlayerByName, err := s.playerRepo.GetPlayerByName(ctx, displayName)
-	if err != nil {
-		return nil, err
-	}
-	if existingPlayerByName != nil {
-		return nil, errors.New("display name is already taken")
-	}
-
-	// Check if player already exists by provider
+	// First, check if player already exists by provider ID
 	existingPlayer, err := s.playerRepo.GetPlayerByProvider(ctx, provider, verifiedID)
 	if err != nil {
 		return nil, err
@@ -195,18 +186,23 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 
 	var player *models.PlayerData
 	if existingPlayer != nil {
-		// Player exists, update their information
-		player = existingPlayer
-		player.Name = displayName
-		player.UpdatedAt = &time.Time{}
-		*player.UpdatedAt = s.timeFunc()
+		// Player exists with this provider, return existing player
+		// Only update name if provided and different
+		if displayName != "" && displayName != existingPlayer.Name {
+			player = existingPlayer
+			player.Name = displayName
+			player.UpdatedAt = &time.Time{}
+			*player.UpdatedAt = s.timeFunc()
 
-		err = s.playerRepo.UpdatePlayer(ctx, player)
-		if err != nil {
-			return nil, err
+			err = s.playerRepo.UpdatePlayer(ctx, player)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			player = existingPlayer
 		}
 	} else {
-		// Check if player exists by email
+		// Check if player exists by email (different provider)
 		existingPlayerByEmail, err := s.playerRepo.GetPlayerByEmail(ctx, verifiedEmail)
 		if err != nil {
 			return nil, err
@@ -220,11 +216,30 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 			player.UpdatedAt = &time.Time{}
 			*player.UpdatedAt = s.timeFunc()
 
+			// Update name if provided and different
+			if displayName != "" && displayName != player.Name {
+				player.Name = displayName
+			}
+
 			err = s.playerRepo.UpdatePlayer(ctx, player)
 			if err != nil {
 				return nil, err
 			}
 		} else {
+			// New player - check if display name is available
+			if displayName == "" {
+				return nil, errors.New("display name is required for new users")
+			}
+
+			// Check if display name is already taken
+			existingPlayerByName, err := s.playerRepo.GetPlayerByName(ctx, displayName)
+			if err != nil {
+				return nil, err
+			}
+			if existingPlayerByName != nil {
+				return nil, errors.New("display name is already taken")
+			}
+
 			// Create new player
 			player = &models.PlayerData{
 				Name:       displayName,

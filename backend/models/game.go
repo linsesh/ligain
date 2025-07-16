@@ -28,4 +28,6 @@ type Game interface {
 	GetPlayers() []Player
 	IsFinished() bool
 	GetWinner() []Player
+	// GetIncomingMatchesForTesting returns all incoming matches with all bets (for testing only)
+	GetIncomingMatchesForTesting() map[string]*MatchResult
 }

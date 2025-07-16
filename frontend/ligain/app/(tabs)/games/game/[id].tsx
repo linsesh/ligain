@@ -49,7 +49,7 @@ function TeamInput({
         onChangeText={onChange}
         keyboardType="numeric"
         maxLength={2}
-        placeholder="0"
+        placeholder=""
         editable={canModify}
         returnKeyType="done"
         onSubmitEditing={() => Keyboard.dismiss()}
@@ -74,9 +74,9 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   const timeService = useTimeService();
   const { player } = useAuth();
   const now = timeService.now();
-  const canModify = !matchResult.match.isFinished() && 
-                   !matchResult.match.isInProgress() && 
-                   (matchResult.bets?.[player?.id || '']?.isModifiable(now) ?? true);
+  const isFuture = !matchResult.match.isFinished() && !matchResult.match.isInProgress();
+  const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
+  const canModify = isFuture && (userBet?.isModifiable(now) !== false);
 
   return (
     <View 
@@ -84,7 +84,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
       style={[
         styles.matchCard,
         matchResult.match.isFinished() && (
-          matchResult.scores && Object.values(matchResult.scores).some(scoreData => scoreData.points > 0)
+          matchResult.scores && player && matchResult.scores[player.id] && matchResult.scores[player.id].points > 0
             ? styles.successfulBetMatchCard 
             : styles.finishedMatchCard
         ),
@@ -92,31 +92,54 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
       ]}
     >
       <View style={styles.bettingContainer}>
-        <TeamInput
-          teamName={matchResult.match.getHomeTeam()}
-          value={matchResult.match.isFinished() 
-            ? matchResult.match.getHomeGoals().toString() 
-            : (tempScores[matchResult.match.id()]?.home?.toString() || '')}
-          onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
-          canModify={canModify}
-          onFocus={() => onFocus()}
-          onBlur={() => onBlur()}
-        />
-        <Text style={styles.vsText}>vs</Text>
-        <TeamInput
-          teamName={matchResult.match.getAwayTeam()}
-          value={matchResult.match.isFinished() 
-            ? matchResult.match.getAwayGoals().toString() 
-            : (tempScores[matchResult.match.id()]?.away?.toString() || '')}
-          onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
-          canModify={canModify}
-          isAway
-          onFocus={() => onFocus()}
-          onBlur={() => onBlur()}
-        />
+        {/* Only show the current user's bet for future matches */}
+        {isFuture ? (
+          <>
+            <TeamInput
+              teamName={matchResult.match.getHomeTeam()}
+              value={tempScores[matchResult.match.id()]?.home?.toString() || ''}
+              onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
+              canModify={canModify}
+              onFocus={() => onFocus()}
+              onBlur={() => onBlur()}
+            />
+            <Text style={styles.vsText}>vs</Text>
+            <TeamInput
+              teamName={matchResult.match.getAwayTeam()}
+              value={tempScores[matchResult.match.id()]?.away?.toString() || ''}
+              onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
+              canModify={canModify}
+              isAway
+              onFocus={() => onFocus()}
+              onBlur={() => onBlur()}
+            />
+          </>
+        ) : (
+          // For past/in-progress matches, keep showing all bets/scores as before
+          <>
+            <TeamInput
+              teamName={matchResult.match.getHomeTeam()}
+              value={matchResult.match.getHomeGoals().toString()}
+              onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
+              canModify={canModify}
+              onFocus={() => onFocus()}
+              onBlur={() => onBlur()}
+            />
+            <Text style={styles.vsText}>vs</Text>
+            <TeamInput
+              teamName={matchResult.match.getAwayTeam()}
+              value={matchResult.match.getAwayGoals().toString()}
+              onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
+              canModify={canModify}
+              isAway
+              onFocus={() => onFocus()}
+              onBlur={() => onBlur()}
+            />
+          </>
+        )}
       </View>
-      
-      {(matchResult.match.isFinished() || matchResult.match.isInProgress()) && (
+      {/* Keep the rest of the card (other players' bets/scores) only for past/in-progress matches */}
+      {(!isFuture && (matchResult.match.isFinished() || matchResult.match.isInProgress())) && (
         <>
           <TouchableOpacity 
             style={styles.toggleButton} 
@@ -124,10 +147,10 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           >
             <Text style={styles.toggleButtonText}>
               {matchResult.match.isFinished() 
-                ? (matchResult.scores && Object.values(matchResult.scores).some(scoreData => scoreData.points > 0)
-                    ? `Your bet won you ${Object.values(matchResult.scores).find(scoreData => scoreData.points > 0)?.points || 0} points`
-                    : 'Other players\' bets')
-                : 'Other players\' bets'}
+                ? (matchResult.scores && player && matchResult.scores[player.id] && matchResult.scores[player.id].points > 0
+                    ? `Your bet won you ${matchResult.scores[player.id].points} points`
+                    : 'Players\' bets')
+                : 'Players\' bets'}
             </Text>
             <Ionicons 
               name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"} 
@@ -135,7 +158,6 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               color="#333" 
             />
           </TouchableOpacity>
-          
           {expandedMatches[matchResult.match.id()] && (
             <View style={styles.betResultContainer}>
               {matchResult.scores ? (
@@ -184,6 +206,7 @@ function MatchesList() {
   
   // Create a custom hook that accepts the game ID
   const useMatchesForGame = (gameId: string) => {
+    const { player } = useAuth();
     const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
     const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
     const [loading, setLoading] = useState(true);
@@ -258,8 +281,15 @@ function MatchesList() {
     };
 
     useEffect(() => {
-      fetchMatches();
-    }, [gameId]);
+      // Only fetch matches if we have a gameId and a player (authenticated)
+      if (gameId && player) {
+        console.log('🔧 useMatchesForGame - Fetching matches for authenticated player:', player.name);
+        fetchMatches();
+      } else if (gameId && !player) {
+        console.log('🔧 useMatchesForGame - Waiting for player authentication...');
+        setLoading(true);
+      }
+    }, [gameId, player]);
 
     return {
       incomingMatches,
@@ -277,6 +307,9 @@ function MatchesList() {
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const { submitBet, error: submitError } = useBetSubmission();
   const { player } = useAuth();
+  
+  // Debug player information
+  console.log('🔍 Current player:', player);
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
@@ -289,21 +322,30 @@ function MatchesList() {
 
   // Initialize tempScores with existing bets
   useEffect(() => {
+    console.log('🔍 Initializing tempScores - Player ID:', player?.id);
+    console.log('🔍 Available bets:', Object.keys(incomingMatches).map(key => ({
+      matchId: key,
+      betKeys: Object.keys(incomingMatches[key].bets || {})
+    })));
+    
     const initialTempScores: TempScores = {};
     [...Object.values(incomingMatches), ...Object.values(pastMatches)].forEach((matchResult: MatchResult) => {
-      // Find the current user's bet (we'll need to get this from auth context later)
-      // For now, we'll use the first bet as a placeholder
-      if (matchResult.bets && Object.keys(matchResult.bets).length > 0) {
-        const firstBetId = Object.keys(matchResult.bets)[0];
-        const firstBet = matchResult.bets[firstBetId];
+      // Only use the current user's bet for tempScores
+      if (player && matchResult.bets && matchResult.bets[player.id]) {
+        const userBet = matchResult.bets[player.id];
+        console.log('🔍 Found user bet for match:', matchResult.match.id(), 'Bet:', userBet);
         initialTempScores[matchResult.match.id()] = {
-          home: firstBet.predictedHomeGoals,
-          away: firstBet.predictedAwayGoals
+          home: userBet.predictedHomeGoals,
+          away: userBet.predictedAwayGoals
         };
+      } else {
+        console.log('🔍 No bet found for player:', player?.id, 'in match:', matchResult.match.id());
+        console.log('🔍 Available bet keys:', Object.keys(matchResult.bets || {}));
       }
     });
+    console.log('🔍 Final tempScores:', initialTempScores);
     setTempScores(initialTempScores);
-  }, [incomingMatches, pastMatches]);
+  }, [incomingMatches, pastMatches, player]);
 
   useEffect(() => {
     if (submitError) {
@@ -345,7 +387,11 @@ function MatchesList() {
       
       // Only submit if both values are valid numbers
       if (!isNaN(homeGoals) && !isNaN(awayGoals)) {
+        console.log('🔍 Submitting bet:', { matchId, homeGoals, awayGoals, playerId: player?.id });
         await submitBet(matchId, homeGoals, awayGoals);
+        console.log('🔍 Bet submitted successfully');
+        // Refresh matches data to get the updated bet
+        await refresh();
       }
     }
   };

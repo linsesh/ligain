@@ -464,6 +464,10 @@ func (m *SimpleMockGame) GetWinner() []models.Player {
 	return []models.Player{}
 }
 
+func (m *SimpleMockGame) GetIncomingMatchesForTesting() map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+
 func TestGameCreationService_JoinGame_InvalidCode(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)

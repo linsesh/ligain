@@ -19,6 +19,14 @@ interface AuthContextType {
   signIn: (provider: 'google' | 'apple' | 'guest', token: string, email: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  setPlayer: (player: Player | null) => void;
+  // Modal state management
+  showNameModal: boolean;
+  setShowNameModal: (show: boolean) => void;
+  authResult: any;
+  setAuthResult: (result: any) => void;
+  selectedProvider: 'google' | 'apple' | 'guest' | null;
+  setSelectedProvider: (provider: 'google' | 'apple' | 'guest' | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +46,11 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [player, setPlayer] = useState<Player | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Modal state management
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [authResult, setAuthResult] = useState<any>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | 'guest' | null>(null);
 
   const AUTH_TOKEN_KEY = 'auth_token';
   const PLAYER_DATA_KEY = 'player_data';
@@ -56,6 +69,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.warn('⚠️ Using memory storage fallback - data will be lost on app restart');
       }
       
+      console.log('🔍 AuthContext - Storage keys being checked:', { AUTH_TOKEN_KEY, PLAYER_DATA_KEY });
       const token = await getItem(AUTH_TOKEN_KEY);
       const playerData = await getItem(PLAYER_DATA_KEY);
       
@@ -200,8 +214,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Store token and player data
       console.log('🔐 AuthContext - Storing token and player data');
+      console.log('🔐 AuthContext - Token to store:', data.token ? `${data.token.substring(0, 10)}...` : 'null');
+      console.log('🔐 AuthContext - Player data to store:', JSON.stringify(data.player));
       await setItem(AUTH_TOKEN_KEY, data.token);
       await setItem(PLAYER_DATA_KEY, JSON.stringify(data.player));
+      
+      // Verify storage
+      const storedToken = await getItem(AUTH_TOKEN_KEY);
+      const storedPlayerData = await getItem(PLAYER_DATA_KEY);
+      console.log('🔐 AuthContext - Verification - Stored token exists:', !!storedToken);
+      console.log('🔐 AuthContext - Verification - Stored player data exists:', !!storedPlayerData);
       
       setPlayer(data.player);
       console.log('🔐 AuthContext - Sign in completed successfully');
@@ -248,6 +270,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signOut,
     checkAuth,
+    setPlayer,
+    // Modal state management
+    showNameModal,
+    setShowNameModal,
+    authResult,
+    setAuthResult,
+    selectedProvider,
+    setSelectedProvider,
   };
 
   return (

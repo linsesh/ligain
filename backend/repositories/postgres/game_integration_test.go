@@ -195,7 +195,8 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 					}
 				}
 				require.NotNil(t, restoredPlayer1, "restored player1 should not be nil")
-				incomingMatches := restoredGame.GetIncomingMatches(restoredPlayer1)
+				// Use the testing method to get all bets for verification
+				incomingMatches := restoredGame.GetIncomingMatchesForTesting()
 
 				// Debug: print bets and scores for past match
 				fmt.Printf("Past match bets: %v\n", pastResults[pastMatch.Id()].Bets)

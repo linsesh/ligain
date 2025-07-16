@@ -102,6 +102,10 @@ func (m *MockGame) GetWinner() []models.Player {
 	return nil
 }
 
+func (m *MockGame) GetIncomingMatchesForTesting() map[string]*models.MatchResult {
+	return m.incomingMatches
+}
+
 // MockBetAuthService for bet tests
 // Only implements ValidateToken
 // (other methods can panic if called)

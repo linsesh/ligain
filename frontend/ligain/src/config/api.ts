@@ -29,6 +29,7 @@ export const getAuthenticatedHeaders = async (additionalHeaders?: Record<string,
   try {
     const token = await getItem('auth_token');
     console.log('🔧 API - Auth token exists:', !!token);
+    console.log('🔧 API - Token value:', token ? `${token.substring(0, 10)}...` : 'null');
     
     if (token) {
       return {

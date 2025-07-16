@@ -208,14 +208,34 @@ func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.M
 	for _, match := range g.incomingMatches {
 		playerBets := make(map[string]*models.Bet)
 		if bets, exists := g.bets[match.Id()]; exists {
-			for playerID, bet := range bets {
-				// Find the player by ID
-				for _, p := range g.players {
-					if p.GetID() == playerID {
-						playerBets[playerID] = bet
-						break
-					}
+			// For future matches, only show current player's bets
+			// For in-progress matches, show all players' bets
+			if match.IsInProgress() {
+				// Show all bets for in-progress matches
+				for playerID, bet := range bets {
+					playerBets[playerID] = bet
 				}
+			} else {
+				// Only show current player's bet for future matches
+				if bet, exists := bets[player.GetID()]; exists {
+					playerBets[player.GetID()] = bet
+				}
+			}
+		}
+		matches[match.Id()] = models.NewMatchWithBetsWithIDs(match, playerBets)
+	}
+	return matches
+}
+
+// GetIncomingMatchesForTesting returns all incoming matches with all bets (for testing only)
+func (g *GameImpl) GetIncomingMatchesForTesting() map[string]*models.MatchResult {
+	matches := make(map[string]*models.MatchResult)
+	for _, match := range g.incomingMatches {
+		playerBets := make(map[string]*models.Bet)
+		if bets, exists := g.bets[match.Id()]; exists {
+			// Show all bets for testing purposes
+			for playerID, bet := range bets {
+				playerBets[playerID] = bet
 			}
 		}
 		matches[match.Id()] = models.NewMatchWithBetsWithIDs(match, playerBets)

@@ -199,6 +199,51 @@ func TestAuthService_Authenticate_ExistingUser(t *testing.T) {
 	}
 }
 
+func TestAuthService_Authenticate_ExistingUser_NoDisplayName(t *testing.T) {
+	mockRepo := NewMockPlayerRepository()
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Create existing player
+	existingPlayer := &models.PlayerData{
+		ID:         "existing_id",
+		Name:       "Existing Name",
+		Email:      stringPtr("test@google.com"),
+		Provider:   stringPtr("google"),
+		ProviderID: stringPtr("google_user_123"),
+	}
+	mockRepo.CreatePlayer(ctx, existingPlayer)
+
+	// Authenticate without providing a display name (should work for existing users)
+	req := &models.AuthRequest{
+		Provider: "google",
+		Token:    "mock_google_token_123",
+		Email:    "test@google.com",
+		Name:     "", // Empty display name
+	}
+
+	response, err := authService.Authenticate(ctx, req)
+	if err != nil {
+		t.Fatalf("Expected no error for existing user without display name, got %v", err)
+	}
+
+	// Should return the existing player with their original name
+	if response.Player.Name != "Existing Name" {
+		t.Errorf("Expected existing name 'Existing Name', got %s", response.Player.Name)
+	}
+
+	// Verify player was NOT updated in repository (name should remain the same)
+	player, err := mockRepo.GetPlayerByID(ctx, "existing_id")
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if player.Name != "Existing Name" {
+		t.Errorf("Expected unchanged name in repository 'Existing Name', got %s", player.Name)
+	}
+}
+
 func TestAuthService_Authenticate_DuplicateDisplayName(t *testing.T) {
 	mockRepo := NewMockPlayerRepository()
 	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
