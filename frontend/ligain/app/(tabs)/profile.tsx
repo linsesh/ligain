@@ -48,6 +48,16 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
+        {/* Guest Testing Banner */}
+        {!player.email && !player.provider && (
+          <View style={styles.guestBanner}>
+            <Ionicons name="warning" size={20} color="#FFA500" />
+            <Text style={styles.guestBannerText}>
+              This is a guest account for testing purposes only
+            </Text>
+          </View>
+        )}
+
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarPlaceholder}>
@@ -192,5 +202,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 50,
+  },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  guestBannerText: {
+    fontSize: 16,
+    color: colors.text,
+    marginLeft: 10,
+    fontWeight: '600',
   },
 }); 

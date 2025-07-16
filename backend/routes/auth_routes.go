@@ -25,6 +25,7 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 	auth := router.Group("/api/auth")
 	{
 		auth.POST("/signin", h.SignIn)
+		auth.POST("/signin/guest", h.SignInGuest)
 		auth.POST("/signout", middleware.PlayerAuth(h.authService), h.SignOut)
 		auth.GET("/me", middleware.PlayerAuth(h.authService), h.GetCurrentPlayer)
 	}
@@ -74,6 +75,40 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	}
 
 	fmt.Printf("✅ SignIn - Authentication successful for user: %s\n", response.Player.Name)
+	c.JSON(http.StatusOK, response)
+}
+
+// SignInGuest handles guest authentication
+func (h *AuthHandler) SignInGuest(c *gin.Context) {
+	fmt.Printf("🔐 SignInGuest - Request received from %s\n", c.ClientIP())
+	fmt.Printf("🔐 SignInGuest - Headers: %+v\n", c.Request.Header)
+
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("❌ SignInGuest - JSON binding error: %v\n", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	fmt.Printf("🔐 SignInGuest - Request body: name=%s\n", req.Name)
+
+	if req.Name == "" {
+		fmt.Printf("❌ SignInGuest - Missing name field\n")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
+		return
+	}
+
+	fmt.Printf("🔐 SignInGuest - Calling authService.AuthenticateGuest\n")
+	response, err := h.authService.AuthenticateGuest(c.Request.Context(), req.Name)
+	if err != nil {
+		fmt.Printf("❌ SignInGuest - Authentication error: %v\n", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("✅ SignInGuest - Guest authentication successful for user: %s\n", response.Player.Name)
 	c.JSON(http.StatusOK, response)
 }
 

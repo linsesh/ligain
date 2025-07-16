@@ -107,13 +107,14 @@ func insertTestData(db *sql.DB) error {
 
 	// Insert players
 	playerIds := make(map[string]string)
+	now := time.Now()
 	for _, name := range []string{"Player1", "Player2"} {
 		var playerId string
 		err := db.QueryRow(`
-			INSERT INTO player (name)
-			VALUES ($1)
+			INSERT INTO player (name, created_at, updated_at)
+			VALUES ($1, $2, $3)
 			RETURNING id`,
-			name).Scan(&playerId)
+			name, now, now).Scan(&playerId)
 		if err != nil {
 			return fmt.Errorf("failed to insert player %s: %v", name, err)
 		}

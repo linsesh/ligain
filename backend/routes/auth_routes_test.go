@@ -85,6 +85,23 @@ func (m *MockAuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser ma
 	return m.player, nil
 }
 
+func (m *MockAuthService) AuthenticateGuest(ctx context.Context, displayName string) (*models.AuthResponse, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock guest authentication failed")
+	}
+	if displayName == "" {
+		return nil, errors.New("display name is required")
+	}
+	m.player = &models.PlayerData{
+		ID:   "guest-id",
+		Name: displayName,
+	}
+	return &models.AuthResponse{
+		Player: *m.player,
+		Token:  "guest-token",
+	}, nil
+}
+
 func TestSignInHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -347,6 +364,73 @@ func TestCurrentUserHandler(t *testing.T) {
 				// Assert response fields
 				assert.Equal(t, "test-player-id", response.Player.ID)
 				assert.Equal(t, "Test Player", response.Player.Name)
+			}
+		})
+	}
+}
+
+func TestSignInGuestHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		requestBody    string
+		expectedStatus int
+		expectedError  bool
+		authService    *MockAuthService
+	}{
+		{
+			name:           "successful guest sign in",
+			requestBody:    `{"name": "GuestUser"}`,
+			expectedStatus: http.StatusOK,
+			expectedError:  false,
+			authService:    &MockAuthService{},
+		},
+		{
+			name:           "missing name",
+			requestBody:    `{}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  true,
+			authService:    &MockAuthService{},
+		},
+		{
+			name:           "auth service failure",
+			requestBody:    `{"name": "GuestUser"}`,
+			expectedStatus: http.StatusUnauthorized,
+			expectedError:  true,
+			authService:    &MockAuthService{shouldFail: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			authHandler := NewAuthHandler(tt.authService)
+			router.POST("/signin/guest", authHandler.SignInGuest)
+
+			req, err := http.NewRequest("POST", "/signin/guest", strings.NewReader(tt.requestBody))
+			assert.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedError {
+				var resp map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &resp)
+				assert.NoError(t, err)
+				_, hasError := resp["error"]
+				assert.True(t, hasError)
+			} else {
+				var resp struct {
+					Player models.PlayerData `json:"player"`
+					Token  string            `json:"token"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &resp)
+				assert.NoError(t, err)
+				assert.Equal(t, "GuestUser", resp.Player.Name)
+				assert.Equal(t, "guest-token", resp.Token)
 			}
 		})
 	}

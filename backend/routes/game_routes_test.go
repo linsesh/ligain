@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
@@ -88,6 +89,20 @@ func (m *MockGameAuthService) GetOrCreatePlayer(ctx context.Context, verifiedUse
 func (m *MockGameAuthService) CleanupExpiredTokens(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
+}
+
+// Remove defaultGuestAuth and put the logic directly in the method
+func (m *MockGameAuthService) AuthenticateGuest(ctx context.Context, displayName string) (*models.AuthResponse, error) {
+	if displayName == "" {
+		return nil, errors.New("display name is required")
+	}
+	return &models.AuthResponse{
+		Player: models.PlayerData{
+			ID:   "guest-id",
+			Name: displayName,
+		},
+		Token: "guest-token",
+	}, nil
 }
 
 func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {

@@ -3,7 +3,6 @@ package rules
 import (
 	"fmt"
 	"liguain/backend/models"
-	"slices"
 	"time"
 )
 
@@ -56,12 +55,26 @@ func NewStartedGame(seasonCode, competitionCode string, players []models.Player,
 	return g
 }
 
+// containsPlayerByID returns true if a player with the same ID exists in the slice
+func containsPlayerByID(players []models.Player, player models.Player) bool {
+	for _, p := range players {
+		if p.GetID() == player.GetID() {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
 	_, exists := g.incomingMatches[bet.Match.Id()]
 	if !exists {
 		return fmt.Errorf("match %v not found", bet.Match.Id())
 	}
-	if !slices.Contains(g.players, player) {
+	fmt.Printf("player: %v\n", player)
+	for _, p := range g.players {
+		fmt.Printf("player: %v\n", p)
+	}
+	if !containsPlayerByID(g.players, player) {
 		return fmt.Errorf("player %v not found", player)
 	}
 	if datetime.After(bet.Match.GetDate()) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
@@ -125,6 +126,19 @@ func (m *MockBetAuthService) CleanupExpiredTokens(ctx context.Context) error {
 func (m *MockBetAuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error) {
 	testPlayer := &models.PlayerData{Name: displayName}
 	return testPlayer, nil
+}
+
+func (m *MockBetAuthService) AuthenticateGuest(ctx context.Context, displayName string) (*models.AuthResponse, error) {
+	if displayName == "" {
+		return nil, errors.New("display name is required")
+	}
+	return &models.AuthResponse{
+		Player: models.PlayerData{
+			ID:   "guest-id",
+			Name: displayName,
+		},
+		Token: "guest-token",
+	}, nil
 }
 
 func setupTestRouter() (*gin.Engine, *MockGame) {

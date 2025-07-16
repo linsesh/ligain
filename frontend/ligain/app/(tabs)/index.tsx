@@ -191,6 +191,16 @@ function GamesList() {
     >
       <Text style={styles.title}>My Games</Text>
       
+      {/* Guest Testing Banner */}
+      {!player?.email && !player?.provider && (
+        <View style={styles.guestBanner}>
+          <Ionicons name="warning" size={20} color="#FFA500" />
+          <Text style={styles.guestBannerText}>
+            🧪 Guest Mode - This account is for testing purposes only
+          </Text>
+        </View>
+      )}
+      
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity 
@@ -349,6 +359,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     margin: 16,
     color: '#fff',
+  },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e65100',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  guestBannerText: {
+    fontSize: 14,
+    color: '#fff',
+    marginLeft: 10,
+    fontWeight: '600',
+    flex: 1,
   },
   actionButtons: {
     flexDirection: 'row',

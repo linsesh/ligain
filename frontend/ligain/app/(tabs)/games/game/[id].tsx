@@ -9,6 +9,7 @@ import { useBetSubmission } from '../../../../hooks/useBetSubmission';
 import { MatchResult } from '../../../../src/types/match';
 import { MockTimeService } from '../../../../src/services/timeService';
 import { TimeServiceProvider, useTimeService } from '../../../../src/contexts/TimeServiceContext';
+import { useAuth } from '../../../../src/contexts/AuthContext';
 import { API_CONFIG } from '../../../../src/config/api';
 import { SeasonMatch } from '../../../../src/types/match';
 
@@ -71,10 +72,11 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   onBlur: () => void;
 }) {
   const timeService = useTimeService();
+  const { player } = useAuth();
   const now = timeService.now();
   const canModify = !matchResult.match.isFinished() && 
                    !matchResult.match.isInProgress() && 
-                   (matchResult.bets?.['Player1']?.isModifiable(now) ?? true);
+                   (matchResult.bets?.[player?.id || '']?.isModifiable(now) ?? true);
 
   return (
     <View 
@@ -274,6 +276,7 @@ function MatchesList() {
   const [refreshing, setRefreshing] = useState(false);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const { submitBet, error: submitError } = useBetSubmission();
+  const { player } = useAuth();
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];

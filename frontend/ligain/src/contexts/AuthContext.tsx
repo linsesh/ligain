@@ -16,7 +16,7 @@ export interface Player {
 interface AuthContextType {
   player: Player | null;
   isLoading: boolean;
-  signIn: (provider: 'google' | 'apple', token: string, email: string, name: string) => Promise<void>;
+  signIn: (provider: 'google' | 'apple' | 'guest', token: string, email: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signIn = async (provider: 'google' | 'apple', token: string, email: string, name: string) => {
+  const signIn = async (provider: 'google' | 'apple' | 'guest', token: string, email: string, name: string) => {
     console.log('🔐 AuthContext - Starting signIn method');
     console.log('🔐 AuthContext - Parameters:', {
       provider,
@@ -126,27 +126,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error(`API configuration error: ${headerError instanceof Error ? headerError.message : 'Unknown error'}`);
       }
 
-      const requestBody = {
-        provider,
-        token,
-        email,
-        name,
-      };
+      let response;
       
-      console.log('🔐 AuthContext - Making request to:', `${API_CONFIG.BASE_URL}/api/auth/signin`);
-      console.log('🔐 AuthContext - Request body:', {
-        ...requestBody,
-        token: token ? '***token***' : 'NO_TOKEN'
-      });
+      if (provider === 'guest') {
+        // Guest authentication uses a different endpoint
+        const requestBody = { name };
+        
+        console.log('🔐 AuthContext - Making guest request to:', `${API_CONFIG.BASE_URL}/api/auth/signin/guest`);
+        console.log('🔐 AuthContext - Guest request body:', requestBody);
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin`, {
-        method: 'POST',
-        headers: {
-          ...getApiHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+        response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin/guest`, {
+          method: 'POST',
+          headers: {
+            ...getApiHeaders(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else {
+        // OAuth authentication
+        const requestBody = {
+          provider,
+          token,
+          email,
+          name,
+        };
+        
+        console.log('🔐 AuthContext - Making OAuth request to:', `${API_CONFIG.BASE_URL}/api/auth/signin`);
+        console.log('🔐 AuthContext - OAuth request body:', {
+          ...requestBody,
+          token: token ? '***token***' : 'NO_TOKEN'
+        });
+
+        response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin`, {
+          method: 'POST',
+          headers: {
+            ...getApiHeaders(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       console.log('🔐 AuthContext - Response received:', {
         status: response.status,

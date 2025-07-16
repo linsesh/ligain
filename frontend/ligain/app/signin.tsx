@@ -9,7 +9,6 @@ import {
   Platform,
   TextInput,
   Modal,
-  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,10 +29,9 @@ export default function SignInScreen() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | 'guest' | null>(null);
   const [authResult, setAuthResult] = useState<any>(null);
   const [displayName, setDisplayName] = useState('');
-  const [useRealAuth, setUseRealAuth] = useState(false); // Toggle for real OAuth in dev
 
   const { signIn } = useAuth();
   const router = useRouter();
@@ -50,37 +48,34 @@ export default function SignInScreen() {
     }
   }, []);
 
-  const handleSignIn = async (provider: 'google' | 'apple') => {
+  const handleSignIn = async (provider: 'google' | 'apple' | 'guest') => {
     console.log(`🔐 SignInScreen - Starting sign in with ${provider}`);
     try {
       setIsLoading(true);
       setSelectedProvider(provider);
       
-      // Determine whether to use real or mock authentication
-      const shouldUseRealAuth = !__DEV__ || useRealAuth;
-      console.log(`🔐 SignInScreen - Using ${shouldUseRealAuth ? 'real' : 'mock'} authentication`);
-      
       let result;
       
-      if (shouldUseRealAuth) {
-        // Use real authentication
-        console.log('🔐 SignInScreen - Calling real authentication');
-        if (provider === 'google') {
-          result = await AuthService.signInWithGoogle();
-        } else {
-          result = await AuthService.signInWithApple();
-        }
-        console.log('🔐 SignInScreen - Real sign in result:', {
+      if (provider === 'guest') {
+        // Guest authentication - always use real backend
+        console.log('🔐 SignInScreen - Calling guest authentication');
+        result = await AuthService.signInAsGuest('Player1');
+        console.log('🔐 SignInScreen - Guest sign in result:', {
           provider: result.provider,
           email: result.email,
           name: result.name,
           token: result.token ? '***token***' : 'NO_TOKEN'
         });
       } else {
-        // Use mock authentication for development
-        console.log('🔐 SignInScreen - Calling mockSignIn');
-        result = await AuthService.mockSignIn(provider);
-        console.log('🔐 SignInScreen - Mock sign in result:', {
+        // OAuth authentication - always use real authentication
+        console.log('🔐 SignInScreen - Using real OAuth authentication');
+        
+        if (provider === 'google') {
+          result = await AuthService.signInWithGoogle();
+        } else {
+          result = await AuthService.signInWithApple();
+        }
+        console.log('🔐 SignInScreen - OAuth sign in result:', {
           provider: result.provider,
           email: result.email,
           name: result.name,
@@ -89,8 +84,24 @@ export default function SignInScreen() {
       }
 
       setAuthResult(result);
-      setShowNameModal(true);
-      console.log('🔐 SignInScreen - Showing name modal');
+      
+      if (provider === 'guest') {
+        // For guest authentication, skip the name modal and sign in directly
+        console.log('🔐 SignInScreen - Guest authentication, signing in directly');
+        await signIn(
+          'guest',
+          result.token,
+          result.email,
+          result.name
+        );
+        
+        // Navigate to main app
+        console.log('🔐 SignInScreen - Navigating to main app');
+        router.replace('/(tabs)');
+      } else {
+        setShowNameModal(true);
+        console.log('🔐 SignInScreen - Showing name modal');
+      }
     } catch (error) {
       console.error('🔐 SignInScreen - Sign in error:', error);
       console.error('🔐 SignInScreen - Error details:', {
@@ -188,36 +199,19 @@ export default function SignInScreen() {
         <View style={styles.buttonContainer}>
           {/* Google Sign In */}
           {availableProviders.includes('google') && (
-            useRealAuth ? (
-              <GoogleSignInButton
-                onSignInSuccess={(result) => {
-                  console.log('Google Sign-In success:', result);
-                  setAuthResult(result);
-                  setSelectedProvider('google');
-                  setShowNameModal(true);
-                }}
-                onSignInError={(error) => {
-                  console.error('Google Sign-In error:', error);
-                  Alert.alert('Sign-In Failed', error.message);
-                }}
-                disabled={isLoading}
-              />
-            ) : (
-              <TouchableOpacity
-                style={[styles.button, styles.googleButton]}
-                onPress={() => handleSignIn('google')}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#4285F4" />
-                ) : (
-                  <>
-                    <Ionicons name="logo-google" size={24} color="#4285F4" />
-                    <Text style={styles.googleButtonText}>Continue with Google (Mock)</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )
+            <GoogleSignInButton
+              onSignInSuccess={(result) => {
+                console.log('Google Sign-In success:', result);
+                setAuthResult(result);
+                setSelectedProvider('google');
+                setShowNameModal(true);
+              }}
+              onSignInError={(error) => {
+                console.error('Google Sign-In error:', error);
+                Alert.alert('Sign-In Failed', error.message);
+              }}
+              disabled={isLoading}
+            />
           )}
 
           {/* Apple Sign In (iOS only) */}
@@ -232,46 +226,37 @@ export default function SignInScreen() {
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
-                  <Text style={styles.appleButtonText}>Continue with Apple {!useRealAuth && '(Mock)'}</Text>
+                  <Text style={styles.appleButtonText}>Continue with Apple</Text>
                 </>
               )}
             </TouchableOpacity>
           )}
-
-          {/* Development notice */}
-          {__DEV__ && (
-            <View style={styles.devNotice}>
-              <View style={styles.devToggleContainer}>
-                <Text style={[styles.devText, { color: colors.text }]}>
-                  🧪 Development Mode: {useRealAuth ? 'Real OAuth' : 'Mock Authentication'}
-                </Text>
-                <View style={styles.toggleContainer}>
-                  <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
-                    Mock
-                  </Text>
-                  <Switch
-                    value={useRealAuth}
-                    onValueChange={setUseRealAuth}
-                    trackColor={{ false: colors.border, true: colors.link }}
-                    thumbColor={useRealAuth ? '#FFFFFF' : '#FFFFFF'}
-                  />
-                  <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>
-                    Real
-                  </Text>
-                </View>
-              </View>
-              <Text style={[styles.devSubtext, { color: colors.textSecondary }]}>
-                {useRealAuth 
-                  ? '⚠️ Will open Google/Apple sign-in (requires real OAuth setup)'
-                  : '✅ Using mock data for development'
-                }
+        </View>
+        {/* Separation between main sign-in and guest */}
+        {availableProviders.includes('guest') && (
+          <View style={styles.guestSectionWrapper}>
+            <View style={styles.guestDivider} />
+            <View style={styles.guestSection}>
+              <TouchableOpacity
+                style={[styles.button, styles.guestButton]}
+                onPress={() => handleSignIn('guest')}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#333" />
+                ) : (
+                  <>
+                    <Ionicons name="person" size={24} color="#333" />
+                    <Text style={styles.guestButtonText}>Continue as Guest (Testing)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.guestNote}>
+                For App Store review and testing purposes only
               </Text>
             </View>
-          )}
-
-
-        </View>
-
+          </View>
+        )}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.text }]}>
             By signing in, you agree to our Terms of Service and Privacy Policy
@@ -400,38 +385,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  devNotice: {
-    backgroundColor: '#1a1a1a',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+  guestButton: {
+    backgroundColor: '#f0f0f0',
     borderWidth: 1,
-    borderColor: '#4a9eff',
+    borderColor: '#cccccc',
+    marginBottom: 0,
   },
-  devToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+  guestButtonText: {
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
-  devText: {
+  guestNote: {
     fontSize: 12,
-    color: '#4a9eff',
-    flex: 1,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  toggleLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  devSubtext: {
-    fontSize: 10,
+    color: '#666666',
     textAlign: 'center',
-    lineHeight: 14,
+    marginTop: 4,
+    marginBottom: 16,
+    fontStyle: 'italic',
   },
   footer: {
     alignItems: 'center',
@@ -506,5 +478,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  guestSection: {
+    alignItems: 'center',
+    marginTop: 0,
+  },
+  guestSectionWrapper: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  guestDivider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginBottom: 16,
+    marginHorizontal: -24,
   },
 }); 

@@ -1,5 +1,6 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
+import { API_CONFIG, getApiHeaders } from '../config/api';
 
 // Configure Google Sign-In (only once, here)
 GoogleSignin.configure({
@@ -9,7 +10,7 @@ GoogleSignin.configure({
 });
 
 export interface AuthResult {
-  provider: 'google' | 'apple';
+  provider: 'google' | 'apple' | 'guest';
   token: string;
   email: string;
   name: string;
@@ -146,28 +147,64 @@ export class AuthService {
   }
 
   // Get available sign-in options for the current platform
-  static getAvailableProviders(): ('google' | 'apple')[] {
+  static getAvailableProviders(): ('google' | 'apple' | 'guest')[] {
     if (Platform.OS === 'ios') {
-      return ['google', 'apple'];
+      return ['google', 'apple', 'guest'];
     } else if (Platform.OS === 'android') {
-      return ['google'];
+      return ['google', 'guest'];
     } else {
-      return ['google']; // web
+      return ['google', 'guest']; // web
     }
   }
 
   // Mock authentication for development/testing
-  static async mockSignIn(provider: 'google' | 'apple'): Promise<AuthResult> {
+  static async mockSignIn(provider: 'google' | 'apple' | 'guest'): Promise<AuthResult> {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
           provider,
           token: `mock_${provider}_token_${Date.now()}`,
-          email: `mock_${provider}_user@example.com`,
-          name: `Mock ${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
+          email: provider === 'guest' ? '' : `mock_${provider}_user@example.com`,
+          name: provider === 'guest' ? 'Player 1' : `Mock ${provider.charAt(0).toUpperCase() + provider.slice(1)} User`,
         });
       }, 1000);
     });
+  }
+
+  // Guest authentication
+  static async signInAsGuest(displayName: string): Promise<AuthResult> {
+    console.log('🔐 Guest Sign-In - Starting guest sign in process');
+    
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin/guest`, {
+        method: 'POST',
+        headers: {
+          ...getApiHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: displayName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Guest authentication failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('🔐 Guest Sign-In - Success:', data);
+      
+      return {
+        provider: 'guest',
+        token: data.token,
+        email: '', // Guest users don't have email
+        name: data.player.name,
+      };
+    } catch (error) {
+      console.error('🔐 Guest Sign-In - Error:', error);
+      throw error;
+    }
   }
 
   // Test provider availability in development
