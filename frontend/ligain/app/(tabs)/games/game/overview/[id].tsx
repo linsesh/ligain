@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert, Clipboard } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -32,6 +33,7 @@ export default function GameOverviewScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchGameDetails = async () => {
     try {
@@ -65,9 +67,15 @@ export default function GameOverviewScreen() {
 
 
   const copyToClipboard = async (text: string) => {
+    if (copied) return; // Do nothing if already in check mode
     try {
       await Clipboard.setString(text);
-      Alert.alert('Copied!', 'Game code copied to clipboard');
+      setCopied(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setCopied(false);
+      }, 3000);
     } catch (err) {
       Alert.alert('Error', 'Failed to copy to clipboard');
     }
@@ -161,8 +169,9 @@ export default function GameOverviewScreen() {
               <TouchableOpacity 
                 style={styles.copyButton}
                 onPress={() => copyToClipboard(gameDetails.code)}
+                disabled={copied}
               >
-                <Ionicons name="copy" size={20} color="#ffd33d" />
+                <Ionicons name={copied ? "checkmark-circle" : "copy"} size={20} color="#ffd33d" />
               </TouchableOpacity>
             </View>
           </View>
