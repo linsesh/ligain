@@ -157,13 +157,15 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 		bets:            make(map[string]map[string]*models.Bet),
 	}
 	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
-	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", game, gameRepo, betRepo, nil, 10*time.Second)
+	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", game, gameRepo, betRepo)
 
 	mockAuthService := &MockBetAuthService{}
+	mockGameCreationService := &MockGameCreationService{}
 
-	handler := NewMatchHandler(map[string]services.GameService{
-		"123e4567-e89b-12d3-a456-426614174000": gameService,
-	}, mockAuthService)
+	// Set up the mock to return the game service
+	mockGameCreationService.On("GetGameService", "123e4567-e89b-12d3-a456-426614174000").Return(gameService, nil)
+
+	handler := NewMatchHandler(mockGameCreationService, mockAuthService)
 
 	// Add middleware to routes manually for testing
 	router.GET("/api/game/:game-id/matches", middleware.PlayerAuth(mockAuthService), handler.getMatches)
@@ -300,7 +302,27 @@ func TestSaveBet_MatchNotFound(t *testing.T) {
 }
 
 func TestGetMatches_GameNotFound(t *testing.T) {
-	router, _ := setupTestRouter()
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	gameRepo := repositories.NewInMemoryGameRepository()
+	game := &MockGame{
+		incomingMatches: make(map[string]*models.MatchResult),
+		pastMatches:     make(map[string]*models.MatchResult),
+		bets:            make(map[string]map[string]*models.Bet),
+	}
+	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
+
+	mockAuthService := &MockBetAuthService{}
+	mockGameCreationService := &MockGameCreationService{}
+
+	// Set up the mock to return error for non-existent game
+	mockGameCreationService.On("GetGameService", "non-existent-game").Return(nil, errors.New("game not found"))
+
+	handler := NewMatchHandler(mockGameCreationService, mockAuthService)
+
+	// Add middleware to routes manually for testing
+	router.GET("/api/game/:game-id/matches", middleware.PlayerAuth(mockAuthService), handler.getMatches)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/game/non-existent-game/matches", nil)

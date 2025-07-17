@@ -70,10 +70,6 @@ func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet,
 	if !exists {
 		return fmt.Errorf("match %v not found", bet.Match.Id())
 	}
-	fmt.Printf("player: %v\n", player)
-	for _, p := range g.players {
-		fmt.Printf("player: %v\n", p)
-	}
 	if !containsPlayerByID(g.players, player) {
 		return fmt.Errorf("player %v not found", player)
 	}

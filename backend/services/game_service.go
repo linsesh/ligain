@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"time"
@@ -12,10 +11,12 @@ import (
 type GameService interface {
 	GetIncomingMatches(player models.Player) map[string]*models.MatchResult
 	GetMatchResults() map[string]*models.MatchResult
-	Play() ([]models.Player, error)
 	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
 	GetPlayerBets(player models.Player) ([]*models.Bet, error)
 	GetPlayers() []models.Player
+	// GameUpdateHandler interface methods
+	HandleMatchUpdates(updates map[string]models.Match) error
+	GetGameID() string
 }
 
 // GameService is used to really run a game
@@ -24,19 +25,14 @@ type GameServiceImpl struct {
 	gameId   string
 	gameRepo repositories.GameRepository
 	betRepo  repositories.BetRepository
-	watcher  MatchWatcherService
-	// waitTime is the time we accept to wait for a check of game updates
-	waitTime time.Duration
 }
 
-func NewGameService(gameId string, game models.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, watcher MatchWatcherService, waitTime time.Duration) *GameServiceImpl {
+func NewGameService(gameId string, game models.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository) *GameServiceImpl {
 	return &GameServiceImpl{
 		game:     game,
 		gameId:   gameId,
 		gameRepo: gameRepo,
 		betRepo:  betRepo,
-		watcher:  watcher,
-		waitTime: waitTime,
 	}
 }
 
@@ -48,23 +44,10 @@ func (g *GameServiceImpl) GetIncomingMatches(player models.Player) map[string]*m
 	return g.game.GetIncomingMatches(player)
 }
 
-// Play returns the winner(s) of the game when it ends
-func (g *GameServiceImpl) Play() ([]models.Player, error) {
-	log.Infof("Playing game %v", g.gameId)
-	for !g.game.IsFinished() {
-		updates, err := g.getUpdates()
-		if err != nil {
-			log.Errorf("Error getting updates: %v", err)
-		} else {
-			g.HandleUpdates(updates)
-		}
-	}
-	winners := g.game.GetWinner()
-	log.Infof("Game %v is finished, with winner(s) %v", g.gameId, winners)
-	return winners, nil
-}
+// HandleMatchUpdates implements GameUpdateHandler interface
+func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) error {
+	log.Infof("Game %v received %d match updates", g.gameId, len(updates))
 
-func (g *GameServiceImpl) HandleUpdates(updates map[string]models.Match) error {
 	for _, match := range updates {
 		log.Infof("Handling update for match %v", match.Id())
 		err := g.game.UpdateMatch(match)
@@ -83,7 +66,19 @@ func (g *GameServiceImpl) HandleUpdates(updates map[string]models.Match) error {
 			log.Infof("Match %v is being updated", match.Id())
 		}
 	}
+
+	// Check if game is finished after processing updates
+	if g.game.IsFinished() {
+		winners := g.game.GetWinner()
+		log.Infof("Game %v is finished, with winner(s) %v", g.gameId, winners)
+	}
+
 	return nil
+}
+
+// GetGameID implements GameUpdateHandler interface
+func (g *GameServiceImpl) GetGameID() string {
+	return g.gameId
 }
 
 func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
@@ -118,22 +113,6 @@ func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 	return nil
 }
 
-func (g *GameServiceImpl) getUpdates() (map[string]models.Match, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), g.waitTime)
-	defer cancel()
-
-	done := make(chan MatchWatcherServiceResult)
-	go g.watcher.GetUpdates(ctx, done)
-	select {
-	case updates := <-done:
-		if updates.Err != nil {
-			return nil, updates.Err
-		}
-		return updates.Value, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
 func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {
 	err := g.game.CheckPlayerBetValidity(player, bet, now)
 	if err != nil {
@@ -148,6 +127,7 @@ func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet,
 	g.game.AddPlayerBet(player, savedBet)
 	return nil
 }
+
 func (g *GameServiceImpl) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
 	return g.betRepo.GetBets(g.gameId, player)
 }

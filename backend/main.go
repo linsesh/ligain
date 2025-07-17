@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"liguain/backend/middleware"
-	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"liguain/backend/repositories/postgres"
 	"liguain/backend/routes"
@@ -12,21 +11,9 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
-
-type MatchWatcherServiceMock struct{}
-
-func (m *MatchWatcherServiceMock) WatchMatches(matches []models.Match) {}
-
-func (m *MatchWatcherServiceMock) GetUpdates(ctx context.Context, done chan services.MatchWatcherServiceResult) {
-}
-
-func NewMatchWatcherServiceMock() services.MatchWatcherService {
-	return &MatchWatcherServiceMock{}
-}
 
 func main() {
 	// Set Gin to release mode in production
@@ -57,26 +44,26 @@ func main() {
 		log.Fatal("Failed to create game repository:", err)
 	}
 
-	// Use the hardcoded game ID from init_db.go
-	gameId := "123e4567-e89b-12d3-a456-426614174000"
-
-	// Get the game from the database
-	game, err := gameRepo.GetGame(gameId)
-	if err != nil {
-		log.Fatal("Failed to get game:", err)
-	}
-
 	betRepo := postgres.NewPostgresBetRepository(db, repositories.NewInMemoryBetRepository())
 	playerRepo := postgres.NewPostgresPlayerRepository(db)
 	matchRepo := postgres.NewPostgresMatchRepository(db)
 
-	//watcher, err := services.NewMatchWatcherServiceSportsmonk("local")
-	//if err != nil {
-	//	log.Fatal("Failed to create match watcher service:", err)
-	//}
-	watcher := NewMatchWatcherServiceMock()
-	gameService := services.NewGameService(gameId, game, gameRepo, betRepo, watcher, 10*time.Second)
-	go gameService.Play()
+	// Create match watcher service
+	var watcher services.MatchWatcherService
+	if os.Getenv("ENV") == "production" {
+		watcher, err = services.NewMatchWatcherServiceSportsmonk("production")
+		if err != nil {
+			log.Fatal("Failed to create match watcher service:", err)
+		}
+	} else {
+		watcher = services.NewMockMatchWatcherService()
+	}
+
+	// Start the match watcher service
+	ctx := context.Background()
+	if err := watcher.Start(ctx); err != nil {
+		log.Fatal("Failed to start match watcher service:", err)
+	}
 
 	// Initialize authentication service
 	authService := services.NewAuthService(playerRepo)
@@ -84,7 +71,13 @@ func main() {
 	// Initialize game creation service
 	gameCodeRepo := postgres.NewPostgresGameCodeRepository(db)
 	gamePlayerRepo := postgres.NewPostgresGamePlayerRepository(db)
-	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo)
+	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher)
+
+	// Load the hardcoded game explicitly
+	hardcodedGameID := "123e4567-e89b-12d3-a456-426614174000"
+	if _, err := gameCreationService.GetGameService(hardcodedGameID); err != nil {
+		log.Printf("Warning: Failed to load hardcoded game: %v", err)
+	}
 
 	router := gin.Default()
 
@@ -118,9 +111,7 @@ func main() {
 	router.Use(middleware.APIKeyAuth())
 
 	// Setup routes
-	matchHandler := routes.NewMatchHandler(map[string]services.GameService{
-		"123e4567-e89b-12d3-a456-426614174000": gameService,
-	}, authService)
+	matchHandler := routes.NewMatchHandler(gameCreationService, authService)
 	matchHandler.SetupRoutes(router)
 
 	// Setup authentication routes

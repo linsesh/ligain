@@ -305,7 +305,7 @@ function MatchesList() {
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
-  const { submitBet, error: submitError } = useBetSubmission();
+  const { submitBet, error: submitError } = useBetSubmission(gameId);
   const { player } = useAuth();
   
   // Debug player information

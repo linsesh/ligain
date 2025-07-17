@@ -58,6 +58,27 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		return nil, err
 	}
 
+	// Get all players in the game (not just those who have made bets)
+	gamePlayers, err := r.getGamePlayers(gameId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting game players: %v", err)
+	}
+
+	// Merge players from bets and game_player table
+	allPlayers := make(map[string]models.Player)
+	for _, player := range players {
+		allPlayers[player.GetID()] = player
+	}
+	for _, player := range gamePlayers {
+		allPlayers[player.GetID()] = player
+	}
+
+	// Convert to slice
+	playerSlice := make([]models.Player, 0, len(allPlayers))
+	for _, player := range allPlayers {
+		playerSlice = append(playerSlice, player)
+	}
+
 	// Get scores organized by match and player
 	playerScores, err := r.betRepo.GetScoresByMatchAndPlayer(gameId)
 	if err != nil {
@@ -71,7 +92,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		gameImpl = rules.NewFreshGame(
 			seasonYear,
 			competitionName,
-			players,
+			playerSlice,
 			[]models.Match{}, // empty incoming matches
 			&rules.ScorerOriginal{},
 		)
@@ -79,7 +100,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		gameImpl = rules.NewStartedGame(
 			seasonYear,
 			competitionName,
-			players,
+			playerSlice,
 			incomingMatches,
 			pastMatches,
 			&rules.ScorerOriginal{},
@@ -156,7 +177,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 	players := make(map[string]models.Player)
 
 	for rows.Next() {
-		fmt.Println("Processing match data")
 		var matchId, homeTeamId, awayTeamId string
 		var homeTeamScore, awayTeamScore sql.NullInt32
 		var matchDate sql.NullTime
@@ -188,8 +208,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("error scanning match data: %v", err)
 		}
-		fmt.Println(matchId)
-		fmt.Println(betId)
 
 		// Create or get match
 		match, exists := matchesById[matchId]
@@ -199,7 +217,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		}
 		// Create bet if all required fields are present
 		if betId.Valid && predictedHomeGoals.Valid && predictedAwayGoals.Valid && playerName.Valid {
-			fmt.Println("Bet is valid")
 			playerID := ""
 			if playerId.Valid {
 				playerID = playerId.String
@@ -261,4 +278,36 @@ func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) err
 	}
 
 	return nil
+}
+
+func (r *PostgresGameRepository) getGamePlayers(gameId string) ([]models.Player, error) {
+	query := `
+		SELECT p.id, p.name
+		FROM game_player gp
+		JOIN player p ON gp.player_id = p.id
+		WHERE gp.game_id = $1
+		ORDER BY p.name
+	`
+
+	rows, err := r.db.Query(query, gameId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting game players: %v", err)
+	}
+	defer rows.Close()
+
+	var players []models.Player
+	for rows.Next() {
+		var player models.PlayerData
+		err := rows.Scan(&player.ID, &player.Name)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning game player row: %v", err)
+		}
+		players = append(players, &player)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating game player rows: %v", err)
+	}
+
+	return players, nil
 }

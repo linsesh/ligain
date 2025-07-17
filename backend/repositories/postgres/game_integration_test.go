@@ -262,3 +262,116 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		})
 	}, 10*time.Second)
 }
+
+func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+
+		// Create players first
+		player1 := &models.PlayerData{
+			Name:       "Player1",
+			Email:      stringPtr("player1@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_1"),
+		}
+		player2 := &models.PlayerData{
+			Name:       "Player2",
+			Email:      stringPtr("player2@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_2"),
+		}
+		player3 := &models.PlayerData{
+			Name:       "Player3",
+			Email:      stringPtr("player3@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_3"),
+		}
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		err = playerRepo.CreatePlayer(context.Background(), player1)
+		require.NoError(t, err)
+		err = playerRepo.CreatePlayer(context.Background(), player2)
+		require.NoError(t, err)
+		err = playerRepo.CreatePlayer(context.Background(), player3)
+		require.NoError(t, err)
+
+		// Create a game with all three players
+		gameId := "423e4567-e89b-12d3-a456-426614174000"
+		game := rules.NewFreshGame("2024", "Premier League", []models.Player{player1, player2, player3}, []models.Match{}, &rules.ScorerOriginal{})
+		err = gameRepo.SaveWithId(gameId, game)
+		require.NoError(t, err)
+
+		// Add all players to the game_player table (this simulates the real scenario)
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameId, player1.GetID())
+		require.NoError(t, err)
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameId, player2.GetID())
+		require.NoError(t, err)
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameId, player3.GetID())
+		require.NoError(t, err)
+
+		// Create a match
+		matchRepo := NewPostgresMatchRepository(testDB.db)
+		futureMatch := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
+		err = matchRepo.SaveMatch(futureMatch)
+		require.NoError(t, err)
+
+		// Only Player1 and Player2 make bets, Player3 doesn't bet yet
+		betCache := repositories.NewInMemoryBetRepository()
+		betRepo := NewPostgresBetRepository(testDB.db, betCache)
+		postgresBetRepo := betRepo.(*PostgresBetRepository)
+
+		// Player 1 bets
+		bet1 := models.NewBet(futureMatch, 2, 1)
+		_, _, err = postgresBetRepo.SaveBet(gameId, bet1, player1)
+		require.NoError(t, err)
+
+		// Player 2 bets
+		bet2 := models.NewBet(futureMatch, 1, 1)
+		_, _, err = postgresBetRepo.SaveBet(gameId, bet2, player2)
+		require.NoError(t, err)
+
+		// Player 3 doesn't bet (this is the key test case)
+
+		t.Run("Load All Players Including Non-Betting Players", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Get the game
+				restoredGame, err := gameRepo.GetGame(gameId)
+				require.NoError(t, err)
+				require.NotNil(t, restoredGame)
+
+				// Verify that ALL three players are loaded, even though Player3 hasn't bet
+				players := restoredGame.GetPlayers()
+				require.Equal(t, 3, len(players), "All three players should be loaded")
+
+				// Verify each player is present
+				playerNames := make(map[string]bool)
+				for _, player := range players {
+					playerNames[player.GetName()] = true
+				}
+				require.True(t, playerNames["Player1"], "Player1 should be loaded")
+				require.True(t, playerNames["Player2"], "Player2 should be loaded")
+				require.True(t, playerNames["Player3"], "Player3 should be loaded even though they haven't bet")
+
+				// Verify that Player3 can place a bet (this was the original bug)
+				bet3 := models.NewBet(futureMatch, 0, 0)
+				err = restoredGame.CheckPlayerBetValidity(players[2], bet3, testTime) // Player3
+				require.NoError(t, err, "Player3 should be able to place a bet even though they haven't bet yet")
+
+				// Verify incoming matches have bets from Player1 and Player2 only
+				incomingMatches := restoredGame.GetIncomingMatchesForTesting()
+				matchResult, exists := incomingMatches[futureMatch.Id()]
+				require.True(t, exists, "Future match should exist in incoming matches")
+				require.Equal(t, 2, len(matchResult.Bets), "Only Player1 and Player2 should have bets")
+			})
+		})
+	}, 10*time.Second)
+}

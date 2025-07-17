@@ -6,6 +6,9 @@ import (
 	"liguain/backend/models"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type SportsmonkRepositoryMock struct {
@@ -23,7 +26,181 @@ func (r *SportsmonkRepositoryMock) GetLastMatchInfos(matches map[string]models.M
 	return result, r.err
 }
 
-func TestMatchWatcherServiceSportsmonk_GetUpdates(t *testing.T) {
+// MockGameService for testing
+type MockGameService struct {
+	gameID  string
+	updates []map[string]models.Match
+}
+
+func (m *MockGameService) HandleMatchUpdates(updates map[string]models.Match) error {
+	m.updates = append(m.updates, updates)
+	return nil
+}
+
+func (m *MockGameService) GetGameID() string {
+	return m.gameID
+}
+
+// Implement other GameService methods for testing
+func (m *MockGameService) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+
+func (m *MockGameService) GetMatchResults() map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+
+func (m *MockGameService) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {
+	return nil
+}
+
+func (m *MockGameService) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
+	return nil, nil
+}
+
+func (m *MockGameService) GetPlayers() []models.Player {
+	return nil
+}
+
+func NewMockGameService(gameID string) *MockGameService {
+	return &MockGameService{
+		gameID:  gameID,
+		updates: make([]map[string]models.Match, 0),
+	}
+}
+
+func TestMatchWatcherServiceSportsmonk_Subscribe(t *testing.T) {
+	// Create mock repository
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{},
+		err:            nil,
+	}
+
+	// Create service instance
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: make(map[string]models.Match),
+		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
+	}
+
+	// Create mock handler
+	handler := NewMockGameService("game1")
+
+	// Test subscription
+	err := service.Subscribe(handler)
+	require.NoError(t, err)
+
+	// Verify subscription
+	assert.Len(t, service.subscribers, 1)
+	assert.Equal(t, handler, service.subscribers["game1"])
+}
+
+func TestMatchWatcherServiceSportsmonk_Unsubscribe(t *testing.T) {
+	// Create mock repository
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{},
+		err:            nil,
+	}
+
+	// Create service instance
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: make(map[string]models.Match),
+		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
+	}
+
+	// Create mock handler and subscribe
+	handler := NewMockGameService("game1")
+	err := service.Subscribe(handler)
+	require.NoError(t, err)
+
+	// Test unsubscription
+	err = service.Unsubscribe("game1")
+	require.NoError(t, err)
+
+	// Verify unsubscription
+	assert.Len(t, service.subscribers, 0)
+}
+
+func TestMatchWatcherServiceSportsmonk_StartStop(t *testing.T) {
+	// Create mock repository
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{},
+		err:            nil,
+	}
+
+	// Create service instance
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: make(map[string]models.Match),
+		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
+	}
+
+	// Test start
+	ctx := context.Background()
+	err := service.Start(ctx)
+	require.NoError(t, err)
+	assert.True(t, service.isRunning)
+
+	// Test stop
+	err = service.Stop()
+	require.NoError(t, err)
+	assert.False(t, service.isRunning)
+}
+
+func TestMatchWatcherServiceSportsmonk_CheckForUpdates(t *testing.T) {
+	// Create test matches
+	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
+	initialMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	updatedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
+
+	// Create mock repository with updated match info
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{
+			{
+				initialMatch.Id(): updatedMatch,
+			},
+		},
+		err: nil,
+	}
+
+	// Create service instance with initial match in watched matches
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: map[string]models.Match{initialMatch.Id(): initialMatch},
+		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
+	}
+
+	// Create mock handler and subscribe
+	handler := NewMockGameService("game1")
+	err := service.Subscribe(handler)
+	require.NoError(t, err)
+
+	// Check for updates
+	service.checkForUpdates()
+
+	// Wait a bit for the async handler to be called
+	time.Sleep(10 * time.Millisecond)
+
+	// Verify handler was called with updates
+	require.Len(t, handler.updates, 1)
+	updates := handler.updates[0]
+	assert.Len(t, updates, 1)
+	assert.Equal(t, updatedMatch, updates[initialMatch.Id()])
+
+	// Verify watched matches were updated
+	assert.Equal(t, updatedMatch, service.watchedMatches[initialMatch.Id()])
+}
+
+func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates(t *testing.T) {
 	// Create test matches
 	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 	initialMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
@@ -41,37 +218,24 @@ func TestMatchWatcherServiceSportsmonk_GetUpdates(t *testing.T) {
 
 	// Create service instance
 	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
+		watchedMatches: map[string]models.Match{initialMatch.Id(): initialMatch},
 		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
 	}
 
-	// Add match to watch
-	service.WatchMatches([]models.Match{initialMatch})
-
-	// Test GetUpdates
-	ctx := context.Background()
-	done := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done)
-
-	// Wait for result
-	result := <-done
+	// Get updates
+	updates, err := service.getMatchesUpdates()
+	require.NoError(t, err)
 
 	// Verify results
-	if result.Err != nil {
-		t.Errorf("Expected no error, got %v", result.Err)
-	}
-	if len(result.Value) != 1 {
-		t.Errorf("Expected 1 update, got %d", len(result.Value))
-	}
-	if result.Value[initialMatch.Id()] != updatedMatch {
-		t.Errorf("Expected updated match in result")
-	}
-	if service.watchedMatches[initialMatch.Id()] != updatedMatch {
-		t.Errorf("Expected updated match in watchedMatches")
-	}
+	assert.Len(t, updates, 1)
+	assert.Equal(t, updatedMatch, updates[initialMatch.Id()])
+	assert.Equal(t, updatedMatch, service.watchedMatches[initialMatch.Id()])
 }
 
-func TestMatchWatcherServiceSportsmonk_GetUpdates_NoChanges(t *testing.T) {
+func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates_NoChanges(t *testing.T) {
 	// Create test match
 	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
@@ -88,329 +252,77 @@ func TestMatchWatcherServiceSportsmonk_GetUpdates_NoChanges(t *testing.T) {
 
 	// Create service instance
 	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
+		watchedMatches: map[string]models.Match{match.Id(): match},
 		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
 	}
 
-	// Add match to watch
-	service.WatchMatches([]models.Match{match})
-
-	// Test GetUpdates
-	ctx := context.Background()
-	done := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done)
-
-	// Wait for result
-	result := <-done
+	// Get updates
+	updates, err := service.getMatchesUpdates()
+	require.NoError(t, err)
 
 	// Verify results
-	if result.Err != nil {
-		t.Errorf("Expected no error, got %v", result.Err)
-	}
-	if len(result.Value) != 0 {
-		t.Errorf("Expected no updates, got %d", len(result.Value))
-	}
-	if service.watchedMatches[match.Id()] != match {
-		t.Errorf("Expected match to remain unchanged in watchedMatches")
-	}
+	assert.Len(t, updates, 0)
+	assert.Equal(t, match, service.watchedMatches[match.Id()])
 }
 
-func TestMatchWatcherServiceSportsmonk_GetUpdates_Error(t *testing.T) {
+func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates_Error(t *testing.T) {
 	// Create test match
 	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
 
 	// Create mock repository with error
 	mockRepo := &SportsmonkRepositoryMock{
-		lastMatchInfos: nil,
-		err:            errors.New("test error"),
+		lastMatchInfos: []map[string]models.Match{},
+		err:            errors.New("API error"),
 	}
 
 	// Create service instance
 	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
+		watchedMatches: map[string]models.Match{match.Id(): match},
 		repo:           mockRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   30 * time.Second,
 	}
 
-	// Add match to watch
-	service.WatchMatches([]models.Match{match})
-
-	// Test GetUpdates
-	ctx := context.Background()
-	done := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done)
-
-	// Wait for result
-	result := <-done
-
-	// Verify results
-	if result.Err == nil {
-		t.Error("Expected error, got nil")
-	}
-	if result.Value != nil {
-		t.Error("Expected nil value, got non-nil")
-	}
-	if service.watchedMatches[match.Id()] != match {
-		t.Errorf("Expected match to remain unchanged in watchedMatches")
-	}
+	// Get updates
+	updates, err := service.getMatchesUpdates()
+	require.Error(t, err)
+	assert.Len(t, updates, 0)
 }
 
-func TestMatchWatcherServiceSportsmonk_GetUpdates_MultipleMatches(t *testing.T) {
-	// Create test matches
+func TestMatchWasUpdated(t *testing.T) {
 	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
-	match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
-	match2 := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime, 2)
-	match3 := models.NewSeasonMatch("Team5", "Team6", "2024", "Premier League", matchTime, 3)
 
-	updatedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-	updatedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 0, 0, "2024", "Premier League", matchTime, 2, 1.0, 2.0, 3.0)
-	// match3 remains unchanged
+	t.Run("detects finished status change", func(t *testing.T) {
+		initialMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+		finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
 
-	// Create mock repository with updated match info
-	mockRepo := &SportsmonkRepositoryMock{
-		lastMatchInfos: []map[string]models.Match{
-			{
-				match1.Id(): updatedMatch1,
-				match2.Id(): updatedMatch2,
-				match3.Id(): match3,
-			},
-		},
-		err: nil,
-	}
+		assert.True(t, matchWasUpdated(initialMatch, finishedMatch))
+	})
 
-	// Create service instance
-	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
-		repo:           mockRepo,
-	}
+	t.Run("detects odds changes", func(t *testing.T) {
+		initialMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "Premier League", matchTime, 1, 1.5, 2.0, 3.0)
+		updatedMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "Premier League", matchTime, 1, 2.5, 3.0, 2.8)
 
-	// Add matches to watch
-	service.WatchMatches([]models.Match{match1, match2, match3})
+		assert.True(t, matchWasUpdated(initialMatch, updatedMatch))
+	})
 
-	// Test GetUpdates
-	ctx := context.Background()
-	done := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done)
+	t.Run("detects date changes", func(t *testing.T) {
+		initialMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+		newTime := matchTime.Add(1 * time.Hour)
+		updatedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", newTime, 1)
 
-	// Wait for result
-	result := <-done
+		assert.True(t, matchWasUpdated(initialMatch, updatedMatch))
+	})
 
-	// Verify results
-	if result.Err != nil {
-		t.Errorf("Expected no error, got %v", result.Err)
-	}
-	if len(result.Value) != 2 {
-		t.Errorf("Expected 2 updates, got %d", len(result.Value))
-	}
-	if result.Value[match1.Id()] != updatedMatch1 {
-		t.Errorf("Expected match1 to be updated")
-	}
-	if result.Value[match2.Id()] != updatedMatch2 {
-		t.Errorf("Expected match2 to be updated")
-	}
-	if result.Value[match3.Id()] != nil {
-		t.Errorf("Expected match3 to remain unchanged")
-	}
-}
+	t.Run("no changes detected", func(t *testing.T) {
+		match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+		match2 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
 
-func TestMatchWatcherServiceSportsmonk_GetUpdates_OddsChange(t *testing.T) {
-	// Create test match
-	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
-	initialMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "Premier League", matchTime, 1, 1.5, 2.0, 3.0)
-
-	// Create updated match with different odds
-	updatedMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "Premier League", matchTime, 1, 2.5, 3.0, 2.8)
-
-	// Create mock repository
-	mockRepo := &SportsmonkRepositoryMock{
-		lastMatchInfos: []map[string]models.Match{
-			{
-				initialMatch.Id(): updatedMatch,
-			},
-		},
-		err: nil,
-	}
-
-	// Create service instance
-	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
-		repo:           mockRepo,
-	}
-
-	// Add match to watch
-	service.WatchMatches([]models.Match{initialMatch})
-
-	// Test GetUpdates
-	ctx := context.Background()
-	done := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done)
-
-	// Wait for result
-	result := <-done
-
-	// Verify results
-	if result.Err != nil {
-		t.Errorf("Expected no error, got %v", result.Err)
-	}
-	if len(result.Value) != 1 {
-		t.Errorf("Expected 1 update, got %d", len(result.Value))
-	}
-	updatedMatchResult := result.Value[initialMatch.Id()]
-	if updatedMatchResult.GetHomeTeamOdds() != 2.5 ||
-		updatedMatchResult.GetAwayTeamOdds() != 3.0 ||
-		updatedMatchResult.GetDrawOdds() != 2.8 {
-		t.Errorf("Expected odds to be updated to 2.5/3.0/2.8, got %v/%v/%v",
-			updatedMatchResult.GetHomeTeamOdds(),
-			updatedMatchResult.GetAwayTeamOdds(),
-			updatedMatchResult.GetDrawOdds())
-	}
-}
-
-func TestMatchWatcherServiceSportsmonk_GetUpdates_Postponed(t *testing.T) {
-	// Create test match
-	initialTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
-	postponedTime := time.Date(2024, 1, 17, 15, 0, 0, 0, time.UTC)
-	initialMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", initialTime, 1)
-
-	// Create postponed match
-	postponedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", postponedTime, 1)
-
-	// Create mock repository
-	mockRepo := &SportsmonkRepositoryMock{
-		lastMatchInfos: []map[string]models.Match{
-			{
-				initialMatch.Id(): postponedMatch,
-			},
-		},
-		err: nil,
-	}
-
-	// Create service instance
-	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
-		repo:           mockRepo,
-	}
-
-	// Add match to watch
-	service.WatchMatches([]models.Match{initialMatch})
-
-	// Test GetUpdates
-	ctx := context.Background()
-	done := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done)
-
-	// Wait for result
-	result := <-done
-
-	// Verify results
-	if result.Err != nil {
-		t.Errorf("Expected no error, got %v", result.Err)
-	}
-	if len(result.Value) != 1 {
-		t.Errorf("Expected 1 update, got %d", len(result.Value))
-	}
-	updatedMatch := result.Value[initialMatch.Id()]
-	if updatedMatch.GetDate() != postponedTime {
-		t.Errorf("Expected match date to be updated to %v, got %v",
-			postponedTime, updatedMatch.GetDate())
-	}
-}
-
-func TestMatchWatcherServiceSportsmonk_GetUpdates_BatchedUpdates(t *testing.T) {
-	// Create test matches
-	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
-	match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
-	match2 := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime, 2)
-	match3 := models.NewSeasonMatch("Team5", "Team6", "2024", "Premier League", matchTime, 3)
-
-	// First batch of updates
-	updatedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-	updatedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 0, 0, "2024", "Premier League", matchTime, 2, 1.0, 2.0, 3.0)
-	// match3 remains unchanged
-
-	// Second batch of updates
-	updatedMatch3 := models.NewFinishedSeasonMatch("Team5", "Team6", 1, 0, "2024", "Premier League", matchTime, 3, 1.0, 2.0, 3.0)
-	updatedMatch1WithNewOdds := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.5, 2.5, 3.5)
-
-	// Create mock repository with batched updates
-	mockRepo := &SportsmonkRepositoryMock{
-		lastMatchInfos: []map[string]models.Match{
-			{
-				match1.Id(): updatedMatch1,
-				match2.Id(): updatedMatch2,
-				match3.Id(): match3,
-			},
-			{
-				match1.Id(): updatedMatch1WithNewOdds,
-				match2.Id(): updatedMatch2,
-				match3.Id(): updatedMatch3,
-			},
-		},
-		err: nil,
-	}
-
-	// Create service instance
-	service := &MatchWatcherServiceSportsmonk{
-		watchedMatches: make(map[string]models.Match),
-		repo:           mockRepo,
-	}
-
-	// Add matches to watch
-	service.WatchMatches([]models.Match{match1, match2, match3})
-
-	// First update
-	ctx := context.Background()
-	done1 := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done1)
-	result1 := <-done1
-
-	// Verify first batch results
-	if result1.Err != nil {
-		t.Errorf("Expected no error in first batch, got %v", result1.Err)
-	}
-	if len(result1.Value) != 2 {
-		t.Errorf("Expected 2 updates in first batch, got %d", len(result1.Value))
-	}
-	if result1.Value[match1.Id()] != updatedMatch1 {
-		t.Errorf("Expected match1 to be updated in first batch")
-	}
-	if result1.Value[match2.Id()] != updatedMatch2 {
-		t.Errorf("Expected match2 to be updated in first batch")
-	}
-	if result1.Value[match3.Id()] != nil {
-		t.Errorf("Expected match3 to remain unchanged in first batch")
-	}
-
-	// Second update
-	done2 := make(chan MatchWatcherServiceResult)
-	go service.GetUpdates(ctx, done2)
-	result2 := <-done2
-
-	// Verify second batch results
-	if result2.Err != nil {
-		t.Errorf("Expected no error in second batch, got %v", result2.Err)
-	}
-	if len(result2.Value) != 2 {
-		t.Errorf("Expected 2 updates in second batch, got %d", len(result2.Value))
-	}
-	if result2.Value[match1.Id()] != updatedMatch1WithNewOdds {
-		t.Errorf("Expected match1 to have new odds in second batch")
-	}
-	if result2.Value[match3.Id()] != updatedMatch3 {
-		t.Errorf("Expected match3 to be updated in second batch")
-	}
-	if result2.Value[match2.Id()] != nil {
-		t.Errorf("Expected match2 to remain unchanged in second batch")
-	}
-
-	// Verify final state
-	if service.watchedMatches[match1.Id()] != updatedMatch1WithNewOdds {
-		t.Errorf("Expected match1 to have final updated state")
-	}
-	if service.watchedMatches[match2.Id()] != updatedMatch2 {
-		t.Errorf("Expected match2 to have final updated state")
-	}
-	if service.watchedMatches[match3.Id()] != updatedMatch3 {
-		t.Errorf("Expected match3 to have final updated state")
-	}
+		assert.False(t, matchWasUpdated(match1, match2))
+	})
 }

@@ -17,6 +17,7 @@ type GameCreationServiceInterface interface {
 	CreateGame(req *CreateGameRequest, player models.Player) (*CreateGameResponse, error)
 	JoinGame(code string, player models.Player) (*JoinGameResponse, error)
 	GetPlayerGames(player models.Player) ([]PlayerGame, error)
+	GetGameService(gameID string) (GameService, error)
 	CleanupExpiredCodes() error
 }
 
@@ -27,17 +28,46 @@ type GameCreationService struct {
 	gamePlayerRepo repositories.GamePlayerRepository
 	betRepo        repositories.BetRepository
 	matchRepo      repositories.MatchRepository
+	watcher        MatchWatcherService
+	gameServices   map[string]GameService
 }
 
 // NewGameCreationService creates a new GameCreationService instance
-func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository) GameCreationServiceInterface {
+func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) GameCreationServiceInterface {
 	return &GameCreationService{
 		gameRepo:       gameRepo,
 		gameCodeRepo:   gameCodeRepo,
 		gamePlayerRepo: gamePlayerRepo,
 		betRepo:        betRepo,
 		matchRepo:      matchRepo,
+		watcher:        watcher,
+		gameServices:   make(map[string]GameService),
 	}
+}
+
+// GetGameService returns a GameService by ID
+func (s *GameCreationService) GetGameService(gameID string) (GameService, error) {
+	gameService, exists := s.gameServices[gameID]
+	if !exists {
+		// Try to load the game from the database
+		game, err := s.gameRepo.GetGame(gameID)
+		if err != nil {
+			return nil, fmt.Errorf("game not found: %v", err)
+		}
+
+		// Create a new game service
+		gameService = NewGameService(gameID, game, s.gameRepo, s.betRepo)
+		s.gameServices[gameID] = gameService
+
+		// Subscribe to the watcher if available
+		if s.watcher != nil {
+			if err := s.watcher.Subscribe(gameService); err != nil {
+				return nil, fmt.Errorf("failed to subscribe game to watcher: %v", err)
+			}
+		}
+	}
+
+	return gameService, nil
 }
 
 // CreateGameRequest represents the request to create a new game
@@ -116,6 +146,18 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	err = s.gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
 	if err != nil {
 		return nil, fmt.Errorf("failed to add creator to game: %v", err)
+	}
+
+	// Create and store the game service
+	gameService := NewGameService(gameID, game, s.gameRepo, s.betRepo)
+	s.gameServices[gameID] = gameService
+
+	// Subscribe the new game to the watcher
+	if s.watcher != nil {
+		err := s.watcher.Subscribe(gameService)
+		if err != nil {
+			return nil, fmt.Errorf("failed to subscribe game to watcher: %v", err)
+		}
 	}
 
 	// Generate a unique code for the game

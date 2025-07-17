@@ -13,15 +13,15 @@ import (
 
 // MatchHandler handles all match-related routes
 type MatchHandler struct {
-	gameServices map[string]services.GameService
-	authService  services.AuthServiceInterface
+	gameCreationService services.GameCreationServiceInterface
+	authService         services.AuthServiceInterface
 }
 
 // NewMatchHandler creates a new MatchHandler instance
-func NewMatchHandler(gameServices map[string]services.GameService, authService services.AuthServiceInterface) *MatchHandler {
+func NewMatchHandler(gameCreationService services.GameCreationServiceInterface, authService services.AuthServiceInterface) *MatchHandler {
 	return &MatchHandler{
-		gameServices: gameServices,
-		authService:  authService,
+		gameCreationService: gameCreationService,
+		authService:         authService,
 	}
 }
 
@@ -59,7 +59,6 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult,
 		"match": matchResult.Match,
 	}
 	playerIDToName := h.getPlayerIDToName(gameService)
-	log.Info("matchResult.Bets", matchResult.Bets)
 	if matchResult.Bets != nil {
 		simplifiedBets := h.simplifyBets(matchResult.Bets, playerIDToName)
 		result["bets"] = simplifiedBets
@@ -122,9 +121,9 @@ func (h *MatchHandler) getMatches(c *gin.Context) {
 		return
 	}
 
-	gameService, exists := h.gameServices[gameId]
-	if !exists {
-		log.Error("Failed to get game service")
+	gameService, err := h.gameCreationService.GetGameService(gameId)
+	if err != nil {
+		log.Errorf("Failed to get game service: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
 		return
 	}
@@ -184,9 +183,9 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 		return
 	}
 
-	gameService, exists := h.gameServices[gameId]
-	if !exists {
-		log.Error("Failed to get game service")
+	gameService, err := h.gameCreationService.GetGameService(gameId)
+	if err != nil {
+		log.Errorf("Failed to get game service: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
 		return
 	}

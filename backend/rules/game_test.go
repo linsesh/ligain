@@ -109,6 +109,93 @@ func TestCheckPlayerBetValidity(t *testing.T) {
 	}
 }
 
+func TestCheckPlayerBetValidityWithMixedPlayerSources(t *testing.T) {
+	// This test specifically verifies that players loaded from different sources
+	// (bet table vs game_player table) are all properly validated
+
+	// Create players
+	player1 := newTestPlayer("Player1")     // Will have bets
+	player2 := newTestPlayer("Player2")     // Will have bets
+	player3 := newTestPlayer("Player3")     // Will be in game but no bets yet
+	nonMember := newTestPlayer("NonMember") // Not in game at all
+
+	players := []models.Player{player1, player2, player3}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+
+	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+
+	// Add bets for Player1 and Player2 only
+	bet1 := models.NewBet(match, 2, 1)
+	bet2 := models.NewBet(match, 1, 1)
+
+	err := game.AddPlayerBet(player1, bet1)
+	if err != nil {
+		t.Fatalf("Failed to add bet for Player1: %v", err)
+	}
+
+	err = game.AddPlayerBet(player2, bet2)
+	if err != nil {
+		t.Fatalf("Failed to add bet for Player2: %v", err)
+	}
+
+	// Test cases
+	tests := []struct {
+		name          string
+		player        models.Player
+		expectedError bool
+		description   string
+	}{
+		{
+			name:          "Player with bet should be valid",
+			player:        player1,
+			expectedError: false,
+			description:   "Player1 has made a bet and should be able to place another bet",
+		},
+		{
+			name:          "Player with bet should be valid",
+			player:        player2,
+			expectedError: false,
+			description:   "Player2 has made a bet and should be able to place another bet",
+		},
+		{
+			name:          "Player without bet but in game should be valid",
+			player:        player3,
+			expectedError: false,
+			description:   "Player3 is in the game but hasn't bet yet, should still be able to place a bet",
+		},
+		{
+			name:          "Player not in game should be invalid",
+			player:        nonMember,
+			expectedError: true,
+			description:   "NonMember is not in the game and should not be able to place a bet",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a new bet for testing
+			testBet := models.NewBet(match, 0, 0)
+
+			err := game.CheckPlayerBetValidity(tt.player, testBet, testTime.Add(-1*time.Hour))
+
+			if (err != nil) != tt.expectedError {
+				t.Errorf("%s: CheckPlayerBetValidity() error = %v, expectedError %v",
+					tt.description, err, tt.expectedError)
+			}
+
+			if tt.expectedError && err == nil {
+				t.Errorf("%s: Expected error but got none", tt.description)
+			}
+
+			if !tt.expectedError && err != nil {
+				t.Errorf("%s: Expected no error but got: %v", tt.description, err)
+			}
+		})
+	}
+}
+
 func TestAddPlayerBetAndGetIncomingMatches(t *testing.T) {
 	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
