@@ -23,8 +23,8 @@ type MockGameCreationService struct {
 	mock.Mock
 }
 
-func (m *MockGameCreationService) CreateGame(req *services.CreateGameRequest) (*services.CreateGameResponse, error) {
-	args := m.Called(req)
+func (m *MockGameCreationService) CreateGame(req *services.CreateGameRequest, player models.Player) (*services.CreateGameResponse, error) {
+	args := m.Called(req, player)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -140,7 +140,7 @@ func TestCreateGame_Success(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("CreateGame", &requestBody).Return(response, nil)
+	mockGameCreationService.On("CreateGame", &requestBody, mock.AnythingOfType("*models.PlayerData")).Return(response, nil)
 
 	// Create request
 	jsonBody, _ := json.Marshal(requestBody)
@@ -285,7 +285,7 @@ func TestCreateGame_ServiceError(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("CreateGame", &requestBody).Return(nil, repositories.ErrGameCodeNotFound)
+	mockGameCreationService.On("CreateGame", &requestBody, mock.AnythingOfType("*models.PlayerData")).Return(nil, repositories.ErrGameCodeNotFound)
 
 	// Create request
 	jsonBody, _ := json.Marshal(requestBody)
@@ -359,7 +359,7 @@ func TestCreateGame_InvalidCompetitionName(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("CreateGame", &requestBody).Return(nil, services.ErrInvalidCompetition)
+	mockGameCreationService.On("CreateGame", &requestBody, mock.AnythingOfType("*models.PlayerData")).Return(nil, services.ErrInvalidCompetition)
 
 	// Create request
 	jsonBody, _ := json.Marshal(requestBody)
@@ -398,7 +398,7 @@ func TestCreateGame_InvalidSeasonYear(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("CreateGame", &requestBody).Return(nil, services.ErrInvalidSeasonYear)
+	mockGameCreationService.On("CreateGame", &requestBody, mock.AnythingOfType("*models.PlayerData")).Return(nil, services.ErrInvalidSeasonYear)
 
 	// Create request
 	jsonBody, _ := json.Marshal(requestBody)

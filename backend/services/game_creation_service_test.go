@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"liguain/backend/models"
 	"testing"
@@ -76,6 +77,42 @@ func (m *MockGameCodeRepository) DeleteGameCode(code string) error {
 	return args.Error(0)
 }
 
+// MockGamePlayerRepository is a mock implementation of GamePlayerRepository
+type MockGamePlayerRepository struct {
+	mock.Mock
+}
+
+func (m *MockGamePlayerRepository) AddPlayerToGame(ctx context.Context, gameID string, playerID string) error {
+	args := m.Called(ctx, gameID, playerID)
+	return args.Error(0)
+}
+
+func (m *MockGamePlayerRepository) RemovePlayerFromGame(ctx context.Context, gameID string, playerID string) error {
+	args := m.Called(ctx, gameID, playerID)
+	return args.Error(0)
+}
+
+func (m *MockGamePlayerRepository) GetPlayersInGame(ctx context.Context, gameID string) ([]models.Player, error) {
+	args := m.Called(ctx, gameID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Player), args.Error(1)
+}
+
+func (m *MockGamePlayerRepository) GetPlayerGames(ctx context.Context, playerID string) ([]string, error) {
+	args := m.Called(ctx, playerID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockGamePlayerRepository) IsPlayerInGame(ctx context.Context, gameID string, playerID string) (bool, error) {
+	args := m.Called(ctx, gameID, playerID)
+	return args.Bool(0), args.Error(1)
+}
+
 // MockMatchRepository is a mock implementation of MatchRepository
 type MockMatchRepository struct {
 	mock.Mock
@@ -114,23 +151,28 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 	}
 
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
 	// Mock expectations
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
 
 	// Execute
-	response, err := service.CreateGame(request)
+	response, err := service.CreateGame(request, player)
 
 	// Assert
 	assert.NoError(t, err)
@@ -142,27 +184,32 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
 	mockGameCodeRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
 }
 
 func TestGameCreationService_CreateGame_GameCreationFails(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 	}
 
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
 	// Mock expectations
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("", errors.New("database error"))
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
 
 	// Execute
-	response, err := service.CreateGame(request)
+	response, err := service.CreateGame(request, player)
 
 	// Assert
 	assert.Error(t, err)
@@ -177,22 +224,27 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 	}
 
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
 	// Mock expectations - all codes exist (simulating collision)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(true, nil).Times(10)
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
 
 	// Execute
-	response, err := service.CreateGame(request)
+	response, err := service.CreateGame(request, player)
 
 	// Assert
 	assert.Error(t, err)
@@ -202,28 +254,34 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
 	mockGameCodeRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
 }
 
 func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 	}
 
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
 	// Mock expectations
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, errors.New("database error"))
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
 
 	// Execute
-	response, err := service.CreateGame(request)
+	response, err := service.CreateGame(request, player)
 
 	// Assert
 	assert.Error(t, err)
@@ -233,29 +291,35 @@ func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
 	mockGameCodeRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
 }
 
 func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 	}
 
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
 	// Mock expectations
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(errors.New("database error"))
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
 
 	// Execute
-	response, err := service.CreateGame(request)
+	response, err := service.CreateGame(request, player)
 
 	// Assert
 	assert.Error(t, err)
@@ -265,15 +329,18 @@ func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
 	mockGameCodeRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
 }
 
 func TestGameCreationService_CleanupExpiredCodes(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Mock expectations
 	mockGameCodeRepo.On("DeleteExpiredCodes").Return(nil)
@@ -292,9 +359,11 @@ func TestGameCreationService_CleanupExpiredCodes_Fails(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Mock expectations
 	mockGameCodeRepo.On("DeleteExpiredCodes").Return(errors.New("database error"))
@@ -314,14 +383,17 @@ func TestGameCreationService_CleanupExpiredCodes_Fails(t *testing.T) {
 func TestGameCreationService_CreateGame_InvalidCompetition(t *testing.T) {
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	mockBetRepo := new(MockBetRepository)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Premier League",
 	}
-	response, err := service.CreateGame(request)
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	response, err := service.CreateGame(request, player)
 	assert.ErrorIs(t, err, ErrInvalidCompetition)
 	assert.Nil(t, response)
 }
@@ -329,14 +401,17 @@ func TestGameCreationService_CreateGame_InvalidCompetition(t *testing.T) {
 func TestGameCreationService_CreateGame_InvalidSeasonYear(t *testing.T) {
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	mockBetRepo := new(MockBetRepository)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2024/2025",
 		CompetitionName: "Ligue 1",
 	}
-	response, err := service.CreateGame(request)
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	response, err := service.CreateGame(request, player)
 	assert.ErrorIs(t, err, ErrInvalidSeasonYear)
 	assert.Nil(t, response)
 }
@@ -345,20 +420,24 @@ func TestGameCreationService_CreateGame_MatchLoadingFails(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 	}
 
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
 	// Mock expectations - match loading fails
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return(nil, errors.New("database error"))
 
 	// Execute
-	response, err := service.CreateGame(request)
+	response, err := service.CreateGame(request, player)
 
 	// Assert
 	assert.Error(t, err)
@@ -373,9 +452,11 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -389,6 +470,8 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	// Mock expectations
 	mockGameCodeRepo.On("GetGameCodeByCode", code).Return(gameCode, nil)
 	mockGameRepo.On("GetGame", "game1").Return(mockGame, nil)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(false, nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "game1", "player1").Return(nil)
 
 	// Execute
 	response, err := service.JoinGame(code, player)
@@ -404,6 +487,7 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	// Verify mocks
 	mockGameCodeRepo.AssertExpectations(t)
 	mockGameRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
 }
 
 // SimpleMockGame is a simple mock implementation for testing
@@ -472,9 +556,11 @@ func TestGameCreationService_JoinGame_InvalidCode(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "INVALID"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -498,9 +584,11 @@ func TestGameCreationService_JoinGame_ExpiredCode(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -529,9 +617,11 @@ func TestGameCreationService_JoinGame_GameNotFound(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockMatchRepo)
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -557,3 +647,174 @@ func TestGameCreationService_JoinGame_GameNotFound(t *testing.T) {
 	mockGameCodeRepo.AssertExpectations(t)
 	mockGameRepo.AssertExpectations(t)
 }
+
+func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
+
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	gameIDs := []string{"game1", "game2"}
+	mockGame1 := &SimpleMockGame{}
+	mockGame2 := &SimpleMockGame{}
+
+	// Mock expectations
+	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
+	mockGameRepo.On("GetGame", "game1").Return(mockGame1, nil)
+	mockGameRepo.On("GetGame", "game2").Return(mockGame2, nil)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{}, nil)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game2").Return([]models.Player{}, nil)
+	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(map[string]map[string]int{}, nil)
+	mockBetRepo.On("GetScoresByMatchAndPlayer", "game2").Return(map[string]map[string]int{}, nil)
+
+	// Execute
+	playerGames, err := service.GetPlayerGames(player)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Len(t, playerGames, 2)
+	assert.Equal(t, "game1", playerGames[0].GameID)
+	assert.Equal(t, "game2", playerGames[1].GameID)
+	assert.Equal(t, "2025/2026", playerGames[0].SeasonYear)
+	assert.Equal(t, "Ligue 1", playerGames[0].CompetitionName)
+
+	// Verify mocks
+	mockGamePlayerRepo.AssertExpectations(t)
+	mockGameRepo.AssertExpectations(t)
+	mockBetRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_GetPlayerGames_EmptyList(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
+
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Mock expectations
+	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil)
+
+	// Execute
+	playerGames, err := service.GetPlayerGames(player)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Len(t, playerGames, 0)
+
+	// Verify mocks
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_GetPlayerGames_RepositoryError(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
+
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Mock expectations
+	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(nil, errors.New("database error"))
+
+	// Execute
+	playerGames, err := service.GetPlayerGames(player)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, playerGames)
+	assert.Contains(t, err.Error(), "error getting player games")
+
+	// Verify mocks
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockMatchRepo := new(MockMatchRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
+
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	gameIDs := []string{"game1"}
+	mockGame := &SimpleMockGame{}
+	mockPlayers := []models.Player{
+		&models.PlayerData{ID: "player1", Name: "Test Player"},
+		&models.PlayerData{ID: "player2", Name: "Other Player"},
+	}
+	mockScores := map[string]map[string]int{
+		"match1": {"player1": 10, "player2": 5},
+		"match2": {"player1": 20, "player2": 15},
+	}
+
+	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
+	mockGameRepo.On("GetGame", "game1").Return(mockGame, nil)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return(mockPlayers, nil)
+	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(mockScores, nil)
+
+	playerGames, err := service.GetPlayerGames(player)
+	assert.NoError(t, err)
+	assert.Len(t, playerGames, 1)
+	game := playerGames[0]
+	assert.Equal(t, "game1", game.GameID)
+	assert.Len(t, game.Players, 2)
+	for _, p := range game.Players {
+		if p.ID == "player1" {
+			assert.Equal(t, 30, p.TotalScore)
+			assert.Equal(t, 10, p.ScoresByMatch["match1"])
+			assert.Equal(t, 20, p.ScoresByMatch["match2"])
+		}
+		if p.ID == "player2" {
+			assert.Equal(t, 20, p.TotalScore)
+			assert.Equal(t, 5, p.ScoresByMatch["match1"])
+			assert.Equal(t, 15, p.ScoresByMatch["match2"])
+		}
+	}
+
+	mockGamePlayerRepo.AssertExpectations(t)
+	mockGameRepo.AssertExpectations(t)
+	mockBetRepo.AssertExpectations(t)
+}
+
+// MockBetRepository is a mock implementation of BetRepository
+type MockBetRepository struct {
+	mock.Mock
+}
+
+func (m *MockBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[string]int, error) {
+	args := m.Called(gameId)
+	return args.Get(0).(map[string]map[string]int), args.Error(1)
+}
+func (m *MockBetRepository) GetBets(gameId string, player models.Player) ([]*models.Bet, error) {
+	return nil, nil
+}
+func (m *MockBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, *models.Bet, error) {
+	return "", nil, nil
+}
+func (m *MockBetRepository) GetBetsForMatch(match models.Match, gameId string) ([]*models.Bet, []models.Player, error) {
+	return nil, nil, nil
+}
+func (m *MockBetRepository) SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error {
+	return nil
+}
+func (m *MockBetRepository) SaveScore(gameId string, match models.Match, player models.Player, points int) error {
+	return nil
+}
+func (m *MockBetRepository) GetScore(gameId string, betId string) (int, error) { return 0, nil }
+func (m *MockBetRepository) GetScores(gameId string) (map[string]int, error)   { return nil, nil }

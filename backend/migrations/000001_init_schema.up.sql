@@ -73,3 +73,14 @@ CREATE TABLE IF NOT EXISTS game_codes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS game_player (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    game_id UUID NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    player_id UUID NOT NULL REFERENCES player(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add unique constraint for game_id + player_id combination
+ALTER TABLE game_player ADD CONSTRAINT unique_game_player UNIQUE(game_id, player_id);

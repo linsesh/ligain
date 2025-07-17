@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 
 // GameCreationServiceInterface defines the interface for game creation services
 type GameCreationServiceInterface interface {
-	CreateGame(req *CreateGameRequest) (*CreateGameResponse, error)
+	CreateGame(req *CreateGameRequest, player models.Player) (*CreateGameResponse, error)
 	JoinGame(code string, player models.Player) (*JoinGameResponse, error)
 	GetPlayerGames(player models.Player) ([]PlayerGame, error)
 	CleanupExpiredCodes() error
@@ -21,17 +22,21 @@ type GameCreationServiceInterface interface {
 
 // GameCreationService handles game creation with unique codes
 type GameCreationService struct {
-	gameRepo     repositories.GameRepository
-	gameCodeRepo repositories.GameCodeRepository
-	matchRepo    repositories.MatchRepository
+	gameRepo       repositories.GameRepository
+	gameCodeRepo   repositories.GameCodeRepository
+	gamePlayerRepo repositories.GamePlayerRepository
+	betRepo        repositories.BetRepository
+	matchRepo      repositories.MatchRepository
 }
 
 // NewGameCreationService creates a new GameCreationService instance
-func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, matchRepo repositories.MatchRepository) GameCreationServiceInterface {
+func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository) GameCreationServiceInterface {
 	return &GameCreationService{
-		gameRepo:     gameRepo,
-		gameCodeRepo: gameCodeRepo,
-		matchRepo:    matchRepo,
+		gameRepo:       gameRepo,
+		gameCodeRepo:   gameCodeRepo,
+		gamePlayerRepo: gamePlayerRepo,
+		betRepo:        betRepo,
+		matchRepo:      matchRepo,
 	}
 }
 
@@ -55,12 +60,19 @@ type JoinGameResponse struct {
 	Message         string `json:"message"`
 }
 
-// PlayerGame represents a game that a player is part of
+type PlayerGameInfo struct {
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	TotalScore    int            `json:"totalScore"`
+	ScoresByMatch map[string]int `json:"scoresByMatch"`
+}
+
 type PlayerGame struct {
-	GameID          string `json:"gameId"`
-	SeasonYear      string `json:"seasonYear"`
-	CompetitionName string `json:"competitionName"`
-	Status          string `json:"status"`
+	GameID          string           `json:"gameId"`
+	SeasonYear      string           `json:"seasonYear"`
+	CompetitionName string           `json:"competitionName"`
+	Status          string           `json:"status"`
+	Players         []PlayerGameInfo `json:"players"`
 }
 
 var (
@@ -69,7 +81,7 @@ var (
 )
 
 // CreateGame creates a new game with a unique 4-character code
-func (s *GameCreationService) CreateGame(req *CreateGameRequest) (*CreateGameResponse, error) {
+func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.Player) (*CreateGameResponse, error) {
 	// Validate competition name - only Ligue 1 is supported
 	if req.CompetitionName != "Ligue 1" {
 		return nil, ErrInvalidCompetition
@@ -98,6 +110,12 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest) (*CreateGameRes
 	gameID, err := s.gameRepo.CreateGame(game)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create game: %v", err)
+	}
+
+	// Add the creator to the game
+	err = s.gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("failed to add creator to game: %v", err)
 	}
 
 	// Generate a unique code for the game
@@ -156,9 +174,22 @@ func (s *GameCreationService) JoinGame(code string, player models.Player) (*Join
 
 // addPlayerToGame adds a player to a game if they're not already in it
 func (s *GameCreationService) addPlayerToGame(gameID string, player models.Player) error {
-	// For now, we'll assume the player is added successfully
-	// In a real implementation, you'd check if the player is already in the game
-	// and add them if they're not
+	// Check if player is already in the game
+	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, player.GetID())
+	if err != nil {
+		return fmt.Errorf("error checking if player is in game: %v", err)
+	}
+
+	if isInGame {
+		return nil // Player is already in the game
+	}
+
+	// Add player to the game
+	err = s.gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+	if err != nil {
+		return fmt.Errorf("error adding player to game: %v", err)
+	}
+
 	return nil
 }
 
@@ -205,16 +236,61 @@ func (s *GameCreationService) CleanupExpiredCodes() error {
 
 // GetPlayerGames returns all games that a player is part of
 func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame, error) {
-	// For now, we'll return an empty list since we need to implement
-	// the logic to find games where the player has made bets
-	// This would typically involve querying the bet repository
-	// to find all games where the player has bets
+	gameIDs, err := s.gamePlayerRepo.GetPlayerGames(context.Background(), player.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("error getting player games: %v", err)
+	}
 
-	// TODO: Implement proper logic to get games for player
-	// This would involve:
-	// 1. Querying the bet repository to find all game IDs where the player has bets
-	// 2. For each game ID, getting the game details from the game repository
-	// 3. Converting to PlayerGame structs
+	var playerGames []PlayerGame
+	for _, gameID := range gameIDs {
+		game, err := s.gameRepo.GetGame(gameID)
+		if err != nil {
+			fmt.Printf("error getting game %s: %v\n", gameID, err)
+			continue
+		}
 
-	return []PlayerGame{}, nil
+		// Fetch all players in the game
+		players, err := s.gamePlayerRepo.GetPlayersInGame(context.Background(), gameID)
+		if err != nil {
+			fmt.Printf("error getting players for game %s: %v\n", gameID, err)
+			continue
+		}
+
+		// Fetch all scores for the game (by match and player)
+		playerScoresByMatch, err := s.betRepo.GetScoresByMatchAndPlayer(gameID)
+		if err != nil {
+			fmt.Printf("error getting scores for game %s: %v\n", gameID, err)
+			continue
+		}
+
+		// Build player info
+		var playerInfos []PlayerGameInfo
+		for _, p := range players {
+			total := 0
+			scoresByMatch := make(map[string]int)
+			for matchID, playerScores := range playerScoresByMatch {
+				if score, ok := playerScores[p.GetID()]; ok {
+					total += score
+					scoresByMatch[matchID] = score
+				}
+			}
+			playerInfos = append(playerInfos, PlayerGameInfo{
+				ID:            p.GetID(),
+				Name:          p.GetName(),
+				TotalScore:    total,
+				ScoresByMatch: scoresByMatch,
+			})
+		}
+
+		playerGame := PlayerGame{
+			GameID:          gameID,
+			SeasonYear:      game.GetSeasonYear(),
+			CompetitionName: game.GetCompetitionName(),
+			Status:          string(game.GetGameStatus()),
+			Players:         playerInfos,
+		}
+		playerGames = append(playerGames, playerGame)
+	}
+
+	return playerGames, nil
 }

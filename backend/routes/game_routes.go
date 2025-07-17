@@ -60,8 +60,15 @@ func (h *GameHandler) createGame(c *gin.Context) {
 		return
 	}
 
+	// Get authenticated player from context
+	player, exists := c.Get("player")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
+		return
+	}
+
 	// Create the game
-	response, err := h.gameCreationService.CreateGame(&request)
+	response, err := h.gameCreationService.CreateGame(&request, player.(models.Player))
 	if err != nil {
 		if err == services.ErrInvalidCompetition || err == services.ErrInvalidSeasonYear {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

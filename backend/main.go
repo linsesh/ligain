@@ -83,7 +83,8 @@ func main() {
 
 	// Initialize game creation service
 	gameCodeRepo := postgres.NewPostgresGameCodeRepository(db)
-	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, matchRepo)
+	gamePlayerRepo := postgres.NewPostgresGamePlayerRepository(db)
+	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo)
 
 	router := gin.Default()
 
