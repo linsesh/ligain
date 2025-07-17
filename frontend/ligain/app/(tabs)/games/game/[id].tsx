@@ -170,7 +170,7 @@ function TeamInput({
 }
 
 // Wrapper component that has access to the time service
-function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur }: {
+function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur, onDone }: {
   matchResult: MatchResult;
   tempScores: TempScores;
   expandedMatches: { [key: string]: boolean };
@@ -178,6 +178,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   onToggleBetSection: (matchId: string) => void;
   onFocus: () => void;
   onBlur: () => void;
+  onDone?: () => void;
 }) {
   const timeService = useTimeService();
   const { player } = useAuth();
@@ -246,6 +247,17 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           </>
         )}
       </View>
+      
+      {/* Done button for future matches when editing */}
+      {isFuture && onDone && (
+        <TouchableOpacity 
+          style={styles.doneButton}
+          onPress={onDone}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+      )}
+      
       {/* Keep the rest of the card (other players' bets/scores) only for past/in-progress matches */}
       {(!isFuture && (matchResult.match.isFinished() || matchResult.match.isInProgress())) && (
         <>
@@ -429,7 +441,7 @@ function MatchesList() {
     const currentTempScores = tempScores[matchId] || {};
     const newTempScores = {
       ...currentTempScores,
-      [team]: value ? parseInt(value) : undefined
+      [team]: value && value.trim() !== '' ? parseInt(value) : undefined
     };
 
     setTempScores(prev => ({
@@ -437,13 +449,13 @@ function MatchesList() {
       [matchId]: newTempScores
     }));
 
-    // Submit bet if both scores are provided and are valid numbers
+    // Submit bet if both scores are provided and are valid numbers greater than 0
     if (newTempScores.home !== undefined && newTempScores.away !== undefined) {
       const homeGoals = Number(newTempScores.home);
       const awayGoals = Number(newTempScores.away);
       
-      // Only submit if both values are valid numbers
-      if (!isNaN(homeGoals) && !isNaN(awayGoals)) {
+      // Only submit if both values are valid numbers and greater than or equal to 0
+      if (!isNaN(homeGoals) && !isNaN(awayGoals) && homeGoals >= 0 && awayGoals >= 0) {
         console.log('🔍 Submitting bet:', { matchId, homeGoals, awayGoals, playerId: player?.id });
         await submitBet(matchId, homeGoals, awayGoals);
         console.log('🔍 Bet submitted successfully');
@@ -458,7 +470,13 @@ function MatchesList() {
   };
 
   const handleBlur = () => {
+    // Don't submit bet if fields are empty when blurring
     setEditingMatchId(null);
+  };
+
+  const handleDone = () => {
+    setEditingMatchId(null);
+    Keyboard.dismiss();
   };
 
   const navigateMatchday = (direction: 'prev' | 'next') => {
@@ -562,28 +580,35 @@ function MatchesList() {
               const matchDate = matchesAtTime[0]?.match.getDate();
               const dayDisplay = matchDate ? formatDate(matchDate) : '';
               
+              // Filter matches for this time slot
+              const filteredMatchesAtTime = matchesAtTime.filter((matchResult: MatchResult) => 
+                !editingMatchId || matchResult.match.id() === editingMatchId
+              );
+              
+              // Only show time group if there are matches to display
+              if (filteredMatchesAtTime.length === 0) {
+                return null;
+              }
+              
               return (
                 <View key={time} style={styles.timeGroup}>
                   <View style={styles.timeHeaderContainer}>
                     <Text style={styles.timeHeader}>{time}</Text>
                     <Text style={styles.dayHeader}>{dayDisplay}</Text>
                   </View>
-                  {matchesAtTime
-                    .filter((matchResult: MatchResult) => 
-                      !editingMatchId || matchResult.match.id() === editingMatchId
-                    )
-                    .map((matchResult: MatchResult) => (
-                      <MatchCard
-                        key={matchResult.match.id()}
-                        matchResult={matchResult}
-                        tempScores={tempScores}
-                        expandedMatches={expandedMatches}
-                        onBetChange={handleBetChange}
-                        onToggleBetSection={toggleBetSection}
-                        onFocus={() => handleFocus(matchResult.match.id())}
-                        onBlur={handleBlur}
-                      />
-                    ))}
+                  {filteredMatchesAtTime.map((matchResult: MatchResult) => (
+                    <MatchCard
+                      key={matchResult.match.id()}
+                      matchResult={matchResult}
+                      tempScores={tempScores}
+                      expandedMatches={expandedMatches}
+                      onBetChange={handleBetChange}
+                      onToggleBetSection={toggleBetSection}
+                      onFocus={() => handleFocus(matchResult.match.id())}
+                      onBlur={handleBlur}
+                      onDone={editingMatchId === matchResult.match.id() ? handleDone : undefined}
+                    />
+                  ))}
                 </View>
               );
             })}
@@ -803,5 +828,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     textAlign: 'center',
+  },
+  doneButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  doneButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 }); 

@@ -19,9 +19,18 @@ export default function GamesStackLayout() {
         }} 
       />
       <Stack.Screen 
-        name="game/overview" 
+        name="game/overview/[id]" 
         options={{ 
-          headerShown: false,
+          title: 'Game Overview',
+          headerShown: true,
+          headerBackTitle: 'Back',
+          headerStyle: {
+            backgroundColor: '#25292e',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            color: '#fff',
+          },
         }} 
       />
     </Stack>
