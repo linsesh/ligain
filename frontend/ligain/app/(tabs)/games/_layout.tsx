@@ -18,6 +18,12 @@ export default function GamesStackLayout() {
           },
         }} 
       />
+      <Stack.Screen 
+        name="game/overview" 
+        options={{ 
+          headerShown: false,
+        }} 
+      />
     </Stack>
   );
 }

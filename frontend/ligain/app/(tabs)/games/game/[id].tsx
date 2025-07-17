@@ -20,6 +20,120 @@ interface TempScores {
   };
 }
 
+// Helper function to format time
+const formatTime = (date: Date): string => {
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  });
+};
+
+// Helper function to format date
+const formatDate = (date: Date): string => {
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+};
+
+// Custom hook for fetching matches for a specific game
+const useMatchesForGame = (gameId: string) => {
+  const { player } = useAuth();
+  const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
+  const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchMatches = async () => {
+    try {
+      const { getAuthenticatedHeaders } = await import('../../../../src/config/api');
+      const headers = await getAuthenticatedHeaders();
+      console.log('🔧 useMatches - Using authenticated headers:', {
+        hasApiKey: !!headers['X-API-Key'],
+        hasAuth: !!headers['Authorization']
+      });
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
+        headers,
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+      }
+      
+      const data = await response.json();
+      
+      // Convert the matches to SeasonMatch objects and bets to BetImpl objects
+      const processMatches = (matches: any) => {
+        const processed: { [key: string]: MatchResult } = {};
+        Object.entries(matches).forEach(([key, value]: [string, any]) => {
+          const match = SeasonMatch.fromJSON(value.match);
+          
+          const bets = value.bets ? Object.entries(value.bets).reduce((acc: { [key: string]: any }, [playerName, betData]: [string, any]) => {
+            acc[betData.playerId] = {
+              playerId: betData.playerId,
+              playerName: betData.playerName,
+              predictedHomeGoals: betData.predictedHomeGoals,
+              predictedAwayGoals: betData.predictedAwayGoals,
+              isModifiable: (now: Date) => {
+                // Simple implementation - can be enhanced later
+                return !match.isFinished() && !match.isInProgress();
+              }
+            };
+            return acc;
+          }, {}) : null;
+          
+          // Process scores with new structure - use playerId as key
+          const scores = value.scores ? Object.entries(value.scores).reduce((acc: { [key: string]: any }, [playerName, scoreData]: [string, any]) => {
+            acc[scoreData.playerId] = {
+              playerId: scoreData.playerId,
+              playerName: scoreData.playerName,
+              points: scoreData.points
+            };
+            return acc;
+          }, {}) : null;
+          
+          processed[key] = {
+            match,
+            bets,
+            scores
+          };
+        });
+        return processed;
+      };
+
+      setIncomingMatches(processMatches(data.incomingMatches));
+      setPastMatches(processMatches(data.pastMatches));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch matches'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Only fetch matches if we have a gameId and a player (authenticated)
+    if (gameId && player) {
+      console.log('🔧 useMatchesForGame - Fetching matches for authenticated player:', player.name);
+      fetchMatches();
+    } else if (gameId && !player) {
+      console.log('🔧 useMatchesForGame - Waiting for player authentication...');
+      setLoading(true);
+    }
+  }, [gameId, player]);
+
+  return {
+    incomingMatches,
+    pastMatches,
+    loading,
+    error,
+    refresh: fetchMatches
+  };
+};
+
 function TeamInput({ 
   teamName, 
   value, 
@@ -38,25 +152,19 @@ function TeamInput({
   onBlur?: () => void;
 }) {
   return (
-    <View style={styles.teamContainer}>
-      {!isAway && <Text style={styles.teamName}>{teamName}</Text>}
+    <View style={[styles.teamContainer, isAway && styles.awayTeamContainer]}>
+      <Text style={[styles.teamName, isAway && styles.awayTeamName]}>
+        {teamName}
+      </Text>
       <TextInput
-        style={[
-          styles.betInput,
-          !canModify && { backgroundColor: '#e0e0e0' }
-        ]}
+        style={[styles.betInput, !canModify && styles.disabledInput]}
         value={value}
         onChangeText={onChange}
         keyboardType="numeric"
-        maxLength={2}
-        placeholder=""
         editable={canModify}
-        returnKeyType="done"
-        onSubmitEditing={() => Keyboard.dismiss()}
         onFocus={onFocus}
         onBlur={onBlur}
       />
-      {isAway && <Text style={[styles.teamName, styles.awayTeamName]}>{teamName}</Text>}
     </View>
   );
 }
@@ -204,107 +312,12 @@ function MatchesList() {
   
   console.log('📋 MatchesList - Rendering matches list for game:', gameId);
   
-  // Create a custom hook that accepts the game ID
-  const useMatchesForGame = (gameId: string) => {
-    const { player } = useAuth();
-    const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
-    const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
-
-    const fetchMatches = async () => {
-      try {
-        const { getAuthenticatedHeaders } = await import('../../../../src/config/api');
-        const headers = await getAuthenticatedHeaders();
-        console.log('🔧 useMatches - Using authenticated headers:', {
-          hasApiKey: !!headers['X-API-Key'],
-          hasAuth: !!headers['Authorization']
-        });
-        
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
-          headers,
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
-        }
-        
-        const data = await response.json();
-        
-        // Convert the matches to SeasonMatch objects and bets to BetImpl objects
-        const processMatches = (matches: any) => {
-          const processed: { [key: string]: MatchResult } = {};
-          Object.entries(matches).forEach(([key, value]: [string, any]) => {
-            const match = SeasonMatch.fromJSON(value.match);
-            
-            const bets = value.bets ? Object.entries(value.bets).reduce((acc: { [key: string]: any }, [playerName, betData]: [string, any]) => {
-              acc[betData.playerId] = {
-                playerId: betData.playerId,
-                playerName: betData.playerName,
-                predictedHomeGoals: betData.predictedHomeGoals,
-                predictedAwayGoals: betData.predictedAwayGoals,
-                isModifiable: (now: Date) => {
-                  // Simple implementation - can be enhanced later
-                  return !match.isFinished() && !match.isInProgress();
-                }
-              };
-              return acc;
-            }, {}) : null;
-            
-            // Process scores with new structure - use playerId as key
-            const scores = value.scores ? Object.entries(value.scores).reduce((acc: { [key: string]: any }, [playerName, scoreData]: [string, any]) => {
-              acc[scoreData.playerId] = {
-                playerId: scoreData.playerId,
-                playerName: scoreData.playerName,
-                points: scoreData.points
-              };
-              return acc;
-            }, {}) : null;
-            
-            processed[key] = {
-              match,
-              bets,
-              scores
-            };
-          });
-          return processed;
-        };
-
-        setIncomingMatches(processMatches(data.incomingMatches));
-        setPastMatches(processMatches(data.pastMatches));
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch matches'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    useEffect(() => {
-      // Only fetch matches if we have a gameId and a player (authenticated)
-      if (gameId && player) {
-        console.log('🔧 useMatchesForGame - Fetching matches for authenticated player:', player.name);
-        fetchMatches();
-      } else if (gameId && !player) {
-        console.log('🔧 useMatchesForGame - Waiting for player authentication...');
-        setLoading(true);
-      }
-    }, [gameId, player]);
-
-    return {
-      incomingMatches,
-      pastMatches,
-      loading,
-      error,
-      refresh: fetchMatches
-    };
-  };
-
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatchesForGame(gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [currentMatchday, setCurrentMatchday] = useState<number | null>(null);
   const { submitBet, error: submitError } = useBetSubmission(gameId);
   const { player } = useAuth();
   
@@ -313,6 +326,50 @@ function MatchesList() {
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
+
+  // Group matches by matchday
+  const matchesByMatchday = matches.reduce((acc, matchResult) => {
+    const matchday = matchResult.match.getMatchday();
+    if (!acc[matchday]) {
+      acc[matchday] = [];
+    }
+    acc[matchday].push(matchResult);
+    return acc;
+  }, {} as { [key: number]: MatchResult[] });
+
+  // Sort matchdays
+  const sortedMatchdays = Object.keys(matchesByMatchday)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  // Set initial matchday if not set
+  useEffect(() => {
+    if (sortedMatchdays.length > 0 && currentMatchday === null) {
+      setCurrentMatchday(sortedMatchdays[0]);
+    }
+  }, [sortedMatchdays, currentMatchday]);
+
+  // Group matches by time within the current matchday
+  const getMatchesByTime = (matchday: number) => {
+    const matchdayMatches = matchesByMatchday[matchday] || [];
+    
+    // Sort by time (ascending)
+    const sortedMatches = matchdayMatches.sort((a, b) => 
+      a.match.getDate().getTime() - b.match.getDate().getTime()
+    );
+
+    // Group by time
+    const groupedByTime = sortedMatches.reduce((acc, matchResult) => {
+      const timeKey = formatTime(matchResult.match.getDate());
+      if (!acc[timeKey]) {
+        acc[timeKey] = [];
+      }
+      acc[timeKey].push(matchResult);
+      return acc;
+    }, {} as { [key: string]: MatchResult[] });
+
+    return groupedByTime;
+  };
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -404,6 +461,17 @@ function MatchesList() {
     setEditingMatchId(null);
   };
 
+  const navigateMatchday = (direction: 'prev' | 'next') => {
+    if (!currentMatchday) return;
+    
+    const currentIndex = sortedMatchdays.indexOf(currentMatchday);
+    if (direction === 'prev' && currentIndex > 0) {
+      setCurrentMatchday(sortedMatchdays[currentIndex - 1]);
+    } else if (direction === 'next' && currentIndex < sortedMatchdays.length - 1) {
+      setCurrentMatchday(sortedMatchdays[currentIndex + 1]);
+    }
+  };
+
   if (matchesLoading && !refreshing) {
     return (
       <View style={styles.container}>
@@ -416,6 +484,10 @@ function MatchesList() {
   const filteredMatches = matches.filter((matchResult: MatchResult) => 
     !editingMatchId || matchResult.match.id() === editingMatchId
   );
+
+  // Get current matchday matches grouped by time
+  const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
+  const sortedTimes = Object.keys(currentMatchdayMatches).sort();
 
   return (
     <KeyboardAvoidingView 
@@ -440,26 +512,83 @@ function MatchesList() {
             <Text style={styles.errorText}>Failed to load matches: {matchesError.message}</Text>
             <Text style={styles.refreshHint}>Pull down to refresh</Text>
           </View>
+        ) : sortedMatchdays.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No matches available</Text>
+          </View>
         ) : (
-          filteredMatches
-            .sort((a: MatchResult, b: MatchResult) => {
-              if (a.match.getMatchday() !== b.match.getMatchday()) {
-                return a.match.getMatchday() - b.match.getMatchday();
-              }
-              return a.match.getDate().getTime() - b.match.getDate().getTime();
-            })
-            .map((matchResult: MatchResult) => (
-              <MatchCard
-                key={matchResult.match.id()}
-                matchResult={matchResult}
-                tempScores={tempScores}
-                expandedMatches={expandedMatches}
-                onBetChange={handleBetChange}
-                onToggleBetSection={toggleBetSection}
-                onFocus={() => handleFocus(matchResult.match.id())}
-                onBlur={handleBlur}
-              />
-            ))
+          <>
+            {/* Matchday Navigation */}
+            <View style={styles.matchdayNavigation}>
+              <TouchableOpacity 
+                style={[
+                  styles.navButton, 
+                  sortedMatchdays.indexOf(currentMatchday!) <= 0 && styles.navButtonDisabled
+                ]}
+                onPress={() => navigateMatchday('prev')}
+                disabled={sortedMatchdays.indexOf(currentMatchday!) <= 0}
+                testID="prev-matchday-button"
+              >
+                <Ionicons name="chevron-back" size={24} color="#fff" />
+              </TouchableOpacity>
+              
+              <View style={styles.matchdayInfo}>
+                <Text style={styles.matchdayTitle}>Matchday {currentMatchday}</Text>
+                {currentMatchday && matchesByMatchday[currentMatchday] && matchesByMatchday[currentMatchday].length > 0 && (
+                  <Text style={styles.matchdayDate}>
+                    {formatDate(matchesByMatchday[currentMatchday][0].match.getDate())}
+                  </Text>
+                )}
+              </View>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.navButton, 
+                  sortedMatchdays.indexOf(currentMatchday!) >= sortedMatchdays.length - 1 && styles.navButtonDisabled
+                ]}
+                onPress={() => navigateMatchday('next')}
+                disabled={sortedMatchdays.indexOf(currentMatchday!) >= sortedMatchdays.length - 1}
+                testID="next-matchday-button"
+              >
+                <Ionicons name="chevron-forward" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Matches for current matchday */}
+            <View style={styles.matchesContainer}>
+            {sortedTimes.map(time => {
+              const matchesAtTime = currentMatchdayMatches[time];
+              // Get the date from the first match to display the day
+              const matchDate = matchesAtTime[0]?.match.getDate();
+              const dayDisplay = matchDate ? formatDate(matchDate) : '';
+              
+              return (
+                <View key={time} style={styles.timeGroup}>
+                  <View style={styles.timeHeaderContainer}>
+                    <Text style={styles.timeHeader}>{time}</Text>
+                    <Text style={styles.dayHeader}>{dayDisplay}</Text>
+                  </View>
+                  {matchesAtTime
+                    .filter((matchResult: MatchResult) => 
+                      !editingMatchId || matchResult.match.id() === editingMatchId
+                    )
+                    .map((matchResult: MatchResult) => (
+                      <MatchCard
+                        key={matchResult.match.id()}
+                        matchResult={matchResult}
+                        tempScores={tempScores}
+                        expandedMatches={expandedMatches}
+                        onBetChange={handleBetChange}
+                        onToggleBetSection={toggleBetSection}
+                        onFocus={() => handleFocus(matchResult.match.id())}
+                        onBlur={handleBlur}
+                      />
+                    ))}
+                </View>
+              );
+            })}
+            </View>
+          </>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -528,6 +657,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
+  awayTeamContainer: {
+    flexDirection: 'row-reverse',
+  },
   teamName: {
     fontSize: 14,
     color: '#333',
@@ -550,6 +682,10 @@ const styles = StyleSheet.create({
     width: 40,
     textAlign: 'center',
     backgroundColor: '#fff',
+  },
+  disabledInput: {
+    backgroundColor: '#f0f0f0',
+    color: '#999',
   },
   errorContainer: {
     padding: 20,
@@ -585,31 +721,87 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   betResultContainer: {
-    padding: 8,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 4,
-  },
-  betResultText: {
-    fontSize: 14,
-    color: '#666',
+    marginTop: 8,
   },
   scoresContainer: {
-    marginTop: 6,
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    borderRadius: 4,
   },
   playerScoreRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 1,
+    paddingVertical: 4,
   },
   scoreText: {
     fontSize: 14,
-    color: '#666',
+    color: '#333',
   },
-  loadingContainer: {
-    padding: 20,
+  betResultText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  matchdayNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#333',
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
+  },
+  navButton: {
+    padding: 8,
+  },
+  navButtonDisabled: {
+    opacity: 0.5,
+  },
+  matchdayInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  matchdayTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  matchdayDate: {
+    color: '#ccc',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  matchesContainer: {
+    marginTop: 16,
+  },
+  timeGroup: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  timeHeaderContainer: {
+    marginBottom: 8,
+  },
+  timeHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  dayHeader: {
+    fontSize: 14,
+    color: '#ccc',
+    marginTop: 2,
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
-    minHeight: 200,
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
   },
 }); 

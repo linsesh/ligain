@@ -26,9 +26,6 @@ export default function AboutScreen() {
           It's currently in alpha and only available for Ligue 1 matches.
         </Text>
         <Text style={[styles.text, { color: colors.text }]}>
-          The application is being made by a single developer, so it may not be perfect.
-        </Text>
-        <Text style={[styles.text, { color: colors.text }]}>
           If you have any feedback, please contact me at{' '}
           <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>benoitlinsey27@gmail.com</Text>
         </Text>
