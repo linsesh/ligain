@@ -2,9 +2,8 @@ import Constants from 'expo-constants';
 import { getItem } from '../utils/storage';
 
 export const API_CONFIG = {
-  BASE_URL: Constants.expoConfig?.extra?.apiBaseUrl || 'https://server-dev-5be58e3-uyqlakruuq-ew.a.run.app',
+  BASE_URL: Constants.expoConfig?.extra?.apiBaseUrl,
   API_KEY: Constants.expoConfig?.extra?.apiKey,
-  GAME_ID: '123e4567-e89b-12d3-a456-426614174000',
 } as const;
 
 export const getApiHeaders = (additionalHeaders?: Record<string, string>) => {

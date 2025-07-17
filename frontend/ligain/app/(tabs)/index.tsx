@@ -54,22 +54,7 @@ function GamesList() {
       }
       
       const data = await response.json();
-      let gamesList = data.games || [];
-      // Add hardcoded game if not present
-      const hardcodedGameId = '123e4567-e89b-12d3-a456-426614174000';
-      if (!(gamesList as Game[]).some((g: Game) => g.gameId === hardcodedGameId)) {
-        gamesList = [
-          ...gamesList,
-          {
-            gameId: hardcodedGameId,
-            seasonYear: '2025/2026',
-            competitionName: 'Ligue 1',
-            name: 'Ligue 1 Test Game',
-            status: 'in progress',
-          },
-        ];
-      }
-      setGames(gamesList);
+      setGames(data.games || []);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch games');
