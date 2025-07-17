@@ -89,9 +89,9 @@ export default function GameOverviewScreen() {
     router.push(`/(tabs)/games/game/${gameId}`);
   };
 
-  const navigateBack = () => {
-    router.push('/(tabs)/');
-  };
+
+
+
 
 
 
@@ -131,15 +131,6 @@ export default function GameOverviewScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={navigateBack}
-      >
-        <Ionicons name="chevron-back" size={24} color="#fff" />
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
-      
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
@@ -374,21 +365,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  backButton: {
-    position: 'absolute',
-    top: 60,
-    left: 16,
-    zIndex: 1000,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    paddingHorizontal: 16,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    marginLeft: 6,
-    fontWeight: '400',
-  },
+
+
 
 }); 
