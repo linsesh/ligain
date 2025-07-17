@@ -98,9 +98,9 @@ func insertTestData(db *sql.DB) error {
 	// Insert game with hardcoded UUID
 	gameId := "123e4567-e89b-12d3-a456-426614174000" // Hardcoded UUID that can be used in main.go
 	_, err := db.Exec(`
-		INSERT INTO game (id, season_year, competition_name, status)
-		VALUES ($1, $2, $3, $4)`,
-		gameId, "2024", "Ligue 1", "started")
+		INSERT INTO game (id, season_year, competition_name, status, game_name)
+		VALUES ($1, $2, $3, $4, $5)`,
+		gameId, "2024", "Ligue 1", "started", "Test Ligue 1")
 	if err != nil {
 		return fmt.Errorf("failed to insert game: %v", err)
 	}

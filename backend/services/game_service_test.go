@@ -66,7 +66,7 @@ func setupTestGameService() (*GameServiceImpl, models.Match, []models.Player) {
 	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	matches := []models.Match{match}
 
-	game := rules.NewFreshGame("2024", "Premier League", players, matches, &scorerMock{})
+	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{})
 	gameRepo := &gameRepositoryMock{}
 	betRepo := repositories.NewInMemoryBetRepository()
 
@@ -152,7 +152,7 @@ func TestGameService_HandleMatchUpdates(t *testing.T) {
 		// Add the match to the game by creating a new game with both matches
 		players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 		matches := []models.Match{match, match2}
-		game := rules.NewFreshGame("2024", "Premier League", players, matches, &scorerMock{})
+		game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{})
 
 		// Create a new service with the updated game
 		gameRepo := &gameRepositoryMock{}

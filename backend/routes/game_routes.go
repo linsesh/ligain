@@ -45,7 +45,7 @@ func (h *GameHandler) createGame(c *gin.Context) {
 		}).Error("Failed to bind game creation request")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":           fmt.Sprintf("Invalid request format: %v", err),
-			"expected_format": "{\"seasonYear\": \"string\", \"competitionName\": \"string\"}",
+			"expected_format": "{\"seasonYear\": \"string\", \"competitionName\": \"string\", \"name\": \"string\"}",
 		})
 		return
 	}
@@ -57,6 +57,10 @@ func (h *GameHandler) createGame(c *gin.Context) {
 	}
 	if request.CompetitionName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "competitionName is required"})
+		return
+	}
+	if request.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 		return
 	}
 

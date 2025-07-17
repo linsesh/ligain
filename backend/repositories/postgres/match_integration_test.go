@@ -21,10 +21,10 @@ func TestMatchRepository_Integration(t *testing.T) {
 		matchRepo := NewPostgresMatchRepository(testDB.db)
 
 		t.Run("Save and Get Match", func(t *testing.T) {
-			// Create test data using raw SQL with proper UUID
+			// Setup test data
 			_, err := testDB.db.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')
 			`)
 			require.NoError(t, err)
 
@@ -42,10 +42,10 @@ func TestMatchRepository_Integration(t *testing.T) {
 		})
 
 		t.Run("Get All Matches", func(t *testing.T) {
-			// Create test data using raw SQL with proper UUID
+			// Setup test data
 			_, err := testDB.db.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('223e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ('223e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')
 			`)
 			require.NoError(t, err)
 

@@ -31,8 +31,8 @@ func TestGameRepository_Integration(t *testing.T) {
 		t.Run("Create and Get Game", func(t *testing.T) {
 			// Create test data using raw SQL with proper UUID and schema columns
 			_, err := testDB.db.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game');
 			`)
 			require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestGameRepository_Integration(t *testing.T) {
 
 		t.Run("Save Game with ID", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				game := rules.NewFreshGame("2024", "Premier League", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+				game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
 				gameID := "223e4567-e89b-12d3-a456-426614174000"
 				err := gameRepo.SaveWithId(gameID, game)
 				require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestGameRepository_Integration(t *testing.T) {
 
 		t.Run("Save Game with Invalid ID", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				game := rules.NewFreshGame("2024", "Premier League", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+				game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
 				err := gameRepo.SaveWithId("invalid-uuid-format", game)
 				require.Error(t, err)
 			})
@@ -110,7 +110,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 		// Now that player1 and player2 have IDs, create the game
 		gameId := "323e4567-e89b-12d3-a456-426614174000"
-		game := rules.NewFreshGame("2024", "Premier League", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
 		err = gameRepo.SaveWithId(gameId, game)
 		require.NoError(t, err)
 
@@ -305,7 +305,7 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 
 		// Create a game with all three players
 		gameId := "423e4567-e89b-12d3-a456-426614174000"
-		game := rules.NewFreshGame("2024", "Premier League", []models.Player{player1, player2, player3}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player1, player2, player3}, []models.Match{}, &rules.ScorerOriginal{})
 		err = gameRepo.SaveWithId(gameId, game)
 		require.NoError(t, err)
 

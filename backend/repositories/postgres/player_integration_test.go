@@ -143,10 +143,10 @@ func TestPlayerRepository_Integration(t *testing.T) {
 		})
 
 		t.Run("Get Players by Game", func(t *testing.T) {
-			// Create test data using raw SQL with proper UUID and schema columns
+			// Setup test data
 			_, err := testDB.db.Exec(`
-				INSERT INTO game (id, season_year, competition_name, status)
-				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')
 			`)
 			require.NoError(t, err)
 

@@ -29,8 +29,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('123e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game');
 				`)
 				require.NoError(t, err)
 
@@ -73,8 +73,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('223e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('223e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game');
 				`)
 				require.NoError(t, err)
 
@@ -122,8 +122,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('323e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started')`)
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('323e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')`)
 				require.NoError(t, err)
 
 				_, err = tx.Exec(`
@@ -155,8 +155,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('423e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started');
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('423e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game');
 				`)
 				require.NoError(t, err)
 
@@ -175,8 +175,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('423e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started')`)
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('423e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')`)
 				require.NoError(t, err)
 
 				_, err = tx.Exec(`
@@ -218,8 +218,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('523e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started')`)
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('523e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')`)
 				require.NoError(t, err)
 
 				_, err = tx.Exec(`
@@ -256,8 +256,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('623e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started')`)
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('623e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')`)
 				require.NoError(t, err)
 
 				_, err = tx.Exec(`
@@ -310,8 +310,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('723e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started')`)
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('723e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')`)
 				require.NoError(t, err)
 
 				_, err = tx.Exec(`
@@ -376,8 +376,8 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Setup test data
 				_, err := tx.Exec(`
-					INSERT INTO game (id, season_year, competition_name, status)
-					VALUES ('823e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started')`)
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('823e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game')`)
 				require.NoError(t, err)
 
 				_, err = tx.Exec(`

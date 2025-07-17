@@ -48,6 +48,10 @@ func (m *MockGame) GetGameStatus() models.GameStatus {
 	return models.GameStatusScheduled
 }
 
+func (m *MockGame) GetName() string {
+	return "Test Game"
+}
+
 func (m *MockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
 	return nil
 }

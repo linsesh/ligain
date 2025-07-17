@@ -74,6 +74,7 @@ func (s *GameCreationService) GetGameService(gameID string) (GameService, error)
 type CreateGameRequest struct {
 	SeasonYear      string `json:"seasonYear" binding:"required"`
 	CompetitionName string `json:"competitionName" binding:"required"`
+	Name            string `json:"name" binding:"required"`
 }
 
 // CreateGameResponse represents the response when creating a new game
@@ -101,6 +102,7 @@ type PlayerGame struct {
 	GameID          string           `json:"gameId"`
 	SeasonYear      string           `json:"seasonYear"`
 	CompetitionName string           `json:"competitionName"`
+	Name            string           `json:"name"`
 	Status          string           `json:"status"`
 	Players         []PlayerGameInfo `json:"players"`
 }
@@ -120,6 +122,10 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	if req.SeasonYear != "2025/2026" {
 		return nil, ErrInvalidSeasonYear
 	}
+	// Validate name - must not be empty
+	if req.Name == "" {
+		return nil, fmt.Errorf("game name is required")
+	}
 
 	// Load all matches for this competition and season
 	matches, err := s.matchRepo.GetMatchesByCompetitionAndSeason(req.CompetitionName, req.SeasonYear)
@@ -131,6 +137,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	game := rules.NewFreshGame(
 		req.SeasonYear,
 		req.CompetitionName,
+		req.Name,
 		[]models.Player{}, // No players initially
 		matches,           // Load all matches for this competition/season
 		&rules.ScorerOriginal{},
@@ -328,6 +335,7 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 			GameID:          gameID,
 			SeasonYear:      game.GetSeasonYear(),
 			CompetitionName: game.GetCompetitionName(),
+			Name:            game.GetName(), // Add game name here
 			Status:          string(game.GetGameStatus()),
 			Players:         playerInfos,
 		}

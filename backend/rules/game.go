@@ -10,6 +10,7 @@ import (
 type GameImpl struct {
 	seasonCode      string
 	competitionCode string
+	name            string
 	players         []models.Player
 	// PlayersPoints is a map of match id to a map of player to points
 	playersPoints map[string]map[string]int
@@ -24,10 +25,11 @@ type GameImpl struct {
 	scores      map[string]map[string]int
 }
 
-func NewFreshGame(seasonCode, competitionCode string, players []models.Player, incomingMatches []models.Match, scorer Scorer) *GameImpl {
+func NewFreshGame(seasonCode, competitionCode, name string, players []models.Player, incomingMatches []models.Match, scorer Scorer) *GameImpl {
 	g := &GameImpl{
 		seasonCode:      seasonCode,
 		competitionCode: competitionCode,
+		name:            name,
 		players:         players,
 		gameStatus:      models.GameStatusNotStarted,
 		playersPoints:   make(map[string]map[string]int),
@@ -43,8 +45,8 @@ func NewFreshGame(seasonCode, competitionCode string, players []models.Player, i
 	return g
 }
 
-func NewStartedGame(seasonCode, competitionCode string, players []models.Player, incomingMatches []models.Match, pastMatches []models.Match, scorer Scorer, bets map[string]map[string]*models.Bet, scores map[string]map[string]int) models.Game {
-	g := NewFreshGame(seasonCode, competitionCode, players, incomingMatches, scorer)
+func NewStartedGame(seasonCode, competitionCode, name string, players []models.Player, incomingMatches []models.Match, pastMatches []models.Match, scorer Scorer, bets map[string]map[string]*models.Bet, scores map[string]map[string]int) models.Game {
+	g := NewFreshGame(seasonCode, competitionCode, name, players, incomingMatches, scorer)
 	for _, match := range pastMatches {
 		g.pastMatches[match.Id()] = match
 	}
@@ -165,6 +167,10 @@ func (g *GameImpl) GetCompetitionName() string {
 
 func (g *GameImpl) GetGameStatus() models.GameStatus {
 	return g.gameStatus
+}
+
+func (g *GameImpl) GetName() string {
+	return g.name
 }
 
 func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {

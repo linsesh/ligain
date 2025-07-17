@@ -47,7 +47,7 @@ func TestGameBasicProperties(t *testing.T) {
 	}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	// Test basic properties
 	if game.GetSeasonYear() != "2024" {
@@ -55,6 +55,9 @@ func TestGameBasicProperties(t *testing.T) {
 	}
 	if game.GetCompetitionName() != "Premier League" {
 		t.Errorf("Expected competition name 'Premier League', got %s", game.GetCompetitionName())
+	}
+	if game.GetName() != "Test Game" {
+		t.Errorf("Expected game name 'Test Game', got %s", game.GetName())
 	}
 	if game.GetGameStatus() != models.GameStatusNotStarted {
 		t.Errorf("Expected game status 'not started', got %s", game.GetGameStatus())
@@ -67,7 +70,7 @@ func TestCheckPlayerBetValidity(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	tests := []struct {
 		name          string
@@ -124,7 +127,7 @@ func TestCheckPlayerBetValidityWithMixedPlayerSources(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	// Add bets for Player1 and Player2 only
 	bet1 := models.NewBet(match, 2, 1)
@@ -202,7 +205,7 @@ func TestAddPlayerBetAndGetIncomingMatches(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	// Add a valid bet
 	bet := models.NewBet(match, 2, 1)
@@ -237,7 +240,7 @@ func TestCalculateAndApplyMatchScores(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	// Add bets for both players
 	correctBet := models.NewBet(match, 2, 1)
@@ -288,7 +291,7 @@ func TestGameFinishAndWinner(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	// Add bets
 	correctBet := models.NewBet(match, 2, 1)
@@ -328,7 +331,7 @@ func TestUpdateMatch(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
 
 	// Update match with new time
 	updatedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime.Add(24*time.Hour), 1)

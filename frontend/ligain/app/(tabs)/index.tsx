@@ -11,6 +11,7 @@ interface Game {
   gameId: string;
   seasonYear: string;
   competitionName: string;
+  name: string;
   status: string;
 }
 
@@ -34,10 +35,12 @@ function GamesList() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [creatingGame, setCreatingGame] = useState(false);
   const [joiningGame, setJoiningGame] = useState(false);
   const [newGameCode, setNewGameCode] = useState<string | null>(null);
+  const [newGameName, setNewGameName] = useState('');
 
   const fetchGames = async () => {
     try {
@@ -62,6 +65,7 @@ function GamesList() {
             gameId: hardcodedGameId,
             seasonYear: '2025/2026',
             competitionName: 'Ligue 1',
+            name: 'Ligue 1 Test Game',
             status: 'in progress',
           },
         ];
@@ -76,6 +80,10 @@ function GamesList() {
   };
 
   const createGame = async () => {
+    if (!newGameName.trim()) {
+      Alert.alert('Error', 'Please enter a game name');
+      return;
+    }
     setCreatingGame(true);
     try {
       const headers = await getAuthenticatedHeaders({
@@ -87,7 +95,8 @@ function GamesList() {
         headers,
         body: JSON.stringify({
           seasonYear: '2025/2026',
-          competitionName: 'Ligue 1'
+          competitionName: 'Ligue 1',
+          name: newGameName.trim(),
         }),
       });
       
@@ -98,6 +107,10 @@ function GamesList() {
       
       const data: CreateGameResponse = await response.json();
       setNewGameCode(data.code);
+      
+      // Close modal and reset form
+      setShowCreateModal(false);
+      setNewGameName('');
       
       // Refresh games list
       await fetchGames();
@@ -205,17 +218,10 @@ function GamesList() {
       <View style={styles.actionButtons}>
         <TouchableOpacity 
           style={[styles.actionButton, styles.createButton, { marginRight: 8 }]} 
-          onPress={createGame}
-          disabled={creatingGame}
+          onPress={() => setShowCreateModal(true)}
         >
-          {creatingGame ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="add-circle" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Create Game</Text>
-            </>
-          )}
+          <Ionicons name="add-circle" size={20} color="#fff" />
+          <Text style={styles.actionButtonText}>Create Game</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -278,8 +284,8 @@ function GamesList() {
               }}
             >
               <View style={styles.gameHeader}>
-                <Text style={styles.gameTitle}>{game.competitionName}</Text>
-                <Text style={styles.gameSeason}>{game.seasonYear}</Text>
+                <Text style={styles.gameTitle}>{game.name}</Text>
+                <Text style={styles.gameSeason}>{game.seasonYear} • {game.competitionName}</Text>
               </View>
               <View style={styles.gameStatus}>
                 <Text style={styles.statusText}>Status: {game.status}</Text>
@@ -288,6 +294,53 @@ function GamesList() {
           ))
         )}
       </ScrollView>
+
+      {/* Create Game Modal */}
+      {showCreateModal && (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Create a New Game</Text>
+            <Text style={styles.modalSubtitle}>Enter a name for your game</Text>
+            
+            <TextInput
+              style={styles.gameNameInput}
+              value={newGameName}
+              onChangeText={setNewGameName}
+              placeholder="My Awesome Game"
+              placeholderTextColor="#666"
+              maxLength={40}
+              autoFocus
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => {
+                  setShowCreateModal(false);
+                  setNewGameName('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.confirmButton]} 
+                onPress={createGame}
+                disabled={creatingGame}
+              >
+                {creatingGame ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Create</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       {/* Join Game Modal */}
       {showJoinModal && (
@@ -391,14 +444,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     gap: 8,
+    flex: 1,
   },
   createButton: {
     backgroundColor: '#4CAF50',
-    flex: 1,
+    marginRight: 8,
   },
   joinButton: {
     backgroundColor: '#2196F3',
-    flex: 1,
+    marginLeft: 8,
   },
   actionButtonText: {
     color: '#fff',
@@ -527,6 +581,18 @@ const styles = StyleSheet.create({
     color: '#999',
     marginBottom: 15,
   },
+  gameNameInput: {
+    borderWidth: 1,
+    borderColor: '#666',
+    borderRadius: 6,
+    padding: 12,
+    width: '100%',
+    fontSize: 18,
+    color: '#fff',
+    backgroundColor: '#444',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
   codeInput: {
     borderWidth: 1,
     borderColor: '#666',
@@ -552,6 +618,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: '#666',
     flex: 1,
+    marginRight: 10,
   },
   cancelButtonText: {
     color: '#fff',
@@ -562,6 +629,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     backgroundColor: '#4CAF50',
     flex: 1,
+    marginLeft: 10,
   },
   confirmButtonText: {
     color: '#fff',

@@ -136,6 +136,7 @@ func TestCreateGame_Success(t *testing.T) {
 	requestBody := services.CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	response := &services.CreateGameResponse{
@@ -286,6 +287,7 @@ func TestCreateGame_ServiceError(t *testing.T) {
 	requestBody := services.CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	// Mock expectations
@@ -325,6 +327,7 @@ func TestCreateGame_Unauthorized(t *testing.T) {
 	requestBody := services.CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	// Mock expectations - authentication fails
@@ -360,6 +363,7 @@ func TestCreateGame_InvalidCompetitionName(t *testing.T) {
 	requestBody := services.CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Premier League",
+		Name:            "Test Game",
 	}
 
 	// Mock expectations
@@ -399,6 +403,7 @@ func TestCreateGame_InvalidSeasonYear(t *testing.T) {
 	requestBody := services.CreateGameRequest{
 		SeasonYear:      "2024/2025",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	// Mock expectations

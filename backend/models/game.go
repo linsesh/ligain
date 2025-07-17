@@ -19,6 +19,7 @@ type Game interface {
 	GetSeasonYear() string
 	GetCompetitionName() string
 	GetGameStatus() GameStatus
+	GetName() string
 	CheckPlayerBetValidity(player Player, bet *Bet, datetime time.Time) error
 	AddPlayerBet(player Player, bet *Bet) error
 	CalculateMatchScores(match Match) (map[string]int, error)

@@ -23,7 +23,7 @@ func TestGameCodeRepository_Integration(t *testing.T) {
 
 		t.Run("Create and Get Game Code", func(t *testing.T) {
 			gameID := "123e4567-e89b-12d3-a456-426614174001"
-			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID, "2024", "Test League", "not started")
+			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID, "2024", "Test League", "not started", "Test Game")
 			require.NoError(t, err)
 
 			expiresAt := time.Now().Add(24 * time.Hour)
@@ -42,7 +42,7 @@ func TestGameCodeRepository_Integration(t *testing.T) {
 
 		t.Run("Get Game Code by Game ID", func(t *testing.T) {
 			gameID := "123e4567-e89b-12d3-a456-426614174002"
-			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID, "2024", "Test League 2", "not started")
+			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID, "2024", "Test League 2", "not started", "Test Game")
 			require.NoError(t, err)
 
 			expiresAt := time.Now().Add(24 * time.Hour)
@@ -58,7 +58,7 @@ func TestGameCodeRepository_Integration(t *testing.T) {
 
 		t.Run("Code Exists Check", func(t *testing.T) {
 			gameID := "123e4567-e89b-12d3-a456-426614174003"
-			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID, "2024", "Test League 3", "not started")
+			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID, "2024", "Test League 3", "not started", "Test Game")
 			require.NoError(t, err)
 
 			expiresAt := time.Now().Add(24 * time.Hour)
@@ -77,7 +77,7 @@ func TestGameCodeRepository_Integration(t *testing.T) {
 
 		t.Run("Delete Game Code", func(t *testing.T) {
 			gameID := "123e4567-e89b-12d3-a456-426614174004"
-			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID, "2024", "Test League 4", "not started")
+			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID, "2024", "Test League 4", "not started", "Test Game")
 			require.NoError(t, err)
 
 			expiresAt := time.Now().Add(24 * time.Hour)
@@ -95,7 +95,7 @@ func TestGameCodeRepository_Integration(t *testing.T) {
 
 		t.Run("Expired Code Handling", func(t *testing.T) {
 			gameID := "123e4567-e89b-12d3-a456-426614174005"
-			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID, "2024", "Test League 5", "not started")
+			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID, "2024", "Test League 5", "not started", "Test Game")
 			require.NoError(t, err)
 
 			expiresAt := time.Now().Add(-24 * time.Hour)
@@ -115,9 +115,9 @@ func TestGameCodeRepository_Integration(t *testing.T) {
 		t.Run("Delete Expired Codes", func(t *testing.T) {
 			gameID1 := "123e4567-e89b-12d3-a456-426614174006"
 			gameID2 := "123e4567-e89b-12d3-a456-426614174007"
-			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID1, "2024", "Test League 6", "not started")
+			_, err := testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID1, "2024", "Test League 6", "not started", "Test Game")
 			require.NoError(t, err)
-			_, err = testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status) VALUES ($1, $2, $3, $4)`, gameID2, "2024", "Test League 6", "not started")
+			_, err = testDB.db.Exec(`INSERT INTO game (id, season_year, competition_name, status, game_name) VALUES ($1, $2, $3, $4, $5)`, gameID2, "2024", "Test League 6", "not started", "Test Game")
 			require.NoError(t, err)
 
 			expiresAt1 := time.Now().Add(-24 * time.Hour)

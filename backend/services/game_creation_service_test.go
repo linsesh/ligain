@@ -173,6 +173,7 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -215,6 +216,7 @@ func TestGameCreationService_CreateGame_GameCreationFails(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -248,6 +250,7 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -285,6 +288,7 @@ func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -322,6 +326,7 @@ func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -407,6 +412,7 @@ func TestGameCreationService_CreateGame_InvalidCompetition(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Premier League",
+		Name:            "Test Game",
 	}
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	response, err := service.CreateGame(request, player)
@@ -426,6 +432,7 @@ func TestGameCreationService_CreateGame_InvalidSeasonYear(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2024/2025",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	response, err := service.CreateGame(request, player)
@@ -446,6 +453,7 @@ func TestGameCreationService_CreateGame_MatchLoadingFails(t *testing.T) {
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
 	}
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -527,7 +535,11 @@ func (m *SimpleMockGame) GetCompetitionName() string {
 }
 
 func (m *SimpleMockGame) GetGameStatus() models.GameStatus {
-	return models.GameStatusNotStarted
+	return models.GameStatusScheduled
+}
+
+func (m *SimpleMockGame) GetName() string {
+	return "Test Game"
 }
 
 func (m *SimpleMockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {

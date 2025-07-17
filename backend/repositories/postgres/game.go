@@ -28,8 +28,8 @@ func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) 
 
 func (r *PostgresGameRepository) CreateGame(game models.Game) (string, error) {
 	query := `
-		INSERT INTO game (season_year, competition_name, status)
-		VALUES ($1, $2, $3)
+		INSERT INTO game (season_year, competition_name, status, game_name)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id`
 
 	var id string
@@ -38,6 +38,7 @@ func (r *PostgresGameRepository) CreateGame(game models.Game) (string, error) {
 		game.GetSeasonYear(),
 		game.GetCompetitionName(),
 		game.GetGameStatus(),
+		game.GetName(),
 	).Scan(&id)
 
 	if err != nil {
@@ -48,7 +49,7 @@ func (r *PostgresGameRepository) CreateGame(game models.Game) (string, error) {
 }
 
 func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
-	seasonYear, competitionName, err := r.getGameDetails(gameId)
+	seasonYear, competitionName, name, err := r.getGameDetails(gameId)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +93,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		gameImpl = rules.NewFreshGame(
 			seasonYear,
 			competitionName,
+			name,
 			playerSlice,
 			[]models.Match{}, // empty incoming matches
 			&rules.ScorerOriginal{},
@@ -100,6 +102,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		gameImpl = rules.NewStartedGame(
 			seasonYear,
 			competitionName,
+			name,
 			playerSlice,
 			incomingMatches,
 			pastMatches,
@@ -112,26 +115,27 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 	return gameImpl, nil
 }
 
-func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, error) {
+func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, string, error) {
 	query := `
-		SELECT season_year, competition_name
+		SELECT season_year, competition_name, game_name
 		FROM game
 		WHERE id = $1`
 
-	var seasonYear, competitionName string
+	var seasonYear, competitionName, name string
 	err := r.db.QueryRow(query, gameId).Scan(
 		&seasonYear,
 		&competitionName,
+		&name,
 	)
 
 	if err == sql.ErrNoRows {
-		return "", "", fmt.Errorf("game %s not found", gameId)
+		return "", "", "", fmt.Errorf("game %s not found", gameId)
 	}
 	if err != nil {
-		return "", "", fmt.Errorf("error getting game: %v", err)
+		return "", "", "", fmt.Errorf("error getting game: %v", err)
 	}
 
-	return seasonYear, competitionName, nil
+	return seasonYear, competitionName, name, nil
 }
 
 func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Match, []models.Match, map[string]map[string]*models.Bet, []models.Player, error) {
@@ -258,12 +262,13 @@ func (r *PostgresGameRepository) createBet(match models.Match, predictedHomeGoal
 
 func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) error {
 	query := `
-		INSERT INTO game (id, season_year, competition_name, status)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO game (id, season_year, competition_name, status, game_name)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (id) DO UPDATE SET
 			season_year = EXCLUDED.season_year,
 			competition_name = EXCLUDED.competition_name,
-			status = EXCLUDED.status`
+			status = EXCLUDED.status,
+			game_name = EXCLUDED.game_name`
 
 	_, err := r.db.Exec(
 		query,
@@ -271,6 +276,7 @@ func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) err
 		game.GetSeasonYear(),
 		game.GetCompetitionName(),
 		game.GetGameStatus(),
+		game.GetName(),
 	)
 
 	if err != nil {
