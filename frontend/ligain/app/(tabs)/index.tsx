@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -39,7 +39,6 @@ function GamesList() {
   const [joinCode, setJoinCode] = useState('');
   const [creatingGame, setCreatingGame] = useState(false);
   const [joiningGame, setJoiningGame] = useState(false);
-  const [newGameCode, setNewGameCode] = useState<string | null>(null);
   const [newGameName, setNewGameName] = useState('');
 
   const fetchGames = async () => {
@@ -106,7 +105,6 @@ function GamesList() {
       }
       
       const data: CreateGameResponse = await response.json();
-      setNewGameCode(data.code);
       
       // Close modal and reset form
       setShowCreateModal(false);
@@ -115,14 +113,8 @@ function GamesList() {
       // Refresh games list
       await fetchGames();
       
-      Alert.alert(
-        'Game Created!',
-        `Your game code is: ${data.code}`,
-        [
-          { text: 'Copy Code', onPress: () => copyToClipboard(data.code) },
-          { text: 'OK', onPress: () => setNewGameCode(null) }
-        ]
-      );
+      // Navigate to the new game overview page
+      router.push(`/(tabs)/games/game/overview/${data.gameId}`);
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create game');
     } finally {
@@ -170,14 +162,7 @@ function GamesList() {
     }
   };
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await Clipboard.setString(text);
-      Alert.alert('Copied!', 'Game code copied to clipboard');
-    } catch (err) {
-      Alert.alert('Error', 'Failed to copy to clipboard');
-    }
-  };
+
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -233,21 +218,7 @@ function GamesList() {
         </TouchableOpacity>
       </View>
 
-      {/* New Game Code Display */}
-      {newGameCode && (
-        <View style={styles.codeContainer}>
-          <Text style={styles.codeLabel}>Your Game Code:</Text>
-          <View style={styles.codeDisplay}>
-            <Text style={styles.codeText}>{newGameCode}</Text>
-            <TouchableOpacity 
-              style={styles.copyButton}
-              onPress={() => copyToClipboard(newGameCode)}
-            >
-              <Ionicons name="copy" size={16} color="#ffd33d" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+
 
       <ScrollView 
         style={styles.scrollView}
@@ -279,8 +250,8 @@ function GamesList() {
               key={game.gameId} 
               style={styles.gameCard}
               onPress={() => {
-                console.log('🎮 Game card pressed, navigating to game:', game.gameId);
-                router.push('/(tabs)/games/game/' + game.gameId);
+                console.log('🎮 Game card pressed, navigating to game overview:', game.gameId);
+                router.push('/(tabs)/games/game/overview/' + game.gameId);
               }}
             >
               <View style={styles.gameHeader}>

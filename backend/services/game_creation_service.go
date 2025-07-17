@@ -105,6 +105,7 @@ type PlayerGame struct {
 	Name            string           `json:"name"`
 	Status          string           `json:"status"`
 	Players         []PlayerGameInfo `json:"players"`
+	Code            string           `json:"code"`
 }
 
 var (
@@ -331,6 +332,13 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 			})
 		}
 
+		// Get the game code
+		gameCode, err := s.gameCodeRepo.GetGameCodeByGameID(gameID)
+		code := ""
+		if err == nil && gameCode != nil {
+			code = gameCode.Code
+		}
+
 		playerGame := PlayerGame{
 			GameID:          gameID,
 			SeasonYear:      game.GetSeasonYear(),
@@ -338,6 +346,7 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 			Name:            game.GetName(), // Add game name here
 			Status:          string(game.GetGameStatus()),
 			Players:         playerInfos,
+			Code:            code,
 		}
 		playerGames = append(playerGames, playerGame)
 	}

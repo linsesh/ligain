@@ -700,6 +700,8 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game2").Return([]models.Player{}, nil)
 	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(map[string]map[string]int{}, nil)
 	mockBetRepo.On("GetScoresByMatchAndPlayer", "game2").Return(map[string]map[string]int{}, nil)
+	mockGameCodeRepo.On("GetGameCodeByGameID", "game1").Return(nil, errors.New("code not found"))
+	mockGameCodeRepo.On("GetGameCodeByGameID", "game2").Return(nil, errors.New("code not found"))
 
 	// Execute
 	playerGames, err := service.GetPlayerGames(player)
@@ -716,6 +718,7 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	mockGamePlayerRepo.AssertExpectations(t)
 	mockGameRepo.AssertExpectations(t)
 	mockBetRepo.AssertExpectations(t)
+	mockGameCodeRepo.AssertExpectations(t)
 }
 
 func TestGameCreationService_GetPlayerGames_EmptyList(t *testing.T) {
@@ -796,6 +799,7 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	mockGameRepo.On("GetGame", "game1").Return(mockGame, nil)
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return(mockPlayers, nil)
 	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(mockScores, nil)
+	mockGameCodeRepo.On("GetGameCodeByGameID", "game1").Return(nil, errors.New("code not found"))
 
 	playerGames, err := service.GetPlayerGames(player)
 	assert.NoError(t, err)
@@ -819,6 +823,7 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	mockGamePlayerRepo.AssertExpectations(t)
 	mockGameRepo.AssertExpectations(t)
 	mockBetRepo.AssertExpectations(t)
+	mockGameCodeRepo.AssertExpectations(t)
 }
 
 // MockBetRepository is a mock implementation of BetRepository
