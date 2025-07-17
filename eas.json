@@ -13,6 +13,11 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "4": {
+      "platform": "ios",
+      "distribution": "internal",
+      "autoIncrement": true
     }
   },
   "submit": {
