@@ -9,6 +9,9 @@ module.exports = {
       },
     }],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(expo-localization|@expo|expo|react-native|@react-native|react-i18next|i18next)/)',
+  ],
   testMatch: [
     '**/src/**/__tests__/**/*.test.(ts|tsx)',
     '**/src/**/*.test.(ts|tsx)',

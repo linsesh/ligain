@@ -1,8 +1,11 @@
 import { Text, View, StyleSheet, Linking, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
+import { useTranslation } from '../../src/hooks/useTranslation';
 
 export default function AboutScreen() {
+  const { t } = useTranslation();
+  
   const handleEmailPress = () => {
     Linking.openURL('mailto:benoitlinsey27@gmail.com');
   };
@@ -18,15 +21,15 @@ export default function AboutScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: colors.text }]}>What is Ligain?</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('about.whatIsLigain')}</Text>
         <Text style={[styles.text, { color: colors.text }]}>
-          Ligain is a platform for betting on football matches between friends.
+          {t('about.description')}
         </Text>
         <Text style={[styles.text, { color: colors.text }]}>
-          It's currently in alpha and only available for Ligue 1 matches.
+          {t('about.alphaNote')}
         </Text>
         <Text style={[styles.text, { color: colors.text }]}>
-          If you have any feedback, please contact me at{' '}
+          {t('about.contactInfo')}{' '}
           <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>benoitlinsey27@gmail.com</Text>
         </Text>
 

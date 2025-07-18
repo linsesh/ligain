@@ -18,6 +18,7 @@ import { colors } from '../src/constants/colors';
 import { API_CONFIG } from '../src/config/api';
 import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
 import { setItem } from '../src/utils/storage';
+import { useTranslation } from 'react-i18next';
 
 export default function SignInScreen() {
   console.log('🔐 SignInScreen - Rendering signin screen');
@@ -29,8 +30,9 @@ export default function SignInScreen() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const { t } = useTranslation();
   
-    const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
+  const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
   const router = useRouter();
 
   // Get available providers for current platform
@@ -186,9 +188,9 @@ export default function SignInScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Welcome to Ligain</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('auth.welcome')}</Text>
           <Text style={[styles.subtitle, { color: colors.text }]}>
-            Sign in to start betting on football matches
+            {t('auth.signInSubtitle')}
           </Text>
         </View>
 
@@ -266,7 +268,7 @@ export default function SignInScreen() {
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
-                  <Text style={styles.appleButtonText}>Continue with Apple</Text>
+                  <Text style={styles.appleButtonText}>{t('auth.continueWithApple')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -287,19 +289,19 @@ export default function SignInScreen() {
                 ) : (
                   <>
                     <Ionicons name="person" size={24} color="#333" />
-                    <Text style={styles.guestButtonText}>Continue as Guest (Testing)</Text>
+                    <Text style={styles.guestButtonText}>{t('auth.continueAsGuest')}</Text>
                   </>
                 )}
               </TouchableOpacity>
               <Text style={styles.guestNote}>
-                For App Store review and testing purposes only
+                {t('auth.guestNote')}
               </Text>
             </View>
           </View>
         )}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.text }]}>
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            {t('auth.termsAgreement')}
           </Text>
         </View>
       </View>
@@ -316,10 +318,10 @@ export default function SignInScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Choose Your Display Name
+              {t('auth.chooseName')}
             </Text>
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-              Choose a display name that will be shown to other players
+              {t('auth.chooseNameSubtitle')}
             </Text>
             
             <TextInput
@@ -328,7 +330,7 @@ export default function SignInScreen() {
                 color: colors.text,
                 borderColor: colors.border
               }]}
-              placeholder="Enter your display name"
+              placeholder={t('auth.enterDisplayName')}
               placeholderTextColor={colors.textSecondary}
               value={displayName}
               onChangeText={setDisplayName}
@@ -348,7 +350,7 @@ export default function SignInScreen() {
                 }}
                 disabled={isLoading}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -359,7 +361,7 @@ export default function SignInScreen() {
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.continueButtonText}>Continue</Text>
+                  <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
                 )}
               </TouchableOpacity>
             </View>

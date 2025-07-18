@@ -2,10 +2,12 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
+import { useTranslation } from '../src/hooks/useTranslation';
 
 export default function NotFoundScreen() {
   const { player } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleGoBack = () => {
     if (player) {
@@ -19,11 +21,11 @@ export default function NotFoundScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Oops! Page Not Found</Text>
-      <Text style={styles.subtitle}>The page you're looking for doesn't exist.</Text>
+      <Text style={styles.title}>{t('notFound.title')}</Text>
+      <Text style={styles.subtitle}>{t('notFound.subtitle')}</Text>
       <TouchableOpacity style={styles.button} onPress={handleGoBack}>
         <Text style={styles.buttonText}>
-          {player ? 'Go to Games' : 'Go to Sign In'}
+          {player ? t('notFound.goToGames') : t('notFound.goToSignIn')}
         </Text>
       </TouchableOpacity>
     </View>

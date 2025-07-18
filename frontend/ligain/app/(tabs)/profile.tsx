@@ -10,24 +10,26 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
+import { useTranslation } from '../../src/hooks/useTranslation';
 
 export default function ProfileScreen() {
   const { player, signOut } = useAuth();
+  const { t } = useTranslation();
 
   const handleSignOut = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('common.signOut'),
+      t('auth.signOutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: t('common.signOut'),
           style: 'destructive',
           onPress: async () => {
             try {
               await signOut();
             } catch (error) {
-              Alert.alert('Error', 'Failed to sign out');
+              Alert.alert(t('common.error'), t('auth.signOutFailed'));
             }
           },
         },
@@ -39,7 +41,7 @@ export default function ProfileScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Text style={[styles.errorText, { color: colors.text }]}>
-          No user information available
+          {t('profile.noUserInfo')}
         </Text>
       </View>
     );
@@ -52,9 +54,9 @@ export default function ProfileScreen() {
         {!player.email && !player.provider && (
           <View style={styles.guestBanner}>
             <Ionicons name="warning" size={20} color="#FFA500" />
-            <Text style={styles.guestBannerText}>
-              This is a guest account for testing purposes only
-            </Text>
+                      <Text style={styles.guestBannerText}>
+            {t('profile.guestAccountBanner')}
+          </Text>
           </View>
         )}
 
@@ -73,18 +75,18 @@ export default function ProfileScreen() {
 
         {/* Account Information */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account Information</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.accountInfo')}</Text>
           
           <View style={styles.infoRow}>
             <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Name:</Text>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.displayName')}:</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{player.name}</Text>
           </View>
 
           {player.email && (
             <View style={styles.infoRow}>
               <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Email:</Text>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.email')}:</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>{player.email}</Text>
             </View>
           )}
@@ -96,7 +98,7 @@ export default function ProfileScreen() {
                 size={20} 
                 color={colors.textSecondary} 
               />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Provider:</Text>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.provider')}:</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
                 {player.provider.charAt(0).toUpperCase() + player.provider.slice(1)}
               </Text>
@@ -120,7 +122,7 @@ export default function ProfileScreen() {
           
           <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={[styles.actionButtonText, { color: colors.error }]}>Sign Out</Text>
+            <Text style={[styles.actionButtonText, { color: colors.error }]}>{t('common.signOut')}</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -8,6 +8,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
 import { colors } from '../../src/constants/colors';
 import { getHumanReadableError, handleApiError } from '../../src/utils/errorMessages';
+import { useTranslation } from 'react-i18next';
 
 interface Game {
   gameId: string;
@@ -30,6 +31,7 @@ interface JoinGameResponse {
 }
 
 function GamesList() {
+  const { t } = useTranslation();
   const { player } = useAuth();
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
@@ -171,14 +173,14 @@ function GamesList() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <Text style={styles.title}>My Games</Text>
+      <Text style={styles.title}>{t('games.myGames')}</Text>
       
       {/* Guest Testing Banner */}
       {!player?.email && !player?.provider && (
         <View style={styles.guestBanner}>
           <Ionicons name="warning" size={20} color="#FFA500" />
           <Text style={styles.guestBannerText}>
-            🧪 Guest Mode - This account is for testing purposes only
+            {t('games.guestModeBanner')}
           </Text>
         </View>
       )}
@@ -190,7 +192,7 @@ function GamesList() {
           onPress={() => setShowCreateModal(true)}
         >
           <Ionicons name="add-circle" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Create Game</Text>
+          <Text style={styles.actionButtonText}>{t('games.createGame')}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -198,7 +200,7 @@ function GamesList() {
           onPress={() => setShowJoinModal(true)}
         >
           <Ionicons name="people" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Join Game</Text>
+          <Text style={styles.actionButtonText}>{t('games.joinGame')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -257,14 +259,14 @@ function GamesList() {
           style={styles.modalOverlay}
         >
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Create a New Game</Text>
-            <Text style={styles.modalSubtitle}>Enter a name for your game</Text>
+            <Text style={styles.modalTitle}>{t('games.createNewGame')}</Text>
+            <Text style={styles.modalSubtitle}>{t('games.createGameSubtitle')}</Text>
             
             <TextInput
               style={styles.gameNameInput}
               value={newGameName}
               onChangeText={setNewGameName}
-              placeholder="My Awesome Game"
+              placeholder={t('games.gameNamePlaceholder')}
               placeholderTextColor="#666"
               maxLength={40}
               autoFocus
@@ -278,7 +280,7 @@ function GamesList() {
                   setNewGameName('');
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -289,7 +291,7 @@ function GamesList() {
                 {creatingGame ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>Create</Text>
+                  <Text style={styles.confirmButtonText}>{t('common.create')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -304,14 +306,14 @@ function GamesList() {
           style={styles.modalOverlay}
         >
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Join a Game</Text>
-            <Text style={styles.modalSubtitle}>Enter the 4-letter game code</Text>
+            <Text style={styles.modalTitle}>{t('games.joinGame')}</Text>
+            <Text style={styles.modalSubtitle}>{t('games.joinGameSubtitle')}</Text>
             
             <TextInput
               style={styles.codeInput}
               value={joinCode}
               onChangeText={setJoinCode}
-              placeholder="ABCD"
+              placeholder={t('games.gameCodePlaceholder')}
               placeholderTextColor="#666"
               maxLength={4}
               autoCapitalize="characters"
@@ -326,7 +328,7 @@ function GamesList() {
                   setJoinCode('');
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -337,7 +339,7 @@ function GamesList() {
                 {joiningGame ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>Join</Text>
+                  <Text style={styles.confirmButtonText}>{t('common.join')}</Text>
                 )}
               </TouchableOpacity>
             </View>
