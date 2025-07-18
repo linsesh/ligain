@@ -17,6 +17,7 @@ type GameService interface {
 	// GameUpdateHandler interface methods
 	HandleMatchUpdates(updates map[string]models.Match) error
 	GetGameID() string
+	AddPlayer(player models.Player) error
 }
 
 // GameService is used to really run a game
@@ -134,4 +135,8 @@ func (g *GameServiceImpl) GetPlayerBets(player models.Player) ([]*models.Bet, er
 
 func (g *GameServiceImpl) GetPlayers() []models.Player {
 	return g.game.GetPlayers()
+}
+
+func (g *GameServiceImpl) AddPlayer(player models.Player) error {
+	return g.game.AddPlayer(player)
 }

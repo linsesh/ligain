@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/services"
@@ -157,8 +159,8 @@ func (h *MatchHandler) getMatches(c *gin.Context) {
 
 type SaveBetRequest struct {
 	MatchID            string `json:"matchId" binding:"required"`
-	PredictedHomeGoals int    `json:"predictedHomeGoals" binding:"required"`
-	PredictedAwayGoals int    `json:"predictedAwayGoals" binding:"required"`
+	PredictedHomeGoals *int   `json:"predictedHomeGoals" binding:"required"`
+	PredictedAwayGoals *int   `json:"predictedAwayGoals" binding:"required"`
 }
 
 func (h *MatchHandler) saveBet(c *gin.Context) {
@@ -168,12 +170,24 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 		return
 	}
 
+	// Debug: Read and log the raw request body
+	bodyBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		log.Errorf("Failed to read request body: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+		return
+	}
+	log.Infof("Raw request body: %s", string(bodyBytes))
+
+	// Restore the body for ShouldBindJSON
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	var request SaveBetRequest
 	log.Info("request", request)
 	if err := c.ShouldBindJSON(&request); err != nil {
 		log.WithFields(log.Fields{
 			"error":        err.Error(),
-			"request_body": c.Request.Body,
+			"request_body": string(bodyBytes),
 			"content_type": c.GetHeader("Content-Type"),
 		}).Error("Failed to bind bet request")
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -206,7 +220,7 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 	}
 	match := matchResult.Match
 
-	bet := models.NewBet(match, request.PredictedHomeGoals, request.PredictedAwayGoals)
+	bet := models.NewBet(match, *request.PredictedHomeGoals, *request.PredictedAwayGoals)
 	updateErr := gameService.UpdatePlayerBet(player, bet, match.GetDate())
 	if updateErr != nil {
 		log.Error("Failed to update player bet", updateErr)

@@ -22,6 +22,7 @@ type Game interface {
 	GetName() string
 	CheckPlayerBetValidity(player Player, bet *Bet, datetime time.Time) error
 	AddPlayerBet(player Player, bet *Bet) error
+	AddPlayer(player Player) error
 	CalculateMatchScores(match Match) (map[string]int, error)
 	ApplyMatchScores(match Match, scores map[string]int)
 	UpdateMatch(match Match) error

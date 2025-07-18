@@ -139,8 +139,8 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		req.SeasonYear,
 		req.CompetitionName,
 		req.Name,
-		[]models.Player{}, // No players initially
-		matches,           // Load all matches for this competition/season
+		[]models.Player{player}, // Include the creator initially
+		matches,                 // Load all matches for this competition/season
 		&rules.ScorerOriginal{},
 	)
 
@@ -150,7 +150,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		return nil, fmt.Errorf("failed to create game: %v", err)
 	}
 
-	// Add the creator to the game
+	// Add the creator to the game in the database
 	err = s.gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
 	if err != nil {
 		return nil, fmt.Errorf("failed to add creator to game: %v", err)
@@ -212,6 +212,11 @@ func (s *GameCreationService) JoinGame(code string, player models.Player) (*Join
 	err = s.addPlayerToGame(gameCode.GameID, player)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add player to game: %v", err)
+	}
+
+	// Update the cached game service if it exists
+	if gs, ok := s.gameServices[gameCode.GameID]; ok {
+		_ = gs.AddPlayer(player)
 	}
 
 	return &JoinGameResponse{

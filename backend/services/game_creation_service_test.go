@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var testTime = time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
@@ -550,6 +551,10 @@ func (m *SimpleMockGame) AddPlayerBet(player models.Player, bet *models.Bet) err
 	return nil
 }
 
+func (m *SimpleMockGame) AddPlayer(player models.Player) error {
+	return nil
+}
+
 func (m *SimpleMockGame) CalculateMatchScores(match models.Match) (map[string]int, error) {
 	return make(map[string]int), nil
 }
@@ -852,3 +857,78 @@ func (m *MockBetRepository) SaveScore(gameId string, match models.Match, player 
 }
 func (m *MockBetRepository) GetScore(gameId string, betId string) (int, error) { return 0, nil }
 func (m *MockBetRepository) GetScores(gameId string) (map[string]int, error)   { return nil, nil }
+
+func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	// Create a game first
+	request := &CreateGameRequest{
+		SeasonYear:      "2025/2026",
+		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
+	}
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Mock expectations for game creation
+	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
+	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
+	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+
+	response, err := service.CreateGame(request, player)
+	require.NoError(t, err)
+	require.NotNil(t, response)
+
+	// Now simulate a second player joining
+	secondPlayer := &models.PlayerData{ID: "player2", Name: "Second Player"}
+
+	// Mock expectations for joining
+	mockGameCodeRepo.On("GetGameCodeByCode", "TEST").Return(&models.GameCode{
+		ID:        "code-id",
+		Code:      "TEST",
+		GameID:    "test-game-id",
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(24 * time.Hour), // Set to expire in 24 hours
+	}, nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player2").Return(nil)
+
+	// Mock the GetGame call that happens during JoinGame
+	mockGameRepo.On("GetGame", "test-game-id").Return(&SimpleMockGame{}, nil)
+
+	// Mock IsPlayerInGame to return false (player2 is not in the game yet)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "test-game-id", "player2").Return(false, nil)
+
+	// Join the game
+	joinedGame, err := service.JoinGame("TEST", secondPlayer)
+	require.NoError(t, err)
+	require.NotNil(t, joinedGame)
+
+	// Now try to get the game service directly (this should use the cached version)
+	gameService, err := service.GetGameService("test-game-id")
+	require.NoError(t, err)
+	require.NotNil(t, gameService)
+
+	// This should fail because the cached game service doesn't include the new player
+	// The player should be in the game's players list
+	players := gameService.GetPlayers()
+	found := false
+	for _, p := range players {
+		if p.GetID() == "player2" {
+			found = true
+			break
+		}
+	}
+
+	// This assertion should fail, proving the caching issue
+	assert.True(t, found, "Player should be in the cached game service")
+}

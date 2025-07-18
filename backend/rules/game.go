@@ -128,6 +128,18 @@ func (g *GameImpl) AddPlayerBet(player models.Player, bet *models.Bet) error {
 	return nil
 }
 
+func (g *GameImpl) AddPlayer(player models.Player) error {
+	// Check if the player is already in the game
+	if containsPlayerByID(g.players, player) {
+		return fmt.Errorf("player %v is already in the game", player)
+	}
+
+	// Add the player to the game
+	g.players = append(g.players, player)
+
+	return nil
+}
+
 func (g *GameImpl) scoreMatch(match models.Match) map[string]int {
 	bets := g.bets[match.Id()]
 	if bets == nil {

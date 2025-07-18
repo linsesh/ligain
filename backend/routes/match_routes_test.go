@@ -110,6 +110,10 @@ func (m *MockGame) GetIncomingMatchesForTesting() map[string]*models.MatchResult
 	return m.incomingMatches
 }
 
+func (m *MockGame) AddPlayer(player models.Player) error {
+	return nil
+}
+
 // MockBetAuthService for bet tests
 // Only implements ValidateToken
 // (other methods can panic if called)
@@ -223,10 +227,12 @@ func TestSaveBet_Success(t *testing.T) {
 	game.GetIncomingMatches(nil)[match.Id()] = matchResult
 
 	// Create request body
+	homeGoals := 2
+	awayGoals := 1
 	betRequest := SaveBetRequest{
 		MatchID:            match.Id(),
-		PredictedHomeGoals: 2,
-		PredictedAwayGoals: 1,
+		PredictedHomeGoals: &homeGoals,
+		PredictedAwayGoals: &awayGoals,
 	}
 	jsonBody, err := json.Marshal(betRequest)
 	assert.NoError(t, err)
@@ -280,10 +286,12 @@ func TestSaveBet_MatchNotFound(t *testing.T) {
 	router, _ := setupTestRouter()
 
 	// Create request body with non-existent match ID
+	homeGoals := 2
+	awayGoals := 1
 	betRequest := SaveBetRequest{
 		MatchID:            "non-existent-match",
-		PredictedHomeGoals: 2,
-		PredictedAwayGoals: 1,
+		PredictedHomeGoals: &homeGoals,
+		PredictedAwayGoals: &awayGoals,
 	}
 	jsonBody, _ := json.Marshal(betRequest)
 
@@ -355,10 +363,12 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	game.GetIncomingMatches(nil)[match.Id()] = matchResult
 
 	// First bet
+	homeGoals1 := 2
+	awayGoals1 := 1
 	initialBet := SaveBetRequest{
 		MatchID:            match.Id(),
-		PredictedHomeGoals: 2,
-		PredictedAwayGoals: 1,
+		PredictedHomeGoals: &homeGoals1,
+		PredictedAwayGoals: &awayGoals1,
 	}
 	jsonBody, err := json.Marshal(initialBet)
 	assert.NoError(t, err)
@@ -380,10 +390,12 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
 
 	// Updated bet
+	homeGoals2 := 3
+	awayGoals2 := 2
 	updatedBet := SaveBetRequest{
 		MatchID:            match.Id(),
-		PredictedHomeGoals: 3,
-		PredictedAwayGoals: 2,
+		PredictedHomeGoals: &homeGoals2,
+		PredictedAwayGoals: &awayGoals2,
 	}
 	jsonBody, err = json.Marshal(updatedBet)
 	assert.NoError(t, err)
@@ -431,10 +443,12 @@ func TestSaveBet_MissingGameId(t *testing.T) {
 	router, _ := setupTestRouter()
 
 	// Create request body
+	homeGoals3 := 2
+	awayGoals3 := 1
 	betRequest := SaveBetRequest{
 		MatchID:            "some-match",
-		PredictedHomeGoals: 2,
-		PredictedAwayGoals: 1,
+		PredictedHomeGoals: &homeGoals3,
+		PredictedAwayGoals: &awayGoals3,
 	}
 	jsonBody, _ := json.Marshal(betRequest)
 
@@ -454,4 +468,109 @@ func TestSaveBet_MissingGameId(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "game-id is required", response["error"])
+}
+
+// TestSaveBet_SevenZeroBet tests the specific 7-0 bet scenario that's failing in production
+func TestSaveBet_SevenZeroBet(t *testing.T) {
+	router, game := setupTestRouter()
+
+	// Setup test data
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matchResult := models.NewMatchWithBets(match, nil)
+
+	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+
+	// Test the 7-0 bet that's failing in production
+	homeGoals := 7
+	awayGoals := 0
+	sevenZeroBet := SaveBetRequest{
+		MatchID:            match.Id(),
+		PredictedHomeGoals: &homeGoals,
+		PredictedAwayGoals: &awayGoals,
+	}
+
+	// Debug: Print the struct before marshaling
+	t.Logf("Struct before marshaling: %+v", sevenZeroBet)
+
+	jsonBody, err := json.Marshal(sevenZeroBet)
+	assert.NoError(t, err)
+
+	// Debug: Print the JSON string
+	t.Logf("JSON body: %s", string(jsonBody))
+
+	// Create and perform the 7-0 bet request
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Log the response for debugging
+	t.Logf("Response Status: %d", w.Code)
+	t.Logf("Response Body: %s", w.Body.String())
+
+	// This should succeed, but if it fails, we'll see the exact error
+	if w.Code != http.StatusOK {
+		var response map[string]any
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err == nil {
+			t.Logf("Error response: %v", response)
+		}
+	}
+
+	// For now, let's assert it should work (we can change this if it fails)
+	assert.Equal(t, http.StatusOK, w.Code, "7-0 bet should be valid")
+
+	// Verify the bet was saved correctly
+	playerBets := game.bets[match.Id()]
+	assert.NotNil(t, playerBets)
+	playerBet := playerBets["Player1"]
+	assert.NotNil(t, playerBet)
+	assert.Equal(t, 7, playerBet.PredictedHomeGoals)
+	assert.Equal(t, 0, playerBet.PredictedAwayGoals)
+}
+
+// TestSaveBet_SevenOneBet tests if the issue is specifically with the 0 value
+func TestSaveBet_SevenOneBet(t *testing.T) {
+	router, game := setupTestRouter()
+
+	// Setup test data
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matchResult := models.NewMatchWithBets(match, nil)
+
+	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+
+	// Test a 7-1 bet to see if the issue is with the 0 value
+	homeGoals := 7
+	awayGoals := 1
+	sevenOneBet := SaveBetRequest{
+		MatchID:            match.Id(),
+		PredictedHomeGoals: &homeGoals,
+		PredictedAwayGoals: &awayGoals,
+	}
+
+	jsonBody, err := json.Marshal(sevenOneBet)
+	assert.NoError(t, err)
+
+	t.Logf("7-1 JSON body: %s", string(jsonBody))
+
+	// Create and perform the 7-1 bet request
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	t.Logf("7-1 Response Status: %d", w.Code)
+	t.Logf("7-1 Response Body: %s", w.Body.String())
+
+	assert.Equal(t, http.StatusOK, w.Code, "7-1 bet should be valid")
+
+	// Verify the bet was saved correctly
+	playerBets := game.bets[match.Id()]
+	assert.NotNil(t, playerBets)
+	playerBet := playerBets["Player1"]
+	assert.NotNil(t, playerBet)
+	assert.Equal(t, 7, playerBet.PredictedHomeGoals)
+	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
 }
