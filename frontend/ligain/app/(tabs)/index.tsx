@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
 import { colors } from '../../src/constants/colors';
+import { getHumanReadableError, handleApiError } from '../../src/utils/errorMessages';
 
 interface Game {
   gameId: string;
@@ -50,8 +51,7 @@ function GamesList() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+        await handleApiError(response);
       }
       
       const data = await response.json();
@@ -86,8 +86,7 @@ function GamesList() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+        await handleApiError(response);
       }
       
       const data: CreateGameResponse = await response.json();
@@ -129,8 +128,7 @@ function GamesList() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
+        await handleApiError(response);
       }
       
       const data: JoinGameResponse = await response.json();

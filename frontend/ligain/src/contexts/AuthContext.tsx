@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from 'react-native';
 import { API_CONFIG, getApiHeaders } from '../config/api';
 import { getItem, setItem, multiRemove, isUsingMemoryFallback } from '../utils/storage';
+import { getHumanReadableError } from '../utils/errorMessages';
 
 export interface Player {
   id: string;
@@ -194,10 +195,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           errorData = await response.json();
           console.error('🔐 AuthContext - Error response data:', errorData);
         } catch (parseError) {
-          console.error('🔐 AuthContext - Failed to parse error response:', parseError);
+          console.error('🔐 AuthContext - Failed to parse error response: code:', response.status, 'message:', response.statusText);
           errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
         }
-        throw new Error(errorData.error || `Authentication failed with status ${response.status}`);
+        
+        // Provide human-readable error messages based on status code
+        const humanReadableError = getHumanReadableError(response.status, errorData.error);
+        
+        throw new Error(humanReadableError);
       }
 
       const data = await response.json();

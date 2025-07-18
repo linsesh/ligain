@@ -12,6 +12,7 @@ import { TimeServiceProvider, useTimeService } from '../../../../src/contexts/Ti
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { API_CONFIG } from '../../../../src/config/api';
 import { SeasonMatch } from '../../../../src/types/match';
+import { colors } from '../../../../src/constants/colors';
 
 interface TempScores {
   [key: string]: {
@@ -493,7 +494,7 @@ function MatchesList() {
   if (matchesLoading && !refreshing) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -518,8 +519,8 @@ function MatchesList() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#ffffff']}
-            tintColor="#ffffff"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
             progressBackgroundColor="#25292e"
             progressViewOffset={20}
           />

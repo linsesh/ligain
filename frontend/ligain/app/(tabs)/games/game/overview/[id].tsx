@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 // Local imports
 import { useAuth } from '../../../../../src/contexts/AuthContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../../../../src/config/api';
+import { colors } from '../../../../../src/constants/colors';
 
 interface PlayerGameInfo {
   id: string;
@@ -108,7 +109,7 @@ export default function GameOverviewScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#ffd33d" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -145,8 +146,8 @@ export default function GameOverviewScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#ffd33d']}
-            tintColor="#ffd33d"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
             progressBackgroundColor="#25292e"
           />
         }
@@ -171,7 +172,7 @@ export default function GameOverviewScreen() {
                 onPress={() => copyToClipboard(gameDetails.code)}
                 disabled={copied}
               >
-                <Ionicons name={copied ? "checkmark-circle" : "copy"} size={20} color="#ffd33d" />
+                <Ionicons name={copied ? "checkmark-circle" : "copy"} size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
