@@ -24,8 +24,7 @@ export default function SignInScreen() {
   console.log('🔐 SignInScreen - Platform:', Platform.OS);
   console.log('🔐 SignInScreen - API_CONFIG:', {
     BASE_URL: API_CONFIG.BASE_URL,
-    API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED',
-    GAME_ID: API_CONFIG.GAME_ID
+    API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED'
   });
   
   const [isLoading, setIsLoading] = useState(false);

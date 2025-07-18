@@ -11,4 +11,5 @@ export const colors = {
   inProgress: '#e65100',
   finished: '#9e9e9e',
   link: '#4a9eff',
+  primary: '#ffd33d',
 } as const; 

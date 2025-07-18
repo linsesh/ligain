@@ -73,7 +73,7 @@ describe('useMatches', () => {
       json: async () => mockResponse,
     } as Response);
 
-    const { result } = renderHook(() => useMatches(), { wrapper });
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
     // Initially loading
     expect(result.current.loading).toBe(true);
@@ -104,7 +104,7 @@ describe('useMatches', () => {
       json: async () => ({ error: 'Server error' }),
     } as Response);
 
-    const { result } = renderHook(() => useMatches(), { wrapper });
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -118,7 +118,7 @@ describe('useMatches', () => {
   it('should handle network errors', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { result } = renderHook(() => useMatches(), { wrapper });
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -170,7 +170,7 @@ describe('useMatches', () => {
       json: async () => mockResponse,
     } as Response);
 
-    const { result } = renderHook(() => useMatches(), { wrapper });
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -191,7 +191,7 @@ describe('useMatches', () => {
       json: async () => mockResponse,
     } as Response);
 
-    const { result } = renderHook(() => useMatches(), { wrapper });
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -211,7 +211,7 @@ describe('useMatches', () => {
       json: async () => mockResponse,
     } as Response);
 
-    const { result } = renderHook(() => useMatches(), { wrapper });
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
     await new Promise(resolve => setTimeout(resolve, 100));
 

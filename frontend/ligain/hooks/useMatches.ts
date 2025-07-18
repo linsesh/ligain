@@ -4,7 +4,7 @@ import { BetImpl } from '../src/types/bet';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
 
-export const useMatches = () => {
+export const useMatches = (gameId: string) => {
   const timeService = useTimeService();
   const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
   const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
@@ -19,7 +19,7 @@ export const useMatches = () => {
         hasAuth: !!headers['Authorization']
       });
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${API_CONFIG.GAME_ID}/matches`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
         headers,
       });
       if (!response.ok) {

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 // Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
+import { colors } from '../../src/constants/colors';
 
 interface Game {
   gameId: string;
@@ -162,7 +163,7 @@ function GamesList() {
   if (loading && !refreshing) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#ffd33d" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -211,8 +212,8 @@ function GamesList() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#ffd33d']}
-            tintColor="#ffd33d"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
             progressBackgroundColor="#25292e"
             progressViewOffset={20}
           />
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   joinButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.primary,
     marginLeft: 8,
   },
   actionButtonText: {
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffd33d',
+    color: colors.primary,
     marginRight: 8,
   },
   copyButton: {
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 14,
-    color: '#ffd33d',
+    color: colors.primary,
     fontWeight: 'bold',
   },
   modalOverlay: {

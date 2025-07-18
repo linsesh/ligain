@@ -44,7 +44,7 @@ describe('useBetSubmission', () => {
       json: async () => mockResponse,
     } as Response);
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBe(null);
@@ -83,7 +83,7 @@ describe('useBetSubmission', () => {
     mockFetch.mockResolvedValueOnce(mockResponse);
     mockFetch.mockResolvedValueOnce(mockResponse);
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
@@ -104,7 +104,7 @@ describe('useBetSubmission', () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
@@ -129,7 +129,7 @@ describe('useBetSubmission', () => {
       json: async () => ({ message: 'Success' }),
     });
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
@@ -149,7 +149,7 @@ describe('useBetSubmission', () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
@@ -177,7 +177,7 @@ describe('useBetSubmission', () => {
       )
     );
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     // Start the submission
     const submitPromise = result.current.submitBet('match-1', 2, 1);
@@ -210,7 +210,7 @@ describe('useBetSubmission', () => {
       json: async () => ({ message: 'Success' }),
     });
 
-    const { result } = renderHook(() => useBetSubmission());
+    const { result } = renderHook(() => useBetSubmission('test-game-id'));
 
     // First submission
     await act(async () => {

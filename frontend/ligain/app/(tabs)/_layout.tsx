@@ -1,11 +1,12 @@
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { colors } from '../../src/constants/colors';
 
 export default function TabLayout() {
   return (
         <Tabs
         screenOptions={{
-            tabBarActiveTintColor: '#ffd33d',
+            tabBarActiveTintColor: colors.primary,
             headerStyle: {
             backgroundColor: '#25292e',
             },
@@ -30,6 +31,15 @@ export default function TabLayout() {
         options={{
           href: null, // Hide from tab bar
           headerShown: false, // Hide the tab header
+        }}
+      />
+      <Tabs.Screen
+        name="rules"
+        options={{
+          title: 'Rules',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'book' : 'book-outline'} color={color} size={24}/>
+          ),
         }}
       />
       <Tabs.Screen

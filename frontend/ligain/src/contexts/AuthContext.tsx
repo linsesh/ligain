@@ -124,8 +124,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       console.log('🔐 AuthContext - API_CONFIG:', {
         BASE_URL: API_CONFIG.BASE_URL,
-        API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED',
-        GAME_ID: API_CONFIG.GAME_ID
+        API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED'
       });
 
       // Test API headers configuration

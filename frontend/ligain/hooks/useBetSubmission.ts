@@ -4,7 +4,7 @@ import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000; // 2 seconds
 
-export const useBetSubmission = (gameId?: string) => {
+export const useBetSubmission = (gameId: string) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -17,9 +17,6 @@ export const useBetSubmission = (gameId?: string) => {
     setIsSubmitting(true);
     setError(null);
 
-    // Use the provided gameId or fall back to the hardcoded one
-    const targetGameId = gameId || API_CONFIG.GAME_ID;
-
     try {
       const headers = await getAuthenticatedHeaders({
         'Content-Type': 'application/json',
@@ -31,7 +28,7 @@ export const useBetSubmission = (gameId?: string) => {
         predictedAwayGoals: awayGoals
       };
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${targetGameId}/bet`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/bet`, {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody)
