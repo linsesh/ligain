@@ -1,5 +1,14 @@
 {
   "dependencies": {
-    "expo-haptics": "^14.1.4"
+    "expo-haptics": "^14.1.4",
+    "expo": "~53.0.20",
+    "react": "19.0.0",
+    "react-native": "0.79.5"
+  },
+  "name": "ligain",
+  "version": "1.0.0",
+  "scripts": {
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   }
 }
