@@ -114,6 +114,18 @@ func (m *MockGame) AddPlayer(player models.Player) error {
 	return nil
 }
 
+func (m *MockGame) GetMatchById(matchId string) (models.Match, error) {
+	// Check in incoming matches
+	if matchResult, exists := m.incomingMatches[matchId]; exists {
+		return matchResult.Match, nil
+	}
+	// Check in past matches
+	if matchResult, exists := m.pastMatches[matchId]; exists {
+		return matchResult.Match, nil
+	}
+	return nil, errors.New("match not found")
+}
+
 // MockBetAuthService for bet tests
 // Only implements ValidateToken
 // (other methods can panic if called)

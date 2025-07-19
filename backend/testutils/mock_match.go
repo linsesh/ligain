@@ -94,3 +94,15 @@ func (m *MockMatch) IsInProgress() bool {
 func (m *MockMatch) GetStatus() models.MatchStatus {
 	return models.MatchStatusFinished
 }
+
+func (m *MockMatch) SetHomeTeamOdds(odds float64) {
+	// no-op for mock
+}
+
+func (m *MockMatch) SetAwayTeamOdds(odds float64) {
+	// no-op for mock
+}
+
+func (m *MockMatch) SetDrawOdds(odds float64) {
+	// no-op for mock
+}

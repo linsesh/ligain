@@ -4,13 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"liguain/backend/middleware"
+	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"liguain/backend/repositories/postgres"
 	"liguain/backend/routes"
 	"liguain/backend/services"
-	"log"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,7 +53,15 @@ func main() {
 	// Create match watcher service
 	var watcher services.MatchWatcherService
 	env := os.Getenv("ENV")
-	watcher, err = services.NewMatchWatcherServiceSportsmonk(env)
+	matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2025-2026")
+	if err != nil {
+		log.Fatal("Failed to get matches:", err)
+	}
+	matchesMap := make(map[string]models.Match)
+	for _, match := range matches {
+		matchesMap[match.Id()] = match
+	}
+	watcher, err = services.NewMatchWatcherServiceSportsmonk(env, matchesMap)
 	if err != nil {
 		log.Fatal("Failed to create match watcher service:", err)
 	}

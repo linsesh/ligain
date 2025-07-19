@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"fmt"
 	"liguain/backend/middleware"
 	"liguain/backend/models"
 	"liguain/backend/services"
@@ -9,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 type AuthHandler struct {
@@ -33,17 +33,17 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 
 // SignIn handles authentication with Google or Apple
 func (h *AuthHandler) SignIn(c *gin.Context) {
-	fmt.Printf("🔐 SignIn - Request received from %s\n", c.ClientIP())
-	fmt.Printf("🔐 SignIn - Headers: %+v\n", c.Request.Header)
+	log.Infof("🔐 SignIn - Request received from %s", c.ClientIP())
+	log.Infof("🔐 SignIn - Headers: %+v", c.Request.Header)
 
 	var req models.AuthRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("❌ SignIn - JSON binding error: %v\n", err)
+		log.Errorf("❌ SignIn - JSON binding error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	fmt.Printf("🔐 SignIn - Request body: provider=%s, email=%s, name=%s, token=%s\n",
+	log.Infof("🔐 SignIn - Request body: provider=%s, email=%s, name=%s, token=%s",
 		req.Provider, req.Email, req.Name,
 		func() string {
 			if len(req.Token) > 10 {
@@ -54,61 +54,61 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 		}())
 
 	if req.Provider == "" || req.Token == "" || req.Email == "" {
-		fmt.Printf("❌ SignIn - Missing required fields: provider=%t, token=%t, email=%t\n",
+		log.Errorf("❌ SignIn - Missing required fields: provider=%t, token=%t, email=%t",
 			req.Provider != "", req.Token != "", req.Email != "")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
 		return
 	}
 
 	if req.Provider != "google" && req.Provider != "apple" {
-		fmt.Printf("❌ SignIn - Invalid provider: %s\n", req.Provider)
+		log.Errorf("❌ SignIn - Invalid provider: %s", req.Provider)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 		return
 	}
 
-	fmt.Printf("🔐 SignIn - Calling authService.Authenticate\n")
+	log.Infof("🔐 SignIn - Calling authService.Authenticate")
 	response, err := h.authService.Authenticate(c.Request.Context(), &req)
 	if err != nil {
-		fmt.Printf("❌ SignIn - Authentication error: %v\n", err)
+		log.Errorf("❌ SignIn - Authentication error: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	fmt.Printf("✅ SignIn - Authentication successful for user: %s\n", response.Player.Name)
+	log.Infof("✅ SignIn - Authentication successful for user: %s", response.Player.Name)
 	c.JSON(http.StatusOK, response)
 }
 
 // SignInGuest handles guest authentication
 func (h *AuthHandler) SignInGuest(c *gin.Context) {
-	fmt.Printf("🔐 SignInGuest - Request received from %s\n", c.ClientIP())
-	fmt.Printf("🔐 SignInGuest - Headers: %+v\n", c.Request.Header)
+	log.Infof("🔐 SignInGuest - Request received from %s", c.ClientIP())
+	log.Infof("🔐 SignInGuest - Headers: %+v", c.Request.Header)
 
 	var req struct {
 		Name string `json:"name" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("❌ SignInGuest - JSON binding error: %v\n", err)
+		log.Errorf("❌ SignInGuest - JSON binding error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	fmt.Printf("🔐 SignInGuest - Request body: name=%s\n", req.Name)
+	log.Infof("🔐 SignInGuest - Request body: name=%s", req.Name)
 
 	if req.Name == "" {
-		fmt.Printf("❌ SignInGuest - Missing name field\n")
+		log.Errorf("❌ SignInGuest - Missing name field")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
 		return
 	}
 
-	fmt.Printf("🔐 SignInGuest - Calling authService.AuthenticateGuest\n")
+	log.Infof("🔐 SignInGuest - Calling authService.AuthenticateGuest")
 	response, err := h.authService.AuthenticateGuest(c.Request.Context(), req.Name)
 	if err != nil {
-		fmt.Printf("❌ SignInGuest - Authentication error: %v\n", err)
+		log.Errorf("❌ SignInGuest - Authentication error: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	fmt.Printf("✅ SignInGuest - Guest authentication successful for user: %s\n", response.Player.Name)
+	log.Infof("✅ SignInGuest - Guest authentication successful for user: %s", response.Player.Name)
 	c.JSON(http.StatusOK, response)
 }
 

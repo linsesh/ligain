@@ -586,6 +586,10 @@ func (m *SimpleMockGame) GetIncomingMatchesForTesting() map[string]*models.Match
 	return make(map[string]*models.MatchResult)
 }
 
+func (m *SimpleMockGame) GetMatchById(matchId string) (models.Match, error) {
+	return nil, errors.New("match not found")
+}
+
 func TestGameCreationService_JoinGame_InvalidCode(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)

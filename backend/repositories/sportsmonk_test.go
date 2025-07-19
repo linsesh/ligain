@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"fmt"
 	"liguain/backend/models"
 	"testing"
 	"time"
@@ -148,7 +147,6 @@ func TestGetLastMatchInfosWithNoUpdatesOddsUpdatesResultUpdates(t *testing.T) {
 	if len(result) != 1 {
 		t.Errorf("Expected 1 update, got %d", len(result))
 	}
-	fmt.Printf("result: %v\n", result)
 	if _, exists := result[match1.Id()]; !exists {
 		t.Errorf("Expected match1 to be updated")
 	}

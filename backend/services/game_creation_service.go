@@ -10,6 +10,8 @@ import (
 	"liguain/backend/rules"
 	"math/big"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // GameCreationServiceInterface defines the interface for game creation services
@@ -300,21 +302,21 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 	for _, gameID := range gameIDs {
 		game, err := s.gameRepo.GetGame(gameID)
 		if err != nil {
-			fmt.Printf("error getting game %s: %v\n", gameID, err)
+			log.Errorf("error getting game %s: %v", gameID, err)
 			continue
 		}
 
 		// Fetch all players in the game
 		players, err := s.gamePlayerRepo.GetPlayersInGame(context.Background(), gameID)
 		if err != nil {
-			fmt.Printf("error getting players for game %s: %v\n", gameID, err)
+			log.Errorf("error getting players for game %s: %v", gameID, err)
 			continue
 		}
 
 		// Fetch all scores for the game (by match and player)
 		playerScoresByMatch, err := s.betRepo.GetScoresByMatchAndPlayer(gameID)
 		if err != nil {
-			fmt.Printf("error getting scores for game %s: %v\n", gameID, err)
+			log.Errorf("error getting scores for game %s: %v", gameID, err)
 			continue
 		}
 

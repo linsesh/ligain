@@ -28,7 +28,7 @@ var (
 	once    sync.Once
 )
 
-func NewMatchWatcherServiceSportsmonk(env string) (*MatchWatcherServiceSportsmonk, error) {
+func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Match) (*MatchWatcherServiceSportsmonk, error) {
 	once.Do(func() {
 		if env == "local" {
 			err := localInit()
@@ -37,11 +37,11 @@ func NewMatchWatcherServiceSportsmonk(env string) (*MatchWatcherServiceSportsmon
 			}
 		}
 		watcher = &MatchWatcherServiceSportsmonk{
-			watchedMatches: make(map[string]models.Match),
+			watchedMatches: matches,
 			repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
 			subscribers:    make(map[string]GameService),
 			stopChan:       make(chan struct{}),
-			pollInterval:   30 * time.Second,
+			pollInterval:   time.Minute,
 		}
 	})
 	return watcher, nil
@@ -131,6 +131,7 @@ func (m *MatchWatcherServiceSportsmonk) checkForUpdates() {
 
 func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.Match, error) {
 	updates := make(map[string]models.Match)
+	log.Infof("Getting last match infos for %d matches", len(m.watchedMatches))
 	lastMatchInfos, err := m.repo.GetLastMatchInfos(m.watchedMatches)
 	if err != nil {
 		return nil, err
@@ -140,26 +141,29 @@ func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.M
 		if matchWasUpdated(match, lastMatch) {
 			updates[matchId] = lastMatch
 			m.watchedMatches[matchId] = lastMatch
+			if match.IsFinished() {
+				delete(m.watchedMatches, matchId)
+			}
 		}
 	}
 	return updates, nil
 }
 
-func matchWasUpdated(match models.Match, lastMatch models.Match) bool {
-	if match.IsFinished() != lastMatch.IsFinished() {
+func matchWasUpdated(match models.Match, lastMatchState models.Match) bool {
+	if match.IsFinished() != lastMatchState.IsFinished() {
 		return true
 	}
-	if match.GetHomeTeamOdds() != lastMatch.GetHomeTeamOdds() {
+	if match.GetHomeTeamOdds() != lastMatchState.GetHomeTeamOdds() {
 		return true
 	}
-	if match.GetAwayTeamOdds() != lastMatch.GetAwayTeamOdds() {
+	if match.GetAwayTeamOdds() != lastMatchState.GetAwayTeamOdds() {
 		return true
 	}
-	if match.GetDrawOdds() != lastMatch.GetDrawOdds() {
+	if match.GetDrawOdds() != lastMatchState.GetDrawOdds() {
 		return true
 	}
-	if match.GetDate() != lastMatch.GetDate() {
-		log.Warnf("Match %s date was updated from %s to %s", match.Id(), lastMatch.GetDate(), match.GetDate())
+	if match.GetDate() != lastMatchState.GetDate() {
+		log.Warnf("Match %s date was updated from %s to %s", match.Id(), lastMatchState.GetDate(), match.GetDate())
 		return true
 	}
 	return false

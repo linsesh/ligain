@@ -32,4 +32,5 @@ type Game interface {
 	GetWinner() []Player
 	// GetIncomingMatchesForTesting returns all incoming matches with all bets (for testing only)
 	GetIncomingMatchesForTesting() map[string]*MatchResult
+	GetMatchById(matchId string) (Match, error)
 }

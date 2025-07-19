@@ -28,6 +28,9 @@ type Match interface {
 	GetHomeTeamOdds() float64
 	GetAwayTeamOdds() float64
 	GetDrawOdds() float64
+	SetHomeTeamOdds(odds float64)
+	SetAwayTeamOdds(odds float64)
+	SetDrawOdds(odds float64)
 	AbsoluteGoalDifference() int
 	IsDraw() bool
 	TotalGoals() int
@@ -186,6 +189,18 @@ func (m *SeasonMatch) GetAwayTeamOdds() float64 {
 
 func (m *SeasonMatch) GetDrawOdds() float64 {
 	return m.DrawOdds
+}
+
+func (m *SeasonMatch) SetHomeTeamOdds(odds float64) {
+	m.HomeTeamOdds = odds
+}
+
+func (m *SeasonMatch) SetAwayTeamOdds(odds float64) {
+	m.AwayTeamOdds = odds
+}
+
+func (m *SeasonMatch) SetDrawOdds(odds float64) {
+	m.DrawOdds = odds
 }
 
 func (m *SeasonMatch) Start() {

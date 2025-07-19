@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // OAuthVerifierInterface defines the interface for OAuth token verification
@@ -42,11 +44,11 @@ func NewAppleOAuthVerifier() *AppleOAuthVerifier {
 
 // VerifyToken verifies a Google ID token (JWT)
 func (v *GoogleOAuthVerifier) VerifyToken(ctx context.Context, token string) (*GoogleUserInfo, error) {
-	fmt.Printf("🔍 GoogleOAuthVerifier - Starting token verification\n")
-	fmt.Printf("🔍 GoogleOAuthVerifier - Client ID configured: %t\n", v.clientID != "")
+	log.Infof("🔍 GoogleOAuthVerifier - Starting token verification")
+	log.Infof("🔍 GoogleOAuthVerifier - Client ID configured: %t", v.clientID != "")
 
 	if v.clientID == "" {
-		fmt.Printf("❌ GoogleOAuthVerifier - Google client ID not configured\n")
+		log.Errorf("❌ GoogleOAuthVerifier - Google client ID not configured")
 		return nil, errors.New("Google client ID not configured")
 	}
 
@@ -56,11 +58,11 @@ func (v *GoogleOAuthVerifier) VerifyToken(ctx context.Context, token string) (*G
 
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		fmt.Printf("❌ GoogleOAuthVerifier - Invalid token format, expected 3 parts, got %d\n", len(parts))
+		log.Errorf("❌ GoogleOAuthVerifier - Invalid token format, expected 3 parts, got %d", len(parts))
 		return nil, errors.New("invalid token format")
 	}
 
-	fmt.Printf("🔍 GoogleOAuthVerifier - Token has valid JWT format\n")
+	log.Infof("🔍 GoogleOAuthVerifier - Token has valid JWT format")
 
 	// Decode the payload (second part of JWT)
 	payload := parts[1]
@@ -72,17 +74,17 @@ func (v *GoogleOAuthVerifier) VerifyToken(ctx context.Context, token string) (*G
 	// Decode base64
 	decoded, err := base64.URLEncoding.DecodeString(payload)
 	if err != nil {
-		fmt.Printf("❌ GoogleOAuthVerifier - Failed to decode token payload: %v\n", err)
+		log.Errorf("❌ GoogleOAuthVerifier - Failed to decode token payload: %v", err)
 		return nil, fmt.Errorf("failed to decode token payload: %w", err)
 	}
 
 	var claims map[string]interface{}
 	if err := json.Unmarshal(decoded, &claims); err != nil {
-		fmt.Printf("❌ GoogleOAuthVerifier - Failed to parse token claims: %v\n", err)
+		log.Errorf("❌ GoogleOAuthVerifier - Failed to parse token claims: %v", err)
 		return nil, fmt.Errorf("failed to parse token claims: %w", err)
 	}
 
-	fmt.Printf("🔍 GoogleOAuthVerifier - Token claims parsed successfully\n")
+	log.Infof("🔍 GoogleOAuthVerifier - Token claims parsed successfully")
 
 	// Extract user info from claims
 	userInfo := &GoogleUserInfo{
@@ -93,7 +95,7 @@ func (v *GoogleOAuthVerifier) VerifyToken(ctx context.Context, token string) (*G
 		VerifiedEmail: claims["email_verified"].(bool),
 	}
 
-	fmt.Printf("✅ GoogleOAuthVerifier - Token verification successful for user: %s (%s)\n", userInfo.Name, userInfo.Email)
+	log.Infof("✅ GoogleOAuthVerifier - Token verification successful for user: %s (%s)", userInfo.Name, userInfo.Email)
 
 	return userInfo, nil
 }

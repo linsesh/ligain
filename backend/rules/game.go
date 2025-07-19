@@ -301,3 +301,11 @@ func (g *GameImpl) GetWinner() []models.Player {
 	}
 	return winners
 }
+
+func (g *GameImpl) GetMatchById(matchId string) (models.Match, error) {
+	match, exists := g.incomingMatches[matchId]
+	if !exists {
+		return nil, fmt.Errorf("match not found")
+	}
+	return match, nil
+}

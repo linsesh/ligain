@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
@@ -144,9 +143,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		require.NoError(t, err)
 
 		currentBet1 := models.NewBet(currentMatch, 1, 1)
-		id1, bet1, err := postgresBetRepo.SaveBet(gameId, currentBet1, player1)
-		fmt.Println(id1)
-		fmt.Println(bet1)
+		_, _, err = postgresBetRepo.SaveBet(gameId, currentBet1, player1)
 		require.NoError(t, err)
 
 		futureBet1 := models.NewBet(futureMatch, 2, 0)
@@ -159,9 +156,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		require.NoError(t, err)
 
 		currentBet2 := models.NewBet(currentMatch, 2, 1)
-		id, bet, err := postgresBetRepo.SaveBet(gameId, currentBet2, player2)
-		fmt.Println(id)
-		fmt.Println(bet)
+		_, _, err = postgresBetRepo.SaveBet(gameId, currentBet2, player2)
 		require.NoError(t, err)
 
 		futureBet2 := models.NewBet(futureMatch, 1, 1)
@@ -198,10 +193,6 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 				// Use the testing method to get all bets for verification
 				incomingMatches := restoredGame.GetIncomingMatchesForTesting()
 
-				// Debug: print bets and scores for past match
-				fmt.Printf("Past match bets: %v\n", pastResults[pastMatch.Id()].Bets)
-				fmt.Printf("Past match scores: %v\n", pastResults[pastMatch.Id()].Scores)
-
 				// Verify past match
 				pastMatchResult, exists := pastResults[pastMatch.Id()]
 				require.True(t, exists, "Past match should exist in results")
@@ -233,7 +224,6 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 				// Verify bets for current match
 				require.NotNil(t, currentMatchResult.Bets)
-				fmt.Printf("Here are all the bets for the match %s: %v\n", currentMatchResult.Match.Id(), currentMatchResult.Bets)
 				require.Equal(t, 2, len(currentMatchResult.Bets)) // Two players made bets
 
 				// Verify bets for future match

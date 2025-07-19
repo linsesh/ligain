@@ -26,6 +26,7 @@ type GameServiceImpl struct {
 	gameId   string
 	gameRepo repositories.GameRepository
 	betRepo  repositories.BetRepository
+	timeFunc func() time.Time // Function to get current time (for testing)
 }
 
 func NewGameService(gameId string, game models.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository) *GameServiceImpl {
@@ -34,6 +35,18 @@ func NewGameService(gameId string, game models.Game, gameRepo repositories.GameR
 		gameId:   gameId,
 		gameRepo: gameRepo,
 		betRepo:  betRepo,
+		timeFunc: time.Now, // Default to real time
+	}
+}
+
+// NewGameServiceWithTime creates a GameService with a custom time function (for testing)
+func NewGameServiceWithTime(gameId string, game models.Game, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, timeFunc func() time.Time) *GameServiceImpl {
+	return &GameServiceImpl{
+		game:     game,
+		gameId:   gameId,
+		gameRepo: gameRepo,
+		betRepo:  betRepo,
+		timeFunc: timeFunc,
 	}
 }
 
@@ -51,7 +64,13 @@ func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) er
 
 	for _, match := range updates {
 		log.Infof("Handling update for match %v", match.Id())
-		err := g.game.UpdateMatch(match)
+		lastMatchState, err := g.game.GetMatchById(match.Id())
+		if err != nil {
+			log.Errorf("Error getting last match state: %v", err)
+			return err
+		}
+		match = g.adjustOdds(match, lastMatchState)
+		err = g.game.UpdateMatch(match)
 		if err != nil {
 			log.Errorf("Error updating match: %v", err)
 			return err
@@ -139,4 +158,17 @@ func (g *GameServiceImpl) GetPlayers() []models.Player {
 
 func (g *GameServiceImpl) AddPlayer(player models.Player) error {
 	return g.game.AddPlayer(player)
+}
+
+// adjustOdds ensures that odds are blocked 5minutes before the match starts.
+// We use 6 to ensure that the odds are always blocked at least 5 minutes before the match starts.
+func (g *GameServiceImpl) adjustOdds(match models.Match, lastMatchState models.Match) models.Match {
+	matchDate := match.GetDate()
+	now := g.timeFunc()
+	if matchDate.Before(now.Add(6 * time.Minute)) {
+		match.SetHomeTeamOdds(lastMatchState.GetHomeTeamOdds())
+		match.SetAwayTeamOdds(lastMatchState.GetAwayTeamOdds())
+		match.SetDrawOdds(lastMatchState.GetDrawOdds())
+	}
+	return match
 }

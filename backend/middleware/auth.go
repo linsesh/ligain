@@ -1,24 +1,24 @@
 package middleware
 
 import (
-	"fmt"
 	"liguain/backend/services"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 // APIKeyAuth middleware checks for a valid API key in the request header
 func APIKeyAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
-		fmt.Printf("🔑 APIKeyAuth - Request to %s from %s\n", c.Request.URL.Path, c.ClientIP())
-		fmt.Printf("🔑 APIKeyAuth - X-API-Key header present: %t\n", apiKey != "")
+		log.Infof("🔑 APIKeyAuth - Request to %s from %s", c.Request.URL.Path, c.ClientIP())
+		log.Infof("🔑 APIKeyAuth - X-API-Key header present: %t", apiKey != "")
 
 		if apiKey == "" {
-			fmt.Printf("❌ APIKeyAuth - No API key provided\n")
+			log.Infof("❌ APIKeyAuth - No API key provided\n")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "API key is required"})
 			c.Abort()
 			return
@@ -29,7 +29,7 @@ func APIKeyAuth() gin.HandlerFunc {
 			os.Getenv("API_KEY"),
 		}
 
-		fmt.Printf("🔑 APIKeyAuth - Environment API_KEY configured: %t\n", os.Getenv("API_KEY") != "")
+		log.Infof("🔑 APIKeyAuth - Environment API_KEY configured: %t\n", os.Getenv("API_KEY") != "")
 
 		// Check if the provided API key is valid
 		isValid := false
@@ -41,13 +41,13 @@ func APIKeyAuth() gin.HandlerFunc {
 		}
 
 		if !isValid {
-			fmt.Printf("❌ APIKeyAuth - Invalid API key provided\n")
+			log.Infof("❌ APIKeyAuth - Invalid API key provided\n")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
 			c.Abort()
 			return
 		}
 
-		fmt.Printf("✅ APIKeyAuth - API key validation successful\n")
+		log.Infof("✅ APIKeyAuth - API key validation successful\n")
 		c.Next()
 	}
 }

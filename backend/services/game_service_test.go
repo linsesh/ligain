@@ -196,3 +196,270 @@ func TestGameService_GetPlayers(t *testing.T) {
 	assert.Equal(t, "Player1", servicePlayers[0].GetName())
 	assert.Equal(t, "Player2", servicePlayers[1].GetName())
 }
+
+// TestGameService_adjustOdds tests the adjustOdds function with various time scenarios
+func TestGameService_adjustOdds(t *testing.T) {
+	// Create a base time for testing
+	baseTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
+
+	// Create test matches with different times
+	createMatch := func(matchTime time.Time, homeOdds, awayOdds, drawOdds float64) models.Match {
+		match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+		match.SetHomeTeamOdds(homeOdds)
+		match.SetAwayTeamOdds(awayOdds)
+		match.SetDrawOdds(drawOdds)
+		return match
+	}
+
+	// Create last match state with different odds
+	lastMatchState := createMatch(baseTime, 2.0, 3.0, 4.0)
+
+	// Create service for testing
+	service, _, _ := setupTestGameService()
+
+	t.Run("odds should be blocked when match is less than 6 minutes away", func(t *testing.T) {
+		// Match is 5 minutes away
+		matchTime := baseTime.Add(5 * time.Minute)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should be blocked (preserved from last state)
+		assert.Equal(t, 2.0, result.GetHomeTeamOdds())
+		assert.Equal(t, 3.0, result.GetAwayTeamOdds())
+		assert.Equal(t, 4.0, result.GetDrawOdds())
+	})
+
+	t.Run("odds should not be blocked when match is exactly 6 minutes away", func(t *testing.T) {
+		// Match is exactly 6 minutes away
+		matchTime := baseTime.Add(6 * time.Minute)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should not be blocked (keep current odds)
+		assert.Equal(t, 1.5, result.GetHomeTeamOdds())
+		assert.Equal(t, 2.5, result.GetAwayTeamOdds())
+		assert.Equal(t, 3.5, result.GetDrawOdds())
+	})
+
+	t.Run("odds should not be blocked when match is more than 6 minutes away", func(t *testing.T) {
+		// Match is 7 minutes away
+		matchTime := baseTime.Add(7 * time.Minute)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should not be blocked (keep current odds)
+		assert.Equal(t, 1.5, result.GetHomeTeamOdds())
+		assert.Equal(t, 2.5, result.GetAwayTeamOdds())
+		assert.Equal(t, 3.5, result.GetDrawOdds())
+	})
+
+	t.Run("odds should be blocked when match has already started", func(t *testing.T) {
+		// Match started 1 minute ago
+		matchTime := baseTime.Add(-1 * time.Minute)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should be blocked (preserved from last state)
+		assert.Equal(t, 2.0, result.GetHomeTeamOdds())
+		assert.Equal(t, 3.0, result.GetAwayTeamOdds())
+		assert.Equal(t, 4.0, result.GetDrawOdds())
+	})
+
+	t.Run("odds should be blocked when match is in the past", func(t *testing.T) {
+		// Match was 1 hour ago
+		matchTime := baseTime.Add(-1 * time.Hour)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should be blocked (preserved from last state)
+		assert.Equal(t, 2.0, result.GetHomeTeamOdds())
+		assert.Equal(t, 3.0, result.GetAwayTeamOdds())
+		assert.Equal(t, 4.0, result.GetDrawOdds())
+	})
+
+	t.Run("odds should be preserved when current and last odds are the same", func(t *testing.T) {
+		// Match is 5 minutes away
+		matchTime := baseTime.Add(5 * time.Minute)
+		currentMatch := createMatch(matchTime, 2.0, 3.0, 4.0) // Same odds as last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should remain the same
+		assert.Equal(t, 2.0, result.GetHomeTeamOdds())
+		assert.Equal(t, 3.0, result.GetAwayTeamOdds())
+		assert.Equal(t, 4.0, result.GetDrawOdds())
+	})
+
+	t.Run("edge case: match is exactly 5 minutes and 59 seconds away", func(t *testing.T) {
+		// Match is 5 minutes and 59 seconds away (just under 6 minutes)
+		matchTime := baseTime.Add(5*time.Minute + 59*time.Second)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should be blocked (preserved from last state)
+		assert.Equal(t, 2.0, result.GetHomeTeamOdds())
+		assert.Equal(t, 3.0, result.GetAwayTeamOdds())
+		assert.Equal(t, 4.0, result.GetDrawOdds())
+	})
+
+	t.Run("edge case: match is exactly 6 minutes and 1 second away", func(t *testing.T) {
+		// Match is 6 minutes and 1 second away (just over 6 minutes)
+		matchTime := baseTime.Add(6*time.Minute + 1*time.Second)
+		currentMatch := createMatch(matchTime, 1.5, 2.5, 3.5) // Different odds than last state
+
+		// Mock current time to be now
+		now := baseTime
+
+		// Call adjustOdds with mocked time
+		result := service.adjustOddsWithTime(currentMatch, lastMatchState, now)
+
+		// Odds should not be blocked (keep current odds)
+		assert.Equal(t, 1.5, result.GetHomeTeamOdds())
+		assert.Equal(t, 2.5, result.GetAwayTeamOdds())
+		assert.Equal(t, 3.5, result.GetDrawOdds())
+	})
+}
+
+// adjustOddsWithTime is a test helper that allows us to mock the current time
+func (g *GameServiceImpl) adjustOddsWithTime(match models.Match, lastMatchState models.Match, now time.Time) models.Match {
+	matchDate := match.GetDate()
+	if matchDate.Before(now.Add(6 * time.Minute)) {
+		match.SetHomeTeamOdds(lastMatchState.GetHomeTeamOdds())
+		match.SetAwayTeamOdds(lastMatchState.GetAwayTeamOdds())
+		match.SetDrawOdds(lastMatchState.GetDrawOdds())
+	}
+	return match
+}
+
+// TestGameService_HandleMatchUpdates_AdjustOdds tests that odds are properly adjusted during match updates
+func TestGameService_HandleMatchUpdates_AdjustOdds(t *testing.T) {
+	// Create a base time for testing
+	baseTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
+
+	// Create a match that's 5 minutes away (should have odds blocked)
+	matchTime := baseTime.Add(5 * time.Minute)
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	match.SetHomeTeamOdds(1.5)
+	match.SetAwayTeamOdds(2.5)
+	match.SetDrawOdds(3.5)
+
+	// Create players
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
+	matches := []models.Match{match}
+
+	// Create game with the match
+	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{})
+	gameRepo := &gameRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
+
+	// Create a time function that returns our base time
+	timeFunc := func() time.Time { return baseTime }
+
+	// Create service with custom time function
+	service := NewGameServiceWithTime("test-game", game, gameRepo, betRepo, timeFunc)
+
+	// Create an update with different odds
+	updatedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	updatedMatch.SetHomeTeamOdds(1.2) // Different odds
+	updatedMatch.SetAwayTeamOdds(2.8) // Different odds
+	updatedMatch.SetDrawOdds(3.2)     // Different odds
+
+	updates := map[string]models.Match{
+		match.Id(): updatedMatch,
+	}
+
+	t.Run("odds should be blocked when match is within 6 minutes", func(t *testing.T) {
+		// Get the original odds from the game
+		originalMatch, err := service.game.GetMatchById(match.Id())
+		require.NoError(t, err)
+		originalHomeOdds := originalMatch.GetHomeTeamOdds()
+		originalAwayOdds := originalMatch.GetAwayTeamOdds()
+		originalDrawOdds := originalMatch.GetDrawOdds()
+
+		// Process the update
+		err = service.HandleMatchUpdates(updates)
+		require.NoError(t, err)
+
+		// Get the updated match
+		updatedMatchFromGame, err := service.game.GetMatchById(match.Id())
+		require.NoError(t, err)
+
+		// The odds should be preserved (blocked) because the match is within 6 minutes
+		assert.Equal(t, originalHomeOdds, updatedMatchFromGame.GetHomeTeamOdds())
+		assert.Equal(t, originalAwayOdds, updatedMatchFromGame.GetAwayTeamOdds())
+		assert.Equal(t, originalDrawOdds, updatedMatchFromGame.GetDrawOdds())
+	})
+
+	t.Run("odds should not be blocked when match is more than 6 minutes away", func(t *testing.T) {
+		// Create a match that's 7 minutes away
+		matchTime7Min := baseTime.Add(7 * time.Minute)
+		match7Min := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime7Min, 2)
+		match7Min.SetHomeTeamOdds(2.0)
+		match7Min.SetAwayTeamOdds(3.0)
+		match7Min.SetDrawOdds(4.0)
+
+		// Add the match to the game
+		players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
+		matches := []models.Match{match7Min}
+		game := rules.NewFreshGame("2024", "Premier League", "Test Game 2", players, matches, &scorerMock{})
+
+		service := NewGameServiceWithTime("test-game-2", game, gameRepo, betRepo, timeFunc)
+
+		// Create an update with different odds
+		updatedMatch7Min := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime7Min, 2)
+		updatedMatch7Min.SetHomeTeamOdds(1.8) // Different odds
+		updatedMatch7Min.SetAwayTeamOdds(2.8) // Different odds
+		updatedMatch7Min.SetDrawOdds(3.8)     // Different odds
+
+		updates := map[string]models.Match{
+			match7Min.Id(): updatedMatch7Min,
+		}
+
+		// Process the update
+		err := service.HandleMatchUpdates(updates)
+		require.NoError(t, err)
+
+		// Get the updated match
+		updatedMatchFromGame, err := service.game.GetMatchById(match7Min.Id())
+		require.NoError(t, err)
+
+		// The odds should be updated because the match is more than 6 minutes away
+		assert.Equal(t, 1.8, updatedMatchFromGame.GetHomeTeamOdds())
+		assert.Equal(t, 2.8, updatedMatchFromGame.GetAwayTeamOdds())
+		assert.Equal(t, 3.8, updatedMatchFromGame.GetDrawOdds())
+	})
+}

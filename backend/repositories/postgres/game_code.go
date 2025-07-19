@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"liguain/backend/models"
 	"liguain/backend/repositories"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type PostgresGameCodeRepository struct {
@@ -97,7 +99,7 @@ func (r *PostgresGameCodeRepository) DeleteExpiredCodes() error {
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected > 0 {
-		fmt.Printf("Deleted %d expired game codes\n", rowsAffected)
+		log.Infof("Deleted %d expired game codes", rowsAffected)
 	}
 
 	return nil

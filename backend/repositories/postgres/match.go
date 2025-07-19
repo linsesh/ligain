@@ -7,6 +7,8 @@ import (
 	"liguain/backend/models"
 	"liguain/backend/repositories"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // PostgresMatchRepository is a PostgreSQL implementation of MatchRepository
@@ -31,16 +33,21 @@ func (r *PostgresMatchRepository) SaveMatch(match models.Match) error {
 		INSERT INTO match (
 			local_id, home_team_id, away_team_id, 
 			home_team_score, away_team_score, match_date,
+			home_win_odds, away_win_odds, draw_odds,
 			match_status, season_code, competition_code, matchday
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (local_id) DO UPDATE SET
 			home_team_score = EXCLUDED.home_team_score,
 			away_team_score = EXCLUDED.away_team_score,
 			match_date = EXCLUDED.match_date,
+			home_win_odds = EXCLUDED.home_win_odds,
+			away_win_odds = EXCLUDED.away_win_odds,
+			draw_odds = EXCLUDED.draw_odds,
 			match_status = EXCLUDED.match_status,
 			updated_at = CURRENT_TIMESTAMP
 	`, localId, match.GetHomeTeam(), match.GetAwayTeam(),
 		match.GetHomeGoals(), match.GetAwayGoals(), match.GetDate(),
+		match.GetHomeTeamOdds(), match.GetAwayTeamOdds(), match.GetDrawOdds(),
 		match.GetStatus(), match.GetSeasonCode(), match.GetCompetitionCode(),
 		match.(*models.SeasonMatch).Matchday)
 
@@ -50,7 +57,7 @@ func (r *PostgresMatchRepository) SaveMatch(match models.Match) error {
 
 	// Update cache
 	if err := r.cache.SaveMatch(match); err != nil {
-		fmt.Printf("Warning: failed to update cache: %v\n", err)
+		log.Errorf("Warning: failed to update cache: %v", err)
 	}
 
 	return nil
@@ -97,6 +104,7 @@ func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error)
 	err = r.db.QueryRow(`
 		SELECT local_id, home_team_id, away_team_id,
 			   home_team_score, away_team_score, match_date,
+			   home_win_odds, away_win_odds, draw_odds,
 			   match_status, season_code, competition_code, matchday
 		FROM match
 		WHERE local_id = $1
@@ -122,6 +130,7 @@ func (r *PostgresMatchRepository) GetMatches() (map[string]models.Match, error) 
 	query := `
 		SELECT local_id, home_team_id, away_team_id,
 			   home_team_score, away_team_score, match_date,
+			   home_win_odds, away_win_odds, draw_odds,
 			   match_status, season_code, competition_code, matchday
 		FROM match
 	`
@@ -141,6 +150,7 @@ func (r *PostgresMatchRepository) GetMatches() (map[string]models.Match, error) 
 		err := rows.Scan(
 			&localId, &seasonMatch.HomeTeam, &seasonMatch.AwayTeam,
 			&seasonMatch.HomeGoals, &seasonMatch.AwayGoals, &date,
+			&seasonMatch.HomeTeamOdds, &seasonMatch.AwayTeamOdds, &seasonMatch.DrawOdds,
 			&seasonMatch.Status, &seasonMatch.SeasonCode, &seasonMatch.CompetitionCode,
 			&seasonMatch.Matchday)
 
@@ -160,6 +170,7 @@ func (r *PostgresMatchRepository) GetMatchesByCompetitionAndSeason(competitionCo
 	query := `
 		SELECT local_id, home_team_id, away_team_id,
 			   home_team_score, away_team_score, match_date,
+			   home_win_odds, away_win_odds, draw_odds,
 			   match_status, season_code, competition_code, matchday
 		FROM match
 		WHERE competition_code = $1 AND season_code = $2

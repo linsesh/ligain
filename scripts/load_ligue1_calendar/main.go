@@ -128,7 +128,7 @@ func main() {
 		if matches, exists := matchesByMatchday[matchday]; exists {
 			log.Printf("Matchday %d: %d matches", matchday, len(matches))
 			for _, match := range matches {
-				log.Printf("  - %s vs %s (%s)", match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"))
+				log.Printf("  - %s vs %s (%s)  --  Odds: %v - %v - %v", match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"), match.GetHomeTeamOdds(), match.GetAwayTeamOdds(), match.GetDrawOdds())
 			}
 		} else {
 			log.Printf("Matchday %d: No matches found", matchday)
