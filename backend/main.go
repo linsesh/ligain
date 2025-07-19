@@ -50,13 +50,10 @@ func main() {
 
 	// Create match watcher service
 	var watcher services.MatchWatcherService
-	if os.Getenv("ENV") == "production" {
-		watcher, err = services.NewMatchWatcherServiceSportsmonk("production")
-		if err != nil {
-			log.Fatal("Failed to create match watcher service:", err)
-		}
-	} else {
-		watcher = services.NewMockMatchWatcherService()
+	env := os.Getenv("ENV")
+	watcher, err = services.NewMatchWatcherServiceSportsmonk(env)
+	if err != nil {
+		log.Fatal("Failed to create match watcher service:", err)
 	}
 
 	// Start the match watcher service
