@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"liguain/backend/models"
+	"ligain/backend/models"
 
 	"github.com/stretchr/testify/require"
 )

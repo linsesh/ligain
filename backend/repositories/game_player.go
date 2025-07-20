@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"liguain/backend/models"
+	"ligain/backend/models"
 )
 
 // GamePlayerRepository defines the interface for managing game-player relationships

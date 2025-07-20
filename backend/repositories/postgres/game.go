@@ -3,9 +3,9 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
-	rules "liguain/backend/rules"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
+	rules "ligain/backend/rules"
 )
 
 type PostgresGameRepository struct {

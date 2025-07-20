@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
-	"liguain/backend/middleware"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
-	"liguain/backend/repositories/postgres"
-	"liguain/backend/routes"
-	"liguain/backend/services"
+	"ligain/backend/middleware"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
+	"ligain/backend/repositories/postgres"
+	"ligain/backend/routes"
+	"ligain/backend/services"
 	"os"
 	"strings"
 

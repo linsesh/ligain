@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"log"
 	"testing"
 	"time"

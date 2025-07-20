@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"log"
 	"os"
 	"strings"

@@ -5,9 +5,9 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
-	"liguain/backend/rules"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
+	"ligain/backend/rules"
 	"math/big"
 	"time"
 

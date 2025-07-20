@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
 )
 
 type PostgresGamePlayerRepository struct {

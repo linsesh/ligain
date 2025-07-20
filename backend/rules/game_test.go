@@ -1,7 +1,7 @@
 package rules
 
 import (
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"testing"
 	"time"
 )

@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"errors"
-	"liguain/backend/models"
+	"ligain/backend/models"
 )
 
 // Error constants

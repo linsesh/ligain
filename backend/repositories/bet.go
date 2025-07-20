@@ -3,7 +3,7 @@ package repositories
 import (
 	"errors"
 	"fmt"
-	"liguain/backend/models"
+	"ligain/backend/models"
 )
 
 const betCacheSize = 5000 // Maximum number of bets to keep in cache

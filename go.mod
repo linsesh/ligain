@@ -1,4 +1,4 @@
-module liguain
+module ligain
 
 go 1.23.0
 

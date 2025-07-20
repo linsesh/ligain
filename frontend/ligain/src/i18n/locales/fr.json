@@ -121,6 +121,8 @@
     "riskBonus25": "• 25% ou moins des joueurs ont le bon résultat : +25%",
     "riskBonus25Example": "Exemple : Seul 1/4 joueur prédit 2-1 et a raison → +25% sur ses points",
     "riskBonusNonCumulative": "Les bonus de risque ne sont pas cumulables.",
+    "oddsUpdates": "Mises à jour des cotes",
+    "oddsUpdatesDescription": "Les cotes sont mises à jour en temps réel selon les dernières données du marché des paris. Cependant, pour assurer un jeu équitable et éviter les changements de dernière minute qui pourraient affecter les décisions de paris, les cotes seront verrouillées et ne seront pas mises à jour dans les 5 dernières minutes avant le début d'un match.",
     "completeExample": "Exemple complet",
     "completeExampleText": "Compétition entre 4 joueurs\nÉquipe A à 1,3 vs Équipe B à 3,0\nPrédiction : 1-1\nLes 3 autres joueurs prédisent 2-1\nMatch : 2-2\nScore proche = 400 points\n× 1,5 (match nul) = 600 points\nSeul dans la prédiction de match nul : +25% = 750 points"
   },

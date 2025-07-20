@@ -1,6 +1,6 @@
 package rules
 
-import "liguain/backend/models"
+import "ligain/backend/models"
 
 // Given a match and all the bets, returns the score of each bet
 type Scorer interface {

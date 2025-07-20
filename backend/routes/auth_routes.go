@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"liguain/backend/middleware"
-	"liguain/backend/models"
-	"liguain/backend/services"
+	"ligain/backend/middleware"
+	"ligain/backend/models"
+	"ligain/backend/services"
 	"net/http"
 	"strings"
 

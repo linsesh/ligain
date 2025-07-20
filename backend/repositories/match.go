@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"liguain/backend/models"
+	"ligain/backend/models"
 )
 
 const matchCacheSize = 1000 // Maximum number of matches to keep in cache

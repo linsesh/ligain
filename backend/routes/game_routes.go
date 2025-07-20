@@ -2,11 +2,11 @@ package routes
 
 import (
 	"fmt"
-	"liguain/backend/middleware"
-	"liguain/backend/services"
+	"ligain/backend/middleware"
+	"ligain/backend/services"
 	"net/http"
 
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"strings"
 
 	"github.com/gin-gonic/gin"

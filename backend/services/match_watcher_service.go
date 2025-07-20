@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
-	"liguain/backend/models"
-	"liguain/backend/utils"
+	"ligain/backend/models"
+	"ligain/backend/utils"
 )
 
 type MatchWatcherServiceResult = utils.TaskResult[map[string]models.Match]

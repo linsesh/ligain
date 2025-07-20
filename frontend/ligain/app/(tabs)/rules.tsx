@@ -79,6 +79,11 @@ export default function RulesScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('rules.oddsUpdates')}</Text>
+          <Text style={styles.ruleDescription}>{t('rules.oddsUpdatesDescription')}</Text>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('rules.completeExample')}</Text>
           <Text style={styles.example}>
             {t('rules.completeExampleText')}

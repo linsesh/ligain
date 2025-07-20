@@ -121,6 +121,8 @@
     "riskBonus25": "• 25% or less of the players have the good result : +25%",
     "riskBonus25Example": "Example : Only 1/4 players predict 2-1 and are correct → +25% on their points",
     "riskBonusNonCumulative": "The risks bonuses are non-cumulative.",
+    "oddsUpdates": "Odds updates",
+    "oddsUpdatesDescription": "Odds are updated in real-time based on the latest betting market data. However, to ensure fair play and prevent last-minute changes that could affect betting decisions, odds are locked and will not be updated in the last 5 minutes before a match starts.",
     "completeExample": "Complete example",
     "completeExampleText": "Competition between 4 players\nTeam A at 1.3 vs Team B at 3.0\nPrediction : 1-1\nThe 3 other players predict 2-1\nMatch : 2-2\nClose score = 400 points\n× 1.5 (draw) = 600 points\nAlone in the draw prediction : +25% = 750 points"
   },

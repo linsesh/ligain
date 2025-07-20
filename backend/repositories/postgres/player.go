@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"time"
 
 	"github.com/google/uuid"

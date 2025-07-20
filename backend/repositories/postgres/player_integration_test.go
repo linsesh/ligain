@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"context"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"testing"
 	"time"
 

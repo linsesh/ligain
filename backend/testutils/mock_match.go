@@ -1,7 +1,7 @@
 package testutils
 
 import (
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"math"
 	"time"
 )

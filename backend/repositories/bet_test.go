@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"liguain/backend/models"
-	"liguain/backend/testutils"
+	"ligain/backend/models"
+	"ligain/backend/testutils"
 	"testing"
 	"time"
 )

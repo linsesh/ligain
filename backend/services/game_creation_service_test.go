@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"errors"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"testing"
 	"time"
 

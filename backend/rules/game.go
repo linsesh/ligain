@@ -2,7 +2,7 @@ package rules
 
 import (
 	"fmt"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"time"
 )
 

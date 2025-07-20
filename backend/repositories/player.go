@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"liguain/backend/models"
+	"ligain/backend/models"
 
 	"github.com/google/uuid"
 )

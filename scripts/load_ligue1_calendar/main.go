@@ -3,9 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"liguain/backend/api"
-	"liguain/backend/models"
-	postgresRepo "liguain/backend/repositories/postgres"
+	"ligain/backend/api"
+	"ligain/backend/models"
+	postgresRepo "ligain/backend/repositories/postgres"
 	"log"
 	"os"
 

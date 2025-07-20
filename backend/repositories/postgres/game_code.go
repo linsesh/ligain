@@ -3,8 +3,8 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
 
 	log "github.com/sirupsen/logrus"
 )

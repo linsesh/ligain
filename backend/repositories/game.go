@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"fmt"
-	"liguain/backend/models"
+	"ligain/backend/models"
 	"strconv"
 )
 

@@ -1,8 +1,8 @@
 package rules
 
 import (
-	"liguain/backend/models"
-	"liguain/backend/utils"
+	"ligain/backend/models"
+	"ligain/backend/utils"
 )
 
 // ScorerOriginal is a scorer that uses the original rules of the game, defined here: https://docs.google.com/document/d/1Gv2s6EqsL5583PT56y8efra2PkMNJAEFGBv8Al5jxfQ/edit?tab=t.0 (todo: link to an english version on the repository instead)

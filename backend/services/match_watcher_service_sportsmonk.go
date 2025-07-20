@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
-	"liguain/backend/api"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"ligain/backend/api"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
 	"os"
 	"sync"
 	"time"

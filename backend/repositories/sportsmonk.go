@@ -1,9 +1,9 @@
 package repositories
 
 import (
-	"liguain/backend/api"
-	"liguain/backend/models"
-	"liguain/backend/utils"
+	"ligain/backend/api"
+	"ligain/backend/models"
+	"ligain/backend/utils"
 )
 
 type SportsmonkRepository interface {

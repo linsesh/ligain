@@ -3,8 +3,8 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"liguain/backend/models"
-	"liguain/backend/services"
+	"ligain/backend/models"
+	"ligain/backend/services"
 	"net/http"
 	"net/http/httptest"
 	"os"

@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
 	"time"
 )
 

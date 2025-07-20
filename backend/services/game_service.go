@@ -1,8 +1,8 @@
 package services
 
 import (
-	"liguain/backend/models"
-	"liguain/backend/repositories"
+	"ligain/backend/models"
+	"ligain/backend/repositories"
 	"time"
 
 	log "github.com/sirupsen/logrus"

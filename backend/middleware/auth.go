@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"liguain/backend/services"
+	"ligain/backend/services"
 	"net/http"
 	"os"
 	"strings"
