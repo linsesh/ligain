@@ -108,7 +108,7 @@ export default function ProfileScreen() {
           {player.created_at && (
             <View style={styles.infoRow}>
               <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Member since:</Text>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.memberSince')}</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
                 {new Date(player.created_at).toLocaleDateString()}
               </Text>
@@ -118,7 +118,7 @@ export default function ProfileScreen() {
 
         {/* Actions */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
           
           <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />

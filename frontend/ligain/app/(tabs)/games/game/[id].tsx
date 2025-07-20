@@ -13,6 +13,7 @@ import { useAuth } from '../../../../src/contexts/AuthContext';
 import { API_CONFIG } from '../../../../src/config/api';
 import { SeasonMatch } from '../../../../src/types/match';
 import { colors } from '../../../../src/constants/colors';
+import { useTranslation } from 'react-i18next';
 
 interface TempScores {
   [key: string]: {
@@ -183,6 +184,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
 }) {
   const timeService = useTimeService();
   const { player } = useAuth();
+  const { t } = useTranslation();
   const now = timeService.now();
   const isFuture = !matchResult.match.isFinished() && !matchResult.match.isInProgress();
   const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
@@ -213,7 +215,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               onFocus={() => onFocus()}
               onBlur={() => onBlur()}
             />
-            <Text style={styles.vsText}>vs</Text>
+            <Text style={styles.vsText}>{t('common.vs')}</Text>
             <TeamInput
               teamName={matchResult.match.getAwayTeam()}
               value={tempScores[matchResult.match.id()]?.away?.toString() || ''}
@@ -235,7 +237,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               onFocus={() => onFocus()}
               onBlur={() => onBlur()}
             />
-            <Text style={styles.vsText}>vs</Text>
+            <Text style={styles.vsText}>{t('common.vs')}</Text>
             <TeamInput
               teamName={matchResult.match.getAwayTeam()}
               value={matchResult.match.getAwayGoals().toString()}
@@ -255,7 +257,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           style={styles.doneButton}
           onPress={onDone}
         >
-          <Text style={styles.doneButtonText}>Done</Text>
+          <Text style={styles.doneButtonText}>{t('common.done')}</Text>
         </TouchableOpacity>
       )}
       
@@ -333,6 +335,7 @@ function MatchesList() {
   const [currentMatchday, setCurrentMatchday] = useState<number | null>(null);
   const { submitBet, error: submitError } = useBetSubmission(gameId);
   const { player } = useAuth();
+  const { t } = useTranslation();
   
   // Debug player information
   console.log('🔍 Current player:', player);
@@ -420,12 +423,12 @@ function MatchesList() {
   useEffect(() => {
     if (submitError) {
       Alert.alert(
-        "Bet Not Saved",
-        "We couldn't save your bet. Please check your internet connection and try again.",
-        [{ text: "OK" }]
+        t('games.betNotSaved'),
+        t('games.betNotSavedMessage'),
+        [{ text: t('common.ok') }]
       );
     }
-  }, [submitError]);
+  }, [submitError, t]);
 
   const toggleBetSection = (matchId: string) => {
     setExpandedMatches(prev => ({
@@ -528,12 +531,12 @@ function MatchesList() {
       >
         {matchesError ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Failed to load matches: {matchesError.message}</Text>
-            <Text style={styles.refreshHint}>Pull down to refresh</Text>
+            <Text style={styles.errorText}>{t('games.failedToLoadMatches')} {matchesError.message}</Text>
+            <Text style={styles.refreshHint}>{t('games.pullToRefresh')}</Text>
           </View>
         ) : sortedMatchdays.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No matches available</Text>
+            <Text style={styles.emptyText}>{t('games.noMatchesAvailable')}</Text>
           </View>
         ) : (
           <>
@@ -552,7 +555,7 @@ function MatchesList() {
               </TouchableOpacity>
               
               <View style={styles.matchdayInfo}>
-                <Text style={styles.matchdayTitle}>Matchday {currentMatchday}</Text>
+                <Text style={styles.matchdayTitle}>{t('games.matchday')} {currentMatchday}</Text>
                 {currentMatchday && matchesByMatchday[currentMatchday] && matchesByMatchday[currentMatchday].length > 0 && (
                   <Text style={styles.matchdayDate}>
                     {formatDate(matchesByMatchday[currentMatchday][0].match.getDate())}

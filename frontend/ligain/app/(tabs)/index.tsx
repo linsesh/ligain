@@ -245,7 +245,7 @@ function GamesList() {
                 <Text style={styles.gameSeason}>{game.seasonYear} • {game.competitionName}</Text>
               </View>
               <View style={styles.gameStatus}>
-                <Text style={styles.statusText}>Status: {game.status}</Text>
+                <Text style={styles.statusText}>{t('games.status')} {game.status}</Text>
               </View>
             </TouchableOpacity>
           ))

@@ -11,7 +11,11 @@
     "loading": "Chargement...",
     "error": "Erreur",
     "success": "Succès",
-    "warning": "Avertissement"
+    "warning": "Avertissement",
+    "ok": "OK",
+    "vs": "vs",
+    "actions": "Actions",
+    "failedToCopyToClipboard": "Échec de la copie dans le presse-papiers"
   },
   "navigation": {
     "games": "Jeux",
@@ -46,7 +50,19 @@
     "noGames": "Aucune partie pour le moment",
     "noGamesSubtext": "Créez ou rejoignez une partie pour commencer",
     "errorLoadingGames": "Erreur lors du chargement des parties",
-    "pullToRefresh": "Tirez vers le bas pour actualiser"
+    "pullToRefresh": "Tirer vers le bas pour actualiser",
+    "status": "Statut :",
+    "gameCode": "Code de Partie :",
+    "playerLeaderboard": "Classement des Joueurs",
+    "viewMatches": "Voir les Matchs",
+    "betNotSaved": "Pari Non Sauvegardé",
+    "betNotSavedMessage": "Nous n'avons pas pu sauvegarder ton pari. Vérifie ta connexion internet et réessaye.",
+    "failedToLoadGame": "Échec du chargement de la partie :",
+    "gameNotFound": "Partie non trouvée",
+    "retry": "Réessayer",
+    "failedToLoadMatches": "Échec du chargement des matchs :",
+    "noMatchesAvailable": "Aucun match disponible",
+    "matchday": "Journée"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",
@@ -57,7 +73,8 @@
     "provider": "Provider",
     "accountType": "Type de Compte",
     "guest": "Invitée",
-    "authenticated": "Authentifié"
+    "authenticated": "Authentifié",
+    "memberSince": "Membre depuis :"
   },
   "about": {
     "whatIsLigain": "Qu'est-ce que Ligain ?",

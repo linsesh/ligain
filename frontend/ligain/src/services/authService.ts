@@ -213,6 +213,13 @@ export class AuthService {
       };
     } catch (error) {
       console.error('🔐 Guest Sign-In - Error:', error);
+      
+      // Handle network errors (server unreachable, etc.)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Ligain servers are not available for now. Please try again later.');
+      }
+      
+      // Re-throw other errors
       throw error;
     }
   }

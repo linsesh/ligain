@@ -11,7 +11,11 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
-    "warning": "Warning"
+    "warning": "Warning",
+    "ok": "OK",
+    "vs": "vs",
+    "actions": "Actions",
+    "failedToCopyToClipboard": "Failed to copy to clipboard"
   },
   "navigation": {
     "games": "Games",
@@ -46,7 +50,19 @@
     "noGames": "No games yet",
     "noGamesSubtext": "Create or join a game to get started",
     "errorLoadingGames": "Error loading games",
-    "pullToRefresh": "Pull down to refresh"
+    "pullToRefresh": "Pull down to refresh",
+    "status": "Status:",
+    "gameCode": "Game Code:",
+    "playerLeaderboard": "Player Leaderboard",
+    "viewMatches": "View Matches",
+    "betNotSaved": "Bet Not Saved",
+    "betNotSavedMessage": "We couldn't save your bet. Please check your internet connection and try again.",
+    "failedToLoadGame": "Failed to load game:",
+    "gameNotFound": "Game not found",
+    "retry": "Retry",
+    "failedToLoadMatches": "Failed to load matches:",
+    "noMatchesAvailable": "No matches available",
+    "matchday": "Matchday"
   },
   "profile": {
     "noUserInfo": "No user information available",
@@ -57,7 +73,8 @@
     "provider": "Sign-in Provider",
     "accountType": "Account Type",
     "guest": "Guest",
-    "authenticated": "Authenticated"
+    "authenticated": "Authenticated",
+    "memberSince": "Member since:"
   },
   "about": {
     "whatIsLigain": "What is Ligain?",

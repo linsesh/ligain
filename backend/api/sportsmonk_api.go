@@ -176,10 +176,10 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// Extract odds for home, draw, away (market_id=1, bookmaker_id=1)
+	// Extract odds for home, draw, away (market_id=1, bookmaker_id=2 is bet365)
 	var homeOdd, drawOdd, awayOdd float64
 	for _, o := range f.Odds {
-		if o.MarketID == 1 && o.BookmakerID == 1 {
+		if o.MarketID == 1 && o.BookmakerID == 2 {
 			switch o.Label {
 			case "Home":
 				homeOdd, _ = strconv.ParseFloat(o.Value, 64)

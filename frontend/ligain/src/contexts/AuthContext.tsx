@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from 'react-native';
 import { API_CONFIG, getApiHeaders } from '../config/api';
 import { getItem, setItem, multiRemove, isUsingMemoryFallback } from '../utils/storage';
-import { getHumanReadableError } from '../utils/errorMessages';
+import { getHumanReadableError, handleApiError } from '../utils/errorMessages';
 
 export interface Player {
   id: string;
@@ -79,24 +79,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token && playerData) {
         console.log('🔍 AuthContext - Validating token with backend');
         // Validate token with backend
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/me`, {
-          headers: {
-            ...getApiHeaders(),
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        try {
+          const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/me`, {
+            headers: {
+              ...getApiHeaders(),
+              'Authorization': `Bearer ${token}`,
+            },
+          });
 
-        console.log('🔍 AuthContext - Backend response status:', response.status);
+          console.log('🔍 AuthContext - Backend response status:', response.status);
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ AuthContext - Token valid, setting player:', data.player?.name);
-          setPlayer(data.player);
-        } else {
-          console.log('❌ AuthContext - Token invalid, clearing storage');
-          // Token is invalid, clear storage
-          await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
-          setPlayer(null);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ AuthContext - Token valid, setting player:', data.player?.name);
+            setPlayer(data.player);
+          } else {
+            console.log('❌ AuthContext - Token invalid, clearing storage');
+            // Token is invalid, clear storage
+            await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
+            setPlayer(null);
+          }
+        } catch (fetchError) {
+          // Handle network errors (server unreachable, etc.)
+          if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+            console.error('🔍 AuthContext - Network error during token validation (server unreachable):', fetchError);
+            // Don't clear storage on network errors, just set player to null temporarily
+            setPlayer(null);
+            return;
+          }
+          // Re-throw other errors
+          throw fetchError;
         }
       } else {
         console.log('❌ AuthContext - No token or player data found');
@@ -142,95 +154,95 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       let response;
       
-      if (provider === 'guest') {
-        // Guest authentication uses a different endpoint
-        const requestBody = { name };
+      try {
+        if (provider === 'guest') {
+          // Guest authentication uses a different endpoint
+          const requestBody = { name };
+          
+          console.log('🔐 AuthContext - Making guest request to:', `${API_CONFIG.BASE_URL}/api/auth/signin/guest`);
+          console.log('🔐 AuthContext - Guest request body:', requestBody);
+
+          response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin/guest`, {
+            method: 'POST',
+            headers: {
+              ...getApiHeaders(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+        } else {
+          // OAuth authentication
+          const requestBody = {
+            provider,
+            token,
+            email,
+            name,
+          };
+          
+          console.log('🔐 AuthContext - Making OAuth request to:', `${API_CONFIG.BASE_URL}/api/auth/signin`);
+          console.log('🔐 AuthContext - OAuth request body:', {
+            ...requestBody,
+            token: token ? '***token***' : 'NO_TOKEN'
+          });
+
+          response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin`, {
+            method: 'POST',
+            headers: {
+              ...getApiHeaders(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+        }
+
+        console.log('🔐 AuthContext - Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+
+        if (!response.ok) {
+          // Use the existing handleApiError utility for consistent error handling
+          await handleApiError(response);
+        }
+
+        const data = await response.json();
+        console.log('🔐 AuthContext - Success response data:', {
+          hasToken: !!data.token,
+          player: data.player ? {
+            id: data.player.id,
+            name: data.player.name,
+            email: data.player.email,
+            provider: data.player.provider
+          } : 'NO_PLAYER_DATA'
+        });
         
-        console.log('🔐 AuthContext - Making guest request to:', `${API_CONFIG.BASE_URL}/api/auth/signin/guest`);
-        console.log('🔐 AuthContext - Guest request body:', requestBody);
-
-        response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin/guest`, {
-          method: 'POST',
-          headers: {
-            ...getApiHeaders(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-      } else {
-        // OAuth authentication
-        const requestBody = {
-          provider,
-          token,
-          email,
-          name,
-        };
+        // Store token and player data
+        console.log('🔐 AuthContext - Storing token and player data');
+        console.log('🔐 AuthContext - Token to store:', data.token ? `${data.token.substring(0, 10)}...` : 'null');
+        console.log('🔐 AuthContext - Player data to store:', JSON.stringify(data.player));
+        await setItem(AUTH_TOKEN_KEY, data.token);
+        await setItem(PLAYER_DATA_KEY, JSON.stringify(data.player));
         
-        console.log('🔐 AuthContext - Making OAuth request to:', `${API_CONFIG.BASE_URL}/api/auth/signin`);
-        console.log('🔐 AuthContext - OAuth request body:', {
-          ...requestBody,
-          token: token ? '***token***' : 'NO_TOKEN'
-        });
-
-        response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin`, {
-          method: 'POST',
-          headers: {
-            ...getApiHeaders(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-      }
-
-      console.log('🔐 AuthContext - Response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-          console.error('🔐 AuthContext - Error response data:', errorData);
-        } catch (parseError) {
-          console.error('🔐 AuthContext - Failed to parse error response: code:', response.status, 'message:', response.statusText);
-          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+        // Verify storage
+        const storedToken = await getItem(AUTH_TOKEN_KEY);
+        const storedPlayerData = await getItem(PLAYER_DATA_KEY);
+        console.log('🔐 AuthContext - Verification - Stored token exists:', !!storedToken);
+        console.log('🔐 AuthContext - Verification - Stored player data exists:', !!storedPlayerData);
+        
+        setPlayer(data.player);
+        console.log('🔐 AuthContext - Sign in completed successfully');
+      } catch (fetchError) {
+        // Handle network errors (server unreachable, etc.)
+        if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+          console.error('🔐 AuthContext - Network error (server unreachable):', fetchError);
+          throw new Error('Ligain servers are not available for now. Please try again later.');
         }
         
-        // Provide human-readable error messages based on status code
-        const humanReadableError = getHumanReadableError(response.status, errorData.error);
-        
-        throw new Error(humanReadableError);
+        // Re-throw other errors (including API errors from handleApiError)
+        throw fetchError;
       }
-
-      const data = await response.json();
-      console.log('🔐 AuthContext - Success response data:', {
-        hasToken: !!data.token,
-        player: data.player ? {
-          id: data.player.id,
-          name: data.player.name,
-          email: data.player.email,
-          provider: data.player.provider
-        } : 'NO_PLAYER_DATA'
-      });
-      
-      // Store token and player data
-      console.log('🔐 AuthContext - Storing token and player data');
-      console.log('🔐 AuthContext - Token to store:', data.token ? `${data.token.substring(0, 10)}...` : 'null');
-      console.log('🔐 AuthContext - Player data to store:', JSON.stringify(data.player));
-      await setItem(AUTH_TOKEN_KEY, data.token);
-      await setItem(PLAYER_DATA_KEY, JSON.stringify(data.player));
-      
-      // Verify storage
-      const storedToken = await getItem(AUTH_TOKEN_KEY);
-      const storedPlayerData = await getItem(PLAYER_DATA_KEY);
-      console.log('🔐 AuthContext - Verification - Stored token exists:', !!storedToken);
-      console.log('🔐 AuthContext - Verification - Stored player data exists:', !!storedPlayerData);
-      
-      setPlayer(data.player);
-      console.log('🔐 AuthContext - Sign in completed successfully');
     } catch (error) {
       console.error('🔐 AuthContext - Sign in error:', error);
       console.error('🔐 AuthContext - Error details:', {
@@ -251,13 +263,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (token) {
         // Call backend to invalidate token
-        await fetch(`${API_CONFIG.BASE_URL}/api/auth/signout`, {
-          method: 'POST',
-          headers: {
-            ...getApiHeaders(),
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        try {
+          await fetch(`${API_CONFIG.BASE_URL}/api/auth/signout`, {
+            method: 'POST',
+            headers: {
+              ...getApiHeaders(),
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+        } catch (fetchError) {
+          // Handle network errors (server unreachable, etc.)
+          if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+            console.warn('🔐 AuthContext - Network error during signout (server unreachable), continuing with local cleanup');
+          } else {
+            // Re-throw other errors
+            throw fetchError;
+          }
+        }
       }
     } catch (error) {
       console.error('Sign out error:', error);

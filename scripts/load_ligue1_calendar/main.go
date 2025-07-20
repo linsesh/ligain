@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 
+	"math/rand"
+
 	"github.com/golang-migrate/migrate/v4"
 	migratePostgres "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -24,6 +26,7 @@ const (
 
 func main() {
 	// Get database URL from environment or use default
+	rand.Seed(100)
 	dbURL := getDatabaseURL()
 	apiToken := getAPIToken()
 
@@ -89,6 +92,9 @@ func main() {
 			log.Printf("Skipping duplicate match for database: %s (fixture ID: %d)", matchId, fixtureId)
 			continue
 		}
+		if match.GetHomeTeamOdds() == 0 || match.GetAwayTeamOdds() == 0 || match.GetDrawOdds() == 0 {
+			match = adjustOdds(match)
+		}
 		seenMatches[matchId] = true
 
 		err := matchRepo.SaveMatch(match)
@@ -134,6 +140,16 @@ func main() {
 			log.Printf("Matchday %d: No matches found", matchday)
 		}
 	}
+}
+
+func adjustOdds(match models.Match) models.Match {
+	randomFloat := 1.0 + rand.Float64()*(4.0-1.0)
+	match.SetHomeTeamOdds(randomFloat)
+	randomFloat = 1.0 + rand.Float64()*(4.0-1.0)
+	match.SetAwayTeamOdds(randomFloat)
+	randomFloat = 1.0 + rand.Float64()*(4.0-1.0)
+	match.SetDrawOdds(randomFloat)
+	return match
 }
 
 func getDatabaseURL() string {

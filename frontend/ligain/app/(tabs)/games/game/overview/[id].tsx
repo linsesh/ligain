@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../../../../src/contexts/AuthContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../../../../src/config/api';
 import { colors } from '../../../../../src/constants/colors';
+import { useTranslation } from 'react-i18next';
 
 interface PlayerGameInfo {
   id: string;
@@ -30,6 +31,7 @@ export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { player } = useAuth();
+  const { t } = useTranslation();
   const [gameDetails, setGameDetails] = useState<GameDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +80,7 @@ export default function GameOverviewScreen() {
         setCopied(false);
       }, 3000);
     } catch (err) {
-      Alert.alert('Error', 'Failed to copy to clipboard');
+      Alert.alert(t('common.error'), t('common.failedToCopyToClipboard'));
     }
   };
 
@@ -118,9 +120,9 @@ export default function GameOverviewScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load game: {error}</Text>
+          <Text style={styles.errorText}>{t('games.failedToLoadGame')} {error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchGameDetails}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('games.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -130,7 +132,7 @@ export default function GameOverviewScreen() {
   if (!gameDetails) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Game not found</Text>
+        <Text style={styles.errorText}>{t('games.gameNotFound')}</Text>
       </View>
     );
   }
@@ -158,13 +160,13 @@ export default function GameOverviewScreen() {
           <Text style={styles.gameSubtitle}>
             {gameDetails.seasonYear} • {gameDetails.competitionName}
           </Text>
-          <Text style={styles.gameStatus}>Status: {gameDetails.status}</Text>
+          <Text style={styles.gameStatus}>{t('games.status')} {gameDetails.status}</Text>
         </View>
 
         {/* Game Code Section */}
         {gameDetails.code && (
           <View style={styles.codeContainer}>
-            <Text style={styles.codeLabel}>Game Code:</Text>
+            <Text style={styles.codeLabel}>{t('games.gameCode')}</Text>
             <View style={styles.codeDisplay}>
               <Text style={styles.codeText}>{gameDetails.code}</Text>
               <TouchableOpacity 
@@ -180,7 +182,7 @@ export default function GameOverviewScreen() {
 
         {/* Player Leaderboard */}
         <View style={styles.leaderboardContainer}>
-          <Text style={styles.leaderboardTitle}>Player Leaderboard</Text>
+          <Text style={styles.leaderboardTitle}>{t('games.playerLeaderboard')}</Text>
           {sortedPlayers.map((playerInfo, index) => (
             <View key={playerInfo.id} style={styles.playerRow}>
               <View style={styles.playerRank}>
@@ -188,11 +190,11 @@ export default function GameOverviewScreen() {
               </View>
               <View style={styles.playerInfo}>
                 <Text style={styles.playerName}>{playerInfo.name}</Text>
-                <Text style={styles.playerScore}>{playerInfo.totalScore} points</Text>
+                <Text style={styles.playerScore}>{playerInfo.totalScore} {t('game.points')}</Text>
               </View>
               {playerInfo.id === player?.id && (
                 <View style={styles.currentPlayerIndicator}>
-                  <Text style={styles.currentPlayerText}>You</Text>
+                  <Text style={styles.currentPlayerText}>{t('game.currentPlayer')}</Text>
                 </View>
               )}
             </View>
@@ -205,7 +207,7 @@ export default function GameOverviewScreen() {
           onPress={navigateToMatches}
         >
           <Ionicons name="football" size={24} color="#fff" />
-          <Text style={styles.matchesButtonText}>View Matches</Text>
+          <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
