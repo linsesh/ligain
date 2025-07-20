@@ -121,8 +121,8 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
           
           <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={[styles.actionButtonText, { color: colors.error }]}>{t('common.signOut')}</Text>
+            <Ionicons name="log-out-outline" size={20} color={colors.text} />
+            <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
           </TouchableOpacity>
         </View>
       </View>
