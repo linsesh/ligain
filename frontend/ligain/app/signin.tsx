@@ -17,6 +17,7 @@ import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
 import { API_CONFIG } from '../src/config/api';
 import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
+import { PrivacyTermsModal } from '../src/components/PrivacyTermsModal';
 import { setItem } from '../src/utils/storage';
 import { useTranslation } from 'react-i18next';
 
@@ -30,6 +31,7 @@ export default function SignInScreen() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
+  const [showPrivacyTermsModal, setShowPrivacyTermsModal] = useState(false);
   const { t } = useTranslation();
   
   const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
@@ -300,9 +302,11 @@ export default function SignInScreen() {
           </View>
         )}
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.text }]}>
-            {t('auth.termsAgreement')}
-          </Text>
+          <TouchableOpacity onPress={() => setShowPrivacyTermsModal(true)}>
+            <Text style={[styles.footerText, { color: colors.link }]}>
+              {t('auth.termsAgreement')}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -368,6 +372,12 @@ export default function SignInScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Privacy and Terms Modal */}
+      <PrivacyTermsModal
+        visible={showPrivacyTermsModal}
+        onClose={() => setShowPrivacyTermsModal(false)}
+      />
     </View>
   );
 }
