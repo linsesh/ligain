@@ -50,4 +50,9 @@ i18n
 console.log('🌍 i18n initialized with language:', i18n.language);
 console.log('🌍 i18n isInitialized:', i18n.isInitialized);
 
+// Utility function to get the current locale for date/time formatting
+export const getCurrentLocale = (): string => {
+  return i18n.language === 'fr' ? 'fr-FR' : 'en-US';
+};
+
 export default i18n; 

@@ -221,14 +221,14 @@ function GamesList() {
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Failed to load games: {error}</Text>
-            <Text style={styles.refreshHint}>Pull down to refresh</Text>
+            <Text style={styles.errorText}>{t('games.errorLoadingGames')} {error}</Text>
+            <Text style={styles.refreshHint}>{t('games.pullToRefresh')}</Text>
           </View>
         ) : games.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="game-controller-outline" size={64} color="#666" />
-            <Text style={styles.emptyText}>No games yet</Text>
-            <Text style={styles.emptySubtext}>Create a game or join one to get started!</Text>
+            <Text style={styles.emptyText}>{t('games.noGames')}</Text>
+            <Text style={styles.emptySubtext}>{t('games.noGamesSubtext')}</Text>
           </View>
         ) : (
           games.map((game) => (

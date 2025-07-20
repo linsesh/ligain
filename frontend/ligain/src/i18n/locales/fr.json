@@ -62,7 +62,11 @@
     "retry": "Réessayer",
     "failedToLoadMatches": "Échec du chargement des matchs :",
     "noMatchesAvailable": "Aucun match disponible",
-    "matchday": "Journée"
+    "matchday": "Journée",
+    "oddsLegend": "Légende des cotes :",
+    "clearFavorite": "Favori clair (différence de cotes > 1,5)",
+    "drawBonus": "Multiplicateur bonus match nul",
+    "outsiderWinBonus": "Multiplicateur bonus victoire outsider"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

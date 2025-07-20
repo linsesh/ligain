@@ -14,6 +14,7 @@ import { API_CONFIG } from '../../../../src/config/api';
 import { SeasonMatch } from '../../../../src/types/match';
 import { colors } from '../../../../src/constants/colors';
 import { useTranslation } from 'react-i18next';
+import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 
 interface TempScores {
   [key: string]: {
@@ -22,23 +23,7 @@ interface TempScores {
   };
 }
 
-// Helper function to format time
-const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false 
-  });
-};
 
-// Helper function to format date
-const formatDate = (date: Date): string => {
-  return date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-};
 
 // Custom hook for fetching matches for a specific game
 const useMatchesForGame = (gameId: string) => {
@@ -658,18 +643,18 @@ function MatchesList() {
             {/* Legend for odds indicators */}
             {shouldShowLegend && (
               <View style={styles.legendContainer}>
-                <Text style={styles.legendTitle}>Odds Legend:</Text>
+                <Text style={styles.legendTitle}>{t('games.oddsLegend')}</Text>
                 <View style={styles.legendItem}>
                   <Text style={styles.legendStar}>⭐</Text>
-                  <Text style={styles.legendText}>Clear favorite (odds difference &gt; 1.5)</Text>
+                  <Text style={styles.legendText}>{t('games.clearFavorite')}</Text>
                 </View>
                 <View style={styles.legendItem}>
                   <Text style={styles.legendMark}>×1.5</Text>
-                  <Text style={styles.legendText}>Draw bonus multiplier</Text>
+                  <Text style={styles.legendText}>{t('games.drawBonus')}</Text>
                 </View>
                 <View style={styles.legendItem}>
                   <Text style={styles.legendMark}>×2</Text>
-                  <Text style={styles.legendText}>Outsider win bonus multiplier</Text>
+                  <Text style={styles.legendText}>{t('games.outsiderWinBonus')}</Text>
                 </View>
               </View>
             )}

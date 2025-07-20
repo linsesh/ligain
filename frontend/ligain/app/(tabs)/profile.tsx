@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
+import { formatShortDate } from '../../src/utils/dateUtils';
 
 export default function ProfileScreen() {
   const { player, signOut } = useAuth();
@@ -110,7 +111,7 @@ export default function ProfileScreen() {
               <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
               <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.memberSince')}</Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                {new Date(player.created_at).toLocaleDateString()}
+                {formatShortDate(new Date(player.created_at))}
               </Text>
             </View>
           )}

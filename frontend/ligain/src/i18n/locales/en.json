@@ -62,7 +62,11 @@
     "retry": "Retry",
     "failedToLoadMatches": "Failed to load matches:",
     "noMatchesAvailable": "No matches available",
-    "matchday": "Matchday"
+    "matchday": "Matchday",
+    "oddsLegend": "Odds Legend:",
+    "clearFavorite": "Clear favorite (odds difference > 1.5)",
+    "drawBonus": "Draw bonus multiplier",
+    "outsiderWinBonus": "Outsider win bonus multiplier"
   },
   "profile": {
     "noUserInfo": "No user information available",
