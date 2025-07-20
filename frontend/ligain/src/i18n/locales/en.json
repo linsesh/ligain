@@ -70,7 +70,7 @@
     "accountInfo": "Account Information",
     "displayName": "Display Name",
     "email": "Email",
-    "provider": "Sign-in Provider",
+    "provider": "Provider",
     "accountType": "Account Type",
     "guest": "Guest",
     "authenticated": "Authenticated",

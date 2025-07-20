@@ -179,8 +179,9 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 16,
     marginLeft: 12,
-    marginRight: 8,
-    minWidth: 80,
+    marginRight: 0,
+    minWidth: 120,
+    flexShrink: 0,
   },
   infoValue: {
     fontSize: 16,

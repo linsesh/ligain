@@ -203,7 +203,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
 
         if (!response.ok) {
-          // Use the existing handleApiError utility for consistent error handling
+          // For OAuth authentication, we need to preserve specific error messages
+          // that the frontend needs to handle specially (like display name requirements)
+          if (provider !== 'guest') {
+            let errorData;
+            try {
+              errorData = await response.json();
+            } catch (parseError) {
+              errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+            }
+            
+            // Preserve specific authentication errors that the frontend needs to handle
+            if (errorData.error === 'display name is required for new users' || 
+                errorData.error === 'display name is already taken') {
+              throw new Error(errorData.error);
+            }
+          }
+          
+          // Use the existing handleApiError utility for other errors
           await handleApiError(response);
         }
 
