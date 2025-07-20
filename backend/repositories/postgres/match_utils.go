@@ -7,7 +7,7 @@ import (
 )
 
 // CreateMatchFromDB creates a match from database fields
-func CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode string, matchDate time.Time, matchday int, matchStatus string, homeTeamScore, awayTeamScore sql.NullInt32) *models.SeasonMatch {
+func CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode string, matchDate time.Time, matchday int, matchStatus string, homeTeamScore, awayTeamScore sql.NullInt32, homeWinOdds, awayWinOdds, drawOdds float64) *models.SeasonMatch {
 	match := models.NewSeasonMatch(
 		homeTeamId,
 		awayTeamId,
@@ -16,6 +16,11 @@ func CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode strin
 		matchDate,
 		matchday,
 	)
+
+	// Set odds
+	match.SetHomeTeamOdds(homeWinOdds)
+	match.SetAwayTeamOdds(awayWinOdds)
+	match.SetDrawOdds(drawOdds)
 
 	// Set match status based on database value
 	switch models.MatchStatus(matchStatus) {

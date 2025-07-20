@@ -261,6 +261,39 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
         </TouchableOpacity>
       )}
       
+      {/* Odds display */}
+      <View style={styles.oddsContainer}>
+        <View style={styles.oddsRow}>
+          <View style={styles.oddsItem}>
+            <Text style={styles.oddsLabel}>1</Text>
+            <Text style={styles.oddsValue}>{matchResult.match.getHomeTeamOdds().toFixed(2)}</Text>
+            {matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getHomeTeam() && (
+              <Text style={styles.favoriteStar}>⭐</Text>
+            )}
+            {matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() !== matchResult.match.getHomeTeam() && (
+              <Text style={styles.outsiderMark}>×2</Text>
+            )}
+          </View>
+          <View style={styles.oddsItem}>
+            <Text style={styles.oddsLabel}>N</Text>
+            <Text style={styles.oddsValue}>{matchResult.match.getDrawOdds().toFixed(2)}</Text>
+            {matchResult.match.hasClearFavorite() && (
+              <Text style={styles.drawMark}>×1.5</Text>
+            )}
+          </View>
+          <View style={styles.oddsItem}>
+            <Text style={styles.oddsLabel}>2</Text>
+            <Text style={styles.oddsValue}>{matchResult.match.getAwayTeamOdds().toFixed(2)}</Text>
+            {matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getAwayTeam() && (
+              <Text style={styles.favoriteStar}>⭐</Text>
+            )}
+            {matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() !== matchResult.match.getAwayTeam() && (
+              <Text style={styles.outsiderMark}>×2</Text>
+            )}
+          </View>
+        </View>
+      </View>
+      
       {/* Keep the rest of the card (other players' bets/scores) only for past/in-progress matches */}
       {(!isFuture && (matchResult.match.isFinished() || matchResult.match.isInProgress())) && (
         <>
@@ -497,7 +530,7 @@ function MatchesList() {
   if (matchesLoading && !refreshing) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator testID="loading-indicator" size="large" color={colors.primary} />
       </View>
     );
   }
@@ -617,6 +650,23 @@ function MatchesList() {
               );
             })}
             </View>
+
+            {/* Legend for odds indicators */}
+            <View style={styles.legendContainer}>
+              <Text style={styles.legendTitle}>Odds Legend:</Text>
+              <View style={styles.legendItem}>
+                <Text style={styles.legendStar}>⭐</Text>
+                <Text style={styles.legendText}>Clear favorite (odds difference &gt; 1.5)</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <Text style={styles.legendMark}>×1.5</Text>
+                <Text style={styles.legendText}>Draw bonus multiplier</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <Text style={styles.legendMark}>×2</Text>
+                <Text style={styles.legendText}>Outsider win bonus multiplier</Text>
+              </View>
+            </View>
           </>
         )}
       </ScrollView>
@@ -635,9 +685,11 @@ export default function GameScreen() {
   const timeService = React.useMemo(() => new MockTimeService(mockTime), []);
   
   return (
-    <TimeServiceProvider service={timeService}>
-      <MatchesList />
-    </TimeServiceProvider>
+    <View testID="game-screen" style={styles.container}>
+      <TimeServiceProvider service={timeService}>
+        <MatchesList />
+      </TimeServiceProvider>
+    </View>
   );
 }
 
@@ -845,5 +897,103 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  oddsContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  oddsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  oddsItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    minHeight: 28,
+    justifyContent: 'center',
+    marginHorizontal: 2,
+    position: 'relative',
+  },
+  oddsLabel: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 1,
+  },
+  oddsValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+  },
+  favoriteStar: {
+    fontSize: 12,
+    color: '#ffd700', // Gold color for favorite
+    position: 'absolute',
+    top: 2,
+    right: 2,
+  },
+  outsiderMark: {
+    fontSize: 12,
+    color: colors.primary, // Primary color for outsider
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    borderRadius: 2,
+  },
+  drawMark: {
+    fontSize: 12,
+    color: colors.primary, // Primary color for draw
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    borderRadius: 2,
+  },
+  legendContainer: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    padding: 12,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  legendTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  legendStar: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+     legendMark: {
+     fontSize: 16,
+     marginRight: 8,
+     color: colors.primary,
+   },
+  legendText: {
+    fontSize: 14,
+    color: '#ccc',
   },
 }); 

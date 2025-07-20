@@ -106,3 +106,17 @@ func (m *MockMatch) SetAwayTeamOdds(odds float64) {
 func (m *MockMatch) SetDrawOdds(odds float64) {
 	// no-op for mock
 }
+
+func (m *MockMatch) HasClearFavorite() bool {
+	return m.AbsoluteDifferenceOddsBetweenHomeAndAway() > 1.5
+}
+
+func (m *MockMatch) GetFavoriteTeam() string {
+	if !m.HasClearFavorite() {
+		return ""
+	}
+	if m.GetHomeTeamOdds() < m.GetAwayTeamOdds() {
+		return m.GetHomeTeam()
+	}
+	return m.GetAwayTeam()
+}

@@ -197,8 +197,11 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 func TestGetMatches(t *testing.T) {
 	router, mockGame := setupTestRouter()
 
-	// Setup test data
+	// Setup test data with odds
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	match.SetHomeTeamOdds(1.5)
+	match.SetAwayTeamOdds(2.5)
+	match.SetDrawOdds(3.0)
 	matchResult := models.NewMatchWithBets(match, nil)
 
 	mockGame.GetIncomingMatches(nil)[match.Id()] = matchResult
@@ -227,6 +230,13 @@ func TestGetMatches(t *testing.T) {
 	pastMatches, exists := response["pastMatches"].(map[string]any)
 	assert.True(t, exists)
 	assert.NotNil(t, pastMatches)
+
+	// Verify odds are included in the response
+	matchData := incomingMatches[match.Id()].(map[string]any)
+	matchInfo := matchData["match"].(map[string]any)
+	assert.Equal(t, 1.5, matchInfo["homeTeamOdds"])
+	assert.Equal(t, 2.5, matchInfo["awayTeamOdds"])
+	assert.Equal(t, 3.0, matchInfo["drawOdds"])
 }
 
 func TestSaveBet_Success(t *testing.T) {

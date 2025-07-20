@@ -68,6 +68,7 @@ func scanMatchRow(rows *sql.Rows) (models.Match, error) {
 	var id, homeTeamId, awayTeamId string
 	var homeTeamScore, awayTeamScore sql.NullInt32
 	var matchDate sql.NullTime
+	var homeWinOdds, awayWinOdds, drawOdds float64
 	var matchStatus string
 	var seasonCode, competitionCode string
 	var matchday int
@@ -79,6 +80,9 @@ func scanMatchRow(rows *sql.Rows) (models.Match, error) {
 		&homeTeamScore,
 		&awayTeamScore,
 		&matchDate,
+		&homeWinOdds,
+		&awayWinOdds,
+		&drawOdds,
 		&matchStatus,
 		&seasonCode,
 		&competitionCode,
@@ -87,7 +91,7 @@ func scanMatchRow(rows *sql.Rows) (models.Match, error) {
 		return nil, fmt.Errorf("error scanning match: %v", err)
 	}
 
-	return CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore), nil
+	return CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore, homeWinOdds, awayWinOdds, drawOdds), nil
 }
 
 // GetMatch returns a match by its id
@@ -111,6 +115,7 @@ func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error)
 	`, matchId).Scan(
 		&seasonMatch.HomeTeam, &seasonMatch.AwayTeam,
 		&seasonMatch.HomeGoals, &seasonMatch.AwayGoals, &date,
+		&seasonMatch.HomeTeamOdds, &seasonMatch.AwayTeamOdds, &seasonMatch.DrawOdds,
 		&seasonMatch.Status, &seasonMatch.SeasonCode, &seasonMatch.CompetitionCode,
 		&seasonMatch.Matchday)
 

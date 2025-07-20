@@ -114,6 +114,20 @@ export class SeasonMatch {
         return Math.abs(this.homeTeamOdds - this.awayTeamOdds);
     }
 
+    hasClearFavorite(): boolean {
+        return this.absoluteDifferenceOddsBetweenHomeAndAway() > 1.5;
+    }
+
+    getFavoriteTeam(): string {
+        if (!this.hasClearFavorite()) {
+            return '';
+        }
+        if (this.homeTeamOdds < this.awayTeamOdds) {
+            return this.homeTeam;
+        }
+        return this.awayTeam;
+    }
+
     finish(homeGoals: number, awayGoals: number): void {
         this.homeGoals = homeGoals;
         this.awayGoals = awayGoals;

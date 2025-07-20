@@ -42,6 +42,9 @@ type Match interface {
 	Finish(homeGoals, awayGoals int)
 	IsInProgress() bool
 	GetStatus() MatchStatus
+	// Clear favorite methods
+	HasClearFavorite() bool
+	GetFavoriteTeam() string
 }
 
 // SeasonMatch represents a football match within a championship, like Ligue 1, Serie A, etc.
@@ -209,4 +212,20 @@ func (m *SeasonMatch) Start() {
 
 func (m *SeasonMatch) GetStatus() MatchStatus {
 	return m.Status
+}
+
+// HasClearFavorite returns true if there is a clear favorite (odds difference > 1.5)
+func (m *SeasonMatch) HasClearFavorite() bool {
+	return m.AbsoluteDifferenceOddsBetweenHomeAndAway() > 1.5
+}
+
+// GetFavoriteTeam returns the favorite team or empty string if no clear favorite
+func (m *SeasonMatch) GetFavoriteTeam() string {
+	if !m.HasClearFavorite() {
+		return ""
+	}
+	if m.HomeTeamOdds < m.AwayTeamOdds {
+		return m.HomeTeam
+	}
+	return m.AwayTeam
 }

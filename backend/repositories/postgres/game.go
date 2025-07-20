@@ -148,6 +148,9 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 				m.home_team_score,
 				m.away_team_score,
 				m.match_date,
+				m.home_win_odds,
+				m.away_win_odds,
+				m.draw_odds,
 				m.match_status,
 				m.season_code,
 				m.competition_code,
@@ -184,6 +187,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		var matchId, homeTeamId, awayTeamId string
 		var homeTeamScore, awayTeamScore sql.NullInt32
 		var matchDate sql.NullTime
+		var homeWinOdds, awayWinOdds, drawOdds float64
 		var matchStatus string
 		var seasonCode, competitionCode string
 		var matchday int
@@ -199,6 +203,9 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 			&homeTeamScore,
 			&awayTeamScore,
 			&matchDate,
+			&homeWinOdds,
+			&awayWinOdds,
+			&drawOdds,
 			&matchStatus,
 			&seasonCode,
 			&competitionCode,
@@ -216,7 +223,7 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 		// Create or get match
 		match, exists := matchesById[matchId]
 		if !exists {
-			match = CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore)
+			match = CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore, homeWinOdds, awayWinOdds, drawOdds)
 			matchesById[matchId] = match
 		}
 		// Create bet if all required fields are present

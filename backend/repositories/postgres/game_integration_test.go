@@ -72,6 +72,74 @@ func TestGameRepository_Integration(t *testing.T) {
 				require.Error(t, err)
 			})
 		})
+
+		t.Run("SQL Scanning Issues Prevention - getMatchesAndBets with Odds", func(t *testing.T) {
+			// This test specifically verifies that the SQL scanning issue we fixed doesn't occur
+			// in the getMatchesAndBets method when matches have odds data
+
+			// Create a game first
+			gameID := "423e4567-e89b-12d3-a456-426614174000"
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ($1, '2024', 'Ligue 1', 'started', 'SQL Scanning Test Game')
+			`, gameID)
+			require.NoError(t, err)
+
+			// Create matches with odds for this game's competition/season
+			matchRepo := NewPostgresMatchRepository(testDB.db)
+
+			match1 := models.NewSeasonMatch("Team A", "Team B", "2024", "Ligue 1", testTime.Add(24*time.Hour), 1)
+			match1.SetHomeTeamOdds(2.5)
+			match1.SetAwayTeamOdds(3.2)
+			match1.SetDrawOdds(3.0)
+			err = matchRepo.SaveMatch(match1)
+			require.NoError(t, err)
+
+			match2 := models.NewSeasonMatch("Team C", "Team D", "2024", "Ligue 1", testTime.Add(48*time.Hour), 1)
+			match2.SetHomeTeamOdds(1.8)
+			match2.SetAwayTeamOdds(4.1)
+			match2.SetDrawOdds(3.5)
+			err = matchRepo.SaveMatch(match2)
+			require.NoError(t, err)
+
+			// Create a player
+			player := &models.PlayerData{
+				Name:       "Test Player",
+				Email:      stringPtr("test@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_user_test"),
+			}
+			playerRepo := NewPostgresPlayerRepository(testDB.db)
+			err = playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			// Add player to game
+			gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+			err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+			require.NoError(t, err)
+
+			// Create a bet for one of the matches
+			betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+			bet := models.NewBet(match1, 2, 1)
+			_, _, err = betRepo.SaveBet(gameID, bet, player)
+			require.NoError(t, err)
+
+			// Test the getMatchesAndBets method - this should NOT fail with SQL scanning errors
+			// We'll test this by calling GetGame which internally uses getMatchesAndBets
+			restoredGame, err := gameRepo.GetGame(gameID)
+			require.NoError(t, err, "GetGame should not have SQL scanning issues")
+			require.NotNil(t, restoredGame)
+
+			// Verify the game has the correct data
+			require.Equal(t, "2024", restoredGame.GetSeasonYear())
+			require.Equal(t, "Ligue 1", restoredGame.GetCompetitionName())
+			require.Equal(t, "SQL Scanning Test Game", restoredGame.GetName())
+
+			// Verify players are loaded
+			players := restoredGame.GetPlayers()
+			require.Len(t, players, 1)
+			require.Equal(t, "Test Player", players[0].GetName())
+		})
 	}, 10*time.Second)
 }
 

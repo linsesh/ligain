@@ -94,6 +94,11 @@ describe('useMatches', () => {
     expect(matchResult.bets).toHaveProperty('player-1');
     expect(matchResult.bets!['player-1'].playerName).toBe('John Doe');
     expect(matchResult.bets!['player-1'].predictedHomeGoals).toBe(2);
+    
+    // Verify odds are processed correctly
+    expect(matchResult.match.getHomeTeamOdds()).toBe(1.5);
+    expect(matchResult.match.getAwayTeamOdds()).toBe(2.5);
+    expect(matchResult.match.getDrawOdds()).toBe(3.0);
   });
 
   it('should handle API errors', async () => {
