@@ -540,6 +540,10 @@ function MatchesList() {
     !editingMatchId || matchResult.match.id() === editingMatchId
   );
 
+  // Check if the currently editing match has a clear favorite
+  const editingMatch = editingMatchId ? matches.find(m => m.match.id() === editingMatchId) : null;
+  const shouldShowLegend = !editingMatchId || (editingMatch && editingMatch.match.hasClearFavorite());
+
   // Get current matchday matches grouped by time
   const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
   const sortedTimes = Object.keys(currentMatchdayMatches).sort();
@@ -652,21 +656,23 @@ function MatchesList() {
             </View>
 
             {/* Legend for odds indicators */}
-            <View style={styles.legendContainer}>
-              <Text style={styles.legendTitle}>Odds Legend:</Text>
-              <View style={styles.legendItem}>
-                <Text style={styles.legendStar}>⭐</Text>
-                <Text style={styles.legendText}>Clear favorite (odds difference &gt; 1.5)</Text>
+            {shouldShowLegend && (
+              <View style={styles.legendContainer}>
+                <Text style={styles.legendTitle}>Odds Legend:</Text>
+                <View style={styles.legendItem}>
+                  <Text style={styles.legendStar}>⭐</Text>
+                  <Text style={styles.legendText}>Clear favorite (odds difference &gt; 1.5)</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <Text style={styles.legendMark}>×1.5</Text>
+                  <Text style={styles.legendText}>Draw bonus multiplier</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <Text style={styles.legendMark}>×2</Text>
+                  <Text style={styles.legendText}>Outsider win bonus multiplier</Text>
+                </View>
               </View>
-              <View style={styles.legendItem}>
-                <Text style={styles.legendMark}>×1.5</Text>
-                <Text style={styles.legendText}>Draw bonus multiplier</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <Text style={styles.legendMark}>×2</Text>
-                <Text style={styles.legendText}>Outsider win bonus multiplier</Text>
-              </View>
-            </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -964,6 +970,7 @@ const styles = StyleSheet.create({
   },
   legendContainer: {
     marginTop: 16,
+    marginBottom: 20,
     marginHorizontal: 16,
     padding: 12,
     backgroundColor: '#333',
@@ -986,14 +993,19 @@ const styles = StyleSheet.create({
   legendStar: {
     fontSize: 16,
     marginRight: 8,
+    width: 30,
+    textAlign: 'left',
   },
-     legendMark: {
-     fontSize: 16,
-     marginRight: 8,
-     color: colors.primary,
-   },
+  legendMark: {
+    fontSize: 16,
+    marginRight: 8,
+    color: colors.primary,
+    width: 30,
+    textAlign: 'left',
+  },
   legendText: {
     fontSize: 14,
     color: '#ccc',
+    flex: 1,
   },
 }); 
