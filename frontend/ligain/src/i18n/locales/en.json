@@ -80,7 +80,10 @@
     "whatIsLigain": "What is Ligain?",
     "description": "Ligain is a platform for betting on football matches between friends.",
     "alphaNote": "It's currently in alpha and only available for Ligue 1 matches.",
-    "contactInfo": "If you have any feedback, please contact me at"
+    "contactInfo": "If you have any feedback, please contact me at",
+    "supportSection": "Support the Project",
+    "supportDescription": "I'm working alone on this project and it costs me hundreds of euros per year to keep it running. If you enjoy using Ligain, consider tipping me to help support the development!",
+    "buyMeACoffee": "Buy me a coffee"
   },
   "rules": {
     "philosophy": "Philosophy behind the rules",

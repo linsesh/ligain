@@ -80,7 +80,10 @@
     "whatIsLigain": "Qu'est-ce que Ligain ?",
     "description": "Ligain est une plateforme pour parier sur les matchs de football entre amis.",
     "alphaNote": "C'est actuellement en version alpha et disponible uniquement pour les matchs de Ligue 1.",
-    "contactInfo": "Si tu as des commentaires, contacte-moi via le mail suivant :"
+    "contactInfo": "Si tu as des commentaires, contacte-moi via le mail suivant :",
+    "supportSection": "Soutenir le Projet",
+    "supportDescription": "Je travaille seul sur ce projet et cela me coûte plusieurs centaines d'euros par an pour le maintenir. Si tu apprécies utiliser Ligain, considère m'offrir un café pour soutenir le développement !",
+    "buyMeACoffee": "M'offrir un café"
   },
   "rules": {
     "philosophy": "Philosophie derrière les règles",

@@ -18,6 +18,10 @@ export default function AboutScreen() {
     Linking.openURL('https://fr.linkedin.com/in/beno%C3%AEt-linsey-fazi-74681a116');
   };
 
+  const handleBuyMeACoffeePress = () => {
+    Linking.openURL('https://buymeacoffee.com/linsesh');
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.contentContainer}>
@@ -32,6 +36,18 @@ export default function AboutScreen() {
           {t('about.contactInfo')}{' '}
           <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>benoitlinsey27@gmail.com</Text>
         </Text>
+
+        {/* Support Section */}
+        <View style={styles.supportSection}>
+          <Text style={[styles.supportTitle, { color: colors.text }]}>{t('about.supportSection')}</Text>
+          <Text style={[styles.text, { color: colors.text }]}>
+            {t('about.supportDescription')}
+          </Text>
+          <TouchableOpacity onPress={handleBuyMeACoffeePress} style={styles.buyMeACoffeeButton}>
+            <FontAwesome name="coffee" size={20} color="#FFFFFF" />
+            <Text style={styles.buyMeACoffeeText}>{t('about.buyMeACoffee')}</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.socialContainer}>
           <TouchableOpacity onPress={handleGithubPress} style={styles.socialButton}>
@@ -78,5 +94,33 @@ const styles = StyleSheet.create({
   },
   socialButton: {
     padding: 10,
+  },
+  supportSection: {
+    marginTop: 24,
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+  },
+  supportTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  buyMeACoffeeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFDD00',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  buyMeACoffeeText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
