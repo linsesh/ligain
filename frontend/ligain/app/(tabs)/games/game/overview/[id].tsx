@@ -9,6 +9,7 @@ import { useAuth } from '../../../../../src/contexts/AuthContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../../../../src/config/api';
 import { colors } from '../../../../../src/constants/colors';
 import { useTranslation } from 'react-i18next';
+import Leaderboard from '../../../../../src/components/Leaderboard';
 
 interface PlayerGameInfo {
   id: string;
@@ -203,25 +204,11 @@ export default function GameOverviewScreen() {
         )}
 
         {/* Player Leaderboard */}
-        <View style={styles.leaderboardContainer}>
-          <Text style={styles.leaderboardTitle}>{t('games.playerLeaderboard')}</Text>
-          {sortedPlayers.map((playerInfo, index) => (
-            <View key={playerInfo.id} style={styles.playerRow}>
-              <View style={styles.playerRank}>
-                <Text style={styles.rankText}>{index + 1}</Text>
-              </View>
-              <View style={styles.playerInfo}>
-                <Text style={styles.playerName}>{playerInfo.name}</Text>
-                <Text style={styles.playerScore}>{playerInfo.totalScore} {t('game.points')}</Text>
-              </View>
-              {playerInfo.id === player?.id && (
-                <View style={styles.currentPlayerIndicator}>
-                  <Text style={styles.currentPlayerText}>{t('game.currentPlayer')}</Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
+        <Leaderboard
+          players={sortedPlayers}
+          currentPlayerId={player?.id}
+          t={t}
+        />
 
         {/* Navigation Button */}
         <TouchableOpacity 

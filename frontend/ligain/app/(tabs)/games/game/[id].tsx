@@ -16,6 +16,21 @@ import { colors } from '../../../../src/constants/colors';
 import { useTranslation } from 'react-i18next';
 import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 
+function StatusTag({ text, variant }: { text: string; variant: string }) {
+  const baseStyle = [styles.statusTag];
+  let variantStyle = null;
+  if (variant === 'success') variantStyle = styles.successTag;
+  else if (variant === 'warning') variantStyle = styles.inProgressTag;
+  else if (variant === 'finished') variantStyle = styles.finishedTag;
+  else if (variant === 'primary') variantStyle = styles.primaryTag;
+  else if (variant === 'negative') variantStyle = styles.negativeTag;
+  return (
+    <View style={[...baseStyle, variantStyle]}>
+      <Text style={styles.statusTagText}>{text}</Text>
+    </View>
+  );
+}
+
 interface TempScores {
   [key: string]: {
     home?: number;
@@ -197,19 +212,47 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
   const canModify = isFuture && (userBet?.isModifiable(now) !== false);
 
+  // Tag logic
+  let tagText = null;
+  let tagVariant = null;
+  let hasTag = false;
+  if (matchResult.match.isInProgress()) {
+    tagText = t('games.inProgressTag');
+    tagVariant = 'warning';
+    hasTag = true;
+  } else if (matchResult.match.isFinished() && player && matchResult.scores && matchResult.scores[player.id]) {
+    const points = matchResult.scores[player.id].points;
+    if (points > 0) {
+      tagText = `+${points} points`;
+      tagVariant = 'success';
+      hasTag = true;
+    } else if (points < 0) {
+      tagText = `${points} points (${t('games.negativePointsTag')})`;
+      tagVariant = 'negative';
+      hasTag = true;
+    } else {
+      tagText = `0 points`;
+      tagVariant = 'finished';
+      hasTag = true;
+    }
+  }
+
+  // Determine card style: always greyed out if finished
+  const cardStyle = [
+    styles.matchCard,
+    matchResult.match.isFinished() ? styles.finishedMatchCard : null,
+    hasTag ? styles.matchCardWithTag : null
+  ].filter(Boolean);
+
   return (
     <View 
       key={matchResult.match.id()} 
-      style={[
-        styles.matchCard,
-        matchResult.match.isFinished() && (
-          matchResult.scores && player && matchResult.scores[player.id] && matchResult.scores[player.id].points > 0
-            ? styles.successfulBetMatchCard 
-            : styles.finishedMatchCard
-        ),
-        matchResult.match.isInProgress() && styles.inProgressMatchCard
-      ]}
+      style={cardStyle}
     >
+      {/* Status Tag */}
+      {tagText && typeof tagVariant === 'string' && (
+        <StatusTag text={tagText} variant={tagVariant} />
+      )}
       <View style={styles.bettingContainer}>
         {/* Only show the current user's bet for future matches */}
         {isFuture ? (
@@ -309,11 +352,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             onPress={() => onToggleBetSection(matchResult.match.id())}
           >
             <Text style={styles.toggleButtonText}>
-              {matchResult.match.isFinished() 
-                ? (matchResult.scores && player && matchResult.scores[player.id] && matchResult.scores[player.id].points > 0
-                    ? `Your bet won you ${matchResult.scores[player.id].points} points`
-                    : 'Players\' bets')
-                : 'Players\' bets'}
+              {t('games.playersBets')}
             </Text>
             <Ionicons 
               name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"} 
@@ -791,10 +830,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: 16,
     marginBottom: 12,
+    position: 'relative', // Added for status tag positioning
+  },
+  matchCardWithTag: {
+    paddingTop: 48, // Add even more space at the top for the tag
   },
   finishedMatchCard: {
-    backgroundColor: '#9e9e9e',
-    opacity: 0.7,
+    backgroundColor: '#d3d3d3', // More greyed out
+    opacity: 0.6,
   },
   successfulBetMatchCard: {
     backgroundColor: '#2e7d32',
@@ -1039,6 +1082,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 1,
     borderRadius: 2,
+  },
+  statusTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    zIndex: 1,
+  },
+  statusTagText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  successTag: {
+    backgroundColor: '#4CAF50', // Green for good result
+  },
+  negativeTag: {
+    backgroundColor: '#F44336', // Red for negative points
+  },
+  finishedTag: {
+    backgroundColor: '#9E9E9E', // Gray for finished no points
+  },
+  inProgressTag: {
+    backgroundColor: '#FFC107', // Yellow for in progress
+  },
+  primaryTag: {
+    backgroundColor: colors.primary,
   },
   legendContainer: {
     marginTop: 16,

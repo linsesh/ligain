@@ -9,6 +9,7 @@ import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
 import { colors } from '../../src/constants/colors';
 import { getHumanReadableError, handleApiError } from '../../src/utils/errorMessages';
 import { useTranslation } from 'react-i18next';
+import Leaderboard from '../../src/components/Leaderboard';
 
 interface Game {
   gameId: string;
@@ -16,6 +17,7 @@ interface Game {
   competitionName: string;
   name: string;
   status: string;
+  players?: any[];
 }
 
 interface CreateGameResponse {
@@ -28,6 +30,21 @@ interface JoinGameResponse {
   seasonYear: string;
   competitionName: string;
   message: string;
+}
+
+// Reusable StatusTag component (factorized from match card)
+function StatusTag({ text, variant }: { text: string; variant: string }) {
+  const baseStyle = [styles.statusTag];
+  let variantStyle = null;
+  if (variant === 'success') variantStyle = styles.successTag;
+  else if (variant === 'warning') variantStyle = styles.inProgressTag;
+  else if (variant === 'finished') variantStyle = styles.finishedTag;
+  else if (variant === 'primary') variantStyle = styles.primaryTag;
+  return (
+    <View style={[...baseStyle, variantStyle]}>
+      <Text style={styles.statusTagText}>{text}</Text>
+    </View>
+  );
 }
 
 function GamesList() {
@@ -231,24 +248,41 @@ function GamesList() {
             <Text style={styles.emptySubtext}>{t('games.noGamesSubtext')}</Text>
           </View>
         ) : (
-          games.map((game) => (
-            <TouchableOpacity 
-              key={game.gameId} 
-              style={styles.gameCard}
-              onPress={() => {
-                console.log('🎮 Game card pressed, navigating to game overview:', game.gameId);
-                router.push('/(tabs)/games/game/overview/' + game.gameId);
-              }}
-            >
-              <View style={styles.gameHeader}>
-                <Text style={styles.gameTitle}>{game.name}</Text>
-                <Text style={styles.gameSeason}>{game.seasonYear} • {game.competitionName}</Text>
-              </View>
-              <View style={styles.gameStatus}>
-                <Text style={styles.statusText}>{t('games.status')} {game.status}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+          games.map((game) => {
+            console.log('Game status:', game.status);
+            const status = (game.status || '').toLowerCase();
+            return (
+              <TouchableOpacity 
+                key={game.gameId} 
+                style={[
+                  styles.gameCard,
+                  styles.gameCardWithTag
+                ]}
+                onPress={() => {
+                  console.log('🎮 Game card pressed, navigating to game overview:', game.gameId);
+                  router.push('/(tabs)/games/game/overview/' + game.gameId);
+                }}
+              >
+                <StatusTag text={String(game.status)} variant="warning" />
+                <View style={styles.headerGroupAbsolute}>
+                  <Text style={styles.leagueNamePlain}>{game.name}</Text>
+                  <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
+                </View>
+                {/* If game.players exists, render the leaderboard */}
+                {game.players && Array.isArray(game.players) && (
+                  <Leaderboard
+                    players={game.players}
+                    t={t}
+                    showTitle={false}
+                    align="left"
+                    showCurrentPlayerTag={true}
+                    currentPlayerId={player?.id}
+                    containerStyle={{ marginHorizontal: 0, alignItems: 'flex-start', paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }}
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
 
@@ -483,12 +517,33 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: 16,
     marginBottom: 12,
+    position: 'relative',
+  },
+  gameCardWithTag: {
+    paddingTop: 64,
   },
   gameHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  leagueNamePlain: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    marginTop: 0,
+    marginLeft: 0,
+    marginBottom: 0,
+  },
+  gameSeasonPlain: {
+    color: '#999',
+    fontSize: 15,
+    textAlign: 'left',
+    marginLeft: 0,
+    marginTop: 0,
+    marginBottom: 0,
   },
   gameTitle: {
     fontSize: 18,
@@ -593,5 +648,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  statusTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    zIndex: 1,
+  },
+  statusTagText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  successTag: {
+    backgroundColor: '#4CAF50',
+  },
+  inProgressTag: {
+    backgroundColor: '#FFC107',
+  },
+  finishedTag: {
+    backgroundColor: '#9E9E9E',
+  },
+  primaryTag: {
+    backgroundColor: colors.primary,
+  },
+  headerGroupAbsolute: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: '80%',
+    alignItems: 'flex-start',
+    zIndex: 2,
   },
 });
