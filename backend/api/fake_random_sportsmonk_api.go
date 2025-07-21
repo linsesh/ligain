@@ -18,6 +18,9 @@ type FakeRandomSportsmonkAPI struct {
 func NewFakeRandomSportsmonkAPI(matches []models.SeasonMatch) *FakeRandomSportsmonkAPI {
 	fixtures := make(map[int][]models.SeasonMatch)
 	for _, match := range matches {
+		if _, ok := fixtures[match.Matchday]; !ok {
+			fixtures[match.Matchday] = make([]models.SeasonMatch, 0)
+		}
 		fixtures[match.Matchday] = append(fixtures[match.Matchday], match)
 	}
 	matchIdToFixtureId := make(map[string]int)
@@ -51,6 +54,7 @@ func (a *FakeRandomSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]mo
 		log.Infof("No event happened")
 		return nil, nil
 	}
+	log.Infof("Getting fixtures updates for matchday %d", a.currentMatchday)
 	updatedFixtures := make(map[int]models.Match)
 	fixtures := a.fixtures[a.currentMatchday]
 	// An event happened, we need to choose on how many fixtures we want to update
@@ -59,13 +63,18 @@ func (a *FakeRandomSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]mo
 
 	// We update the fixtures
 	for i := 0; i < numberOfFixturesToUpdate; i++ {
-		fixture := fixtures[i]
-		a.randomFixtureUpdate(&fixture)
-		if fixture.IsFinished() {
-			delete(a.fixtures, i)
-		}
-		updatedFixtures[a.matchIdToFixtureId[fixture.Id()]] = &fixture
+		fixture := &fixtures[i]
+		a.randomFixtureUpdate(fixture)
+		updatedFixtures[a.matchIdToFixtureId[fixture.Id()]] = fixture
 	}
+
+	ficturesWithoutFinished := make([]models.SeasonMatch, 0)
+	for _, fixture := range fixtures {
+		if !fixture.IsFinished() {
+			ficturesWithoutFinished = append(ficturesWithoutFinished, fixture)
+		}
+	}
+	a.fixtures[a.currentMatchday] = ficturesWithoutFinished
 
 	if len(a.fixtures[a.currentMatchday]) == 0 {
 		log.Infof("No fixtures left for matchday %d", a.currentMatchday)

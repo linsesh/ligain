@@ -325,32 +325,97 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             <View style={styles.betResultContainer}>
               {matchResult.scores ? (
                 <View style={styles.scoresContainer}>
-                  {Object.entries(matchResult.scores).map(([playerId, scoreData]) => (
-                    <View key={playerId} style={styles.playerScoreRow}>
-                      <Text style={styles.scoreText}>
-                        {scoreData.playerName}: {scoreData.points} points
-                      </Text>
-                      {matchResult.bets?.[playerId] && (
-                        <Text style={styles.betResultText}>
-                          ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals})
-                        </Text>
-                      )}
-                    </View>
-                  ))}
+                  {/* Custom order: current user first, then others */}
+                  {(() => {
+                    const entries = Object.entries(matchResult.scores);
+                    let userRow = null;
+                    let otherRows: React.ReactNode[] = [];
+                    entries.forEach(([playerId, scoreData]) => {
+                      if (player && playerId === player.id) {
+                        userRow = (
+                          <View key={playerId} style={styles.playerScoreRow}>
+                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}>
+                              {scoreData.playerName} (Me): {scoreData.points} points
+                            </Text>
+                            {matchResult.bets?.[playerId] && (
+                              <Text style={styles.betResultText}>
+                                ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals})
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      } else {
+                        otherRows.push(
+                          <View key={playerId} style={styles.playerScoreRow}>
+                            <Text style={styles.scoreText}>
+                              {scoreData.playerName}: {scoreData.points} points
+                            </Text>
+                            {matchResult.bets?.[playerId] && (
+                              <Text style={styles.betResultText}>
+                                ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals})
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      }
+                    });
+                    // If userRow is null, show 'No bet' for me
+                    if (!userRow && player) {
+                      userRow = (
+                        <View key={player.id} style={styles.playerScoreRow}>
+                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}>
+                            {player.name} (Me): <Text style={{ fontStyle: 'italic', color: '#999' }}>No bet</Text>
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return [userRow, ...otherRows];
+                  })()}
                 </View>
               ) : matchResult.bets && (
                 <View style={styles.scoresContainer}>
-                  {Object.entries(matchResult.bets)
-                    .map(([playerId, betData]) => (
-                      <View key={playerId} style={styles.playerScoreRow}>
-                        <Text style={styles.scoreText}>
-                          {betData.playerName}:
-                        </Text>
-                        <Text style={styles.betResultText}>
-                          ({betData.predictedHomeGoals} - {betData.predictedAwayGoals})
-                        </Text>
-                      </View>
-                    ))}
+                  {/* Custom order: current user first, then others */}
+                  {(() => {
+                    const entries = Object.entries(matchResult.bets);
+                    let userRow = null;
+                    let otherRows: React.ReactNode[] = [];
+                    entries.forEach(([playerId, betData]) => {
+                      if (player && playerId === player.id) {
+                        userRow = (
+                          <View key={playerId} style={styles.playerScoreRow}>
+                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}>
+                              {betData.playerName} (Me):
+                            </Text>
+                            <Text style={styles.betResultText}>
+                              ({betData.predictedHomeGoals} - {betData.predictedAwayGoals})
+                            </Text>
+                          </View>
+                        );
+                      } else {
+                        otherRows.push(
+                          <View key={playerId} style={styles.playerScoreRow}>
+                            <Text style={styles.scoreText}>
+                              {betData.playerName}:
+                            </Text>
+                            <Text style={styles.betResultText}>
+                              ({betData.predictedHomeGoals} - {betData.predictedAwayGoals})
+                            </Text>
+                          </View>
+                        );
+                      }
+                    });
+                    // If userRow is null, show 'No bet' for me
+                    if (!userRow && player) {
+                      userRow = (
+                        <View key={player.id} style={styles.playerScoreRow}>
+                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}>
+                            {player.name} (Me): <Text style={{ fontStyle: 'italic', color: '#999' }}>No bet</Text>
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return [userRow, ...otherRows];
+                  })()}
                 </View>
               )}
             </View>
