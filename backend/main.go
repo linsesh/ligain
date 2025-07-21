@@ -53,7 +53,8 @@ func main() {
 	// Create match watcher service
 	var watcher services.MatchWatcherService
 	env := os.Getenv("ENV")
-	matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2025-2026")
+	matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2025/2026")
+	log.Infof("Got %d matches", len(matches))
 	if err != nil {
 		log.Fatal("Failed to get matches:", err)
 	}
@@ -79,12 +80,6 @@ func main() {
 	gameCodeRepo := postgres.NewPostgresGameCodeRepository(db)
 	gamePlayerRepo := postgres.NewPostgresGamePlayerRepository(db)
 	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher)
-
-	// Load the hardcoded game explicitly
-	hardcodedGameID := "123e4567-e89b-12d3-a456-426614174000"
-	if _, err := gameCreationService.GetGameService(hardcodedGameID); err != nil {
-		log.Printf("Warning: Failed to load hardcoded game: %v", err)
-	}
 
 	router := gin.Default()
 

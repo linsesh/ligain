@@ -18,6 +18,9 @@ func (s *ScorerOriginal) Score(match models.Match, bets []*models.Bet) []int {
 }
 
 func (s *ScorerOriginal) scoreBet(match models.Match, bet *models.Bet, otherBets []*models.Bet) int {
+	if bet == nil {
+		return -100
+	}
 	if !bet.IsBetCorrect() {
 		return 0
 	}
@@ -80,7 +83,7 @@ func addBonusDependingOnOtherBets(bet *models.Bet, otherBets []*models.Bet, scor
 	totalNumberOfBets := len(otherBets) + 1
 	numberOfBetsWithSameResult := 0
 	for _, otherBet := range otherBets {
-		if otherBet.GetPredictedResult() == bet.GetPredictedResult() {
+		if otherBet != nil && otherBet.GetPredictedResult() == bet.GetPredictedResult() {
 			numberOfBetsWithSameResult++
 		}
 	}

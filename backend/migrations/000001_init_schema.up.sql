@@ -64,11 +64,16 @@ CREATE TABLE IF NOT EXISTS bet (
 
 CREATE TABLE IF NOT EXISTS score (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    bet_id UUID NOT NULL REFERENCES bet(id) UNIQUE,
+    game_id UUID NOT NULL REFERENCES game(id),
+    match_id UUID NOT NULL REFERENCES match(id),
+    player_id UUID NOT NULL REFERENCES player(id),
+    bet_id UUID REFERENCES bet(id),
     points INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE score ADD CONSTRAINT unique_game_match_player UNIQUE(game_id, match_id, player_id);
 
 CREATE TABLE IF NOT EXISTS game_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

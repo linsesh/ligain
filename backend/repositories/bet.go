@@ -23,8 +23,8 @@ type BetRepository interface {
 	SaveScore(gameId string, match models.Match, player models.Player, points int) error
 	// GetScore returns the score for a given bet. Returns ErrScoreNotFound if no score exists.
 	GetScore(gameId string, betId string) (int, error)
-	// GetScores returns all scores for a game
-	GetScores(gameId string) (map[string]int, error)
+	// GetScores returns all scores for a game, grouped by match and player
+	GetScores(gameId string) (map[string]map[string]int, error)
 	// GetScoresByMatchAndPlayer returns scores organized by match ID and player
 	GetScoresByMatchAndPlayer(gameId string) (map[string]map[string]int, error)
 }
@@ -105,10 +105,19 @@ func (r *InMemoryBetRepository) SaveScore(gameId string, match models.Match, pla
 	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), match.Id())
 	entry, err := r.cache.Get(betKey)
 	if err != nil {
-		return fmt.Errorf("no bet found for match %s and player %s", match.Id(), player.GetName())
+		fmt.Printf("Saving score with betKey %s\n", betKey)
+		r.cache.Set(betKey, BetEntry{
+			GameId:  gameId,
+			Player:  player,
+			MatchId: match.Id(),
+			Bet:     nil,
+			BetId:   betKey,
+			Points:  &points,
+		})
+	} else {
+		entry.Points = &points
+		r.cache.Set(betKey, entry)
 	}
-	entry.Points = &points
-	r.cache.Set(betKey, entry)
 	return nil
 }
 
@@ -123,11 +132,14 @@ func (r *InMemoryBetRepository) GetScore(gameId string, betId string) (int, erro
 	return *entry.Points, nil
 }
 
-func (r *InMemoryBetRepository) GetScores(gameId string) (map[string]int, error) {
-	result := make(map[string]int)
+func (r *InMemoryBetRepository) GetScores(gameId string) (map[string]map[string]int, error) {
+	result := make(map[string]map[string]int)
 	for _, entry := range r.cache.GetAll() {
 		if entry.Value.GameId == gameId && entry.Value.Points != nil {
-			result[entry.Value.BetId] = *entry.Value.Points
+			if _, ok := result[entry.Value.MatchId]; !ok {
+				result[entry.Value.MatchId] = make(map[string]int)
+			}
+			result[entry.Value.MatchId][entry.Value.Player.GetID()] = *entry.Value.Points
 		}
 	}
 	return result, nil

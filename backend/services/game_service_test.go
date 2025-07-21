@@ -33,6 +33,10 @@ type scorerMock struct{}
 func (s *scorerMock) Score(match models.Match, bets []*models.Bet) []int {
 	scores := make([]int, len(bets))
 	for i, bet := range bets {
+		if bet == nil {
+			scores[i] = -100
+			continue
+		}
 		// Create a new bet with the same predictions but the finished match
 		finishedBet := models.NewBet(match, bet.PredictedHomeGoals, bet.PredictedAwayGoals)
 		if finishedBet.IsBetCorrect() {

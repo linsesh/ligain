@@ -330,3 +330,59 @@ func TestScorerOriginal_ScoreClassTwoCloseTwoOk(t *testing.T) {
 		t.Errorf("Expected scores to be %v, got %v", expectedScores, scores)
 	}
 }
+
+func TestScorerOriginal_ScoreForgottenBets(t *testing.T) {
+	scorer := &ScorerOriginal{}
+	match := models.NewFinishedSeasonMatch("Forgotten FC", "Absent United", 1, 0, "2024", "Test League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 2.0, 2.0, 2.0)
+
+	t.Run("All players forgot to bet", func(t *testing.T) {
+		bets := []*models.Bet{nil, nil, nil}
+		scores := scorer.Score(match, bets)
+		expected := []int{-100, -100, -100}
+		if !slices.Equal(scores, expected) {
+			t.Errorf("Expected all -100 for forgotten bets, got %v", scores)
+		}
+	})
+
+	t.Run("One player forgot to bet", func(t *testing.T) {
+		bets := []*models.Bet{
+			{
+				Match:              match,
+				PredictedHomeGoals: 1,
+				PredictedAwayGoals: 0,
+			},
+			nil,
+			{
+				Match:              match,
+				PredictedHomeGoals: 0,
+				PredictedAwayGoals: 2,
+			},
+		}
+		scores := scorer.Score(match, bets)
+		expected := []int{550, -100, 0}
+		if !slices.Equal(scores, expected) {
+			t.Errorf("Expected [550 -100 0], got %v", scores)
+		}
+	})
+
+	t.Run("Mixed forgotten, correct, and wrong", func(t *testing.T) {
+		bets := []*models.Bet{
+			nil,
+			{
+				Match:              match,
+				PredictedHomeGoals: 1,
+				PredictedAwayGoals: 0,
+			},
+			{
+				Match:              match,
+				PredictedHomeGoals: 0,
+				PredictedAwayGoals: 1,
+			},
+		}
+		scores := scorer.Score(match, bets)
+		expected := []int{-100, 550, 0}
+		if !slices.Equal(scores, expected) {
+			t.Errorf("Expected [-100 550 0], got %v", scores)
+		}
+	})
+}

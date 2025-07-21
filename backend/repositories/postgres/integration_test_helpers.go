@@ -13,6 +13,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -31,7 +32,7 @@ func (p *testPlayer) GetName() string { return p.name }
 // newTestPlayer creates a new test player
 func newTestPlayer(name string) models.Player {
 	return &testPlayer{
-		id:   name, // Use name as ID for simplicity in tests
+		id:   uuid.New().String(),
 		name: name,
 	}
 }

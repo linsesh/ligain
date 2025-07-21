@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -193,7 +194,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match and bet
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := newTestPlayer("TestPlayer")
+				player := models.NewSimplePlayer("423e4567-e89b-12d3-a456-426614174001", "TestPlayer")
 
 				// Save bet
 				betId, _, err := betRepo.SaveBet("423e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -236,7 +237,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match and bet without score
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := newTestPlayer("TestPlayer")
+				player := models.NewSimplePlayer("523e4567-e89b-12d3-a456-426614174001", "TestPlayer")
 
 				// Save bet
 				betId, _, err := betRepo.SaveBet("523e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -252,6 +253,7 @@ func TestBetRepository_Integration(t *testing.T) {
 
 		t.Run("Get All Scores", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
+				gameId := "623e4567-e89b-12d3-a456-426614174000"
 				betRepo := NewPostgresBetRepository(tx, nil)
 
 				// Setup test data
@@ -277,30 +279,34 @@ func TestBetRepository_Integration(t *testing.T) {
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet1 := models.NewBet(match, 2, 1)
 				bet2 := models.NewBet(match, 1, 1)
-				player1 := newTestPlayer("Player1")
-				player2 := newTestPlayer("Player2")
+				player1 := models.NewSimplePlayer("623e4567-e89b-12d3-a456-426614174001", "Player1")
+				player2 := models.NewSimplePlayer("623e4567-e89b-12d3-a456-426614174002", "Player2")
 
 				// Save bets and scores
-				betId1, _, err := betRepo.SaveBet("623e4567-e89b-12d3-a456-426614174000", bet1, player1)
+				_, _, err = betRepo.SaveBet(gameId, bet1, player1)
 				if err != nil {
 					t.Errorf("Failed to save bet1: %v", err)
 				}
-				betId2, _, err := betRepo.SaveBet("623e4567-e89b-12d3-a456-426614174000", bet2, player2)
+				_, _, err = betRepo.SaveBet(gameId, bet2, player2)
 				if err != nil {
 					t.Errorf("Failed to save bet2: %v", err)
 				}
 
-				err = betRepo.SaveScore("623e4567-e89b-12d3-a456-426614174000", match, player1, 3)
+				err = betRepo.SaveScore(gameId, match, player1, 3)
 				require.NoError(t, err)
-				err = betRepo.SaveScore("623e4567-e89b-12d3-a456-426614174000", match, player2, 1)
+				err = betRepo.SaveScore(gameId, match, player2, 1)
 				require.NoError(t, err)
 
 				// Get all scores
-				scores, err := betRepo.GetScores("623e4567-e89b-12d3-a456-426614174000")
+				scores, err := betRepo.GetScores(gameId)
+				fmt.Printf("DEBUG: GetScores returned: %+v\n", scores)
 				require.NoError(t, err)
-				require.Equal(t, 2, len(scores))
-				require.Equal(t, 3, scores[betId1])
-				require.Equal(t, 1, scores[betId2])
+				require.Equal(t, 1, len(scores))                    // 1 match
+				matchUUID := "623e4567-e89b-12d3-a456-426614174003" // The UUID used in the SQL insert
+				matchScores := scores[matchUUID]
+				require.Equal(t, 2, len(matchScores)) // 2 players
+				require.Equal(t, 3, matchScores[player1.GetID()])
+				require.Equal(t, 1, matchScores[player2.GetID()])
 			})
 		})
 
@@ -331,26 +337,23 @@ func TestBetRepository_Integration(t *testing.T) {
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet1 := models.NewBet(match, 2, 1)
 				bet2 := models.NewBet(match, 1, 1)
-				player1 := newTestPlayer("Player1")
-				player2 := newTestPlayer("Player2")
+				player1 := models.NewSimplePlayer("723e4567-e89b-12d3-a456-426614174001", "Player1")
+				player2 := models.NewSimplePlayer("723e4567-e89b-12d3-a456-426614174002", "Player2")
 
 				// Save bets and scores
-				betId1, _, err := betRepo.SaveBet("723e4567-e89b-12d3-a456-426614174000", bet1, player1)
+				_, _, err = betRepo.SaveBet("723e4567-e89b-12d3-a456-426614174000", bet1, player1)
 				if err != nil {
 					t.Errorf("Failed to save bet1: %v", err)
 				}
-				betId2, _, err := betRepo.SaveBet("723e4567-e89b-12d3-a456-426614174000", bet2, player2)
+				_, _, err = betRepo.SaveBet("723e4567-e89b-12d3-a456-426614174000", bet2, player2)
 				if err != nil {
 					t.Errorf("Failed to save bet2: %v", err)
 				}
 
-				// Save scores using bet IDs
-				_, err = tx.Exec(`
-					INSERT INTO score (bet_id, points)
-					VALUES ($1, $2), ($3, $4)
-					ON CONFLICT (bet_id) DO UPDATE
-					SET points = EXCLUDED.points`,
-					betId1, 3, betId2, 1)
+				// Save scores using repository
+				err = betRepo.SaveScore("723e4567-e89b-12d3-a456-426614174000", match, player1, 3)
+				require.NoError(t, err)
+				err = betRepo.SaveScore("723e4567-e89b-12d3-a456-426614174000", match, player2, 1)
 				require.NoError(t, err)
 
 				// Use the local_id instead of the database UUID
@@ -394,23 +397,58 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match with proper UUID
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := newTestPlayer("TestPlayer")
+				player := models.NewSimplePlayer("823e4567-e89b-12d3-a456-426614174001", "TestPlayer")
 
 				// Save bet with specific ID
 				err = betRepo.SaveWithId("823e4567-e89b-12d3-a456-426614174000", "823e4567-e89b-12d3-a456-426614174003", bet, player)
 				require.NoError(t, err)
 
 				// Verify bet was saved with the custom ID
-				score, err := betRepo.GetScore("823e4567-e89b-12d3-a456-426614174000", "823e4567-e89b-12d3-a456-426614174003")
+				_, err = betRepo.GetScore("823e4567-e89b-12d3-a456-426614174000", "823e4567-e89b-12d3-a456-426614174003")
 				require.Equal(t, repositories.ErrScoreNotFound, err)
 
 				// Save a score and verify it's associated with the custom ID
 				err = betRepo.SaveScore("823e4567-e89b-12d3-a456-426614174000", match, player, 5)
 				require.NoError(t, err)
 
-				score, err = betRepo.GetScore("823e4567-e89b-12d3-a456-426614174000", "823e4567-e89b-12d3-a456-426614174003")
+				score, err := betRepo.GetScore("823e4567-e89b-12d3-a456-426614174000", "823e4567-e89b-12d3-a456-426614174003")
 				require.NoError(t, err)
 				require.Equal(t, 5, score)
+			})
+		})
+
+		t.Run("Save and Get Score for Forgotten Bet", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Setup test data using raw SQL with proper UUIDs
+				_, err := tx.Exec(`
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('999e4567-e89b-12d3-a456-426614174000', '2024', 'Test League', 'started', 'Test Game')`)
+				require.NoError(t, err)
+
+				_, err = tx.Exec(`
+					INSERT INTO player (id, name)
+					VALUES ('999e4567-e89b-12d3-a456-426614174001', 'ForgotPlayer')`)
+				require.NoError(t, err)
+
+				_, err = tx.Exec(`
+					INSERT INTO match (id, local_id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
+					VALUES ('999e4567-e89b-12d3-a456-426614174002', 'Test League-2024-Forgotten-FC-0', 'Forgotten', 'FC', $1, 'finished', '2024', 'Test League', 0)`, betTestTime)
+				require.NoError(t, err)
+
+				// Simulate saving a score for a player who did not bet (no bet row)
+				// Use repository to save a score for a player who did not bet (no bet row)
+				betRepo := NewPostgresBetRepository(tx, nil)
+				match := models.NewSeasonMatch("Forgotten", "FC", "2024", "Test League", betTestTime, 0)
+				player := models.NewSimplePlayer("999e4567-e89b-12d3-a456-426614174001", "ForgotPlayer")
+				err = betRepo.SaveScore("999e4567-e89b-12d3-a456-426614174000", match, player, -100)
+				require.NoError(t, err)
+
+				// Query the score table directly to verify
+				var points int
+				row := tx.QueryRow(`SELECT points FROM score WHERE match_id = '999e4567-e89b-12d3-a456-426614174002' AND bet_id IS NULL`)
+				err = row.Scan(&points)
+				require.NoError(t, err)
+				require.Equal(t, -100, points)
 			})
 		})
 	}, 10*time.Second)

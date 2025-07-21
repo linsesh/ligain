@@ -32,18 +32,26 @@ var (
 func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Match, matchRepo repositories.MatchRepository) (*MatchWatcherServiceSportsmonk, error) {
 	once.Do(func() {
 		if env == "local" {
+			log.Infof("Initializing local environment")
 			err := localInit()
 			if err != nil {
 				log.Errorf("Error initializing local environment: %v", err)
 			}
 		}
+		seasonMatches := make([]models.SeasonMatch, 0, len(matches))
+		for _, m := range matches {
+			if sm, ok := m.(*models.SeasonMatch); ok {
+				seasonMatches = append(seasonMatches, *sm)
+			}
+		}
 		watcher = &MatchWatcherServiceSportsmonk{
 			watchedMatches: matches,
-			repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
-			matchRepo:      matchRepo,
-			subscribers:    make(map[string]GameService),
-			stopChan:       make(chan struct{}),
-			pollInterval:   time.Minute,
+			//repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
+			repo:         repositories.NewSportsmonkRepository(api.NewFakeRandomSportsmonkAPI(seasonMatches)),
+			matchRepo:    matchRepo,
+			subscribers:  make(map[string]GameService),
+			stopChan:     make(chan struct{}),
+			pollInterval: time.Second * 30,
 		}
 	})
 	return watcher, nil
@@ -68,6 +76,7 @@ func (m *MatchWatcherServiceSportsmonk) Unsubscribe(gameID string) error {
 }
 
 func (m *MatchWatcherServiceSportsmonk) Start(ctx context.Context) error {
+	log.Infof("Starting match watcher service")
 	if m.isRunning {
 		return nil // Already running
 	}
@@ -145,16 +154,16 @@ func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.M
 	if err != nil {
 		return nil, err
 	}
-	for matchId, match := range m.watchedMatches {
-		lastMatch := lastMatchInfos[matchId]
-		if matchWasUpdated(match, lastMatch) {
-			updates[matchId] = lastMatch
-			m.watchedMatches[matchId] = lastMatch
+	for matchId, match := range lastMatchInfos {
+		if matchWasUpdated(match, m.watchedMatches[matchId]) {
+			updates[matchId] = match
+			m.watchedMatches[matchId] = match
 			if match.IsFinished() {
 				delete(m.watchedMatches, matchId)
 			}
 		}
 	}
+	log.Infof("Found %d updates", len(updates))
 	return updates, nil
 }
 
@@ -172,7 +181,15 @@ func matchWasUpdated(match models.Match, lastMatchState models.Match) bool {
 		return true
 	}
 	if match.GetDate() != lastMatchState.GetDate() {
-		log.Warnf("Match %s date was updated from %s to %s", match.Id(), lastMatchState.GetDate(), match.GetDate())
+		return true
+	}
+	if match.GetHomeGoals() != lastMatchState.GetHomeGoals() {
+		return true
+	}
+	if match.GetAwayGoals() != lastMatchState.GetAwayGoals() {
+		return true
+	}
+	if match.IsInProgress() != lastMatchState.IsInProgress() {
 		return true
 	}
 	return false

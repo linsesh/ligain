@@ -11,6 +11,10 @@ type MockMatch struct {
 	id string
 }
 
+func NewMockMatch(id string) *MockMatch {
+	return &MockMatch{id: id}
+}
+
 func (m *MockMatch) Id() string {
 	return m.id
 }

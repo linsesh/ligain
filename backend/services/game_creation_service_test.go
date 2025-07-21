@@ -860,7 +860,9 @@ func (m *MockBetRepository) SaveScore(gameId string, match models.Match, player 
 	return nil
 }
 func (m *MockBetRepository) GetScore(gameId string, betId string) (int, error) { return 0, nil }
-func (m *MockBetRepository) GetScores(gameId string) (map[string]int, error)   { return nil, nil }
+func (m *MockBetRepository) GetScores(gameId string) (map[string]map[string]int, error) {
+	return nil, nil
+}
 
 func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	// Setup

@@ -5,6 +5,8 @@ import (
 	"ligain/backend/testutils"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var testTime = time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC)
@@ -21,7 +23,7 @@ func (p *testPlayer) GetName() string { return p.name }
 // newTestPlayer creates a new test player
 func newTestPlayer(name string) models.Player {
 	return &testPlayer{
-		id:   name, // Use name as ID for simplicity in tests
+		id:   uuid.NewString(), // Use a real UUID for the id
 		name: name,
 	}
 }
@@ -235,14 +237,14 @@ func TestInMemoryBetRepository_GetScores(t *testing.T) {
 	// Save bets and scores
 	bet1 := models.NewBet(match, 2, 1)
 	bet2 := models.NewBet(match, 1, 1)
-	betId1, savedBet1, err := repo.SaveBet("test-id", bet1, player1)
+	_, savedBet1, err := repo.SaveBet("test-id", bet1, player1)
 	if err != nil {
 		t.Errorf("Failed to save bet1: %v", err)
 	}
 	if savedBet1 == nil {
 		t.Error("Expected non-nil saved bet1")
 	}
-	betId2, savedBet2, err := repo.SaveBet("test-id", bet2, player2)
+	_, savedBet2, err := repo.SaveBet("test-id", bet2, player2)
 	if err != nil {
 		t.Errorf("Failed to save bet2: %v", err)
 	}
@@ -265,14 +267,18 @@ func TestInMemoryBetRepository_GetScores(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to get scores: %v", err)
 	}
-	if len(scores) != 2 {
-		t.Errorf("Expected 2 scores, got %d", len(scores))
+	if len(scores) != 1 {
+		t.Errorf("Expected scores for 1 match, got %d", len(scores))
 	}
-	if scores[betId1] != 3 {
-		t.Errorf("Expected score 3 for bet1, got %d", scores[betId1])
+	matchScores := scores[match.Id()]
+	if len(matchScores) != 2 {
+		t.Errorf("Expected scores for 2 players, got %d", len(matchScores))
 	}
-	if scores[betId2] != 1 {
-		t.Errorf("Expected score 1 for bet2, got %d", scores[betId2])
+	if matchScores[player1.GetID()] != 3 {
+		t.Errorf("Expected score 3 for player1, got %d", matchScores[player1.GetID()])
+	}
+	if matchScores[player2.GetID()] != 1 {
+		t.Errorf("Expected score 1 for player2, got %d", matchScores[player2.GetID()])
 	}
 }
 
@@ -327,5 +333,29 @@ func TestInMemoryBetRepository_GetScoresByMatchAndPlayer(t *testing.T) {
 	}
 	if matchScores[player2.GetID()] != 1 {
 		t.Errorf("Expected score 1 for player2, got %d", matchScores[player2.GetID()])
+	}
+}
+
+func TestInMemoryBetRepository_SaveAndGetScore_ForgottenBet(t *testing.T) {
+	repo := NewInMemoryBetRepository()
+	player := newTestPlayer("ForgotPlayer")
+	match := testutils.NewMockMatch("test-match-id")
+
+	// Simulate saving a score for a player who did not bet (no bet row)
+	// In the in-memory repo, this means we don't call SaveBet, but we want to SaveScore
+	err := repo.SaveScore("test-id", match, player, -100)
+	if err != nil {
+		t.Errorf("Failed to save score for forgotten bet: %v", err)
+	}
+
+	// There is no betId, so GetScore should not find anything
+	// But GetScoresByMatchAndPlayer should still return the score for the match and player
+	scoresByMatch, err := repo.GetScoresByMatchAndPlayer("test-id")
+	if err != nil {
+		t.Errorf("Failed to get scores by match and player: %v", err)
+	}
+	matchScores := scoresByMatch[match.Id()]
+	if matchScores[player.GetID()] != -100 {
+		t.Errorf("Expected -100 for forgotten bet, got %d", matchScores[player.GetID()])
 	}
 }

@@ -142,15 +142,17 @@ func (g *GameImpl) AddPlayer(player models.Player) error {
 
 func (g *GameImpl) scoreMatch(match models.Match) map[string]int {
 	bets := g.bets[match.Id()]
-	if bets == nil {
-		return make(map[string]int)
-	}
 
 	playerIDs := make([]string, 0, len(bets))
 	betList := make([]*models.Bet, 0, len(bets))
-	for playerID, bet := range bets {
-		playerIDs = append(playerIDs, playerID)
-		betList = append(betList, bet)
+	for _, player := range g.players {
+		playerIDs = append(playerIDs, player.GetID())
+		bet, hasBet := bets[player.GetID()]
+		if hasBet {
+			betList = append(betList, bet)
+		} else {
+			betList = append(betList, nil)
+		}
 	}
 	scores := g.scorer.Score(match, betList)
 	scoresMap := make(map[string]int)

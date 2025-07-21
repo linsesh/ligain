@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"ligain/backend/models"
 	"ligain/backend/repositories"
+
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type PostgresBetRepository struct {
@@ -259,29 +262,20 @@ func (r *PostgresBetRepository) SaveScore(gameId string, match models.Match, pla
 	_, err := r.db.Exec(`
 		WITH match_id AS (
 			SELECT id FROM match 
-			WHERE home_team_id = $1 
-			AND away_team_id = $2 
-			AND season_code = $3 
-			AND competition_code = $4 
-			AND matchday = $5
+			WHERE local_id = $1
 		)
-		INSERT INTO score (bet_id, points)
-		SELECT b.id, $6
+		INSERT INTO score (game_id, match_id, player_id, bet_id, points)
+		SELECT $3, m.id, $2, b.id, $4
 		FROM match_id m
-		JOIN bet b ON b.match_id = m.id
-		JOIN player p ON b.player_id = p.id
-		WHERE b.game_id = $7 
-		AND p.name = $8
-		ON CONFLICT (bet_id) DO UPDATE
+		LEFT JOIN bet b ON b.match_id = m.id
+		AND b.player_id = $2
+		AND b.game_id = $3
+		ON CONFLICT (game_id, match_id, player_id) DO UPDATE
 		SET points = EXCLUDED.points`,
-		match.GetHomeTeam(),
-		match.GetAwayTeam(),
-		match.GetSeasonCode(),
-		match.GetCompetitionCode(),
-		match.(*models.SeasonMatch).Matchday,
-		points,
+		match.Id(),
+		player.GetID(),
 		gameId,
-		player.GetName())
+		points)
 	if err != nil {
 		return fmt.Errorf("error saving score: %v", err)
 	}
@@ -300,6 +294,7 @@ func (r *PostgresBetRepository) GetScore(gameId string, betId string) (int, erro
 		gameId, betId).Scan(&points)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Errorf("No score found for bet %s in game %s\n", betId, gameId)
 			return 0, repositories.ErrScoreNotFound
 		}
 		return 0, fmt.Errorf("error getting score: %v", err)
@@ -310,27 +305,29 @@ func (r *PostgresBetRepository) GetScore(gameId string, betId string) (int, erro
 	return int(points.Int32), nil
 }
 
-func (r *PostgresBetRepository) GetScores(gameId string) (map[string]int, error) {
+func (r *PostgresBetRepository) GetScores(gameId string) (map[string]map[string]int, error) {
 	rows, err := r.db.Query(`
-		SELECT b.id, COALESCE(s.points, 0)
-		FROM bet b
-		LEFT JOIN score s ON s.bet_id = b.id
-		WHERE b.game_id = $1`,
+		SELECT s.match_id, s.player_id, s.points
+		FROM score s
+		WHERE s.game_id = $1`,
 		gameId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting scores: %v", err)
 	}
 	defer rows.Close()
 
-	scores := make(map[string]int)
+	scores := make(map[string]map[string]int)
 	for rows.Next() {
-		var betId string
+		var matchId, playerId string
 		var points int
-		err := rows.Scan(&betId, &points)
+		err := rows.Scan(&matchId, &playerId, &points)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning score row: %v", err)
 		}
-		scores[betId] = points
+		if _, ok := scores[matchId]; !ok {
+			scores[matchId] = make(map[string]int)
+		}
+		scores[matchId][playerId] = points
 	}
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating score rows: %v", err)
@@ -340,12 +337,11 @@ func (r *PostgresBetRepository) GetScores(gameId string) (map[string]int, error)
 
 func (r *PostgresBetRepository) GetScoresByMatchAndPlayer(gameId string) (map[string]map[string]int, error) {
 	rows, err := r.db.Query(`
-		SELECT m.local_id, p.id, p.name, COALESCE(s.points, 0)
-		FROM bet b
-		JOIN player p ON b.player_id = p.id
-		JOIN match m ON b.match_id = m.id
-		LEFT JOIN score s ON s.bet_id = b.id
-		WHERE b.game_id = $1`,
+		SELECT m.local_id, p.id, p.name, s.points
+		FROM score s
+		JOIN player p ON s.player_id = p.id
+		JOIN match m ON s.match_id = m.id
+		WHERE s.game_id = $1`,
 		gameId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting scores by match and player: %v", err)

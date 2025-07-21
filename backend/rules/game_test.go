@@ -354,3 +354,47 @@ func TestUpdateMatch(t *testing.T) {
 		t.Error("Expected error updating non-existent match, got nil")
 	}
 }
+
+func TestGame_CalculateMatchScores_ForgottenBets(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3")}
+	match := models.NewSeasonMatch("TeamA", "TeamB", "2024", "Test League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerOriginal{}
+	game := NewFreshGame("2024", "Test League", "Forgotten Game", players, matches, scorer)
+
+	// Only Player1 bets
+	bet := models.NewBet(match, 1, 0)
+	_ = game.AddPlayerBet(players[0], bet)
+	match.Finish(1, 0)
+
+	scores, err := game.CalculateMatchScores(match)
+	if err != nil {
+		t.Fatalf("Expected no error calculating scores, got %v", err)
+	}
+	if scores[players[0].GetID()] != 550 {
+		t.Errorf("Expected 550 for Player1, got %d", scores[players[0].GetID()])
+	}
+	if scores[players[1].GetID()] != -100 {
+		t.Errorf("Expected -100 for Player2 (forgot bet), got %d", scores[players[1].GetID()])
+	}
+	if scores[players[2].GetID()] != -100 {
+		t.Errorf("Expected -100 for Player3 (forgot bet), got %d", scores[players[2].GetID()])
+	}
+
+	// All forgot
+	players2 := []models.Player{newTestPlayer("P1"), newTestPlayer("P2")}
+	match2 := models.NewSeasonMatch("TeamC", "TeamD", "2024", "Test League", testTime, 2)
+	matches2 := []models.Match{match2}
+	game2 := NewFreshGame("2024", "Test League", "Forgotten Game 2", players2, matches2, scorer)
+	match2.Finish(0, 0)
+
+	scores2, err := game2.CalculateMatchScores(match2)
+	if err != nil {
+		t.Fatalf("Expected no error calculating scores, got %v", err)
+	}
+	for _, p := range players2 {
+		if scores2[p.GetID()] != -100 {
+			t.Errorf("Expected -100 for %s (forgot bet), got %d", p.GetID(), scores2[p.GetID()])
+		}
+	}
+}

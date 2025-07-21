@@ -48,28 +48,34 @@ func (a *FakeRandomSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]mo
 	// 70% chance of an event happening
 	eventHappened := rand.Intn(10)
 	if eventHappened < 3 {
+		log.Infof("No event happened")
 		return nil, nil
 	}
+	updatedFixtures := make(map[int]models.Match)
 	fixtures := a.fixtures[a.currentMatchday]
 	// An event happened, we need to choose on how many fixtures we want to update
-	numberOfFixturesToUpdate := rand.Intn(len(fixtures))
+	numberOfFixturesToUpdate := rand.Intn(len(fixtures)) + 1
+	log.Infof("Updating %d fixtures", numberOfFixturesToUpdate)
 
 	// We update the fixtures
 	for i := 0; i < numberOfFixturesToUpdate; i++ {
 		fixture := fixtures[i]
-		a.randomFixtureUpdate(fixture)
+		a.randomFixtureUpdate(&fixture)
 		if fixture.IsFinished() {
 			delete(a.fixtures, i)
 		}
+		updatedFixtures[a.matchIdToFixtureId[fixture.Id()]] = &fixture
 	}
 
 	if len(a.fixtures[a.currentMatchday]) == 0 {
+		log.Infof("No fixtures left for matchday %d", a.currentMatchday)
 		a.currentMatchday++
 	}
-	return nil, nil
+
+	return updatedFixtures, nil
 }
 
-func (a *FakeRandomSportsmonkAPI) randomFixtureUpdate(fixture models.SeasonMatch) {
+func (a *FakeRandomSportsmonkAPI) randomFixtureUpdate(fixture *models.SeasonMatch) {
 	log.Infof("Updating fixture %s", fixture.Id())
 	whichEvent := rand.Intn(10)
 	// 10% of chance of being postponed (between 1 and 3 days)
@@ -97,14 +103,12 @@ func (a *FakeRandomSportsmonkAPI) randomFixtureUpdate(fixture models.SeasonMatch
 	fixture.Finish(fixture.HomeGoals, fixture.AwayGoals)
 }
 
-func (a *FakeRandomSportsmonkAPI) GetSeasonFixtures(seasonId int) map[int]models.SeasonMatch {
-	fixtures := make(map[int]models.SeasonMatch)
-	for i := 0; i < len(a.fixtures); i++ {
-		for _, match := range a.fixtures[i] {
-			fixtures[a.matchIdToFixtureId[match.Id()]] = match
-		}
+func (a *FakeRandomSportsmonkAPI) GetSeasonFixtures(seasonId int) (map[int]models.Match, error) {
+	fixtures, err := a.GetFixturesInfos(nil)
+	if err != nil {
+		return nil, err
 	}
-	return fixtures
+	return fixtures, nil
 }
 
 func (a *FakeRandomSportsmonkAPI) GetCompetitionId(competitionCode string) (int, error) {
