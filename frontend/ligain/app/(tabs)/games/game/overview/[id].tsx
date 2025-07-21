@@ -46,11 +46,21 @@ export default function GameOverviewScreen() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonErr) {
+          throw new Error('Server not reachable. Please refresh.');
+        }
         throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
       }
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error('Server not reachable. Please refresh.');
+      }
       const games = data.games || [];
       const currentGame = games.find((g: any) => g.gameId === gameId);
       
@@ -61,7 +71,19 @@ export default function GameOverviewScreen() {
       setGameDetails(currentGame);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch game details');
+      let message = 'Failed to fetch game details';
+      if (err instanceof Error) {
+        if (
+          err.message.includes('Unexpected token') ||
+          err.message.includes('Server not reachable') ||
+          err.message.includes('Network request failed')
+        ) {
+          message = 'Server not reachable. Please refresh.';
+        } else {
+          message = err.message;
+        }
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }

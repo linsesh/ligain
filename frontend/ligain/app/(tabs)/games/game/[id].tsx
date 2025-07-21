@@ -46,11 +46,21 @@ const useMatchesForGame = (gameId: string) => {
         headers,
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonErr) {
+          throw new Error('Server not reachable. Please refresh.');
+        }
         throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
       }
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error('Server not reachable. Please refresh.');
+      }
       
       // Convert the matches to SeasonMatch objects and bets to BetImpl objects
       const processMatches = (matches: any) => {
@@ -95,7 +105,19 @@ const useMatchesForGame = (gameId: string) => {
       setPastMatches(processMatches(data.pastMatches));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch matches'));
+      let message = 'Failed to fetch matches';
+      if (err instanceof Error) {
+        if (
+          err.message.includes('Unexpected token') ||
+          err.message.includes('Server not reachable') ||
+          err.message.includes('Network request failed')
+        ) {
+          message = 'Server not reachable. Please refresh.';
+        } else {
+          message = err.message;
+        }
+      }
+      setError(new Error(message));
     } finally {
       setLoading(false);
     }
