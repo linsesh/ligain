@@ -15,7 +15,8 @@
     "ok": "OK",
     "vs": "vs",
     "actions": "Actions",
-    "failedToCopyToClipboard": "Échec de la copie dans le presse-papiers"
+    "failedToCopyToClipboard": "Échec de la copie dans le presse-papiers",
+    "close": "Fermer"
   },
   "navigation": {
     "games": "Jeux",
@@ -73,7 +74,8 @@
     "negativePointsTag": "pas de pari",
     "playersBets": "Paris des joueurs",
     "finishedTag": "Terminé",
-    "scheduledTag": "Prévu"
+    "scheduledTag": "Prévu",
+    "joinOrCreate": "Rejoindre une partie"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

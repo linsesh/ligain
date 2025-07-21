@@ -12,4 +12,5 @@ export const colors = {
   finished: '#9e9e9e',
   link: '#4a9eff',
   primary: '#ffd33d',
+  secondary: '#3385ff',
 } as const; 

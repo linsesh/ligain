@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { colors } from '../constants/colors';
 
 interface PlayerGameInfo {
   id: string;
@@ -98,7 +99,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   currentPlayerIndicator: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.secondary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

@@ -15,7 +15,8 @@
     "ok": "OK",
     "vs": "vs",
     "actions": "Actions",
-    "failedToCopyToClipboard": "Failed to copy to clipboard"
+    "failedToCopyToClipboard": "Failed to copy to clipboard",
+    "close": "Close"
   },
   "navigation": {
     "games": "Games",
@@ -73,7 +74,8 @@
     "negativePointsTag": "no bet",
     "playersBets": "Players' bets",
     "finishedTag": "Finished",
-    "scheduledTag": "Scheduled"
+    "scheduledTag": "Scheduled",
+    "joinOrCreate": "Join a game"
   },
   "profile": {
     "noUserInfo": "No user information available",

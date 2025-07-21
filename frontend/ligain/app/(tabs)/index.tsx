@@ -61,6 +61,7 @@ function GamesList() {
   const [creatingGame, setCreatingGame] = useState(false);
   const [joiningGame, setJoiningGame] = useState(false);
   const [newGameName, setNewGameName] = useState('');
+  const [showActionSheet, setShowActionSheet] = useState(false);
 
   const fetchGames = async () => {
     try {
@@ -202,27 +203,7 @@ function GamesList() {
         </View>
       )}
       
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.createButton, { marginRight: 8 }]} 
-          onPress={() => setShowCreateModal(true)}
-        >
-          <Ionicons name="add-circle" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>{t('games.createGame')}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.joinButton, { marginLeft: 8 }]} 
-          onPress={() => setShowJoinModal(true)}
-        >
-          <Ionicons name="people" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>{t('games.joinGame')}</Text>
-        </TouchableOpacity>
-      </View>
-
-
-
+      {/* Game List ScrollView */}
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
@@ -286,6 +267,54 @@ function GamesList() {
         )}
       </ScrollView>
 
+      {/* Bottom Join a Game Button */}
+      {!showActionSheet && !showCreateModal && !showJoinModal && (
+        <View style={styles.bottomButtonContainer}>
+          <TouchableOpacity
+            style={styles.bigJoinButton}
+            onPress={() => setShowActionSheet(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={styles.bigJoinButtonText}>{t('games.joinOrCreate')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Action Sheet Overlay */}
+      {showActionSheet && (
+        <View style={styles.actionSheetOverlay}>
+          <View style={styles.actionSheetButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.actionSheetButton, styles.actionSheetJoin]}
+              onPress={() => {
+                setShowActionSheet(false);
+                setShowJoinModal(true);
+              }}
+            >
+              <Ionicons name="people" size={22} color="#fff" style={styles.actionSheetButtonIcon} />
+              <Text style={styles.actionSheetButtonText}>{t('games.joinGame')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionSheetButton, styles.actionSheetCreate]}
+              onPress={() => {
+                setShowActionSheet(false);
+                setShowCreateModal(true);
+              }}
+            >
+              <Ionicons name="add-circle" size={22} color="#fff" style={styles.actionSheetButtonIcon} />
+              <Text style={styles.actionSheetButtonText}>{t('games.createGame')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.closeTextContainer}
+              onPress={() => setShowActionSheet(false)}
+            >
+              <Text style={styles.closeText}>✕ {t('common.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Create Game Modal */}
       {showCreateModal && (
         <KeyboardAvoidingView
@@ -318,7 +347,7 @@ function GamesList() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmButton]} 
+                style={[styles.modalButton, styles.confirmCreateButton]} 
                 onPress={createGame}
                 disabled={creatingGame}
               >
@@ -366,7 +395,7 @@ function GamesList() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmButton]} 
+                style={[styles.modalButton, styles.confirmJoinButton]} 
                 onPress={joinGame}
                 disabled={joiningGame}
               >
@@ -442,7 +471,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   joinButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
     marginLeft: 8,
   },
   actionButtonText: {
@@ -638,7 +667,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  confirmButton: {
+  confirmJoinButton: {
+    backgroundColor: colors.secondary,
+    flex: 1,
+    marginLeft: 10,
+  },
+  confirmCreateButton: {
     backgroundColor: '#4CAF50',
     flex: 1,
     marginLeft: 10,
@@ -683,5 +717,84 @@ const styles = StyleSheet.create({
     width: '80%',
     alignItems: 'flex-start',
     zIndex: 2,
+  },
+  bottomButtonContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 24,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  bigJoinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondary,
+    borderRadius: 32,
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  bigJoinButtonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  actionSheetOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    zIndex: 30,
+  },
+  actionSheetButtonsContainer: {
+    width: '100%',
+    paddingHorizontal: 24,
+    paddingBottom: 48,
+    alignItems: 'center',
+  },
+  actionSheetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingVertical: 18,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  actionSheetButtonIcon: {
+    marginRight: 12,
+  },
+  actionSheetJoin: {
+    backgroundColor: colors.secondary,
+  },
+  actionSheetCreate: {
+    backgroundColor: '#4CAF50',
+  },
+  actionSheetButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeTextContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+    width: '100%',
+  },
+  closeText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    opacity: 0.7,
+    paddingVertical: 8,
   },
 });
