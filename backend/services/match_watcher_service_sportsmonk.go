@@ -17,6 +17,7 @@ import (
 type MatchWatcherServiceSportsmonk struct {
 	watchedMatches map[string]models.Match
 	repo           repositories.SportsmonkRepository
+	matchRepo      repositories.MatchRepository
 	subscribers    map[string]GameService
 	stopChan       chan struct{}
 	isRunning      bool
@@ -28,7 +29,7 @@ var (
 	once    sync.Once
 )
 
-func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Match) (*MatchWatcherServiceSportsmonk, error) {
+func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Match, matchRepo repositories.MatchRepository) (*MatchWatcherServiceSportsmonk, error) {
 	once.Do(func() {
 		if env == "local" {
 			err := localInit()
@@ -39,6 +40,7 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 		watcher = &MatchWatcherServiceSportsmonk{
 			watchedMatches: matches,
 			repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
+			matchRepo:      matchRepo,
 			subscribers:    make(map[string]GameService),
 			stopChan:       make(chan struct{}),
 			pollInterval:   time.Minute,
@@ -110,12 +112,19 @@ func (m *MatchWatcherServiceSportsmonk) pollLoop(ctx context.Context) {
 func (m *MatchWatcherServiceSportsmonk) checkForUpdates() {
 	updates, err := m.getMatchesUpdates()
 	if err != nil {
-		log.Errorf("Error getting match updates: 	%v", err)
+		log.Errorf("Error getting match updates: \t%v", err)
 		return
 	}
 
 	if len(updates) == 0 {
 		return
+	}
+
+	// Save updates to the database before notifying subscribers
+	for _, updatedMatch := range updates {
+		if err := m.matchRepo.SaveMatch(updatedMatch); err != nil {
+			log.Errorf("Failed to save updated match %s to database: %v", updatedMatch.Id(), err)
+		}
 	}
 
 	log.Infof("Found %d match updates, notifying subscribers", len(updates))

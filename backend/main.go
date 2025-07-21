@@ -61,7 +61,7 @@ func main() {
 	for _, match := range matches {
 		matchesMap[match.Id()] = match
 	}
-	watcher, err = services.NewMatchWatcherServiceSportsmonk(env, matchesMap)
+	watcher, err = services.NewMatchWatcherServiceSportsmonk(env, matchesMap, matchRepo)
 	if err != nil {
 		log.Fatal("Failed to create match watcher service:", err)
 	}

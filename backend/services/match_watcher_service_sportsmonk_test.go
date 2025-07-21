@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"ligain/backend/repositories"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,6 +89,7 @@ func TestMatchWatcherServiceSportsmonk_Subscribe(t *testing.T) {
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Create mock handler
@@ -115,6 +118,7 @@ func TestMatchWatcherServiceSportsmonk_Unsubscribe(t *testing.T) {
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Create mock handler and subscribe
@@ -144,6 +148,7 @@ func TestMatchWatcherServiceSportsmonk_StartStop(t *testing.T) {
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Test start
@@ -181,6 +186,7 @@ func TestMatchWatcherServiceSportsmonk_CheckForUpdates(t *testing.T) {
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Create mock handler and subscribe
@@ -227,6 +233,7 @@ func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates(t *testing.T) {
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Get updates
@@ -261,6 +268,7 @@ func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates_NoChanges(t *testing.T)
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Get updates
@@ -290,6 +298,7 @@ func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates_Error(t *testing.T) {
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
+		matchRepo:      repositories.NewInMemoryMatchRepository(),
 	}
 
 	// Get updates
