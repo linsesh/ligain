@@ -1,5 +1,6 @@
 {
   "expo": {
+    "main": "expo-router/entry",
     "ios": {
       "bundleIdentifier": "com.ligain.app",
       "infoPlist": {

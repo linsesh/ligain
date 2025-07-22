@@ -12,7 +12,10 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": false
+      "autoIncrement": false,
+      "env": {
+        "EXPO_ROUTER_APP_ROOT": "frontend/ligain/app"
+      }
     }
   },
   "submit": {
