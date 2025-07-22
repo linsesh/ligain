@@ -80,7 +80,7 @@ export const useMatches = (gameId: string) => {
 
   useEffect(() => {
     fetchMatches();
-  }, []);
+  }, [gameId]);
 
   return {
     incomingMatches,

@@ -60,7 +60,9 @@ func main() {
 	}
 	matchesMap := make(map[string]models.Match)
 	for _, match := range matches {
-		matchesMap[match.Id()] = match
+		if !match.IsFinished() {
+			matchesMap[match.Id()] = match
+		}
 	}
 	watcher, err = services.NewMatchWatcherServiceSportsmonk(env, matchesMap, matchRepo)
 	if err != nil {

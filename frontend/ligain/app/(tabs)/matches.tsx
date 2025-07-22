@@ -6,12 +6,15 @@ import { useGamesForMatches } from '../../hooks/useGamesForMatches';
 import { useTranslation } from 'react-i18next';
 import MatchesList from './games/game/_MatchesList';
 import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { colors } from '../../src/constants/colors';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
-  const { games, selectedGameId, setSelectedGameId, loading } = useGamesForMatches();
+  const { games, selectedGameId, setSelectedGameId, loading, bestGameId, bestGameInitialMatchday } = useGamesForMatches();
   const [showGamePicker, setShowGamePicker] = useState(false);
   const params = useLocalSearchParams();
+  const router = useRouter();
 
   // If a gameId is present in the query params, select it on mount
   useEffect(() => {
@@ -23,6 +26,24 @@ export default function MatchesTabScreen() {
   }, [params.gameId, games, setSelectedGameId]);
 
   const selectedGame = games.find(g => g.gameId === selectedGameId);
+
+  if (games.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+          <Text style={{ color: '#fff', fontSize: 18, textAlign: 'center', marginBottom: 16 }}>
+            {t('games.noGamesToBet')}
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: colors.secondary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 24 }}
+            onPress={() => router.push({ pathname: '/(tabs)/index', params: { openGameModal: '1' } })}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{t('games.goToGames')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -77,7 +98,10 @@ export default function MatchesTabScreen() {
       {/* Old MatchesList UI for the selected game */}
       {selectedGameId && (
         <View style={{ flex: 1 }}>
-          <MatchesList gameId={selectedGameId} />
+          <MatchesList 
+            gameId={selectedGameId} 
+            initialMatchday={selectedGameId === bestGameId && bestGameInitialMatchday ? bestGameInitialMatchday : undefined}
+          />
         </View>
       )}
     </View>

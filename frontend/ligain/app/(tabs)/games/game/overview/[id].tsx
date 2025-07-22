@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   matchesButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

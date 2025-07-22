@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 // Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -51,6 +51,7 @@ function GamesList() {
   const { t } = useTranslation();
   const { player } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,16 @@ function GamesList() {
   const [joiningGame, setJoiningGame] = useState(false);
   const [newGameName, setNewGameName] = useState('');
   const [showActionSheet, setShowActionSheet] = useState(false);
+
+  // Open join/create modal if openGameModal param is present
+  useEffect(() => {
+    if (params.openGameModal) {
+      setShowActionSheet(true);
+      // Remove the param from the URL to avoid reopening
+      router.replace('/(tabs)/index');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.openGameModal]);
 
   const fetchGames = async () => {
     try {

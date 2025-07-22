@@ -163,10 +163,17 @@ export const useGamesForMatches = () => {
     fetchGames();
   }, []);
 
+  // After determining bestGame:
+  let bestGameInitialMatchday: number | undefined = undefined;
+  if (bestGameId && games.find(game => game.gameId === bestGameId)?.closestUnbetMatch) {
+    bestGameInitialMatchday = games.find(game => game.gameId === bestGameId)?.closestUnbetMatch?.matchday;
+  }
+
   return {
     games,
     selectedGameId,
     bestGameId,
+    bestGameInitialMatchday,
     loading,
     error,
     setSelectedGameId,

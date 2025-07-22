@@ -2,6 +2,7 @@ package api
 
 import (
 	"ligain/backend/models"
+	"math"
 	"math/rand"
 	"time"
 
@@ -25,16 +26,20 @@ func NewFakeRandomSportsmonkAPI(matches []models.SeasonMatch) *FakeRandomSportsm
 	}
 	matchIdToFixtureId := make(map[string]int)
 	id := 0
+	minMatchday := math.MaxInt32
 	for _, matches := range fixtures {
 		for _, match := range matches {
 			matchIdToFixtureId[match.Id()] = id
 			id++
+			if match.Matchday < minMatchday {
+				minMatchday = match.Matchday
+			}
 		}
 	}
 	return &FakeRandomSportsmonkAPI{
 		fixtures:           fixtures,
 		matchIdToFixtureId: matchIdToFixtureId,
-		currentMatchday:    1,
+		currentMatchday:    minMatchday,
 	}
 }
 

@@ -292,7 +292,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   );
 }
 
-export default function MatchesList({ gameId }: { gameId: string }) {
+export default function MatchesList({ gameId, initialMatchday }: { gameId: string, initialMatchday?: number }) {
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches(gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
@@ -322,12 +322,17 @@ export default function MatchesList({ gameId }: { gameId: string }) {
     .map(Number)
     .sort((a, b) => a - b);
 
-  // Set initial matchday if not set
+  // Set initial matchday if not set, or if initialMatchday changes (e.g. when switching games)
   useEffect(() => {
-    if (sortedMatchdays.length > 0 && currentMatchday === null) {
-      setCurrentMatchday(sortedMatchdays[0]);
+    if (sortedMatchdays.length > 0) {
+      if (initialMatchday && sortedMatchdays.includes(initialMatchday)) {
+        setCurrentMatchday(initialMatchday);
+      } else if (currentMatchday === null) {
+        setCurrentMatchday(sortedMatchdays[0]);
+      }
     }
-  }, [sortedMatchdays, currentMatchday]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedMatchdays, initialMatchday, gameId]);
 
   // Group matches by time within the current matchday
   const getMatchesByTime = (matchday: number) => {
