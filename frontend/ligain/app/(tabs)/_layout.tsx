@@ -1,3 +1,7 @@
+import { useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { useGamesForMatches } from '../../hooks/useGamesForMatches';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../src/constants/colors';
@@ -5,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function TabLayout() {
   const { t } = useTranslation();
-  
+  // Remove all navigation/redirect logic from here
   return (
     <Tabs
       initialRouteName="matches"

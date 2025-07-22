@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
 import { useMatches } from './useMatches';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
+import { useAuth } from '../src/contexts/AuthContext';
 
 interface Game {
   gameId: string;
@@ -25,6 +26,7 @@ interface GameWithMatchInfo extends Game {
 
 export const useGamesForMatches = () => {
   const timeService = useTimeService();
+  const { player } = useAuth();
   const [games, setGames] = useState<GameWithMatchInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export const useGamesForMatches = () => {
           
           if (matchesResponse.ok) {
             const matchesData = await matchesResponse.json();
-            const gameWithInfo = await processGameWithMatches(game, matchesData);
+            const gameWithInfo = await processGameWithMatches(game, matchesData, player);
             gamesWithMatchInfo.push(gameWithInfo);
           } else {
             // If we can't fetch matches, just add the game without match info
@@ -84,9 +86,8 @@ export const useGamesForMatches = () => {
     }
   };
 
-  const processGameWithMatches = async (game: Game, matchesData: any): Promise<GameWithMatchInfo> => {
+  const processGameWithMatches = async (game: Game, matchesData: any, player: any): Promise<GameWithMatchInfo> => {
     const now = timeService.now();
-    const { player } = await import('../src/contexts/AuthContext').then(m => m.useAuth());
     
     let closestUnbetMatch: GameWithMatchInfo['closestUnbetMatch'] = undefined;
     let minUnplayedMatchday: number | undefined = undefined;

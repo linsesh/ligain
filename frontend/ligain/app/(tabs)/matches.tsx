@@ -6,10 +6,18 @@ import { useGamesForMatches } from '../../hooks/useGamesForMatches';
 import { useTranslation } from 'react-i18next';
 import MatchesList from './games/game/_MatchesList';
 import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { colors } from '../../src/constants/colors';
+import { useUIEvent } from '../../src/contexts/UIEventContext';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
   const { games, selectedGameId, setSelectedGameId, loading } = useGamesForMatches();
+  const { player, isLoading: isAuthLoading } = useAuth();
+  const { loading: isGamesLoading } = useGamesForMatches();
+  const router = useRouter();
+  const { setOpenJoinOrCreate } = useUIEvent();
   const [showGamePicker, setShowGamePicker] = useState(false);
   const params = useLocalSearchParams();
 
@@ -21,6 +29,26 @@ export default function MatchesTabScreen() {
       setSelectedGameId(games[0].gameId);
     }
   }, [params.gameId, games, setSelectedGameId]);
+
+  if (isAuthLoading || isGamesLoading) return null;
+
+  // If user has no games, show a message and a button to go to Games
+  if (games.length === 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#25292e' }}>
+        <Text style={{ color: '#fff', fontSize: 18, marginBottom: 16 }}>{t('games.noGames')}</Text>
+        <TouchableOpacity
+          style={{ backgroundColor: colors.secondary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 999, marginTop: 8 }}
+          onPress={() => {
+            setOpenJoinOrCreate(true);
+            router.replace('/(tabs)/index');
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{t('games.goToGames')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const selectedGame = games.find(g => g.gameId === selectedGameId);
 

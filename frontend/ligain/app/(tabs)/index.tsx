@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -10,6 +11,8 @@ import { colors } from '../../src/constants/colors';
 import { getHumanReadableError, handleApiError } from '../../src/utils/errorMessages';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../src/components/Leaderboard';
+import { useGamesForMatches } from '../../hooks/useGamesForMatches';
+import { useUIEvent } from '../../src/contexts/UIEventContext';
 
 interface Game {
   gameId: string;
@@ -51,6 +54,7 @@ function GamesList() {
   const { t } = useTranslation();
   const { player } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +66,16 @@ function GamesList() {
   const [joiningGame, setJoiningGame] = useState(false);
   const [newGameName, setNewGameName] = useState('');
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const { openJoinOrCreate, setOpenJoinOrCreate } = useUIEvent();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (openJoinOrCreate) {
+        setShowActionSheet(true);
+        setOpenJoinOrCreate(false);
+      }
+    }, [openJoinOrCreate, setOpenJoinOrCreate])
+  );
 
   const fetchGames = async () => {
     try {
@@ -179,11 +193,11 @@ function GamesList() {
   }, []);
 
   if (loading && !refreshing) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <Text style={{color: 'orange'}}>Loading...</Text>;
+  }
+
+  if (!games) {
+    return <Text style={{color: 'red'}}>No games array!</Text>;
   }
 
   return (
@@ -230,7 +244,6 @@ function GamesList() {
           </View>
         ) : (
           games.map((game) => {
-            console.log('Game status:', game.status);
             const status = (game.status || '').toLowerCase();
             return (
               <TouchableOpacity 
@@ -240,7 +253,6 @@ function GamesList() {
                   styles.gameCardWithTag
                 ]}
                 onPress={() => {
-                  console.log('🎮 Game card pressed, navigating to game overview:', game.gameId);
                   router.push('/(tabs)/games/game/overview/' + game.gameId);
                 }}
               >
@@ -307,7 +319,9 @@ function GamesList() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.closeTextContainer}
-              onPress={() => setShowActionSheet(false)}
+              onPress={() => {
+                setShowActionSheet(false);
+              }}
             >
               <Text style={styles.closeText}>✕ {t('common.close')}</Text>
             </TouchableOpacity>
@@ -414,8 +428,20 @@ function GamesList() {
 }
 
 export default function TabOneScreen() {
-  console.log('🏠 TabOneScreen - Rendering games screen');
-  
+  const { player, isLoading: isAuthLoading } = useAuth();
+  const { games, loading: isGamesLoading } = useGamesForMatches();
+  const router = useRouter();
+  const [redirecting, setRedirecting] = useState(false);
+
+  if (isAuthLoading) {
+    return <Text>Loading auth...</Text>;
+  }
+  if (isGamesLoading) {
+    return <Text>Loading games...</Text>;
+  }
+  if (redirecting) {
+    return <Text>Redirecting...</Text>;
+  }
   return <GamesList />;
 }
 
