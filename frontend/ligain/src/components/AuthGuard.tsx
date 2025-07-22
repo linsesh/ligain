@@ -22,7 +22,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       const inAuthGroup = segments[0] === '(tabs)';
       
       if (player && !inAuthGroup) {
-        // User is authenticated but not in the main app, navigate to main app (let tab logic handle which tab)
+        console.log('✅ AuthGuard - User authenticated, navigating to /(tabs)');
+        // User is authenticated but not in the main app, navigate to main app
         router.replace('/(tabs)');
       } else if (!player && inAuthGroup) {
         console.log('❌ AuthGuard - User not authenticated, navigating to /signin');
