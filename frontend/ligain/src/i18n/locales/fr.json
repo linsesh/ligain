@@ -20,6 +20,7 @@
   },
   "navigation": {
     "games": "Jeux",
+    "matches": "Matchs",
     "rules": "Règles",
     "profile": "Profil",
     "about": "À propos"
@@ -65,7 +66,8 @@
     "noMatchesAvailable": "Aucun match disponible",
     "matchday": "Journée",
     "oddsLegend": "Légende des cotes :",
-    "clearFavorite": "Favori clair (différence de cotes > 1,5)",
+    "clearFavorite": "Équipe clairement favorite (différence de cotes > 1,5)",
+    "clearFavoriteBonus": "Pas de bonus si pari sur le favori",
     "drawBonus": "Multiplicateur bonus match nul",
     "outsiderWinBonus": "Multiplicateur bonus victoire outsider",
     "goodResultTag": "Bon résultat",
@@ -75,7 +77,13 @@
     "playersBets": "Paris des joueurs",
     "finishedTag": "Terminé",
     "scheduledTag": "Prévu",
-    "joinOrCreate": "Rejoindre une partie"
+    "joinOrCreate": "Rejoindre une partie",
+    "selectGame": "Sélectionner une Partie",
+    "noGamesToBet": "Aucune partie pour parier",
+    "noGamesToBetSubtext": "Rejoins ou crée une ligue pour commencer à parier sur les matchs",
+    "goToGames": "Aller aux Parties",
+    "closestMatch": "Match le plus proche",
+    "noUnbetMatches": "Aucun match pour parier"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

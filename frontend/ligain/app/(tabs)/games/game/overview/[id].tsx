@@ -120,7 +120,10 @@ export default function GameOverviewScreen() {
   }, [gameId]);
 
   const navigateToMatches = () => {
-    router.push(`/(tabs)/games/game/${gameId}`);
+    router.push({
+      pathname: '/(tabs)/matches',
+      params: { gameId },
+    });
   };
 
 

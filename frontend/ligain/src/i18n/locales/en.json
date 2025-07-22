@@ -20,6 +20,7 @@
   },
   "navigation": {
     "games": "Games",
+    "matches": "Matches",
     "rules": "Rules",
     "profile": "Profile",
     "about": "About"
@@ -65,7 +66,8 @@
     "noMatchesAvailable": "No matches available",
     "matchday": "Matchday",
     "oddsLegend": "Odds Legend:",
-    "clearFavorite": "Clear favorite (odds difference > 1.5)",
+    "clearFavorite": "Team clearly favorite (odds difference > 1.5)",
+    "clearFavoriteBonus": "No bonus if betting on the favorite",
     "drawBonus": "Draw bonus multiplier",
     "outsiderWinBonus": "Outsider win bonus multiplier",
     "goodResultTag": "Good result",
@@ -75,7 +77,13 @@
     "playersBets": "Players' bets",
     "finishedTag": "Finished",
     "scheduledTag": "Scheduled",
-    "joinOrCreate": "Join a game"
+    "joinOrCreate": "Join a game",
+    "selectGame": "Select Game",
+    "noGamesToBet": "No games to bet on",
+    "noGamesToBetSubtext": "Join or create a league to start betting on matches",
+    "goToGames": "Go to Games",
+    "closestMatch": "Closest match",
+    "noUnbetMatches": "No matches to bet on"
   },
   "profile": {
     "noUserInfo": "No user information available",

@@ -7,19 +7,29 @@ export default function TabLayout() {
   const { t } = useTranslation();
   
   return (
-        <Tabs
-        screenOptions={{
-            tabBarActiveTintColor: colors.primary,
-            headerStyle: {
-            backgroundColor: '#25292e',
-            },
-            headerShadowVisible: false,
-            headerTintColor: '#fff',
-            tabBarStyle: {
-            backgroundColor: '#25292e',
-            },
+    <Tabs
+      initialRouteName="matches"
+      screenOptions={{
+        tabBarActiveTintColor: colors.primary,
+        headerStyle: {
+          backgroundColor: '#25292e',
+        },
+        headerShadowVisible: false,
+        headerTintColor: '#fff',
+        tabBarStyle: {
+          backgroundColor: '#25292e',
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="matches"
+        options={{
+          title: t('navigation.matches'),
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'football' : 'football-outline'} color={color} size={24} />
+          ),
         }}
-        >
+      />
       <Tabs.Screen
         name="index"
         options={{

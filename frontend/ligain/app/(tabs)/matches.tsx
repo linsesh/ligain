@@ -1,0 +1,154 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
+import { useGamesForMatches } from '../../hooks/useGamesForMatches';
+import { useTranslation } from 'react-i18next';
+import MatchesList from './games/game/_MatchesList';
+import { useLocalSearchParams } from 'expo-router';
+
+export default function MatchesTabScreen() {
+  const { t } = useTranslation();
+  const { games, selectedGameId, setSelectedGameId, loading } = useGamesForMatches();
+  const [showGamePicker, setShowGamePicker] = useState(false);
+  const params = useLocalSearchParams();
+
+  // If a gameId is present in the query params, select it on mount
+  useEffect(() => {
+    if (params.gameId && games.some(g => g.gameId === params.gameId)) {
+      setSelectedGameId(params.gameId as string);
+    } else if (!selectedGameId && games.length > 0) {
+      setSelectedGameId(games[0].gameId);
+    }
+  }, [params.gameId, games, setSelectedGameId]);
+
+  const selectedGame = games.find(g => g.gameId === selectedGameId);
+
+  return (
+    <View style={styles.container}>
+      {/* Game Selector */}
+      <View style={styles.gameSelectionContainer}>
+        <TouchableOpacity 
+          style={styles.gameSelector}
+          onPress={() => setShowGamePicker(true)}
+        >
+          <Text style={styles.gameSelectorText}>
+            {selectedGame ? selectedGame.name : t('games.selectGame')}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color="#fff" />
+        </TouchableOpacity>
+        {selectedGame && (
+          <Text style={styles.gameInfoText}>
+            {selectedGame.seasonYear} • {selectedGame.competitionName}
+          </Text>
+        )}
+      </View>
+      {/* Game Picker Modal */}
+      {showGamePicker && (
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>{t('games.selectGame')}</Text>
+              <TouchableOpacity onPress={() => setShowGamePicker(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <Picker
+              selectedValue={selectedGameId}
+              onValueChange={(itemValue) => {
+                setSelectedGameId(itemValue);
+                setShowGamePicker(false);
+              }}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+            >
+              {games.map((game) => (
+                <Picker.Item 
+                  key={game.gameId} 
+                  label={game.name} 
+                  value={game.gameId}
+                  color="#fff"
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      )}
+      {/* Old MatchesList UI for the selected game */}
+      {selectedGameId && (
+        <View style={{ flex: 1 }}>
+          <MatchesList gameId={selectedGameId} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#25292e',
+  },
+  gameSelectionContainer: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  gameSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  gameSelectorText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  gameInfoText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  pickerContainer: {
+    backgroundColor: '#25292e',
+    borderRadius: 10,
+    width: '80%',
+    maxHeight: '60%',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
+  },
+  pickerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  picker: {
+    backgroundColor: '#333',
+  },
+  pickerItem: {
+    color: '#fff',
+  },
+}); 
