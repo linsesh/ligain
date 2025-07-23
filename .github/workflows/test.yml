@@ -1,4 +1,4 @@
-name: Go Tests
+name: Tests
 
 on:
   push:
@@ -16,6 +16,20 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
-        
-    - name: Run tests
-      run: go test -short ./backend/... 
+    
+    - name: Run Go tests
+      run: go test -short ./backend/...
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install frontend dependencies
+      run: cd frontend/ligain && npm install
+
+    - name: Run frontend UI/Expo/React Native tests
+      run: cd frontend/ligain && npm test
+
+    - name: Run frontend pure logic tests
+      run: cd frontend/ligain && npm run test:logic 

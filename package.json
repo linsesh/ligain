@@ -1,14 +1,14 @@
 {
-  "dependencies": {
-    "expo-haptics": "^14.1.4",
-    "expo": "~53.0.20",
-    "react": "19.0.0",
-    "react-native": "0.79.5"
-  },
-  "name": "ligain",
+  "name": "isolated-tests",
   "version": "1.0.0",
   "scripts": {
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
+    "babel-jest": "^30.0.5"
   }
 }

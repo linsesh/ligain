@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { useGamesForMatches } from '../../hooks/useGamesForMatches';
+import { useGames } from '../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import MatchesList from './games/game/_MatchesList';
 import { useLocalSearchParams } from 'expo-router';
@@ -13,9 +13,8 @@ import { useUIEvent } from '../../src/contexts/UIEventContext';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
-  const { games, selectedGameId, setSelectedGameId, loading } = useGamesForMatches();
+  const { games, selectedGameId, setSelectedGameId, loading } = useGames();
   const { player, isLoading: isAuthLoading } = useAuth();
-  const { loading: isGamesLoading } = useGamesForMatches();
   const router = useRouter();
   const { setOpenJoinOrCreate } = useUIEvent();
   const [showGamePicker, setShowGamePicker] = useState(false);
@@ -30,7 +29,13 @@ export default function MatchesTabScreen() {
     }
   }, [params.gameId, games, setSelectedGameId]);
 
-  if (isAuthLoading || isGamesLoading) return null;
+  if (isAuthLoading || loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#25292e' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   // If user has no games, show a message and a button to go to Games
   if (games.length === 0) {

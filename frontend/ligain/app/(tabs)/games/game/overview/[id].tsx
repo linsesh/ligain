@@ -1,104 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
-// Local imports
 import { useAuth } from '../../../../../src/contexts/AuthContext';
-import { API_CONFIG, getAuthenticatedHeaders } from '../../../../../src/config/api';
 import { colors } from '../../../../../src/constants/colors';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../../../../src/components/Leaderboard';
-
-interface PlayerGameInfo {
-  id: string;
-  name: string;
-  totalScore: number;
-  scoresByMatch: { [key: string]: number };
-}
-
-interface GameDetails {
-  gameId: string;
-  seasonYear: string;
-  competitionName: string;
-  name: string;
-  status: string;
-  players: PlayerGameInfo[];
-  code: string;
-}
+import { useGames } from '../../../../../src/contexts/GamesContext';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { player } = useAuth();
   const { t } = useTranslation();
-  const [gameDetails, setGameDetails] = useState<GameDetails | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { games, loading, error, refresh } = useGames();
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchGameDetails = async () => {
-    try {
-      const headers = await getAuthenticatedHeaders();
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
-        headers,
-      });
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (jsonErr) {
-          throw new Error('Server not reachable. Please refresh.');
-        }
-        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
-      }
-      
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonErr) {
-        throw new Error('Server not reachable. Please refresh.');
-      }
-      const games = data.games || [];
-      const currentGame = games.find((g: any) => g.gameId === gameId);
-      
-      if (!currentGame) {
-        throw new Error('Game not found');
-      }
-      
-      setGameDetails(currentGame);
-      setError(null);
-    } catch (err) {
-      let message = 'Failed to fetch game details';
-      if (err instanceof Error) {
-        if (
-          err.message.includes('Unexpected token') ||
-          err.message.includes('Server not reachable') ||
-          err.message.includes('Network request failed')
-        ) {
-          message = 'Server not reachable. Please refresh.';
-        } else {
-          message = err.message;
-        }
-      }
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
+  const gameDetails = games.find((g) => g.gameId === gameId);
 
   const copyToClipboard = async (text: string) => {
-    if (copied) return; // Do nothing if already in check mode
+    if (copied) return;
     try {
-      await Clipboard.setString(text);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Reset after 3 seconds
       setTimeout(() => {
         setCopied(false);
       }, 3000);
@@ -109,15 +36,9 @@ export default function GameOverviewScreen() {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await fetchGameDetails();
+    await refresh();
     setRefreshing(false);
-  }, [gameId]);
-
-  useEffect(() => {
-    if (gameId) {
-      fetchGameDetails();
-    }
-  }, [gameId]);
+  }, [refresh]);
 
   const navigateToMatches = () => {
     router.push({
@@ -125,14 +46,6 @@ export default function GameOverviewScreen() {
       params: { gameId },
     });
   };
-
-
-
-
-
-
-
-
 
   if (loading && !refreshing) {
     return (
@@ -147,7 +60,7 @@ export default function GameOverviewScreen() {
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{t('games.failedToLoadGame')} {error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchGameDetails}>
+          <TouchableOpacity style={styles.retryButton} onPress={refresh}>
             <Text style={styles.retryButtonText}>{t('games.retry')}</Text>
           </TouchableOpacity>
         </View>
@@ -163,8 +76,7 @@ export default function GameOverviewScreen() {
     );
   }
 
-  // Sort players by total score (descending)
-  const sortedPlayers = [...gameDetails.players].sort((a, b) => b.totalScore - a.totalScore);
+  const sortedPlayers = [...(gameDetails.players || [])].sort((a, b) => b.totalScore - a.totalScore);
 
   return (
     <View style={styles.container}>
@@ -180,7 +92,6 @@ export default function GameOverviewScreen() {
           />
         }
       >
-        {/* Game Header */}
         <View style={styles.gameHeader}>
           <Text style={styles.gameTitle}>{gameDetails.name}</Text>
           <Text style={styles.gameSubtitle}>
@@ -188,8 +99,6 @@ export default function GameOverviewScreen() {
           </Text>
           <Text style={styles.gameStatus}>{t('games.status')} {gameDetails.status}</Text>
         </View>
-
-        {/* Game Code Section */}
         {gameDetails.code && (
           <View style={styles.codeContainer}>
             <Text style={styles.codeLabel}>{t('games.gameCode')}</Text>
@@ -197,23 +106,19 @@ export default function GameOverviewScreen() {
               <Text style={styles.codeText}>{gameDetails.code}</Text>
               <TouchableOpacity 
                 style={styles.copyButton}
-                onPress={() => copyToClipboard(gameDetails.code)}
-                disabled={copied}
+                onPress={() => gameDetails.code && copyToClipboard(gameDetails.code)}
+                disabled={copied || !gameDetails.code}
               >
                 <Ionicons name={copied ? "checkmark-circle" : "copy"} size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
         )}
-
-        {/* Player Leaderboard */}
         <Leaderboard
           players={sortedPlayers}
           currentPlayerId={player?.id}
           t={t}
         />
-
-        {/* Navigation Button */}
         <TouchableOpacity 
           style={styles.matchesButton}
           onPress={navigateToMatches}

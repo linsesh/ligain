@@ -6,22 +6,12 @@ import { useFocusEffect } from '@react-navigation/native';
 
 // Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
-import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
 import { colors } from '../../src/constants/colors';
 import { getHumanReadableError, handleApiError } from '../../src/utils/errorMessages';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../src/components/Leaderboard';
-import { useGamesForMatches } from '../../hooks/useGamesForMatches';
+import { useGames } from '../../src/contexts/GamesContext';
 import { useUIEvent } from '../../src/contexts/UIEventContext';
-
-interface Game {
-  gameId: string;
-  seasonYear: string;
-  competitionName: string;
-  name: string;
-  status: string;
-  players?: any[];
-}
 
 interface CreateGameResponse {
   gameId: string;
@@ -35,7 +25,6 @@ interface JoinGameResponse {
   message: string;
 }
 
-// Reusable StatusTag component (factorized from match card)
 function StatusTag({ text, variant }: { text: string; variant: string }) {
   const baseStyle = [styles.statusTag];
   let variantStyle = null;
@@ -54,10 +43,7 @@ function GamesList() {
   const { t } = useTranslation();
   const { player } = useAuth();
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { games, loading, error, joinGame, createGame, refresh } = useGames();
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -77,63 +63,17 @@ function GamesList() {
     }, [openJoinOrCreate, setOpenJoinOrCreate])
   );
 
-  const fetchGames = async () => {
-    try {
-      const headers = await getAuthenticatedHeaders();
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
-        headers,
-      });
-      
-      if (!response.ok) {
-        await handleApiError(response);
-      }
-      
-      const data = await response.json();
-      setGames(data.games || []);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch games');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createGame = async () => {
+  const handleCreateGame = async () => {
     if (!newGameName.trim()) {
       Alert.alert('Error', 'Please enter a game name');
       return;
     }
     setCreatingGame(true);
     try {
-      const headers = await getAuthenticatedHeaders({
-        'Content-Type': 'application/json',
-      });
-      
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          seasonYear: '2025/2026',
-          competitionName: 'Ligue 1',
-          name: newGameName.trim(),
-        }),
-      });
-      
-      if (!response.ok) {
-        await handleApiError(response);
-      }
-      
-      const data: CreateGameResponse = await response.json();
-      
-      // Close modal and reset form
+      await createGame(newGameName.trim());
       setShowCreateModal(false);
       setNewGameName('');
-      
-      // Refresh games list
-      await fetchGames();
-      
-      // Navigate to the new game overview page
-      router.push(`/(tabs)/games/game/overview/${data.gameId}`);
+      refresh();
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create game');
     } finally {
@@ -141,38 +81,17 @@ function GamesList() {
     }
   };
 
-  const joinGame = async () => {
+  const handleJoinGame = async () => {
     if (!joinCode.trim()) {
       Alert.alert('Error', 'Please enter a game code');
       return;
     }
-    
     setJoiningGame(true);
     try {
-      const headers = await getAuthenticatedHeaders({
-        'Content-Type': 'application/json',
-      });
-      
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games/join`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          code: joinCode.trim().toUpperCase()
-        }),
-      });
-      
-      if (!response.ok) {
-        await handleApiError(response);
-      }
-      
-      const data: JoinGameResponse = await response.json();
+      await joinGame(joinCode.trim());
       setJoinCode('');
       setShowJoinModal(false);
-      
-      // Refresh games list
-      await fetchGames();
-      
-      Alert.alert('Success', data.message);
+      refresh();
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to join game');
     } finally {
@@ -180,20 +99,14 @@ function GamesList() {
     }
   };
 
-
-
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await fetchGames();
+    await refresh();
     setRefreshing(false);
-  }, []);
-
-  useEffect(() => {
-    fetchGames();
-  }, []);
+  }, [refresh]);
 
   if (loading && !refreshing) {
-    return <Text style={{color: 'orange'}}>Loading...</Text>;
+    return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, marginTop: 100 }} />;
   }
 
   if (!games) {
@@ -206,8 +119,6 @@ function GamesList() {
       style={styles.container}
     >
       <Text style={styles.title}>{t('games.myGames')}</Text>
-      
-      {/* Guest Testing Banner */}
       {!player?.email && !player?.provider && (
         <View style={styles.guestBanner}>
           <Ionicons name="warning" size={20} color="#FFA500" />
@@ -216,8 +127,6 @@ function GamesList() {
           </Text>
         </View>
       )}
-      
-      {/* Game List ScrollView */}
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
@@ -261,7 +170,6 @@ function GamesList() {
                   <Text style={styles.leagueNamePlain}>{game.name}</Text>
                   <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
                 </View>
-                {/* If game.players exists, render the leaderboard */}
                 {game.players && Array.isArray(game.players) && (
                   <Leaderboard
                     players={game.players}
@@ -278,8 +186,6 @@ function GamesList() {
           })
         )}
       </ScrollView>
-
-      {/* Bottom Join a Game Button */}
       {!showActionSheet && !showCreateModal && !showJoinModal && (
         <View style={styles.bottomButtonContainer}>
           <TouchableOpacity
@@ -292,8 +198,6 @@ function GamesList() {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Action Sheet Overlay */}
       {showActionSheet && (
         <View style={styles.actionSheetOverlay}>
           <View style={styles.actionSheetButtonsContainer}>
@@ -328,8 +232,6 @@ function GamesList() {
           </View>
         </View>
       )}
-
-      {/* Create Game Modal */}
       {showCreateModal && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -338,7 +240,6 @@ function GamesList() {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>{t('games.createNewGame')}</Text>
             <Text style={styles.modalSubtitle}>{t('games.createGameSubtitle')}</Text>
-            
             <TextInput
               style={styles.gameNameInput}
               value={newGameName}
@@ -348,7 +249,6 @@ function GamesList() {
               maxLength={40}
               autoFocus
             />
-            
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton]} 
@@ -359,10 +259,9 @@ function GamesList() {
               >
                 <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity 
                 style={[styles.modalButton, styles.confirmCreateButton]} 
-                onPress={createGame}
+                onPress={handleCreateGame}
                 disabled={creatingGame}
               >
                 {creatingGame ? (
@@ -375,8 +274,6 @@ function GamesList() {
           </View>
         </KeyboardAvoidingView>
       )}
-
-      {/* Join Game Modal */}
       {showJoinModal && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -385,7 +282,6 @@ function GamesList() {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>{t('games.joinGame')}</Text>
             <Text style={styles.modalSubtitle}>{t('games.joinGameSubtitle')}</Text>
-            
             <TextInput
               style={styles.codeInput}
               value={joinCode}
@@ -396,7 +292,6 @@ function GamesList() {
               autoCapitalize="characters"
               autoFocus
             />
-            
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton]} 
@@ -407,10 +302,9 @@ function GamesList() {
               >
                 <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity 
                 style={[styles.modalButton, styles.confirmJoinButton]} 
-                onPress={joinGame}
+                onPress={handleJoinGame}
                 disabled={joiningGame}
               >
                 {joiningGame ? (
@@ -429,19 +323,13 @@ function GamesList() {
 
 export default function TabOneScreen() {
   const { player, isLoading: isAuthLoading } = useAuth();
-  const { games, loading: isGamesLoading } = useGamesForMatches();
-  const router = useRouter();
+  const { loading: isGamesLoading } = useGames();
   const [redirecting, setRedirecting] = useState(false);
 
-  if (isAuthLoading) {
-    return <Text>Loading auth...</Text>;
+  if (isAuthLoading || isGamesLoading || redirecting) {
+    return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, marginTop: 100 }} />;
   }
-  if (isGamesLoading) {
-    return <Text>Loading games...</Text>;
-  }
-  if (redirecting) {
-    return <Text>Redirecting...</Text>;
-  }
+
   return <GamesList />;
 }
 
