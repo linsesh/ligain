@@ -36,7 +36,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   if (isLoading) {
     console.log('⏳ AuthGuard - Showing loading spinner');
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.loadingBackground }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );

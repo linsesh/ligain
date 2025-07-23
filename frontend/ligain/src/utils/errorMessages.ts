@@ -1,27 +1,30 @@
+import i18n from '../i18n';
+
 /**
  * Utility function to convert HTTP status codes to human-readable error messages
  */
 export const getHumanReadableError = (status: number, originalError?: string): string => {
   switch (status) {
     case 401:
-      return 'Authentication went wrong, please refresh the page and retry';
+      return i18n.t('errors.authentication');
     case 403:
-      return 'Authentication went wrong, please refresh the page and retry';
+      return i18n.t('errors.forbidden');
     case 404:
-      return 'Service not found. Please try again later';
+      return i18n.t('errors.notFound');
     case 422:
-      return 'Invalid information provided. Please check your details';
+      return i18n.t('errors.invalidData');
     case 429:
-      return 'Too many requests. Please wait a moment and try again';
+      return i18n.t('errors.tooManyRequests');
     case 500:
-      return 'Server error. Please try again later';
+      return i18n.t('errors.serverError');
     case 502:
     case 503:
     case 504:
-      return 'Service temporarily unavailable. Please try again later';
+      return i18n.t('errors.serviceUnavailable');
     default:
-      // Keep the original error message for unknown status codes
-      return originalError || `Something went wrong (${status})`;
+      // For unknown status codes, fall back to a generic error message
+      // without exposing the HTTP status code to users
+      return originalError || i18n.t('errors.unknownError');
   }
 };
 

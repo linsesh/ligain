@@ -31,7 +31,7 @@ export default function MatchesTabScreen() {
 
   if (isAuthLoading || loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#25292e' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );

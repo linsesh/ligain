@@ -4,6 +4,7 @@ import { AuthService } from '../services/authService';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface GoogleSignInButtonProps {
   onSignInSuccess?: (result: any) => void;
@@ -20,6 +21,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 }) => {
   const { signIn } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleGoogleSignIn = async () => {
     try {
@@ -84,7 +86,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     >
       <View style={styles.contentRow}>
         <Ionicons name="logo-google" size={24} color="#fff" style={{ marginRight: 10 }} />
-        <Text style={styles.buttonText}>Continue with Google</Text>
+        <Text style={styles.buttonText}>{t('auth.continueWithGoogleButton')}</Text>
       </View>
     </TouchableOpacity>
   );

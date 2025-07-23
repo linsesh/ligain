@@ -19,7 +19,7 @@
     "close": "Fermer"
   },
   "navigation": {
-    "games": "Jeux",
+    "games": "Parties",
     "matches": "Matchs",
     "rules": "Règles",
     "profile": "Profil",
@@ -37,7 +37,11 @@
     "chooseNameSubtitle": "Choisis un pseudo qui sera visible par les autres joueurs",
     "enterDisplayName": "Entre ton pseudo",
     "signOutConfirm": "Es-tu sûr de vouloir te déconnecter ?",
-    "signOutFailed": "Échec de la déconnexion"
+    "signOutFailed": "Échec de la déconnexion",
+    "continueWithGoogleButton": "Continuer avec Google",
+    "pleaseEnterDisplayName": "Veuillez entrer un pseudo",
+    "displayNameTooShort": "Le pseudo doit faire au moins 2 caractères",
+    "displayNameTooLong": "Le pseudo ne peut pas dépasser 20 caractères"
   },
   "games": {
     "myGames": "Mes Parties",
@@ -80,7 +84,7 @@
     "joinOrCreate": "Rejoindre une partie",
     "selectGame": "Sélectionner une Partie",
     "noGamesToBet": "Aucune partie pour parier",
-    "noGamesToBetSubtext": "Rejoins ou crée une ligue pour commencer à parier sur les matchs",
+    "noGamesToBetSubtext": "Rejoins ou crée une partie pour commencer à parier sur les matchs",
     "goToGames": "Aller aux Parties",
     "closestMatch": "Match le plus proche",
     "noUnbetMatches": "Aucun match pour parier"
@@ -146,7 +150,7 @@
   "notFound": {
     "title": "Oups ! Page Non Trouvée",
     "subtitle": "La page que tu cherches n'existe pas.",
-    "goToGames": "Aller aux Jeux",
+    "goToGames": "Aller aux Parties",
     "goToSignIn": "Aller à la Connexion"
   },
   "game": {
@@ -157,5 +161,22 @@
     "currentPlayer": "Toi",
     "score": "Score",
     "points": "points"
+  },
+  "errors": {
+    "authentication": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",
+    "forbidden": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",
+    "notFound": "Service non trouvé. Veuillez réessayer plus tard",
+    "invalidData": "Informations invalides fournies. Veuillez vérifier vos détails",
+    "tooManyRequests": "Trop de requêtes. Veuillez attendre un moment et réessayer",
+    "serverError": "Erreur serveur. Veuillez réessayer plus tard",
+    "serviceUnavailable": "Service temporairement indisponible. Veuillez réessayer plus tard",
+    "unknownError": "Quelque chose s'est mal passé. Veuillez réessayer plus tard",
+    "signInFailed": "Échec de la connexion",
+    "authenticationError": "Erreur d'authentification",
+    "error": "Erreur",
+    "pleaseEnterGameName": "Veuillez entrer un nom de partie",
+    "failedToCreateGame": "Échec de la création de partie",
+    "pleaseEnterGameCode": "Veuillez entrer un code de partie",
+    "failedToJoinGame": "Échec pour rejoindre la partie"
   }
 } 

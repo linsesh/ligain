@@ -16,7 +16,12 @@
     "vs": "vs",
     "actions": "Actions",
     "failedToCopyToClipboard": "Failed to copy to clipboard",
-    "close": "Close"
+    "close": "Close",
+    "me": "Me",
+    "back": "Back",
+    "gameOverview": "Game Overview",
+    "matches": "Matches",
+    "leaderboard": "Leaderboard"
   },
   "navigation": {
     "games": "Games",
@@ -37,7 +42,11 @@
     "chooseNameSubtitle": "Choose a display name that will be shown to other players",
     "enterDisplayName": "Enter your display name",
     "signOutConfirm": "Are you sure you want to sign out?",
-    "signOutFailed": "Failed to sign out"
+    "signOutFailed": "Failed to sign out",
+    "continueWithGoogleButton": "Continue with Google",
+    "pleaseEnterDisplayName": "Please enter a display name",
+    "displayNameTooShort": "Display name must be at least 2 characters long",
+    "displayNameTooLong": "Display name must be 20 characters or less"
   },
   "games": {
     "myGames": "My Games",
@@ -83,7 +92,8 @@
     "noGamesToBetSubtext": "Join or create a league to start betting on matches",
     "goToGames": "Go to Games",
     "closestMatch": "Closest match",
-    "noUnbetMatches": "No matches to bet on"
+    "noUnbetMatches": "No matches to bet on",
+    "noBet": "No bet"
   },
   "profile": {
     "noUserInfo": "No user information available",
@@ -157,5 +167,22 @@
     "currentPlayer": "You",
     "score": "Score",
     "points": "points"
+  },
+  "errors": {
+    "authentication": "Authentication went wrong, please refresh the page and retry",
+    "forbidden": "Authentication went wrong, please refresh the page and retry",
+    "notFound": "Service not found. Please try again later",
+    "invalidData": "Invalid information provided. Please check your details",
+    "tooManyRequests": "Too many requests. Please wait a moment and try again",
+    "serverError": "Server error. Please try again later",
+    "serviceUnavailable": "Service temporarily unavailable. Please try again later",
+    "unknownError": "Something went wrong. Please try again later",
+    "signInFailed": "Sign In Failed",
+    "authenticationError": "Authentication Error",
+    "error": "Error",
+    "pleaseEnterGameName": "Please enter a game name",
+    "failedToCreateGame": "Failed to create game",
+    "pleaseEnterGameCode": "Please enter a game code",
+    "failedToJoinGame": "Failed to join game"
   }
 } 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../../../../src/contexts/AuthContext';
@@ -8,6 +9,21 @@ import { colors } from '../../../../../src/constants/colors';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../../../../src/components/Leaderboard';
 import { useGames } from '../../../../../src/contexts/GamesContext';
+
+function StatusTag({ text, variant }: { text: string; variant: string }) {
+  const baseStyle = [styles.statusTag];
+  let variantStyle = null;
+  if (variant === 'success') variantStyle = styles.successTag;
+  else if (variant === 'warning') variantStyle = styles.inProgressTag;
+  else if (variant === 'finished') variantStyle = styles.finishedTag;
+  else if (variant === 'primary') variantStyle = styles.primaryTag;
+  else if (variant === 'negative') variantStyle = styles.negativeTag;
+  return (
+    <View style={[...baseStyle, variantStyle]}>
+      <Text style={styles.statusTagText}>{text}</Text>
+    </View>
+  );
+}
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -23,7 +39,7 @@ export default function GameOverviewScreen() {
   const copyToClipboard = async (text: string) => {
     if (copied) return;
     try {
-      await navigator.clipboard.writeText(text);
+      await Clipboard.setStringAsync(text);
       setCopied(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => {
@@ -49,7 +65,7 @@ export default function GameOverviewScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.loadingBackground }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -80,7 +96,7 @@ export default function GameOverviewScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         refreshControl={
           <RefreshControl
@@ -97,14 +113,24 @@ export default function GameOverviewScreen() {
           <Text style={styles.gameSubtitle}>
             {gameDetails.seasonYear} • {gameDetails.competitionName}
           </Text>
-          <Text style={styles.gameStatus}>{t('games.status')} {gameDetails.status}</Text>
+          <View style={styles.statusContainer}>
+            {gameDetails.status === 'in progress' && (
+              <StatusTag text={t('games.inProgressTag')} variant="warning" />
+            )}
+            {gameDetails.status === 'finished' && (
+              <StatusTag text={t('games.finishedTag')} variant="success" />
+            )}
+            {gameDetails.status === 'not started' && (
+              <StatusTag text={t('games.scheduledTag')} variant="primary" />
+            )}
+          </View>
         </View>
         {gameDetails.code && (
           <View style={styles.codeContainer}>
             <Text style={styles.codeLabel}>{t('games.gameCode')}</Text>
             <View style={styles.codeDisplay}>
               <Text style={styles.codeText}>{gameDetails.code}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.copyButton}
                 onPress={() => gameDetails.code && copyToClipboard(gameDetails.code)}
                 disabled={copied || !gameDetails.code}
@@ -119,7 +145,7 @@ export default function GameOverviewScreen() {
           currentPlayerId={player?.id}
           t={t}
         />
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.matchesButton}
           onPress={navigateToMatches}
         >
@@ -162,6 +188,10 @@ const styles = StyleSheet.create({
     color: '#ffd33d',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  statusContainer: {
+    alignItems: 'center',
+    marginTop: 8,
   },
   codeContainer: {
     backgroundColor: '#333',
@@ -294,7 +324,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-
+  statusTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  successTag: {
+    backgroundColor: '#4CAF50',
+  },
+  inProgressTag: {
+    backgroundColor: '#ffd33d',
+  },
+  finishedTag: {
+    backgroundColor: '#ff6b6b',
+  },
+  primaryTag: {
+    backgroundColor: '#4CAF50',
+  },
+  negativeTag: {
+    backgroundColor: '#ff6b6b',
+  },
+  statusTagText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
 
 
 }); 

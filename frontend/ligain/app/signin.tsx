@@ -123,17 +123,17 @@ export default function SignInScreen() {
     console.log('🔐 SignInScreen - Auth result exists:', !!authResult);
     
     if (!displayName.trim()) {
-      Alert.alert('Error', 'Please enter a display name');
+      Alert.alert(t('errors.error'), t('auth.pleaseEnterDisplayName'));
       return;
     }
 
     if (displayName.trim().length < 2) {
-      Alert.alert('Error', 'Display name must be at least 2 characters long');
+      Alert.alert(t('errors.error'), t('auth.displayNameTooShort'));
       return;
     }
 
     if (displayName.trim().length > 20) {
-      Alert.alert('Error', 'Display name must be 20 characters or less');
+      Alert.alert(t('errors.error'), t('auth.displayNameTooLong'));
       return;
     }
 
@@ -177,7 +177,7 @@ export default function SignInScreen() {
       });
       
       Alert.alert(
-        'Sign In Failed',
+        t('errors.signInFailed'),
         error instanceof Error ? error.message : 'An unexpected error occurred'
       );
     } finally {
@@ -187,7 +187,7 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.loadingBackground }]}>
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>{t('auth.welcome')}</Text>
@@ -255,18 +255,18 @@ export default function SignInScreen() {
                     } else {
                       // For other authentication errors, show error alert
                       console.error('Apple Sign-In - Authentication error:', authError.message);
-                      Alert.alert('Authentication Error', authError.message);
+                      Alert.alert(t('errors.authenticationError'), authError.message);
                     }
                   }
                 } catch (error: any) {
                   console.error('Apple Sign-In error:', error);
-                  Alert.alert('Sign-In Failed', error.message);
+                  Alert.alert(t('errors.signInFailed'), error.message);
                 }
               }}
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.primary} />
               ) : (
                 <>
                   <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
@@ -287,7 +287,7 @@ export default function SignInScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#333" />
+                  <ActivityIndicator color={colors.primary} />
                 ) : (
                   <>
                     <Ionicons name="person" size={24} color="#333" />
@@ -363,7 +363,7 @@ export default function SignInScreen() {
                 disabled={isLoading || !displayName.trim()}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={colors.primary} />
                 ) : (
                   <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
                 )}

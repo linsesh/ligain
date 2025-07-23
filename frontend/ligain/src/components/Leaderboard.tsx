@@ -18,6 +18,20 @@ interface LeaderboardProps {
   containerStyle?: ViewStyle;
 }
 
+// Helper function to get rank-based background colors
+const getRankBackgroundColor = (index: number) => {
+  switch (index) {
+    case 0: // 1st place
+      return { backgroundColor: colors.primary }; // Gold/Yellow
+    case 1: // 2nd place
+      return { backgroundColor: colors.silver }; // Silver
+    case 2: // 3rd place
+      return { backgroundColor: colors.bronze }; // Bronze
+    default: // 4th place onwards
+      return { backgroundColor: '#666666' }; // Neutral grey
+  }
+};
+
 export default function Leaderboard({ players, currentPlayerId, t, showTitle = true, align = 'center', showCurrentPlayerTag = true, containerStyle }: LeaderboardProps) {
   return (
     <View style={[
@@ -30,7 +44,7 @@ export default function Leaderboard({ players, currentPlayerId, t, showTitle = t
       )}
       {players.map((playerInfo, index) => (
         <View key={playerInfo.id} style={styles.playerRow}>
-          <View style={styles.playerRank}>
+          <View style={[styles.playerRank, getRankBackgroundColor(index)]}>
             <Text style={styles.rankText}>{index + 1}</Text>
           </View>
           <View style={styles.playerInfo}>

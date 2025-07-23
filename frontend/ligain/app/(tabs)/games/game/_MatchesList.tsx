@@ -85,17 +85,24 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
     tagText = t('games.inProgressTag');
     tagVariant = 'warning';
     hasTag = true;
-  } else if (matchResult.match.isFinished() && player && matchResult.scores && matchResult.scores[player.id]) {
-    const points = matchResult.scores[player.id].points;
-    if (typeof points === 'number' && points > 0 && points < 1000) {
-      tagText = `+${points} points`;
-      tagVariant = 'success';
-      hasTag = true;
-    } else if (typeof points === 'number' && points < 0) {
-      tagText = `${points} points (${t('games.negativePointsTag')})`;
-      tagVariant = 'negative';
-      hasTag = true;
+  } else if (matchResult.match.isFinished() && player) {
+    if (matchResult.scores && matchResult.scores[player.id]) {
+      const points = matchResult.scores[player.id].points;
+      if (typeof points === 'number' && points > 0 && points < 1000) {
+        tagText = `+${points} points`;
+        tagVariant = 'success';
+        hasTag = true;
+      } else if (typeof points === 'number' && points < 0) {
+        tagText = `${points} points (${t('games.negativePointsTag')})`;
+        tagVariant = 'negative';
+        hasTag = true;
+      } else {
+        tagText = `0 points`;
+        tagVariant = 'finished';
+        hasTag = true;
+      }
     } else {
+      // No score entry means no bet was placed, show 0 points
       tagText = `0 points`;
       tagVariant = 'finished';
       hasTag = true;
@@ -461,7 +468,7 @@ export default function MatchesList({ gameId }: { gameId: string }) {
 
   if (matchesLoading && !refreshing) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.loadingBackground }]}> 
         <ActivityIndicator testID="loading-indicator" size="large" color={colors.primary} />
       </View>
     );
@@ -555,15 +562,6 @@ export default function MatchesList({ gameId }: { gameId: string }) {
             );
           })}
         </View>
-        {/* Next match button */}
-        {editingMatchId && nextUnbetMatchId && (
-          <TouchableOpacity
-            style={styles.nextMatchButton}
-            onPress={scrollToNextMatch}
-          >
-            <Text style={styles.nextMatchButtonText}>{t('common.nextMatch') || 'Next match'}</Text>
-          </TouchableOpacity>
-        )}
         {/* Legend for odds indicators */}
         {shouldShowLegend && (
           <View style={styles.legendContainer}>

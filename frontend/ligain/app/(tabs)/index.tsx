@@ -65,7 +65,7 @@ function GamesList() {
 
   const handleCreateGame = async () => {
     if (!newGameName.trim()) {
-      Alert.alert('Error', 'Please enter a game name');
+      Alert.alert(t('errors.error'), t('errors.pleaseEnterGameName'));
       return;
     }
     setCreatingGame(true);
@@ -75,7 +75,7 @@ function GamesList() {
       setNewGameName('');
       refresh();
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create game');
+      Alert.alert(t('errors.error'), err instanceof Error ? err.message : t('errors.failedToCreateGame'));
     } finally {
       setCreatingGame(false);
     }
@@ -83,7 +83,7 @@ function GamesList() {
 
   const handleJoinGame = async () => {
     if (!joinCode.trim()) {
-      Alert.alert('Error', 'Please enter a game code');
+      Alert.alert(t('errors.error'), t('errors.pleaseEnterGameCode'));
       return;
     }
     setJoiningGame(true);
@@ -93,7 +93,7 @@ function GamesList() {
       setShowJoinModal(false);
       refresh();
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to join game');
+      Alert.alert(t('errors.error'), err instanceof Error ? err.message : t('errors.failedToJoinGame'));
     } finally {
       setJoiningGame(false);
     }
@@ -106,11 +106,15 @@ function GamesList() {
   }, [refresh]);
 
   if (loading && !refreshing) {
-    return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, marginTop: 100 }} />;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
   if (!games) {
-    return <Text style={{color: 'red'}}>No games array!</Text>;
+    return <Text style={{color: 'red'}}>{t('games.errorLoadingGames')}</Text>;
   }
 
   return (
@@ -172,7 +176,7 @@ function GamesList() {
                 </View>
                 {game.players && Array.isArray(game.players) && (
                   <Leaderboard
-                    players={game.players}
+                    players={[...game.players].sort((a, b) => b.totalScore - a.totalScore)}
                     t={t}
                     showTitle={false}
                     align="left"
@@ -327,7 +331,11 @@ export default function TabOneScreen() {
   const [redirecting, setRedirecting] = useState(false);
 
   if (isAuthLoading || isGamesLoading || redirecting) {
-    return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, marginTop: 100 }} />;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
   return <GamesList />;
