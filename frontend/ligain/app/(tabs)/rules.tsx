@@ -39,6 +39,11 @@ export default function RulesScreen() {
             <Text style={styles.ruleTitle}>{t('rules.goodResult')}</Text>
             <Text style={styles.example}>{t('rules.goodResultExample')}</Text>
           </View>
+
+          <View style={styles.ruleItem}>
+            <Text style={styles.ruleTitle}>{t('rules.missedBet')}</Text>
+            <Text style={styles.ruleDescription}>{t('rules.missedBetDescription')}</Text>
+          </View>
         </View>
 
         <View style={styles.section}>

@@ -13,7 +13,7 @@ import { useUIEvent } from '../../src/contexts/UIEventContext';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
-  const { games, selectedGameId, setSelectedGameId, loading } = useGames();
+  const { games, selectedGameId, setSelectedGameId, bestGameId, loading } = useGames();
   const { player, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const { setOpenJoinOrCreate } = useUIEvent();
@@ -25,9 +25,10 @@ export default function MatchesTabScreen() {
     if (params.gameId && games.some(g => g.gameId === params.gameId)) {
       setSelectedGameId(params.gameId as string);
     } else if (!selectedGameId && games.length > 0) {
-      setSelectedGameId(games[0].gameId);
+      // Use the intelligently determined bestGameId instead of just the first game
+      setSelectedGameId(bestGameId || games[0].gameId);
     }
-  }, [params.gameId, games, setSelectedGameId]);
+  }, [params.gameId, games, setSelectedGameId, selectedGameId, bestGameId]);
 
   if (isAuthLoading || loading) {
     return (

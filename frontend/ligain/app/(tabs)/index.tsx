@@ -327,10 +327,23 @@ function GamesList() {
 
 export default function TabOneScreen() {
   const { player, isLoading: isAuthLoading } = useAuth();
-  const { loading: isGamesLoading } = useGames();
-  const [redirecting, setRedirecting] = useState(false);
+  const { games, loading: isGamesLoading } = useGames();
+  const [hasAttemptedInitialRedirect, setHasAttemptedInitialRedirect] = useState(false);
+  const router = useRouter();
 
-  if (isAuthLoading || isGamesLoading || redirecting) {
+  // Auto-redirect to matches if user has games (only on initial app load)
+  useEffect(() => {
+    if (!isAuthLoading && !isGamesLoading && games.length > 0 && !hasAttemptedInitialRedirect) {
+      console.log('🔄 Auto-redirecting to matches on initial load - user has games:', games.length);
+      setHasAttemptedInitialRedirect(true);
+      router.replace('/(tabs)/matches');
+    } else if (!isAuthLoading && !isGamesLoading && !hasAttemptedInitialRedirect) {
+      // Mark as attempted even if no redirect happened (no games)
+      setHasAttemptedInitialRedirect(true);
+    }
+  }, [isAuthLoading, isGamesLoading, games.length, router, hasAttemptedInitialRedirect]);
+
+  if (isAuthLoading || isGamesLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
         <ActivityIndicator size="large" color={colors.primary} />
