@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS match (
 
 CREATE TABLE IF NOT EXISTS player (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE,
     provider VARCHAR(50), -- 'google' or 'apple'
     provider_id VARCHAR(255),

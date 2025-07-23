@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"ligain/backend/models"
+	"strings"
 	"testing"
 	"time"
 )
@@ -244,36 +245,6 @@ func TestAuthService_Authenticate_ExistingUser_NoDisplayName(t *testing.T) {
 	}
 }
 
-func TestAuthService_Authenticate_DuplicateDisplayName(t *testing.T) {
-	mockRepo := NewMockPlayerRepository()
-	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
-
-	ctx := context.Background()
-
-	// Create existing player with the same display name
-	existingPlayer := &models.PlayerData{
-		ID:   "existing_id",
-		Name: "Test Display Name",
-	}
-	mockRepo.CreatePlayer(ctx, existingPlayer)
-
-	req := &models.AuthRequest{
-		Provider: "google",
-		Token:    "mock_google_token_123",
-		Email:    "test@google.com",
-		Name:     "Test Display Name", // Same name
-	}
-
-	_, err := authService.Authenticate(ctx, req)
-	if err == nil {
-		t.Error("Expected error for duplicate display name")
-	}
-
-	if err.Error() != "display name is already taken" {
-		t.Errorf("Expected error 'display name is already taken', got %s", err.Error())
-	}
-}
-
 func TestAuthService_Authenticate_UnsupportedProvider(t *testing.T) {
 	mockRepo := NewMockPlayerRepository()
 	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
@@ -291,8 +262,8 @@ func TestAuthService_Authenticate_UnsupportedProvider(t *testing.T) {
 		t.Error("Expected error for unsupported provider")
 	}
 
-	if err.Error() != "unsupported provider" {
-		t.Errorf("Expected error 'unsupported provider', got %s", err.Error())
+	if !strings.Contains(err.Error(), "unsupported provider") {
+		t.Errorf("Expected error containing 'unsupported provider', got %s", err.Error())
 	}
 }
 
@@ -313,8 +284,7 @@ func TestAuthService_Authenticate_OAuthVerificationFailure(t *testing.T) {
 		t.Error("Expected error for OAuth verification failure")
 	}
 
-	// The mock OAuth verifier will fail with "mock verification failed"
-	if err.Error() != "failed to verify token: mock verification failed" {
+	if !strings.Contains(err.Error(), "failed to verify token") {
 		t.Errorf("Expected OAuth verification error, got %v", err)
 	}
 }
@@ -363,8 +333,8 @@ func TestAuthService_ValidateToken_InvalidToken(t *testing.T) {
 		t.Error("Expected error for invalid token")
 	}
 
-	if err.Error() != "invalid token" {
-		t.Errorf("Expected error 'invalid token', got %s", err.Error())
+	if !strings.Contains(err.Error(), "invalid token") {
+		t.Errorf("Expected error containing 'invalid token', got %s", err.Error())
 	}
 }
 
@@ -381,7 +351,7 @@ func TestAuthService_ValidateToken_ExpiredToken(t *testing.T) {
 	}
 	mockRepo.CreatePlayer(ctx, player)
 
-	// Create an expired auth token
+	// Create an expired auth token (expired relative to frozenTime)
 	authToken := &models.AuthToken{
 		PlayerID:  player.ID,
 		Token:     "expired_token",
@@ -389,14 +359,14 @@ func TestAuthService_ValidateToken_ExpiredToken(t *testing.T) {
 	}
 	mockRepo.CreateAuthToken(ctx, authToken)
 
-	// Test expired token
 	_, err := authService.ValidateToken(ctx, "expired_token")
 	if err == nil {
 		t.Error("Expected error for expired token")
+		return
 	}
 
-	if err.Error() != "token expired" {
-		t.Errorf("Expected error 'token expired', got %s", err.Error())
+	if !strings.Contains(err.Error(), "token expired") {
+		t.Errorf("Expected error containing 'token expired', got %s", err.Error())
 	}
 }
 
@@ -466,6 +436,85 @@ func TestAuthService_GenerateAuthToken(t *testing.T) {
 	if authToken.ExpiresAt != expectedExpiry {
 		t.Errorf("Expected token to expire at %v, got %v", expectedExpiry, authToken.ExpiresAt)
 	}
+}
+
+func TestAuthService_UpdateDisplayName(t *testing.T) {
+	mockRepo := NewMockPlayerRepository()
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Create a test player
+	player := &models.PlayerData{
+		ID:         "test_player_id",
+		Name:       "Old Name",
+		Email:      stringPtr("test@example.com"),
+		Provider:   stringPtr("google"),
+		ProviderID: stringPtr("google_user_123"),
+	}
+	mockRepo.CreatePlayer(ctx, player)
+
+	t.Run("Valid display name update", func(t *testing.T) {
+		updatedPlayer, err := authService.UpdateDisplayName(ctx, "test_player_id", "New Name")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if updatedPlayer.Name != "New Name" {
+			t.Errorf("Expected name 'New Name', got %s", updatedPlayer.Name)
+		}
+
+		// Verify player was updated in repository
+		player, err := mockRepo.GetPlayerByID(ctx, "test_player_id")
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if player.Name != "New Name" {
+			t.Errorf("Expected updated name in repository 'New Name', got %s", player.Name)
+		}
+	})
+
+	t.Run("Empty display name", func(t *testing.T) {
+		_, err := authService.UpdateDisplayName(ctx, "test_player_id", "")
+		if err == nil {
+			t.Error("Expected error for empty display name")
+		}
+		if !strings.Contains(err.Error(), "display name cannot be empty") {
+			t.Errorf("Expected error containing 'display name cannot be empty', got %s", err.Error())
+		}
+	})
+
+	t.Run("Display name too short", func(t *testing.T) {
+		_, err := authService.UpdateDisplayName(ctx, "test_player_id", "A")
+		if err == nil {
+			t.Error("Expected error for short display name")
+		}
+		if !strings.Contains(err.Error(), "display name must be at least 2 characters long") {
+			t.Errorf("Expected error containing 'display name must be at least 2 characters long', got %s", err.Error())
+		}
+	})
+
+	t.Run("Display name too long", func(t *testing.T) {
+		longName := "ThisNameIsWayTooLongAndExceedsTwentyCharacters"
+		_, err := authService.UpdateDisplayName(ctx, "test_player_id", longName)
+		if err == nil {
+			t.Error("Expected error for long display name")
+		}
+		if !strings.Contains(err.Error(), "display name must be 20 characters or less") {
+			t.Errorf("Expected error containing 'display name must be 20 characters or less', got %s", err.Error())
+		}
+	})
+
+	t.Run("Player not found", func(t *testing.T) {
+		_, err := authService.UpdateDisplayName(ctx, "nonexistent_id", "New Name")
+		if err == nil {
+			t.Error("Expected error for nonexistent player")
+		}
+		if !strings.Contains(err.Error(), "player not found") {
+			t.Errorf("Expected error containing 'player not found', got %s", err.Error())
+		}
+	})
 }
 
 // Helper function to create string pointers

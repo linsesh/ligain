@@ -28,16 +28,27 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       const result = await AuthService.signInWithGoogle();
       console.log('Google Sign-In success:', result);
       
-      // Always try to authenticate without a display name first
-      // This will fail for new users, triggering the display name modal
       try {
+        // Try to authenticate without display name first (two-step flow)
         console.log('Google Sign-In - Attempting authentication without display name');
-        await signIn(
+        const authResult = await signIn(
           'google',
           result.token,
           result.email,
-          '' // Never use Google name, always require user to choose
+          '' // Empty name to trigger display name requirement for new users
         );
+        
+        // Check if backend is requesting display name
+        if (authResult && authResult.needDisplayName) {
+          console.log('Google Sign-In - New user detected, showing display name modal');
+          if (onNewUser) {
+            onNewUser(result);
+          } else {
+            // Re-throw if no callback is provided
+            throw new Error('Display name required but no callback provided');
+          }
+          return;
+        }
         
         // If successful, navigate to main app (existing user)
         console.log('Google Sign-In - Existing user authenticated successfully');
@@ -49,9 +60,18 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       } catch (authError: any) {
         console.log('Google Sign-In - Authentication failed:', authError.message);
         
-        // Check if this is a "display name required" error for new users
-        if (authError.message === 'display name is required for new users') {
+        // Check if this is a "display name required" error for new users (two-step flow)
+        if (authError.message && authError.message.startsWith('NEED_DISPLAY_NAME:')) {
           console.log('Google Sign-In - New user detected, showing display name modal');
+          if (onNewUser) {
+            onNewUser(result);
+          } else {
+            // Re-throw if no callback is provided
+            throw authError;
+          }
+        } else if (authError.message && authError.message.includes('display name is required for new users')) {
+          // Fallback for old error format
+          console.log('Google Sign-In - New user detected (legacy), showing display name modal');
           if (onNewUser) {
             onNewUser(result);
           } else {

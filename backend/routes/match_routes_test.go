@@ -175,6 +175,14 @@ func (m *MockBetAuthService) AuthenticateGuest(ctx context.Context, displayName 
 	}, nil
 }
 
+func (m *MockBetAuthService) UpdateDisplayName(ctx context.Context, playerID string, displayName string) (*models.PlayerData, error) {
+	if displayName == "" {
+		return nil, errors.New("display name cannot be empty")
+	}
+	testPlayer := &models.PlayerData{Name: displayName}
+	return testPlayer, nil
+}
+
 func setupTestRouter() (*gin.Engine, *MockGame) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

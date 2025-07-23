@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"bytes"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
@@ -100,6 +102,20 @@ func (m *MockAuthService) AuthenticateGuest(ctx context.Context, displayName str
 		Player: *m.player,
 		Token:  "guest-token",
 	}, nil
+}
+
+func (m *MockAuthService) UpdateDisplayName(ctx context.Context, playerID string, displayName string) (*models.PlayerData, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock update display name failed")
+	}
+	if displayName == "" {
+		return nil, errors.New("display name cannot be empty")
+	}
+	if m.player == nil || m.player.ID != playerID {
+		return nil, errors.New("player not found")
+	}
+	m.player.Name = displayName
+	return m.player, nil
 }
 
 func TestSignInHandler(t *testing.T) {
@@ -434,4 +450,148 @@ func TestSignInGuestHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAuthHandler_UpdateDisplayName(t *testing.T) {
+	// Setup
+	gin.SetMode(gin.TestMode)
+
+	// Create mock auth service
+	mockAuthService := &MockAuthService{}
+	handler := NewAuthHandler(mockAuthService)
+
+	// Create router and setup routes
+	router := gin.New()
+	handler.SetupRoutes(router)
+
+	// Create a test player
+	testPlayer := &models.PlayerData{
+		ID:   "test_player_id",
+		Name: "Test Player",
+	}
+
+	t.Run("Valid display name update", func(t *testing.T) {
+		// Setup mock player
+		mockAuthService.player = &models.PlayerData{
+			ID:   "test_player_id",
+			Name: "Updated Name",
+		}
+
+		// Create request body
+		requestBody := map[string]string{
+			"displayName": "Updated Name",
+		}
+		jsonBody, _ := json.Marshal(requestBody)
+
+		// Create request
+		req, _ := http.NewRequest("PUT", "/api/auth/profile/display-name", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		// Create response recorder
+		w := httptest.NewRecorder()
+
+		// Add player to context (simulating middleware)
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+		c.Set("player", testPlayer)
+
+		// Call handler
+		handler.UpdateDisplayName(c)
+
+		// Check response
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		player := response["player"].(map[string]interface{})
+		assert.Equal(t, "Updated Name", player["name"])
+	})
+
+	t.Run("Invalid request body", func(t *testing.T) {
+		// Create invalid request body
+		req, _ := http.NewRequest("PUT", "/api/auth/profile/display-name", bytes.NewBuffer([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+
+		// Create response recorder
+		w := httptest.NewRecorder()
+
+		// Add player to context (simulating middleware)
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+		c.Set("player", testPlayer)
+
+		// Call handler
+		handler.UpdateDisplayName(c)
+
+		// Check response
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, "Invalid request body", response["error"])
+	})
+
+	t.Run("Auth service error", func(t *testing.T) {
+		// Setup mock to fail
+		mockAuthService.shouldFail = true
+
+		// Create request body
+		requestBody := map[string]string{
+			"displayName": "Invalid Name",
+		}
+		jsonBody, _ := json.Marshal(requestBody)
+
+		// Create request
+		req, _ := http.NewRequest("PUT", "/api/auth/profile/display-name", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		// Create response recorder
+		w := httptest.NewRecorder()
+
+		// Add player to context (simulating middleware)
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+		c.Set("player", testPlayer)
+
+		// Call handler
+		handler.UpdateDisplayName(c)
+
+		// Reset shouldFail
+		mockAuthService.shouldFail = false
+
+		// Check response
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Contains(t, response["error"], "mock update display name failed")
+	})
+
+	t.Run("No player in context", func(t *testing.T) {
+		// Create request
+		req, _ := http.NewRequest("PUT", "/api/auth/profile/display-name", bytes.NewBuffer([]byte("{\"displayName\":\"Test\"}")))
+		req.Header.Set("Content-Type", "application/json")
+
+		// Create response recorder
+		w := httptest.NewRecorder()
+
+		// Create context without player (simulating missing middleware)
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Call handler
+		handler.UpdateDisplayName(c)
+
+		// Check response
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, "Player not found in context", response["error"])
+	})
 }

@@ -275,7 +275,8 @@ func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) err
 			season_year = EXCLUDED.season_year,
 			competition_name = EXCLUDED.competition_name,
 			status = EXCLUDED.status,
-			game_name = EXCLUDED.game_name`
+			game_name = EXCLUDED.game_name,
+			updated_at = NOW()`
 
 	_, err := r.db.Exec(
 		query,

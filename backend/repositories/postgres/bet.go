@@ -41,7 +41,7 @@ func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player m
 		FROM match_id m
 		JOIN player p ON p.name = $9
 		ON CONFLICT (match_id, player_id) DO UPDATE 
-		SET predicted_home_goals = $7, predicted_away_goals = $8
+		SET predicted_home_goals = $7, predicted_away_goals = $8, updated_at = NOW()
 		RETURNING id`
 
 	var id string
@@ -245,7 +245,8 @@ func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *mod
 			player_id = EXCLUDED.player_id,
 			predicted_home_goals = EXCLUDED.predicted_home_goals,
 			predicted_away_goals = EXCLUDED.predicted_away_goals,
-			game_id = EXCLUDED.game_id
+			game_id = EXCLUDED.game_id,
+			updated_at = NOW()
 	`, player.GetName(), bet.Match.GetHomeTeam(), bet.Match.GetAwayTeam(), bet.Match.GetSeasonCode(), bet.Match.GetCompetitionCode(), bet.Match.(*models.SeasonMatch).Matchday, betId, bet.PredictedHomeGoals, bet.PredictedAwayGoals, gameId)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -271,7 +272,7 @@ func (r *PostgresBetRepository) SaveScore(gameId string, match models.Match, pla
 		AND b.player_id = $2
 		AND b.game_id = $3
 		ON CONFLICT (game_id, match_id, player_id) DO UPDATE
-		SET points = EXCLUDED.points`,
+		SET points = EXCLUDED.points, updated_at = NOW()`,
 		match.Id(),
 		player.GetID(),
 		gameId,

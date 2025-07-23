@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,84 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
+import { API_CONFIG, getApiHeaders } from '../../src/config/api';
 
 export default function ProfileScreen() {
-  const { player, signOut } = useAuth();
+  const { player, signOut, setPlayer } = useAuth();
   const { t } = useTranslation();
+  const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
+  const [newDisplayName, setNewDisplayName] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleEditDisplayName = () => {
+    setNewDisplayName(player?.name || '');
+    setShowDisplayNameModal(true);
+  };
+
+  const handleUpdateDisplayName = async () => {
+    if (!newDisplayName.trim()) {
+      Alert.alert(t('errors.error'), t('auth.pleaseEnterDisplayName'));
+      return;
+    }
+
+    if (newDisplayName.trim().length < 2) {
+      Alert.alert(t('errors.error'), t('auth.displayNameTooShort'));
+      return;
+    }
+
+    if (newDisplayName.trim().length > 20) {
+      Alert.alert(t('errors.error'), t('auth.displayNameTooLong'));
+      return;
+    }
+
+    if (newDisplayName.trim() === player?.name) {
+      setShowDisplayNameModal(false);
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile/display-name`, {
+        method: 'PUT',
+        headers: getApiHeaders(),
+        body: JSON.stringify({
+          displayName: newDisplayName.trim()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update display name');
+      }
+
+      // Update the auth context with the new player data
+      if (setPlayer) {
+        setPlayer(data.player);
+      }
+
+      setShowDisplayNameModal(false);
+      setNewDisplayName('');
+      
+      Alert.alert(t('common.success'), t('profile.displayNameUpdated'));
+    } catch (error) {
+      console.error('Error updating display name:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      Alert.alert(t('errors.error'), errorMessage || t('profile.displayNameUpdateFailed'));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -82,6 +150,12 @@ export default function ProfileScreen() {
             <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.displayName')}:</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{player.name}</Text>
+            <TouchableOpacity 
+              style={styles.editButton} 
+              onPress={handleEditDisplayName}
+            >
+              <Ionicons name="pencil" size={16} color={colors.link} />
+            </TouchableOpacity>
           </View>
 
           {player.email && (
@@ -127,6 +201,67 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Display Name Change Modal */}
+      <Modal
+        visible={showDisplayNameModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowDisplayNameModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {t('profile.editDisplayName')}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              {t('profile.editDisplayNameSubtitle')}
+            </Text>
+            
+            <TextInput
+              style={[styles.nameInput, { 
+                backgroundColor: colors.background,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
+              placeholder={t('auth.enterDisplayName')}
+              placeholderTextColor={colors.textSecondary}
+              value={newDisplayName}
+              onChangeText={setNewDisplayName}
+              autoFocus={true}
+              maxLength={20}
+              autoCapitalize="words"
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowDisplayNameModal(false);
+                  setNewDisplayName('');
+                }}
+                disabled={isUpdating}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.continueButton]}
+                onPress={handleUpdateDisplayName}
+                disabled={isUpdating || !newDisplayName.trim()}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Text style={styles.continueButtonText}>{t('common.save')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -221,5 +356,66 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginLeft: 10,
     fontWeight: '600',
+  },
+  editButton: {
+    marginLeft: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    padding: 20,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  nameInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButton: {
+    width: '45%',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: colors.border,
+  },
+  cancelButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  continueButton: {
+    backgroundColor: colors.primary,
+  },
+  continueButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
   },
 }); 

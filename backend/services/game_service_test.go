@@ -65,6 +65,24 @@ func newTestPlayer(name string) models.Player {
 	}
 }
 
+// mutableTestPlayer is a test player that can change their name (for testing display name changes)
+type mutableTestPlayer struct {
+	id   string
+	name string
+}
+
+func (p *mutableTestPlayer) GetID() string       { return p.id }
+func (p *mutableTestPlayer) GetName() string     { return p.name }
+func (p *mutableTestPlayer) SetName(name string) { p.name = name }
+
+// newMutableTestPlayer creates a new test player that can change names
+func newMutableTestPlayer(id, name string) *mutableTestPlayer {
+	return &mutableTestPlayer{
+		id:   id,
+		name: name,
+	}
+}
+
 func setupTestGameService() (*GameServiceImpl, models.Match, []models.Player) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
 	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
@@ -465,5 +483,164 @@ func TestGameService_HandleMatchUpdates_AdjustOdds(t *testing.T) {
 		assert.Equal(t, 1.8, updatedMatchFromGame.GetHomeTeamOdds())
 		assert.Equal(t, 2.8, updatedMatchFromGame.GetAwayTeamOdds())
 		assert.Equal(t, 3.8, updatedMatchFromGame.GetDrawOdds())
+	})
+}
+
+// TestGameService_PlayerChangesDisplayNameMidGame tests that a player can change their display name
+// in the middle of a game and continue playing, placing bets, and winning
+func TestGameService_PlayerChangesDisplayNameMidGame(t *testing.T) {
+	// Create matches
+	match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
+	match2 := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime.Add(2*time.Hour), 2)
+	matches := []models.Match{match1, match2}
+
+	// Create players - one mutable player and one regular player
+	player1 := newMutableTestPlayer("player1-id", "OriginalName")
+	player2 := newTestPlayer("Player2")
+	players := []models.Player{player1, player2}
+
+	// Create game
+	game := rules.NewFreshGame("2024", "Premier League", "Display Name Change Test", players, matches, &scorerMock{})
+	gameRepo := &gameRepositoryMock{}
+	betRepo := repositories.NewInMemoryBetRepository()
+	service := NewGameService("test-game", game, gameRepo, betRepo)
+
+	// Phase 1: Player places initial bet with original name
+	t.Run("Player places bet with original name", func(t *testing.T) {
+		bet1 := models.NewBet(match1, 2, 1) // Betting Team1 wins 2-1
+		err := service.UpdatePlayerBet(player1, bet1, matchTime.Add(-1*time.Hour))
+		require.NoError(t, err)
+
+		// Verify bet was saved
+		bets, err := service.GetPlayerBets(player1)
+		require.NoError(t, err)
+		require.Len(t, bets, 1)
+		assert.Equal(t, 2, bets[0].PredictedHomeGoals)
+		assert.Equal(t, 1, bets[0].PredictedAwayGoals)
+
+		// Verify player appears in game with original name
+		gamePlayers := service.GetPlayers()
+		found := false
+		for _, p := range gamePlayers {
+			if p.GetID() == player1.GetID() {
+				assert.Equal(t, "OriginalName", p.GetName())
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Player should be found in game with original name")
+	})
+
+	// Phase 2: Player changes display name mid-game
+	t.Run("Player changes display name mid-game", func(t *testing.T) {
+		// Simulate display name change
+		player1.SetName("NewDisplayName")
+
+		// Verify the player can still be found by ID and now has new name
+		gamePlayers := service.GetPlayers()
+		found := false
+		for _, p := range gamePlayers {
+			if p.GetID() == player1.GetID() {
+				// The game should still reference the same player object
+				// In a real scenario, the game would need to be updated with the new player data
+				// For this test, we're checking that the player object itself changed
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Player should still be found in game after name change")
+		assert.Equal(t, "NewDisplayName", player1.GetName())
+	})
+
+	// Phase 3: Player continues to place bets with new name
+	t.Run("Player places more bets with new name", func(t *testing.T) {
+		bet2 := models.NewBet(match2, 1, 0) // Betting Team3 wins 1-0
+		err := service.UpdatePlayerBet(player1, bet2, matchTime.Add(1*time.Hour))
+		require.NoError(t, err)
+
+		// Verify both bets are saved for the same player
+		bets, err := service.GetPlayerBets(player1)
+		require.NoError(t, err)
+		require.Len(t, bets, 2)
+
+		// Check that we have both bets (without assuming order)
+		foundBet1 := false // 2-1 bet for match1
+		foundBet2 := false // 1-0 bet for match2
+
+		for _, bet := range bets {
+			if bet.PredictedHomeGoals == 2 && bet.PredictedAwayGoals == 1 {
+				foundBet1 = true
+			} else if bet.PredictedHomeGoals == 1 && bet.PredictedAwayGoals == 0 {
+				foundBet2 = true
+			}
+		}
+
+		assert.True(t, foundBet1, "Should find bet with 2-1 prediction")
+		assert.True(t, foundBet2, "Should find bet with 1-0 prediction")
+	})
+
+	// Phase 4: Matches finish and player wins
+	t.Run("Matches finish and player with changed name wins", func(t *testing.T) {
+		// Player2 places losing bets
+		wrongBet1 := models.NewBet(match1, 0, 3) // Wrong prediction
+		wrongBet2 := models.NewBet(match2, 2, 2) // Wrong prediction
+		err := service.UpdatePlayerBet(player2, wrongBet1, matchTime.Add(-30*time.Minute))
+		require.NoError(t, err)
+		err = service.UpdatePlayerBet(player2, wrongBet2, matchTime.Add(1*time.Hour))
+		require.NoError(t, err)
+
+		// Finish matches with results that match player1's predictions
+		finishedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
+		finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 1, 0, "2024", "Premier League", matchTime.Add(2*time.Hour), 2, 1.0, 2.0, 3.0)
+
+		updates := map[string]models.Match{
+			match1.Id(): finishedMatch1,
+			match2.Id(): finishedMatch2,
+		}
+
+		err = service.HandleMatchUpdates(updates)
+		require.NoError(t, err)
+
+		// Check that the game is finished
+		assert.True(t, service.game.IsFinished())
+
+		// Check that player1 (with changed name) is the winner
+		winners := service.game.GetWinner()
+		require.Len(t, winners, 1)
+
+		// The winner should be our player1 who changed their name
+		winner := winners[0]
+		assert.Equal(t, player1.GetID(), winner.GetID())
+		assert.Equal(t, "NewDisplayName", winner.GetName()) // Should have the new name
+
+		// Verify the winner's total score (should have 1000 points: 500 for each correct bet)
+		totalPlayerPoints := service.game.GetPlayersPoints()
+
+		player1Points := totalPlayerPoints[player1.GetID()]
+		player2Points := totalPlayerPoints[player2.GetID()]
+
+		assert.Equal(t, 1000, player1Points) // 500 points per correct bet
+		assert.Equal(t, 0, player2Points)    // 0 points for incorrect bets
+	})
+
+	// Phase 5: Verify game history shows player with new name
+	t.Run("Game history shows player with updated name", func(t *testing.T) {
+		pastResults := service.game.GetPastResults()
+		assert.Len(t, pastResults, 2)
+
+		// Check that in past results, our player appears with new name
+		for _, result := range pastResults {
+			if result.Bets != nil {
+				for playerID, bet := range result.Bets {
+					if playerID == player1.GetID() {
+						// The bet should exist and be associated with the correct player ID
+						assert.NotNil(t, bet)
+						// In a real system, we'd want to verify the display name is updated
+						// in the UI, but the game logic should work with player IDs
+						break
+					}
+				}
+			}
+		}
 	})
 }

@@ -118,6 +118,11 @@ func (m *MockGameAuthService) AuthenticateGuest(ctx context.Context, displayName
 	}, nil
 }
 
+func (m *MockGameAuthService) UpdateDisplayName(ctx context.Context, playerID string, displayName string) (*models.PlayerData, error) {
+	args := m.Called(ctx, playerID, displayName)
+	return args.Get(0).(*models.PlayerData), args.Error(1)
+}
+
 func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

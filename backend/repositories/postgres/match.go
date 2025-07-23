@@ -44,7 +44,7 @@ func (r *PostgresMatchRepository) SaveMatch(match models.Match) error {
 			away_win_odds = EXCLUDED.away_win_odds,
 			draw_odds = EXCLUDED.draw_odds,
 			match_status = EXCLUDED.match_status,
-			updated_at = CURRENT_TIMESTAMP
+			updated_at = NOW()
 	`, localId, match.GetHomeTeam(), match.GetAwayTeam(),
 		match.GetHomeGoals(), match.GetAwayGoals(), match.GetDate(),
 		match.GetHomeTeamOdds(), match.GetAwayTeamOdds(), match.GetDrawOdds(),

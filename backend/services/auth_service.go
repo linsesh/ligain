@@ -19,6 +19,7 @@ type AuthServiceInterface interface {
 	Logout(ctx context.Context, token string) error
 	CleanupExpiredTokens(ctx context.Context) error
 	GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error)
+	UpdateDisplayName(ctx context.Context, playerID string, newDisplayName string) (*models.PlayerData, error)
 }
 
 // AuthService implements authentication with Google or Apple
@@ -50,25 +51,30 @@ func NewAuthServiceWithTimeFunc(playerRepo repositories.PlayerRepository, oauthV
 // This function only verifies the token and generates an auth token
 func (s *AuthService) Authenticate(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	if req.Provider != "google" && req.Provider != "apple" {
-		return nil, errors.New("unsupported provider")
+		return nil, &models.UnsupportedProviderError{Provider: req.Provider}
 	}
 
 	// Verify the OAuth token
 	verifiedUser, err := s.oauthVerifier.VerifyToken(ctx, req.Provider, req.Token)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify token: %w", err)
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to verify token: %v", err)}
 	}
 
 	// Get or create player (separate concern)
 	player, err := s.GetOrCreatePlayer(ctx, verifiedUser, req.Provider, req.Name)
 	if err != nil {
+		// If it's a NeedDisplayNameError, propagate it for two-step flow
+		var needNameErr *models.NeedDisplayNameError
+		if errors.As(err, &needNameErr) {
+			return nil, needNameErr
+		}
 		return nil, err
 	}
 
 	// Generate authentication token
 	token, err := s.generateAuthToken(ctx, player.ID)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to generate auth token: %v", err)}
 	}
 
 	return &models.AuthResponse{
@@ -80,13 +86,14 @@ func (s *AuthService) Authenticate(ctx context.Context, req *models.AuthRequest)
 // AuthenticateGuest handles guest authentication
 func (s *AuthService) AuthenticateGuest(ctx context.Context, displayName string) (*models.AuthResponse, error) {
 	if displayName == "" {
-		return nil, errors.New("display name cannot be empty for guest authentication")
+		return nil, &models.InvalidDisplayNameError{Reason: "display name cannot be empty for guest authentication"}
 	}
 
-	// Check if display name is already taken
+	// For guests, we still need some way to prevent abuse with identical names
+	// Check if this exact display name is already taken by another guest user
 	existingPlayerByName, err := s.playerRepo.GetPlayerByName(ctx, displayName)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to check existing player by name: %v", err)}
 	}
 	if existingPlayerByName != nil {
 		// If the player exists and is a guest (no provider and no email), allow re-authentication
@@ -94,15 +101,15 @@ func (s *AuthService) AuthenticateGuest(ctx context.Context, displayName string)
 			// Generate authentication token for existing guest
 			token, err := s.generateAuthToken(ctx, existingPlayerByName.ID)
 			if err != nil {
-				return nil, err
+				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to generate auth token: %v", err)}
 			}
 			return &models.AuthResponse{
 				Player: *existingPlayerByName,
 				Token:  token,
 			}, nil
 		}
-		// Otherwise, name is taken by a real account
-		return nil, errors.New("display name is already taken")
+		// If it's an OAuth user with the same display name, still allow guest creation
+		// since display names are no longer unique
 	}
 
 	// Create new guest player (no email, provider, or providerID)
@@ -114,13 +121,13 @@ func (s *AuthService) AuthenticateGuest(ctx context.Context, displayName string)
 
 	err = s.playerRepo.CreatePlayer(ctx, player)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to create guest player: %v", err)}
 	}
 
 	// Generate authentication token
 	token, err := s.generateAuthToken(ctx, player.ID)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to generate auth token: %v", err)}
 	}
 
 	return &models.AuthResponse{
@@ -133,26 +140,26 @@ func (s *AuthService) AuthenticateGuest(ctx context.Context, displayName string)
 func (s *AuthService) ValidateToken(ctx context.Context, token string) (*models.PlayerData, error) {
 	authToken, err := s.playerRepo.GetAuthToken(ctx, token)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get auth token: %v", err)}
 	}
 
 	if authToken == nil {
-		return nil, errors.New("invalid token")
+		return nil, &models.PlayerNotFoundError{Reason: "invalid token"}
 	}
 
 	if s.timeFunc().After(authToken.ExpiresAt) {
 		// Token expired, delete it
 		s.playerRepo.DeleteAuthToken(ctx, token)
-		return nil, errors.New("token expired")
+		return nil, &models.TokenExpiredError{Reason: "token expired"}
 	}
 
 	player, err := s.playerRepo.GetPlayerByID(ctx, authToken.PlayerID)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by ID: %v", err)}
 	}
 
 	if player == nil {
-		return nil, errors.New("player not found")
+		return nil, &models.PlayerNotFoundError{Reason: "player not found for token"}
 	}
 
 	return player, nil
@@ -173,15 +180,19 @@ func (s *AuthService) CleanupExpiredTokens(ctx context.Context) error {
 func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error) {
 	verifiedEmail := verifiedUser["email"].(string)
 	verifiedID := verifiedUser["id"].(string)
+	verifiedName := ""
+	if n, ok := verifiedUser["name"].(string); ok {
+		verifiedName = n
+	}
 
 	if verifiedEmail == "" {
-		return nil, errors.New("invalid user information from OAuth provider")
+		return nil, &models.GeneralAuthError{Reason: "invalid user information from OAuth provider"}
 	}
 
 	// First, check if player already exists by provider ID
 	existingPlayer, err := s.playerRepo.GetPlayerByProvider(ctx, provider, verifiedID)
 	if err != nil {
-		return nil, err
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by provider: %v", err)}
 	}
 
 	var player *models.PlayerData
@@ -196,7 +207,7 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 
 			err = s.playerRepo.UpdatePlayer(ctx, player)
 			if err != nil {
-				return nil, err
+				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update player: %v", err)}
 			}
 		} else {
 			player = existingPlayer
@@ -205,7 +216,7 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 		// Check if player exists by email (different provider)
 		existingPlayerByEmail, err := s.playerRepo.GetPlayerByEmail(ctx, verifiedEmail)
 		if err != nil {
-			return nil, err
+			return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by email: %v", err)}
 		}
 
 		if existingPlayerByEmail != nil {
@@ -223,21 +234,29 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 
 			err = s.playerRepo.UpdatePlayer(ctx, player)
 			if err != nil {
-				return nil, err
+				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update player: %v", err)}
 			}
 		} else {
-			// New player - check if display name is available
+			// New user: require display name
 			if displayName == "" {
-				return nil, errors.New("display name is required for new users")
+				return nil, &models.NeedDisplayNameError{
+					Reason:        "display name is required for new users",
+					SuggestedName: verifiedName,
+				}
 			}
 
-			// Check if display name is already taken
-			existingPlayerByName, err := s.playerRepo.GetPlayerByName(ctx, displayName)
-			if err != nil {
-				return nil, err
+			// Validate display name
+			if len(displayName) < 2 {
+				return nil, &models.NeedDisplayNameError{
+					Reason:        "display name must be at least 2 characters long",
+					SuggestedName: verifiedName,
+				}
 			}
-			if existingPlayerByName != nil {
-				return nil, errors.New("display name is already taken")
+			if len(displayName) > 20 {
+				return nil, &models.NeedDisplayNameError{
+					Reason:        "display name must be 20 characters or less",
+					SuggestedName: verifiedName,
+				}
 			}
 
 			// Create new player
@@ -250,9 +269,46 @@ func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[st
 
 			err = s.playerRepo.CreatePlayer(ctx, player)
 			if err != nil {
-				return nil, err
+				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to create player: %v", err)}
 			}
 		}
+	}
+
+	return player, nil
+}
+
+// UpdateDisplayName updates a player's display name
+func (s *AuthService) UpdateDisplayName(ctx context.Context, playerID string, newDisplayName string) (*models.PlayerData, error) {
+	if newDisplayName == "" {
+		return nil, &models.InvalidDisplayNameError{Reason: "display name cannot be empty"}
+	}
+
+	if len(newDisplayName) < 2 {
+		return nil, &models.InvalidDisplayNameError{Reason: "display name must be at least 2 characters long"}
+	}
+
+	if len(newDisplayName) > 20 {
+		return nil, &models.InvalidDisplayNameError{Reason: "display name must be 20 characters or less"}
+	}
+
+	// Get the current player
+	player, err := s.playerRepo.GetPlayerByID(ctx, playerID)
+	if err != nil {
+		return nil, &models.PlayerNotFoundError{Reason: fmt.Sprintf("player not found: %v", err)}
+	}
+
+	if player == nil {
+		return nil, &models.PlayerNotFoundError{Reason: "player not found"}
+	}
+
+	// Update the display name
+	player.Name = newDisplayName
+	player.UpdatedAt = &time.Time{}
+	*player.UpdatedAt = s.timeFunc()
+
+	err = s.playerRepo.UpdatePlayer(ctx, player)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update display name: %v", err)}
 	}
 
 	return player, nil

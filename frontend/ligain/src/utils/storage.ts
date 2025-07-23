@@ -93,6 +93,10 @@ class SafeStorage {
   }
 
   async setItem(key: string, value: string): Promise<void> {
+    if (value === undefined || value === null) {
+      await this.removeItem(key);
+      return;
+    }
     try {
       const storage = await this.getStorage();
       await storage.setItem(key, value);
@@ -103,8 +107,6 @@ class SafeStorage {
         console.log('🔄 Falling back to memory storage for setItem');
         this.useMemoryFallback = true;
         await this.memoryStorage.setItem(key, value);
-      } else {
-        throw error;
       }
     }
   }

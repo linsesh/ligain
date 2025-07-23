@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,6 +30,7 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 		auth.POST("/signin/guest", h.SignInGuest)
 		auth.POST("/signout", middleware.PlayerAuth(h.authService), h.SignOut)
 		auth.GET("/me", middleware.PlayerAuth(h.authService), h.GetCurrentPlayer)
+		auth.PUT("/profile/display-name", middleware.PlayerAuth(h.authService), h.UpdateDisplayName)
 	}
 }
 
@@ -67,15 +70,24 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	}
 
 	log.Infof("🔐 SignIn - Calling authService.Authenticate")
-	response, err := h.authService.Authenticate(c.Request.Context(), &req)
+	resp, err := h.authService.Authenticate(c.Request.Context(), &req)
 	if err != nil {
+		var needNameErr *models.NeedDisplayNameError
+		if errors.As(err, &needNameErr) {
+			c.JSON(http.StatusOK, gin.H{
+				"status":        "need_display_name",
+				"suggestedName": needNameErr.SuggestedName,
+				"error":         needNameErr.Reason,
+			})
+			return
+		}
 		log.Errorf("❌ SignIn - Authentication error: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Infof("✅ SignIn - Authentication successful for user: %s", response.Player.Name)
-	c.JSON(http.StatusOK, response)
+	log.Infof("✅ SignIn - Authentication successful for user: %s", resp.Player.Name)
+	c.JSON(http.StatusOK, resp)
 }
 
 // SignInGuest handles guest authentication
@@ -139,11 +151,57 @@ func (h *AuthHandler) SignOut(c *gin.Context) {
 
 // GetCurrentPlayer returns the current authenticated player
 func (h *AuthHandler) GetCurrentPlayer(c *gin.Context) {
+	// Get player from context (set by middleware)
 	player, exists := c.Get("player")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"player": player})
+	playerData, ok := player.(*models.PlayerData)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid player data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"player": playerData})
+}
+
+// UpdateDisplayName updates the current user's display name
+func (h *AuthHandler) UpdateDisplayName(c *gin.Context) {
+	log.Infof("🔐 UpdateDisplayName - Request received from %s", c.ClientIP())
+
+	// Get player from context (set by middleware)
+	player, exists := c.Get("player")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
+		return
+	}
+
+	playerData, ok := player.(*models.PlayerData)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid player data"})
+		return
+	}
+
+	var req struct {
+		DisplayName string `json:"displayName" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Errorf("❌ UpdateDisplayName - JSON binding error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	log.Infof("🔐 UpdateDisplayName - Updating display name for player %s to %s", playerData.ID, req.DisplayName)
+
+	updatedPlayer, err := h.authService.UpdateDisplayName(c.Request.Context(), playerData.ID, req.DisplayName)
+	if err != nil {
+		log.Errorf("❌ UpdateDisplayName - Error updating display name: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Infof("✅ UpdateDisplayName - Display name updated successfully for user: %s", updatedPlayer.Name)
+	c.JSON(http.StatusOK, gin.H{"player": updatedPlayer})
 }

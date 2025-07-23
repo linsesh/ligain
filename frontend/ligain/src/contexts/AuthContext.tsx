@@ -17,7 +17,7 @@ export interface Player {
 interface AuthContextType {
   player: Player | null;
   isLoading: boolean;
-  signIn: (provider: 'google' | 'apple' | 'guest', token: string, email: string, name: string) => Promise<void>;
+  signIn: (provider: 'google' | 'apple' | 'guest', token: string, email: string, name: string) => Promise<{ needDisplayName?: boolean; suggestedName?: string; error?: string } | void>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setPlayer: (player: Player | null) => void;
@@ -232,8 +232,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             name: data.player.name,
             email: data.player.email,
             provider: data.player.provider
-          } : 'NO_PLAYER_DATA'
+          } : 'NO_PLAYER_DATA',
+          status: data.status
         });
+        
+        // Check if backend is requesting display name (two-step flow)
+        if (data.status === 'need_display_name') {
+          console.log('🔐 AuthContext - Backend requesting display name');
+          // Return special response instead of throwing error
+          return {
+            needDisplayName: true,
+            suggestedName: data.suggestedName || '',
+            error: data.error
+          };
+        }
         
         // Store token and player data
         console.log('🔐 AuthContext - Storing token and player data');

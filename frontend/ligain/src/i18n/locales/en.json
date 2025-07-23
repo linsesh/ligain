@@ -21,7 +21,8 @@
     "back": "Back",
     "gameOverview": "Game Overview",
     "matches": "Matches",
-    "leaderboard": "Leaderboard"
+    "leaderboard": "Leaderboard",
+    "save": "Save"
   },
   "navigation": {
     "games": "Games",
@@ -98,15 +99,16 @@
   },
   "profile": {
     "noUserInfo": "No user information available",
-    "guestAccountBanner": "This is a guest account for testing purposes only",
     "accountInfo": "Account Information",
     "displayName": "Display Name",
     "email": "Email",
-    "provider": "Provider",
-    "accountType": "Account Type",
-    "guest": "Guest",
-    "authenticated": "Authenticated",
-    "memberSince": "Member since:"
+    "provider": "Sign In Method",
+    "memberSince": "Member Since",
+    "guestAccountBanner": "You are signed in as a guest. Sign in with Google or Apple to sync your data across devices.",
+    "editDisplayName": "Edit Display Name",
+    "editDisplayNameSubtitle": "Choose a new display name for your profile",
+    "displayNameUpdated": "Display name updated successfully",
+    "displayNameUpdateFailed": "Failed to update display name. Please try again."
   },
   "about": {
     "whatIsLigain": "What is Ligain?",

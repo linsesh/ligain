@@ -135,11 +135,11 @@ func (r *PostgresPlayerRepository) GetPlayerByName(ctx context.Context, name str
 func (r *PostgresPlayerRepository) UpdatePlayer(ctx context.Context, player *models.PlayerData) error {
 	query := `
 		UPDATE player 
-		SET name = $2, email = $3, provider = $4, provider_id = $5, updated_at = $6
+		SET name = $2, email = $3, provider = $4, provider_id = $5, updated_at = NOW()
 		WHERE id = $1
 	`
 	_, err := r.db.ExecContext(ctx, query,
-		player.ID, player.Name, player.Email, player.Provider, player.ProviderID, player.UpdatedAt)
+		player.ID, player.Name, player.Email, player.Provider, player.ProviderID)
 	return err
 }
 

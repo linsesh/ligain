@@ -1,20 +1,13 @@
 {
   "common": {
-    "cancel": "Annuler",
-    "confirm": "Confirmer",
-    "create": "Créer",
-    "join": "Rejoindre",
-    "continue": "Continuer",
-    "done": "Enregistrer",
-    "retry": "Réessayer",
-    "signOut": "Se déconnecter",
     "loading": "Chargement...",
     "error": "Erreur",
     "success": "Succès",
-    "warning": "Avertissement",
-    "ok": "OK",
-    "vs": "vs",
+    "cancel": "Annuler",
+    "continue": "Continuer",
+    "save": "Enregistrer",
     "actions": "Actions",
+    "signOut": "Se déconnecter",
     "failedToCopyToClipboard": "Échec de la copie dans le presse-papiers",
     "close": "Fermer"
   },
@@ -92,15 +85,16 @@
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",
-    "guestAccountBanner": "Ceci est un compte invité uniquement pour les tests",
-    "accountInfo": "Informations du Compte",
+    "accountInfo": "Informations du compte",
     "displayName": "Pseudo",
     "email": "Email",
-    "provider": "Fournisseur",
-    "accountType": "Type de Compte",
-    "guest": "Invitée",
-    "authenticated": "Authentifié",
-    "memberSince": "Membre depuis :"
+    "provider": "Méthode de connexion",
+    "memberSince": "Membre depuis",
+    "guestAccountBanner": "Vous êtes connecté en tant qu'invité. Connectez-vous avec Google ou Apple pour synchroniser vos données sur tous vos appareils.",
+    "editDisplayName": "Modifier le pseudo",
+    "editDisplayNameSubtitle": "Choisissez un nouveau pseudo pour votre profil",
+    "displayNameUpdated": "Pseudo mis à jour avec succès",
+    "displayNameUpdateFailed": "Échec de la mise à jour du pseudo. Veuillez réessayer."
   },
   "about": {
     "whatIsLigain": "Qu'est-ce que Ligain ?",

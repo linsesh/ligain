@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
 import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
-import { API_CONFIG } from '../src/config/api';
+import { API_CONFIG, getApiHeaders } from '../src/config/api';
 import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
 import { PrivacyTermsModal } from '../src/components/PrivacyTermsModal';
 import { setItem } from '../src/utils/storage';
@@ -29,12 +29,12 @@ export default function SignInScreen() {
     API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED'
   });
   
+  const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [showPrivacyTermsModal, setShowPrivacyTermsModal] = useState(false);
   const { t } = useTranslation();
   
-  const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
   const router = useRouter();
 
   // Get available providers for current platform
@@ -54,135 +54,112 @@ export default function SignInScreen() {
     console.log('🔐 SignInScreen - Modal state changed - showNameModal:', showNameModal);
   }, [showNameModal]);
 
-  const handleSignIn = async (provider: 'google' | 'apple' | 'guest') => {
-    console.log(`🔐 SignInScreen - Starting sign in with ${provider}`);
+  // Store pending auth info for two-step flow
+  const [pendingAuth, setPendingAuth] = useState<{ provider: string, token: string, email: string } | null>(null);
+
+  // OAuth sign-in handler
+  const handleOAuthSignIn = async (provider: 'google' | 'apple', token: string, email: string, displayName?: string) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      setSelectedProvider(provider);
+      const result = await signIn(provider, token, email, displayName || '');
       
-      let result;
-      
-      if (provider === 'guest') {
-        // Guest authentication - always use real backend
-        console.log('🔐 SignInScreen - Calling guest authentication');
-        result = await AuthService.signInAsGuest('Player1');
-        console.log('🔐 SignInScreen - Guest sign in result:', {
-          provider: result.provider,
-          email: result.email,
-          name: result.name,
-          token: result.token ? '***token***' : 'NO_TOKEN'
-        });
-        
-        // For guest authentication, skip the name modal and sign in directly
-        console.log('🔐 SignInScreen - Guest authentication, signing in directly');
-        
-        // Store the result directly since AuthService.signInAsGuest already made the API call
-        console.log('🔐 SignInScreen - Storing guest authentication result');
-        await setItem('auth_token', result.token);
-        await setItem('player_data', JSON.stringify({ 
-          id: result.playerId, // Use the actual player ID from backend
-          name: result.name 
-        }));
-        
-        // Update the auth context state directly to avoid double API call
-        setPlayer({ 
-          id: result.playerId || 'guest-player', // Use the actual player ID from backend
-          name: result.name || 'Guest Player'
-        });
-        
-        // Navigate to main app
-        console.log('🔐 SignInScreen - Navigating to main app');
-        router.replace('/(tabs)');
-      } else {
-        // OAuth authentication - handled by individual buttons
-        console.log('🔐 SignInScreen - OAuth authentication should be handled by individual buttons');
-        throw new Error('OAuth authentication should be handled by individual buttons');
+      // Check if backend is requesting display name
+      if (result && result.needDisplayName) {
+        setShowNameModal(true);
+        setDisplayName(result.suggestedName || '');
+        setAuthResult({ provider, token, email });
+        if (result.error) Alert.alert('Error', result.error);
+        return;
       }
-    } catch (error) {
-      console.error('🔐 SignInScreen - Sign in error:', error);
-      console.error('🔐 SignInScreen - Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      });
-      
-      Alert.alert(
-        'Sign In Failed',
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      );
+
+      // Success: navigate to main app
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('OAuth sign-in error:', error);
+      Alert.alert('Sign In Failed', error.message || 'Unknown error');
     } finally {
       setIsLoading(false);
-      console.log('🔐 SignInScreen - Sign in process completed');
+    }
+  };
+
+  // Google sign-in button handler
+  const handleGoogleSignIn = async () => {
+    // You need to implement the logic to get token and email from Google
+    // For now, this is a placeholder
+    // Example:
+    // const { token, email } = await AuthService.signInWithGoogle();
+    // await handleOAuthSignIn('google', token, email);
+  };
+
+  // Apple sign-in button handler
+  const handleAppleSignIn = async () => {
+    // You need to implement the logic to get token and email from Apple
+    // For now, this is a placeholder
+    // Example:
+    // const { token, email } = await AuthService.signInWithApple();
+    // await handleOAuthSignIn('apple', token, email);
+  };
+
+  // Guest sign-in handler
+  const handleGuestSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const result = await AuthService.signInAsGuest('Player1');
+      await setItem('auth_token', result.token);
+      await setItem('player_data', JSON.stringify({ id: result.playerId, name: result.name }));
+      setPlayer({ id: result.playerId || 'guest-player', name: result.name || 'Guest Player' });
+      router.replace('/(tabs)');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleNameSubmit = async () => {
-    console.log('🔐 SignInScreen - Starting name submission');
-    console.log('🔐 SignInScreen - Display name:', displayName);
-    console.log('🔐 SignInScreen - Selected provider:', selectedProvider);
-    console.log('🔐 SignInScreen - Auth result exists:', !!authResult);
+    console.log('🔐 handleNameSubmit - Starting submission');
+    console.log('🔐 handleNameSubmit - displayName:', displayName);
+    console.log('�� handleNameSubmit - authResult:', authResult);
     
     if (!displayName.trim()) {
       Alert.alert(t('errors.error'), t('auth.pleaseEnterDisplayName'));
       return;
     }
-
     if (displayName.trim().length < 2) {
       Alert.alert(t('errors.error'), t('auth.displayNameTooShort'));
       return;
     }
-
     if (displayName.trim().length > 20) {
       Alert.alert(t('errors.error'), t('auth.displayNameTooLong'));
       return;
     }
-
+    if (!authResult) {
+      console.log('🔐 handleNameSubmit - ERROR: authResult is null');
+      Alert.alert('Error', 'Missing authentication context. Please try again.');
+      setShowNameModal(false);
+      return;
+    }
+    
     try {
-      setIsLoading(true);
-      
-      console.log('🔐 SignInScreen - Calling signIn with context');
-      console.log('🔐 SignInScreen - Sign in parameters:', {
-        provider: selectedProvider,
-        email: authResult?.email,
-        name: displayName.trim(),
-        token: authResult?.token ? '***token***' : 'NO_TOKEN'
+      console.log('🔐 handleNameSubmit - Calling handleOAuthSignIn with:', {
+        provider: authResult.provider,
+        email: authResult.email,
+        displayName: displayName.trim()
       });
       
-      if (!authResult?.token || !authResult?.email) {
-        throw new Error('Missing authentication data');
-      }
-      
-      await signIn(
-        selectedProvider!,
+      // Retry sign-in with display name
+      await handleOAuthSignIn(
+        authResult.provider as 'google' | 'apple',
         authResult.token,
         authResult.email,
         displayName.trim()
       );
-
-      console.log('🔐 SignInScreen - Sign in successful, cleaning up');
-      setShowNameModal(false);
-      setDisplayName('');
-      setAuthResult(null);
-      setSelectedProvider(null);
-
-      // Navigate to main app
-      console.log('🔐 SignInScreen - Navigating to main app');
-      router.replace('/(tabs)');
-    } catch (error) {
-      console.error('🔐 SignInScreen - Sign in error in handleNameSubmit:', error);
-      console.error('🔐 SignInScreen - Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      });
       
-      Alert.alert(
-        t('errors.signInFailed'),
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      );
-    } finally {
-      setIsLoading(false);
-      console.log('🔐 SignInScreen - Name submission completed');
+      // If successful, clean up
+      setShowNameModal(false);
+      setAuthResult(null);
+      setDisplayName('');
+    } catch (error) {
+      console.error('Display name submission error:', error);
+      // Keep modal open on error so user can try again
     }
   };
 
@@ -204,12 +181,18 @@ export default function SignInScreen() {
                 console.log('Google Sign-In success for existing user:', result);
               }}
               onNewUser={(result) => {
-                console.log('Google Sign-In - User needs to choose display name:', result);
-                console.log('🔐 SignInScreen - Setting modal state to true');
+                console.log('🔐 GoogleSignInButton onNewUser - Called with result:', result);
+                console.log('🔐 GoogleSignInButton onNewUser - Setting authResult to:', {
+                  provider: result.provider,
+                  token: result.token ? `${result.token.substring(0, 10)}...` : 'null',
+                  email: result.email
+                });
+                
                 setAuthResult(result);
                 setSelectedProvider('google');
                 setShowNameModal(true);
-                console.log('🔐 SignInScreen - Modal state should now be true');
+                
+                console.log('🔐 GoogleSignInButton onNewUser - Modal should now be visible');
               }}
               onSignInError={(error) => {
                 console.error('Google Sign-In error:', error);
@@ -232,7 +215,7 @@ export default function SignInScreen() {
                   // This will fail for new users, triggering the display name modal
                   try {
                     console.log('Apple Sign-In - Attempting authentication without display name');
-                    await signIn(
+                    await handleOAuthSignIn(
                       'apple',
                       result.token,
                       result.email,
@@ -241,14 +224,28 @@ export default function SignInScreen() {
                     
                     // If successful, navigate to main app (existing user)
                     console.log('Apple Sign-In - Existing user authenticated successfully');
-                    router.replace('/(tabs)');
                   } catch (authError: any) {
                     console.log('Apple Sign-In - Authentication failed:', authError.message);
                     
-                    // Check if this is a "display name required" error for new users
-                    if (authError.message === 'display name is required for new users') {
+                    // Check if this is a "display name required" error for new users (two-step flow)
+                    if (authError.message && authError.message.startsWith('NEED_DISPLAY_NAME:')) {
                       console.log('Apple Sign-In - New user detected, showing display name modal');
-                      setAuthResult(result);
+                      setAuthResult({
+                        provider: result.provider,
+                        token: result.token,
+                        email: result.email
+                      });
+                      setSelectedProvider('apple');
+                      setShowNameModal(true);
+                      console.log('Apple Sign-In - Showing name modal for user');
+                    } else if (authError.message && authError.message.includes('display name is required for new users')) {
+                      // Fallback for old error format
+                      console.log('Apple Sign-In - New user detected (legacy), showing display name modal');
+                      setAuthResult({
+                        provider: result.provider,
+                        token: result.token,
+                        email: result.email
+                      });
                       setSelectedProvider('apple');
                       setShowNameModal(true);
                       console.log('Apple Sign-In - Showing name modal for user');
@@ -283,7 +280,7 @@ export default function SignInScreen() {
             <View style={styles.guestSection}>
               <TouchableOpacity
                 style={[styles.button, styles.guestButton]}
-                onPress={() => handleSignIn('guest')}
+                onPress={handleGuestSignIn}
                 disabled={isLoading}
               >
                 {isLoading ? (
