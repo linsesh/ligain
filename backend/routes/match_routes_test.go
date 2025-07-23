@@ -126,6 +126,10 @@ func (m *MockGame) GetMatchById(matchId string) (models.Match, error) {
 	return nil, errors.New("match not found")
 }
 
+func (m *MockGame) Finish() {
+	// No-op for test
+}
+
 // MockBetAuthService for bet tests
 // Only implements ValidateToken
 // (other methods can panic if called)
@@ -134,8 +138,14 @@ type MockBetAuthService struct {
 }
 
 func (m *MockBetAuthService) ValidateToken(ctx context.Context, token string) (*models.PlayerData, error) {
-	testPlayer := &models.PlayerData{Name: "Player1"}
-	return testPlayer, nil
+	if token == "testtoken" {
+		testPlayer := &models.PlayerData{
+			ID:   "player1-id",
+			Name: "Player1",
+		}
+		return testPlayer, nil
+	}
+	return nil, errors.New("invalid token")
 }
 func (m *MockBetAuthService) Authenticate(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	panic("not implemented")
@@ -183,7 +193,7 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 	mockGameCreationService := &MockGameCreationService{}
 
 	// Set up the mock to return the game service
-	mockGameCreationService.On("GetGameService", "123e4567-e89b-12d3-a456-426614174000").Return(gameService, nil)
+	mockGameCreationService.On("GetGameService", "123e4567-e89b-12d3-a456-426614174000", mock.AnythingOfType("*models.PlayerData")).Return(gameService, nil)
 
 	handler := NewMatchHandler(mockGameCreationService, mockAuthService)
 
@@ -351,7 +361,8 @@ func TestGetMatches_GameNotFound(t *testing.T) {
 	mockGameCreationService := &MockGameCreationService{}
 
 	// Set up the mock to return error for non-existent game
-	mockGameCreationService.On("GetGameService", "non-existent-game").Return(nil, errors.New("game not found"))
+	mockGameCreationService.On("GetGameService", "non-existent-game", mock.AnythingOfType("*models.PlayerData")).Return(nil, errors.New("game not found"))
+	// Mock that the player is in the game (access control check should pass)
 
 	handler := NewMatchHandler(mockGameCreationService, mockAuthService)
 
@@ -595,4 +606,36 @@ func TestSaveBet_SevenOneBet(t *testing.T) {
 	assert.NotNil(t, playerBet)
 	assert.Equal(t, 7, playerBet.PredictedHomeGoals)
 	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
+}
+
+func TestGetMatches_PlayerNotInGame_ServiceLevel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	mockAuthService := &MockBetAuthService{}
+	mockGameCreationService := &MockGameCreationService{}
+
+	// Mock that GetGameService returns access denied error
+	mockGameCreationService.On("GetGameService", "123e4567-e89b-12d3-a456-426614174000", mock.AnythingOfType("*models.PlayerData")).Return(nil, services.ErrPlayerNotInGame)
+
+	handler := NewMatchHandler(mockGameCreationService, mockAuthService)
+
+	// Add middleware to routes manually for testing
+	router.GET("/api/game/:game-id/matches", middleware.PlayerAuth(mockAuthService), handler.getMatches)
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/game/123e4567-e89b-12d3-a456-426614174000/matches", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert response - should be 403 Forbidden
+	assert.Equal(t, http.StatusForbidden, w.Code)
+
+	var response map[string]any
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "player is not in the game", response["error"])
 }

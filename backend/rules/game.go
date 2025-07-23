@@ -273,6 +273,10 @@ func (g *GameImpl) IsFinished() bool {
 	return g.gameStatus == models.GameStatusFinished
 }
 
+func (g *GameImpl) Finish() {
+	g.gameStatus = models.GameStatusFinished
+}
+
 func (g *GameImpl) GetPlayers() []models.Player {
 	return g.players
 }

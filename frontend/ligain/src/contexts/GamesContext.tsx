@@ -65,6 +65,7 @@ interface GamesContextType {
   refresh: () => void;                      // Manually refresh games from server
   joinGame: (code: string) => Promise<void>; // Join existing game by code
   createGame: (name: string) => Promise<void>; // Create new game
+  removeGame: (gameId: string) => void;     // Remove game from local state (after leaving)
 }
 
 const GamesContext = createContext<GamesContextType | undefined>(undefined);
@@ -246,6 +247,17 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Removes a game from the local state by gameId
+  const removeGame = (gameId: string) => {
+    setGames(prevGames => prevGames.filter(game => game.gameId !== gameId));
+    if (selectedGameId === gameId) {
+      setSelectedGameId(null);
+    }
+    if (bestGameId === gameId) {
+      setBestGameId(null);
+    }
+  };
+
   return (
     <GamesContext.Provider
       value={{
@@ -258,6 +270,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         refresh: fetchGames,
         joinGame,
         createGame,
+        removeGame,
       }}
     >
       {children}

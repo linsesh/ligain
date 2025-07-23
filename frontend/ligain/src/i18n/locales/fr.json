@@ -47,6 +47,7 @@
     "myGames": "Mes Parties",
     "createGame": "Créer une Partie",
     "joinGame": "Rejoindre une Partie",
+    "leave": "Quitter",
     "createNewGame": "Créer une Nouvelle Partie",
     "createGameSubtitle": "Entre un nom pour ta partie",
     "joinGameSubtitle": "Entre le code d'invitation à 4 lettres",

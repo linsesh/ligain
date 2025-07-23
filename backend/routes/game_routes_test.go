@@ -52,12 +52,17 @@ func (m *MockGameCreationService) GetPlayerGames(player models.Player) ([]servic
 	return args.Get(0).([]services.PlayerGame), args.Error(1)
 }
 
-func (m *MockGameCreationService) GetGameService(gameID string) (services.GameService, error) {
-	args := m.Called(gameID)
+func (m *MockGameCreationService) GetGameService(gameID string, player models.Player) (services.GameService, error) {
+	args := m.Called(gameID, player)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(services.GameService), args.Error(1)
+}
+
+func (m *MockGameCreationService) LeaveGame(gameID string, player models.Player) error {
+	args := m.Called(gameID, player)
+	return args.Error(0)
 }
 
 // MockAuthService is a mock implementation of AuthServiceInterface
@@ -125,6 +130,22 @@ func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuth
 	// Add middleware to routes manually for testing
 	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
 	router.GET("/api/games", middleware.PlayerAuth(mockAuthService), handler.getPlayerGames)
+
+	return router, mockGameCreationService, mockAuthService
+}
+
+func setupGameTestRouterWithLeave() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	mockGameCreationService := new(MockGameCreationService)
+	mockAuthService := new(MockGameAuthService)
+
+	handler := NewGameHandler(mockGameCreationService, mockAuthService)
+
+	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
+	router.GET("/api/games", middleware.PlayerAuth(mockAuthService), handler.getPlayerGames)
+	router.DELETE("/api/games/:gameId/leave", middleware.PlayerAuth(mockAuthService), handler.leaveGame)
 
 	return router, mockGameCreationService, mockAuthService
 }
@@ -630,4 +651,73 @@ func TestGetPlayerGames_NoAuthHeader(t *testing.T) {
 	// Verify no service calls were made
 	mockGameCreationService.AssertNotCalled(t, "GetPlayerGames")
 	mockAuthService.AssertNotCalled(t, "ValidateToken")
+}
+
+func TestLeaveGame_Success(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouterWithLeave()
+	gameID := "test-game-id"
+	player := &models.PlayerData{ID: "test-player-id", Name: "Test Player"}
+
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil)
+	mockGameCreationService.On("LeaveGame", gameID, player).Return(nil)
+
+	req := httptest.NewRequest("DELETE", "/api/games/"+gameID+"/leave", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "Successfully left the game", response["message"])
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
+}
+
+func TestLeaveGame_NotInGame(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouterWithLeave()
+	gameID := "test-game-id"
+	player := &models.PlayerData{ID: "test-player-id", Name: "Test Player"}
+
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil)
+	mockGameCreationService.On("LeaveGame", gameID, player).Return(errors.New("player is not in the game"))
+
+	req := httptest.NewRequest("DELETE", "/api/games/"+gameID+"/leave", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "player is not in the game", response["error"])
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
+}
+
+func TestLeaveGame_Error(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouterWithLeave()
+	gameID := "test-game-id"
+	player := &models.PlayerData{ID: "test-player-id", Name: "Test Player"}
+
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil)
+	mockGameCreationService.On("LeaveGame", gameID, player).Return(errors.New("some db error"))
+
+	req := httptest.NewRequest("DELETE", "/api/games/"+gameID+"/leave", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "Failed to leave game", response["error"])
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
 }

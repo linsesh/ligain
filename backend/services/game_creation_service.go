@@ -19,8 +19,9 @@ type GameCreationServiceInterface interface {
 	CreateGame(req *CreateGameRequest, player models.Player) (*CreateGameResponse, error)
 	JoinGame(code string, player models.Player) (*JoinGameResponse, error)
 	GetPlayerGames(player models.Player) ([]PlayerGame, error)
-	GetGameService(gameID string) (GameService, error)
+	GetGameService(gameID string, player models.Player) (GameService, error)
 	CleanupExpiredCodes() error
+	LeaveGame(gameID string, player models.Player) error
 }
 
 // GameCreationService handles game creation with unique codes
@@ -47,8 +48,17 @@ func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo r
 	}
 }
 
-// GetGameService returns a GameService by ID
-func (s *GameCreationService) GetGameService(gameID string) (GameService, error) {
+// GetGameService returns a GameService by ID, but only if the player has access to it
+func (s *GameCreationService) GetGameService(gameID string, player models.Player) (GameService, error) {
+	// Check if player is in the game first
+	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, player.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("error checking game access: %v", err)
+	}
+	if !isInGame {
+		return nil, ErrPlayerNotInGame
+	}
+
 	gameService, exists := s.gameServices[gameID]
 	if !exists {
 		// Try to load the game from the database
@@ -113,6 +123,7 @@ type PlayerGame struct {
 var (
 	ErrInvalidCompetition = errors.New("only 'Ligue 1' is supported as competition name")
 	ErrInvalidSeasonYear  = errors.New("only '2025/2026' is supported as season year")
+	ErrPlayerNotInGame    = errors.New("player is not in the game")
 )
 
 // CreateGame creates a new game with a unique 4-character code
@@ -208,6 +219,10 @@ func (s *GameCreationService) JoinGame(code string, player models.Player) (*Join
 	game, err := s.gameRepo.GetGame(gameCode.GameID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get game: %v", err)
+	}
+	// Prevent joining if finished
+	if game.GetGameStatus() == models.GameStatusFinished {
+		return nil, fmt.Errorf("cannot join a finished game")
 	}
 
 	// Add the player to the game
@@ -359,4 +374,59 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 	}
 
 	return playerGames, nil
+}
+
+// Add LeaveGame implementation
+func (s *GameCreationService) LeaveGame(gameID string, player models.Player) error {
+	ctx := context.Background()
+	// Check if player is in the game
+	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(ctx, gameID, player.GetID())
+	if err != nil {
+		return fmt.Errorf("error checking if player is in game: %v", err)
+	}
+	if !isInGame {
+		return ErrPlayerNotInGame
+	}
+	// Remove player from game
+	err = s.gamePlayerRepo.RemovePlayerFromGame(ctx, gameID, player.GetID())
+	if err != nil {
+		return fmt.Errorf("error removing player from game: %v", err)
+	}
+	// Check if any players are left
+	players, err := s.gamePlayerRepo.GetPlayersInGame(ctx, gameID)
+	if err != nil {
+		return fmt.Errorf("error checking remaining players: %v", err)
+	}
+	if len(players) == 0 {
+		if err := s.deleteGame(gameID); err != nil {
+			return err
+		}
+	}
+	// Remove from cache if present
+	delete(s.gameServices, gameID)
+	return nil
+}
+
+// deleteGame marks a game as finished, persists it, unsubscribes from the watcher, and deletes the join code
+func (s *GameCreationService) deleteGame(gameID string) error {
+	game, err := s.gameRepo.GetGame(gameID)
+	if err != nil {
+		return fmt.Errorf("error loading game to finish: %v", err)
+	}
+	game.Finish()
+	err = s.gameRepo.SaveWithId(gameID, game)
+	if err != nil {
+		return fmt.Errorf("error saving finished game: %v", err)
+	}
+	// Always unsubscribe from watcher if present
+	if s.watcher != nil {
+		err := s.watcher.Unsubscribe(gameID)
+		if err != nil {
+			log.WithError(err).Warnf("Failed to unsubscribe game %s from watcher", gameID)
+		}
+	}
+	if s.gameCodeRepo != nil {
+		_ = s.gameCodeRepo.DeleteGameCodeByGameID(gameID)
+	}
+	return nil
 }

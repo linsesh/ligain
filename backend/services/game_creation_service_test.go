@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"ligain/backend/models"
 	"testing"
 	"time"
@@ -75,6 +76,11 @@ func (m *MockGameCodeRepository) CodeExists(code string) (bool, error) {
 
 func (m *MockGameCodeRepository) DeleteGameCode(code string) error {
 	args := m.Called(code)
+	return args.Error(0)
+}
+
+func (m *MockGameCodeRepository) DeleteGameCodeByGameID(gameID string) error {
+	args := m.Called(gameID)
 	return args.Error(0)
 }
 
@@ -156,7 +162,11 @@ func (m *MockWatcher) Subscribe(handler GameService) error {
 	args := m.Called(handler)
 	return args.Error(0)
 }
-func (m *MockWatcher) Unsubscribe(gameID string) error { return nil }
+func (m *MockWatcher) Unsubscribe(gameID string) error {
+	fmt.Println("[MOCK] Unsubscribe called with gameID:", gameID)
+	args := m.Called(gameID)
+	return args.Error(0)
+}
 func (m *MockWatcher) Start(ctx context.Context) error { return nil }
 func (m *MockWatcher) Stop() error                     { return nil }
 
@@ -590,6 +600,8 @@ func (m *SimpleMockGame) GetMatchById(matchId string) (models.Match, error) {
 	return nil, errors.New("match not found")
 }
 
+func (m *SimpleMockGame) Finish() {}
+
 func TestGameCreationService_JoinGame_InvalidCode(t *testing.T) {
 	// Setup
 	mockGameRepo := new(MockGameRepository)
@@ -912,15 +924,18 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	mockGameRepo.On("GetGame", "test-game-id").Return(&SimpleMockGame{}, nil)
 
 	// Mock IsPlayerInGame to return false (player2 is not in the game yet)
-	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "test-game-id", "player2").Return(false, nil)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "test-game-id", "player2").Return(false, nil).Once()
 
 	// Join the game
 	joinedGame, err := service.JoinGame("TEST", secondPlayer)
 	require.NoError(t, err)
 	require.NotNil(t, joinedGame)
 
+	// Mock IsPlayerInGame to return true for player2 after joining (for GetGameService call)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "test-game-id", "player2").Return(true, nil)
+
 	// Now try to get the game service directly (this should use the cached version)
-	gameService, err := service.GetGameService("test-game-id")
+	gameService, err := service.GetGameService("test-game-id", secondPlayer)
 	require.NoError(t, err)
 	require.NotNil(t, gameService)
 
@@ -937,4 +952,234 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 
 	// This assertion should fail, proving the caching issue
 	assert.True(t, found, "Player should be in the cached game service")
+}
+
+func TestGameCreationService_LeaveGame_Success(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+
+	gameID := "game1"
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
+	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(nil)
+	// Simulate other players remaining
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, gameID).Return([]models.Player{&models.PlayerData{ID: "other", Name: "Other Player"}}, nil)
+
+	err := service.LeaveGame(gameID, player)
+	assert.NoError(t, err)
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_LeaveGame_NotInGame(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+
+	gameID := "game1"
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(false, nil)
+
+	err := service.LeaveGame(gameID, player)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPlayerNotInGame))
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_LeaveGame_RepoError(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+
+	gameID := "game1"
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	repoErr := errors.New("db error")
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
+	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(repoErr)
+
+	err := service.LeaveGame(gameID, player)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error removing player from game")
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_LeaveGame_LastPlayerFinishesGame(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	gameID := "game1"
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Player is in game
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
+	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(nil)
+	// No players left after removal
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, gameID).Return([]models.Player{}, nil)
+	// Game loaded for finishing
+	mockGame := &SimpleMockGame{}
+	mockGameRepo.On("GetGame", gameID).Return(mockGame, nil)
+	// SaveWithId called to persist finished status
+	mockGameRepo.On("SaveWithId", gameID, mockGame).Return(nil)
+	// Watcher unsubscribed
+	mockWatcher.On("Unsubscribe", mock.MatchedBy(func(arg string) bool { return arg == gameID })).Return(nil)
+	// Game code deleted
+	mockGameCodeRepo.On("DeleteGameCodeByGameID", gameID).Return(nil)
+
+	err := service.LeaveGame(gameID, player)
+	assert.NoError(t, err)
+	mockGamePlayerRepo.AssertExpectations(t)
+	mockGameRepo.AssertExpectations(t)
+	mockWatcher.AssertExpectations(t)
+	mockGameCodeRepo.AssertExpectations(t)
+}
+
+func TestGameCreationService_JoinGame_FinishedGame(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+
+	code := "ABC1"
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	gameCode := &models.GameCode{
+		GameID:    "game1",
+		Code:      code,
+		ExpiresAt: testTime.Add(24 * time.Hour),
+	}
+	// Game is finished
+	mockGame := &SimpleMockGameFinished{}
+
+	mockGameCodeRepo.On("GetGameCodeByCode", code).Return(gameCode, nil)
+	mockGameRepo.On("GetGame", "game1").Return(mockGame, nil)
+
+	response, err := service.JoinGame(code, player)
+	assert.Error(t, err)
+	assert.Nil(t, response)
+	assert.Contains(t, err.Error(), "cannot join a finished game")
+	mockGameCodeRepo.AssertExpectations(t)
+	mockGameRepo.AssertExpectations(t)
+}
+
+// Helper for finished game
+
+type SimpleMockGameFinished struct{}
+
+func (m *SimpleMockGameFinished) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+func (m *SimpleMockGameFinished) GetPastResults() map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+func (m *SimpleMockGameFinished) GetSeasonYear() string            { return "2025/2026" }
+func (m *SimpleMockGameFinished) GetCompetitionName() string       { return "Ligue 1" }
+func (m *SimpleMockGameFinished) GetGameStatus() models.GameStatus { return models.GameStatusFinished }
+func (m *SimpleMockGameFinished) GetName() string                  { return "Test Game" }
+func (m *SimpleMockGameFinished) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
+	return nil
+}
+func (m *SimpleMockGameFinished) AddPlayerBet(player models.Player, bet *models.Bet) error {
+	return nil
+}
+func (m *SimpleMockGameFinished) AddPlayer(player models.Player) error { return nil }
+func (m *SimpleMockGameFinished) CalculateMatchScores(match models.Match) (map[string]int, error) {
+	return make(map[string]int), nil
+}
+func (m *SimpleMockGameFinished) ApplyMatchScores(match models.Match, scores map[string]int) {}
+func (m *SimpleMockGameFinished) UpdateMatch(match models.Match) error                       { return nil }
+func (m *SimpleMockGameFinished) GetPlayersPoints() map[string]int                           { return make(map[string]int) }
+func (m *SimpleMockGameFinished) GetPlayers() []models.Player                                { return []models.Player{} }
+func (m *SimpleMockGameFinished) IsFinished() bool                                           { return true }
+func (m *SimpleMockGameFinished) GetWinner() []models.Player                                 { return []models.Player{} }
+func (m *SimpleMockGameFinished) GetIncomingMatchesForTesting() map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+func (m *SimpleMockGameFinished) GetMatchById(matchId string) (models.Match, error) {
+	return nil, errors.New("match not found")
+}
+
+func (m *SimpleMockGameFinished) Finish() {}
+
+func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	// Step 1: Create game and join as player1
+	request := &CreateGameRequest{
+		SeasonYear:      "2025/2026",
+		CompetitionName: "Ligue 1",
+		Name:            "Test Game",
+	}
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
+	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
+	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+
+	createResp, err := service.CreateGame(request, player)
+	assert.NoError(t, err)
+	assert.NotNil(t, createResp)
+	gameID := createResp.GameID
+	code := createResp.Code
+
+	// Step 2: Leave the game as player1
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
+	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(nil)
+	// Simulate other players remaining after leave
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, gameID).Return([]models.Player{&models.PlayerData{ID: "other", Name: "Other Player"}}, nil)
+
+	err = service.LeaveGame(gameID, player)
+	assert.NoError(t, err)
+
+	// Step 3: Re-join the same game as player1
+	mockGameCodeRepo.On("GetGameCodeByCode", code).Return(&models.GameCode{
+		GameID:    gameID,
+		Code:      code,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}, nil)
+	mockGameRepo.On("GetGame", gameID).Return(&SimpleMockGame{}, nil)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(false, nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, gameID, player.ID).Return(nil)
+
+	joinResp, err := service.JoinGame(code, player)
+	assert.NoError(t, err)
+	assert.NotNil(t, joinResp)
+	assert.Equal(t, gameID, joinResp.GameID)
+
+	mockGameRepo.AssertExpectations(t)
+	mockGameCodeRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
+	mockMatchRepo.AssertExpectations(t)
+	mockWatcher.AssertExpectations(t)
 }

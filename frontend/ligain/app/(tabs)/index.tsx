@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, Touchab
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { Swipeable } from 'react-native-gesture-handler';
 
 // Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -12,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../src/components/Leaderboard';
 import { useGames } from '../../src/contexts/GamesContext';
 import { useUIEvent } from '../../src/contexts/UIEventContext';
+import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
 
 interface CreateGameResponse {
   gameId: string;
@@ -43,7 +45,7 @@ function GamesList() {
   const { t } = useTranslation();
   const { player } = useAuth();
   const router = useRouter();
-  const { games, loading, error, joinGame, createGame, refresh } = useGames();
+  const { games, loading, error, joinGame, createGame, refresh, removeGame } = useGames();
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -53,6 +55,8 @@ function GamesList() {
   const [newGameName, setNewGameName] = useState('');
   const [showActionSheet, setShowActionSheet] = useState(false);
   const { openJoinOrCreate, setOpenJoinOrCreate } = useUIEvent();
+  const [isAnySwipeActive, setIsAnySwipeActive] = useState<boolean>(false);
+  const swipeableRefs = useRef<{ [key: string]: any }>({});
 
   useFocusEffect(
     React.useCallback(() => {
@@ -97,6 +101,87 @@ function GamesList() {
     } finally {
       setJoiningGame(false);
     }
+  };
+
+  // Leave game handler
+  const handleLeaveGame = async (gameId: string) => {
+    Alert.alert(
+      t('games.leaveGameTitle', 'Leave Game'),
+      t('games.leaveGameConfirm', 'Are you sure you want to leave this game?'),
+      [
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+        {
+          text: t('games.leave', 'Leave'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Call backend with proper headers and URL
+              const headers = await getAuthenticatedHeaders({ 'Content-Type': 'application/json' });
+              const res = await fetch(`${API_CONFIG.BASE_URL}/api/games/${gameId}/leave`, {
+                method: 'DELETE',
+                headers,
+              });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || t('games.failedToLeaveGame', 'Failed to leave game'));
+              }
+              // Remove game from local state immediately
+              removeGame(gameId);
+              Alert.alert(t('games.leftGame', 'You have left the game.'));
+              // Still refresh to ensure consistency
+              refresh();
+            } catch (err: any) {
+              Alert.alert(t('games.failedToLeaveGame', 'Failed to leave game'), err.message || String(err));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Render right action for swipeable
+  const renderRightActions = (gameId: string) => (
+    <View style={{
+      width: 75,
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'transparent',
+    }}>
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#ff3b30',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: 60,
+          height: 60,
+          borderRadius: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        }}
+        onPress={() => handleLeaveGame(gameId)}
+      >
+        <Ionicons name="exit-outline" size={20} color="#fff" />
+        <Text style={{ 
+          color: '#fff', 
+          fontWeight: '600', 
+          fontSize: 11,
+          marginTop: 2
+        }}>
+          {t('games.leave', 'Leave')}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const handleGamePress = (gameId: string) => {
+    if (isAnySwipeActive) {
+      return;
+    }
+    router.push('/(tabs)/games/game/overview/' + gameId);
   };
 
   const onRefresh = React.useCallback(async () => {
@@ -158,34 +243,49 @@ function GamesList() {
         ) : (
           games.map((game) => {
             const status = (game.status || '').toLowerCase();
+            
             return (
-              <TouchableOpacity 
-                key={game.gameId} 
-                style={[
-                  styles.gameCard,
-                  styles.gameCardWithTag
-                ]}
-                onPress={() => {
-                  router.push('/(tabs)/games/game/overview/' + game.gameId);
+              <Swipeable
+                key={game.gameId}
+                ref={ref => { swipeableRefs.current[game.gameId] = ref; }}
+                renderRightActions={() => renderRightActions(game.gameId)}
+                overshootRight={false}
+                rightThreshold={40}
+                onSwipeableWillOpen={() => {
+                  setIsAnySwipeActive(true);
+                }}
+                onSwipeableClose={() => {
+                  setIsAnySwipeActive(false);
                 }}
               >
-                <StatusTag text={String(game.status)} variant="warning" />
-                <View style={styles.headerGroupAbsolute}>
-                  <Text style={styles.leagueNamePlain}>{game.name}</Text>
-                  <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
+                <View pointerEvents={isAnySwipeActive ? 'none' : 'auto'}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.gameCard,
+                      styles.gameCardWithTag
+                    ]}
+                    onPress={() => handleGamePress(game.gameId)}
+                    activeOpacity={0.2}
+                  >
+                    <StatusTag text={String(game.status)} variant="warning" />
+                    <View style={styles.headerGroupAbsolute}>
+                      <Text style={styles.leagueNamePlain}>{game.name}</Text>
+                      <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
+                    </View>
+                    {game.players && Array.isArray(game.players) && (
+                      <Leaderboard
+                        players={[...game.players].sort((a, b) => b.totalScore - a.totalScore)}
+                        t={t}
+                        showTitle={false}
+                        align="left"
+                        showCurrentPlayerTag={true}
+                        currentPlayerId={player?.id}
+                        containerStyle={{ marginHorizontal: 0, alignItems: 'flex-start', paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }}
+                      />
+                    )}
+                  </TouchableOpacity>
                 </View>
-                {game.players && Array.isArray(game.players) && (
-                  <Leaderboard
-                    players={[...game.players].sort((a, b) => b.totalScore - a.totalScore)}
-                    t={t}
-                    showTitle={false}
-                    align="left"
-                    showCurrentPlayerTag={true}
-                    currentPlayerId={player?.id}
-                    containerStyle={{ marginHorizontal: 0, alignItems: 'flex-start', paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }}
-                  />
-                )}
-              </TouchableOpacity>
+              </Swipeable>
             );
           })
         )}

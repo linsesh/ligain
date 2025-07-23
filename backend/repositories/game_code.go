@@ -27,4 +27,5 @@ type GameCodeRepository interface {
 
 	// DeleteGameCode deletes a specific game code
 	DeleteGameCode(code string) error
+	DeleteGameCodeByGameID(gameID string) error
 }

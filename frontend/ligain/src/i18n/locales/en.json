@@ -52,6 +52,7 @@
     "myGames": "My Games",
     "createGame": "Create Game",
     "joinGame": "Join Game",
+    "leave": "Leave",
     "createNewGame": "Create a New Game",
     "createGameSubtitle": "Enter a name for your game",
     "joinGameSubtitle": "Enter the 4-letter invitation code",

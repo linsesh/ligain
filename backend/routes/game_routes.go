@@ -32,6 +32,7 @@ func (h *GameHandler) SetupRoutes(router *gin.Engine) {
 	router.POST("/api/games", middleware.PlayerAuth(h.authService), h.createGame)
 	router.POST("/api/games/join", middleware.PlayerAuth(h.authService), h.joinGame)
 	router.GET("/api/games", middleware.PlayerAuth(h.authService), h.getPlayerGames)
+	router.DELETE("/api/games/:gameId/leave", middleware.PlayerAuth(h.authService), h.leaveGame)
 }
 
 // createGame handles the creation of a new game with a unique code
@@ -157,4 +158,29 @@ func (h *GameHandler) getPlayerGames(c *gin.Context) {
 	}).Info("Retrieved player games successfully")
 
 	c.JSON(http.StatusOK, gin.H{"games": games})
+}
+
+// Add leaveGame handler
+func (h *GameHandler) leaveGame(c *gin.Context) {
+	gameID := c.Param("gameId")
+	player, exists := c.Get("player")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
+		return
+	}
+	err := h.gameCreationService.LeaveGame(gameID, player.(models.Player))
+	if err != nil {
+		if err.Error() == "player is not in the game" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		log.WithError(err).Error("Failed to leave game")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to leave game"})
+		return
+	}
+	log.WithFields(log.Fields{
+		"gameId": gameID,
+		"player": player.(models.Player).GetName(),
+	}).Info("Player left game successfully")
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully left the game"})
 }

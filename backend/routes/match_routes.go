@@ -9,6 +9,8 @@ import (
 	"ligain/backend/services"
 	"net/http"
 
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -123,17 +125,21 @@ func (h *MatchHandler) getMatches(c *gin.Context) {
 		return
 	}
 
-	gameService, err := h.gameCreationService.GetGameService(gameId)
-	if err != nil {
-		log.Errorf("Failed to get game service: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
-		return
-	}
-
 	// Get authenticated player from context
 	player, err := h.getAuthenticatedPlayer(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	gameService, err := h.gameCreationService.GetGameService(gameId, player)
+	if err != nil {
+		if errors.Is(err, services.ErrPlayerNotInGame) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		log.Errorf("Failed to get game service: %v", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
 		return
 	}
 
@@ -170,6 +176,13 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 		return
 	}
 
+	// Get authenticated player from context
+	player, err := h.getAuthenticatedPlayer(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
 	// Debug: Read and log the raw request body
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -197,17 +210,14 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 		return
 	}
 
-	gameService, err := h.gameCreationService.GetGameService(gameId)
+	gameService, err := h.gameCreationService.GetGameService(gameId, player)
 	if err != nil {
+		if errors.Is(err, services.ErrPlayerNotInGame) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		log.Errorf("Failed to get game service: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Your game was not found"})
-		return
-	}
-
-	// Get authenticated player from context
-	player, err := h.getAuthenticatedPlayer(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 

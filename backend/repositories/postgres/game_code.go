@@ -132,3 +132,12 @@ func (r *PostgresGameCodeRepository) DeleteGameCode(code string) error {
 
 	return nil
 }
+
+func (r *PostgresGameCodeRepository) DeleteGameCodeByGameID(gameID string) error {
+	query := `DELETE FROM game_codes WHERE game_id = $1`
+	_, err := r.db.Exec(query, gameID)
+	if err != nil {
+		return fmt.Errorf("error deleting game code by game ID: %v", err)
+	}
+	return nil
+}
