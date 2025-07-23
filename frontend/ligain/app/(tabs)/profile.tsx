@@ -9,13 +9,17 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
-import { API_CONFIG, getApiHeaders } from '../../src/config/api';
+import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders } from '../../src/config/api';
 
 export default function ProfileScreen() {
   const { player, signOut, setPlayer } = useAuth();
@@ -23,6 +27,7 @@ export default function ProfileScreen() {
   const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const nameInputRef = React.useRef<TextInput>(null);
 
   const handleEditDisplayName = () => {
     setNewDisplayName(player?.name || '');
@@ -53,9 +58,10 @@ export default function ProfileScreen() {
     try {
       setIsUpdating(true);
       
-      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile/display-name`, {
+      const headers = await getAuthenticatedHeaders({ 'Content-Type': 'application/json' });
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/profile/display-name`, {
         method: 'PUT',
-        headers: getApiHeaders(),
+        headers,
         body: JSON.stringify({
           displayName: newDisplayName.trim()
         }),
@@ -74,8 +80,7 @@ export default function ProfileScreen() {
 
       setShowDisplayNameModal(false);
       setNewDisplayName('');
-      
-      Alert.alert(t('common.success'), t('profile.displayNameUpdated'));
+    
     } catch (error) {
       console.error('Error updating display name:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -106,6 +111,18 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleModalSave = () => {
+    if (nameInputRef.current) nameInputRef.current.blur();
+    setTimeout(() => handleUpdateDisplayName(), 50);
+  };
+  const handleModalCancel = () => {
+    if (nameInputRef.current) nameInputRef.current.blur();
+    setTimeout(() => {
+      setShowDisplayNameModal(false);
+      setNewDisplayName('');
+    }, 50);
+  };
+
   if (!player) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -117,91 +134,91 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        {/* Guest Testing Banner */}
-        {!player.email && !player.provider && (
-          <View style={styles.guestBanner}>
-            <Ionicons name="warning" size={20} color="#FFA500" />
+    <>
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}> 
+        <View style={styles.content}> 
+          {/* Guest Testing Banner */}
+          {!player.email && !player.provider && (
+            <View style={styles.guestBanner}>
+              <Ionicons name="warning" size={20} color="#FFA500" />
                       <Text style={styles.guestBannerText}>
-            {t('profile.guestAccountBanner')}
-          </Text>
-          </View>
-        )}
-
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={40} color={colors.text} />
-          </View>
-          <Text style={[styles.name, { color: colors.text }]}>{player.name}</Text>
-          {player.email && (
-            <Text style={[styles.email, { color: colors.textSecondary }]}>
-              {player.email}
+              {t('profile.guestAccountBanner')}
             </Text>
+            </View>
           )}
-        </View>
 
-        {/* Account Information */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.accountInfo')}</Text>
-          
-          <View style={styles.infoRow}>
-            <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.displayName')}:</Text>
-            <Text style={[styles.infoValue, { color: colors.text }]}>{player.name}</Text>
-            <TouchableOpacity 
-              style={styles.editButton} 
+          {/* Profile Header */}
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={40} color={colors.text} />
+            </View>
+            <Text style={[styles.name, { color: colors.text }]}>{player.name}</Text>
+            {player.email && (
+              <Text style={[styles.email, { color: colors.textSecondary }]}>
+                {player.email}
+              </Text>
+            )}
+          </View>
+
+          {/* Account Information */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.accountInfo')}</Text>
+            
+            <TouchableOpacity
+              style={styles.infoRow}
               onPress={handleEditDisplayName}
+              activeOpacity={0.7}
             >
-              <Ionicons name="pencil" size={16} color={colors.link} />
+              <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.displayName')}:</Text>
+              <Text style={[styles.infoValue, { color: colors.text }]}>{player.name}</Text>
+              <Ionicons name="pencil" size={22} color={colors.textSecondary} style={styles.pencilIcon} />
+            </TouchableOpacity>
+
+            {player.email && (
+              <View style={styles.infoRow}>
+                <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.email')}:</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>{player.email}</Text>
+              </View>
+            )}
+
+            {player.provider && (
+              <View style={styles.infoRow}>
+                <Ionicons 
+                  name={player.provider === 'google' ? 'logo-google' : 'logo-apple'} 
+                  size={20} 
+                  color={colors.textSecondary} 
+                />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.provider')}:</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {player.provider.charAt(0).toUpperCase() + player.provider.slice(1)}
+                </Text>
+              </View>
+            )}
+
+            {player.created_at && (
+              <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.memberSince')}</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {formatShortDate(new Date(player.created_at))}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Actions */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
+              <Ionicons name="log-out-outline" size={20} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
             </TouchableOpacity>
           </View>
-
-          {player.email && (
-            <View style={styles.infoRow}>
-              <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.email')}:</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>{player.email}</Text>
-            </View>
-          )}
-
-          {player.provider && (
-            <View style={styles.infoRow}>
-              <Ionicons 
-                name={player.provider === 'google' ? 'logo-google' : 'logo-apple'} 
-                size={20} 
-                color={colors.textSecondary} 
-              />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.provider')}:</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {player.provider.charAt(0).toUpperCase() + player.provider.slice(1)}
-              </Text>
-            </View>
-          )}
-
-          {player.created_at && (
-            <View style={styles.infoRow}>
-              <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.memberSince')}</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {formatShortDate(new Date(player.created_at))}
-              </Text>
-            </View>
-          )}
         </View>
-
-        {/* Actions */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
-          
-          <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={20} color={colors.text} />
-            <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
+      </ScrollView>
       {/* Display Name Change Modal */}
       <Modal
         visible={showDisplayNameModal}
@@ -212,57 +229,55 @@ export default function ProfileScreen() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {t('profile.editDisplayName')}
-            </Text>
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-              {t('profile.editDisplayNameSubtitle')}
-            </Text>
-            
-            <TextInput
-              style={[styles.nameInput, { 
-                backgroundColor: colors.background,
-                color: colors.text,
-                borderColor: colors.border
-              }]}
-              placeholder={t('auth.enterDisplayName')}
-              placeholderTextColor={colors.textSecondary}
-              value={newDisplayName}
-              onChangeText={setNewDisplayName}
-              autoFocus={true}
-              maxLength={20}
-              autoCapitalize="words"
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowDisplayNameModal(false);
-                  setNewDisplayName('');
-                }}
-                disabled={isUpdating}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.continueButton]}
-                onPress={handleUpdateDisplayName}
-                disabled={isUpdating || !newDisplayName.trim()}
-              >
-                {isUpdating ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : (
-                  <Text style={styles.continueButtonText}>{t('common.save')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}> 
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {t('profile.editDisplayName')}
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                  {t('profile.editDisplayNameSubtitle')}
+                </Text>
+                
+                <TextInput
+                  ref={nameInputRef}
+                  style={[styles.nameInput, { 
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                    borderColor: colors.border
+                  }]}
+                  placeholder={t('auth.enterDisplayName')}
+                  placeholderTextColor={colors.textSecondary}
+                  value={newDisplayName}
+                  onChangeText={setNewDisplayName}
+                  autoFocus={true}
+                  maxLength={20}
+                  autoCapitalize="words"
+                />
+                
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={handleModalCancel}
+                    disabled={isUpdating}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.continueButton]}
+                    onPress={handleModalSave}
+                    disabled={isUpdating || !newDisplayName.trim()}
+                  >
+                    {isUpdating ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : (
+                      <Text style={styles.continueButtonText}>{t('common.save')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
         </View>
       </Modal>
-    </ScrollView>
+    </>
   );
 }
 
@@ -362,15 +377,18 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 60,
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '80%',
-    padding: 20,
+    width: '90%',
+    minHeight: 320,
+    padding: 30,
     borderRadius: 15,
     alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   modalTitle: {
     fontSize: 24,
@@ -411,11 +429,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   continueButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
   },
   continueButtonText: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
+    color: '#fff',
+  },
+  pencilIcon: {
+    marginLeft: 10,
   },
 }); 
