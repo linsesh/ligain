@@ -306,7 +306,6 @@ export default function MatchesList({ gameId }: { gameId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [currentMatchday, setCurrentMatchday] = useState<number | null>(null);
-  const { submitBet, error: submitError } = useBetSubmission(gameId);
   const { player } = useAuth();
   const { t } = useTranslation();
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -375,6 +374,32 @@ export default function MatchesList({ gameId }: { gameId: string }) {
     });
     setTempScores(initialTempScores);
   }, [incomingMatches, pastMatches, player]);
+
+  // Helper to reset tempScores for a match to the last server value
+  const resetTempScoreToServer = (matchId: string) => {
+    const matchResult = matches.find((m: any) => m.match.id() === matchId);
+    if (!matchResult || !player) return;
+    if (matchResult.bets && matchResult.bets[player.id]) {
+      const userBet = matchResult.bets[player.id];
+      setTempScores(prev => ({
+        ...prev,
+        [matchId]: {
+          home: userBet.predictedHomeGoals,
+          away: userBet.predictedAwayGoals
+        }
+      }));
+    } else {
+      // No bet on server, clear temp score
+      setTempScores(prev => {
+        const newScores = { ...prev };
+        delete newScores[matchId];
+        return newScores;
+      });
+    }
+  };
+
+  // Use the new onFail callback in useBetSubmission
+  const { submitBet, isSubmitting, error: submitError } = useBetSubmission(gameId, resetTempScoreToServer);
 
   useEffect(() => {
     if (submitError) {

@@ -28,6 +28,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { API_CONFIG, getAuthenticatedHeaders } from '../config/api';
 import { useTimeService } from './TimeServiceContext';
 import { useAuth } from './AuthContext';
+import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -80,59 +81,103 @@ export const useGames = () => {
 export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   const { t } = useTranslation();
   const timeService = useTimeService();
-  const { player } = useAuth();
+  const { player, checkAuth, signOut } = useAuth();
   const [games, setGames] = useState<GameWithMatchInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [bestGameId, setBestGameId] = useState<string | null>(null);
+  const router = useRouter();
 
   // Main fetch function - gets games and analyzes matches to find the "best" one
   const fetchGames = useCallback(async () => {
     setLoading(true);
-    try {
-      const headers = await getAuthenticatedHeaders();
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, { headers });
-      
-      if (!response.ok) throw new Error(`Failed to fetch games: ${response.status}`);
-      
-      const data = await response.json();
-      const gamesData: Game[] = data.games || [];
-      const gamesWithMatchInfo: GameWithMatchInfo[] = [];
-      
-      // For each game, fetch its matches to analyze betting opportunities
-      for (const game of gamesData) {
-        try {
-          const matchesResponse = await fetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`, { headers });
-          if (matchesResponse.ok) {
-            const matchesData = await matchesResponse.json();
-            const gameWithInfo = await processGameWithMatches(game, matchesData, player);
-            gamesWithMatchInfo.push(gameWithInfo);
-          } else {
+    let didRetry = false;
+    let lastError: any = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const headers = await getAuthenticatedHeaders();
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, { headers });
+        if (response.status === 401) {
+          let errorMsg = '';
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || '';
+          } catch (e) {
+            errorMsg = '';
+          }
+          // API key errors
+          if (errorMsg === 'API key is required' || errorMsg === 'Invalid API key') {
+            setError(t('common.error'));
+            setLoading(false);
+            return;
+          }
+          // Token expired: try silent re-auth and retry
+          if ((errorMsg === 'Invalid or expired token' || errorMsg.toLowerCase().includes('expired'))) {
+            if (!didRetry) {
+              await checkAuth();
+              didRetry = true;
+              continue;
+            }
+          }
+          // Malformed/missing header or player not found: force sign-out and redirect
+          if (
+            errorMsg === 'Invalid authorization header format' ||
+            errorMsg === 'Authorization header is required' ||
+            errorMsg === 'Player not found in context'
+          ) {
+            await signOut();
+            router.replace('/signin');
+            setLoading(false);
+            return;
+          }
+          // Fallback: treat as generic error
+          setError(t('common.ligainNotAvailable'));
+          setLoading(false);
+          return;
+        }
+        if (!response.ok) throw new Error(`Failed to fetch games: ${response.status}`);
+        const data = await response.json();
+        const gamesData: Game[] = data.games || [];
+        const gamesWithMatchInfo: GameWithMatchInfo[] = [];
+        for (const game of gamesData) {
+          try {
+            const matchesResponse = await fetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`, { headers });
+            if (matchesResponse.ok) {
+              const matchesData = await matchesResponse.json();
+              const gameWithInfo = await processGameWithMatches(game, matchesData, player);
+              gamesWithMatchInfo.push(gameWithInfo);
+            } else {
+              gamesWithMatchInfo.push(game);
+            }
+          } catch (err) {
             gamesWithMatchInfo.push(game);
           }
-        } catch (err) {
-          gamesWithMatchInfo.push(game);
+        }
+        setGames(gamesWithMatchInfo);
+        const bestGame = determineBestGame(gamesWithMatchInfo);
+        setBestGameId(bestGame?.gameId || null);
+        setSelectedGameId(bestGame?.gameId || null);
+        setError(null);
+        setLoading(false);
+        return;
+      } catch (err) {
+        lastError = err;
+        // Only retry on first 401 with expired token, otherwise break
+        if (!(err instanceof Error && err.message.includes('401')) || didRetry) {
+          break;
         }
       }
-      
-      setGames(gamesWithMatchInfo);
-      
-      // Determine which game should be shown first (most urgent betting opportunities)
-      const bestGame = determineBestGame(gamesWithMatchInfo);
-      setBestGameId(bestGame?.gameId || null);
-      setSelectedGameId(bestGame?.gameId || null);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch games');
-    } finally {
-      setLoading(false);
     }
-  }, [player, timeService]);
+    setError(lastError instanceof Error ? lastError.message : 'Failed to fetch games');
+    setLoading(false);
+  }, [player, timeService, checkAuth, signOut, router]);
 
   useEffect(() => {
-    fetchGames();
-  }, [fetchGames]);
+    if (player) {
+      fetchGames();
+    }
+  }, [fetchGames, player]);
 
   // Analyzes a game's matches to find betting opportunities and upcoming matchdays
   const processGameWithMatches = async (game: Game, matchesData: any, player: any): Promise<GameWithMatchInfo> => {

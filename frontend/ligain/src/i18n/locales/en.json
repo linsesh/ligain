@@ -95,7 +95,8 @@
     "goToGames": "Go to Games",
     "closestMatch": "Closest match",
     "noUnbetMatches": "No matches to bet on",
-    "noBet": "No bet"
+    "noBet": "What happens if I don't bet?",
+    "noBetDescription": "If a player forgets to place a bet before the match starts, they will lose 100 points for that match."
   },
   "profile": {
     "noUserInfo": "No user information available",

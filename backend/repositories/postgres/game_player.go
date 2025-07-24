@@ -56,6 +56,7 @@ func (r *PostgresGamePlayerRepository) GetPlayersInGame(ctx context.Context, gam
 
 	rows, err := r.db.QueryContext(ctx, query, gameID)
 	if err != nil {
+		fmt.Printf("WHAT THE FUCK %v\n", err)
 		return nil, fmt.Errorf("error getting players in game: %v", err)
 	}
 	defer rows.Close()

@@ -57,6 +57,7 @@ func PlayerAuth(authService services.AuthServiceInterface) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			log.Error("PlayerAuth - Authorization header is required")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			c.Abort()
 			return
@@ -65,6 +66,7 @@ func PlayerAuth(authService services.AuthServiceInterface) gin.HandlerFunc {
 		// Extract token from "Bearer <token>" format
 		tokenParts := strings.Split(authHeader, " ")
 		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			log.Error("PlayerAuth - Invalid authorization header format")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
 			c.Abort()
 			return
@@ -73,6 +75,7 @@ func PlayerAuth(authService services.AuthServiceInterface) gin.HandlerFunc {
 		token := tokenParts[1]
 		player, err := authService.ValidateToken(c.Request.Context(), token)
 		if err != nil {
+			log.Error("PlayerAuth - Invalid or expired token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return

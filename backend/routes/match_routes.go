@@ -128,6 +128,7 @@ func (h *MatchHandler) getMatches(c *gin.Context) {
 	// Get authenticated player from context
 	player, err := h.getAuthenticatedPlayer(c)
 	if err != nil {
+		log.Errorf("Failed to get authenticated player: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
@@ -225,6 +226,7 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 	incomingMatches := gameService.GetIncomingMatches(player)
 	matchResult, exists := incomingMatches[request.MatchID]
 	if !exists {
+		log.Errorf("Match %s not found", request.MatchID)
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Match %s not found", request.MatchID)})
 		return
 	}

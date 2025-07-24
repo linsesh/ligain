@@ -140,6 +140,7 @@ func (h *GameHandler) getPlayerGames(c *gin.Context) {
 	// Get authenticated player from context
 	player, exists := c.Get("player")
 	if !exists {
+		log.Error("Player not found in context")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
 		return
 	}

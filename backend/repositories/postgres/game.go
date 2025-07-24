@@ -6,6 +6,8 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/repositories"
 	rules "ligain/backend/rules"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type PostgresGameRepository struct {
@@ -51,17 +53,20 @@ func (r *PostgresGameRepository) CreateGame(game models.Game) (string, error) {
 func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 	seasonYear, competitionName, name, err := r.getGameDetails(gameId)
 	if err != nil {
+		log.Errorf("error getting game details: %v", err)
 		return nil, err
 	}
 
 	incomingMatches, pastMatches, bets, players, err := r.getMatchesAndBets(gameId)
 	if err != nil {
+		log.Errorf("error getting matches and bets: %v", err)
 		return nil, err
 	}
 
 	// Get all players in the game (not just those who have made bets)
 	gamePlayers, err := r.getGamePlayers(gameId)
 	if err != nil {
+		log.Errorf("error getting game players: %v", err)
 		return nil, fmt.Errorf("error getting game players: %v", err)
 	}
 
@@ -83,6 +88,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 	// Get scores organized by match and player
 	playerScores, err := r.betRepo.GetScoresByMatchAndPlayer(gameId)
 	if err != nil {
+		log.Errorf("error getting scores: %v", err)
 		return nil, fmt.Errorf("error getting scores: %v", err)
 	}
 
@@ -117,9 +123,9 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 
 func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, string, error) {
 	query := `
-		SELECT season_year, competition_name, game_name
-		FROM game
-		WHERE id = $1`
+		SELECT g.season_year, g.competition_name, g.game_name
+		FROM game g
+		WHERE g.id = $1::uuid`
 
 	var seasonYear, competitionName, name string
 	err := r.db.QueryRow(query, gameId).Scan(
@@ -129,6 +135,7 @@ func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, 
 	)
 
 	if err == sql.ErrNoRows {
+		log.Errorf("The postgres query returned no rows for game %s", gameId)
 		return "", "", "", fmt.Errorf("game %s not found", gameId)
 	}
 	if err != nil {
@@ -164,13 +171,14 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 			LEFT JOIN bet b ON m.id = b.match_id AND b.game_id = $1
 			LEFT JOIN player p ON b.player_id = p.id
 			LEFT JOIN score s ON b.id = s.bet_id
-			WHERE m.season_code = (SELECT season_year FROM game WHERE id = $1)
-			AND m.competition_code = (SELECT competition_name FROM game WHERE id = $1)
+			WHERE m.season_code = (SELECT season_year FROM game WHERE id = $1::uuid)
+			AND m.competition_code = (SELECT competition_name FROM game WHERE id = $1::uuid)
 		)
 		SELECT * FROM match_data`
 
 	rows, err := r.db.Query(query, gameId)
 	if err != nil {
+		log.Errorf("error getting matches and bets: %v", err)
 		return nil, nil, nil, nil, fmt.Errorf("error getting matches and bets: %v", err)
 	}
 	defer rows.Close()
@@ -299,7 +307,7 @@ func (r *PostgresGameRepository) getGamePlayers(gameId string) ([]models.Player,
 		SELECT p.id, p.name
 		FROM game_player gp
 		JOIN player p ON gp.player_id = p.id
-		WHERE gp.game_id = $1
+		WHERE gp.game_id = $1::uuid
 		ORDER BY p.name
 	`
 
