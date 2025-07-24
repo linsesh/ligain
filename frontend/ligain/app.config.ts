@@ -1,12 +1,4 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-
-// Load .env file explicitly
-const result = dotenv.config();
-//console.log('Dotenv result:', result);
-//console.log('API_KEY loaded:', !!process.env.API_KEY);
-//console.log('API_BASE_URL loaded:', !!process.env.API_BASE_URL);
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,

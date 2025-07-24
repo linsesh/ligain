@@ -30,7 +30,6 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       
       try {
         // Try to authenticate without display name first (two-step flow)
-        console.log('Google Sign-In - Attempting authentication without display name');
         const authResult = await signIn(
           'google',
           result.token,
@@ -51,7 +50,6 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         }
         
         // If successful, navigate to main app (existing user)
-        console.log('Google Sign-In - Existing user authenticated successfully');
         router.replace('/(tabs)');
         
         if (onSignInSuccess) {
@@ -62,7 +60,6 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         
         // Check if this is a "display name required" error for new users (two-step flow)
         if (authError.message && authError.message.startsWith('NEED_DISPLAY_NAME:')) {
-          console.log('Google Sign-In - New user detected, showing display name modal');
           if (onNewUser) {
             onNewUser(result);
           } else {
@@ -71,7 +68,6 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           }
         } else if (authError.message && authError.message.includes('display name is required for new users')) {
           // Fallback for old error format
-          console.log('Google Sign-In - New user detected (legacy), showing display name modal');
           if (onNewUser) {
             onNewUser(result);
           } else {
@@ -93,6 +89,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       Alert.alert('Sign-In Error', error.message);
       
       if (onSignInError) {
+        console.error('Google Sign-In error:', error);
         onSignInError(error);
       }
     }

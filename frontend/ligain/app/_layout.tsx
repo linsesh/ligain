@@ -10,8 +10,6 @@ import { GamesProvider } from '../src/contexts/GamesContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function Layout() {
-  console.log('🏗️ Layout - Rendering main layout');
-  
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <I18nextProvider i18n={i18n}>

@@ -13,11 +13,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const router = useRouter();
   const segments = useSegments();
 
-  console.log('🔐 AuthGuard - isLoading:', isLoading, 'player:', player ? 'exists' : 'null', 'segments:', segments);
 
-  useEffect(() => {
-    console.log('🔄 AuthGuard useEffect - isLoading:', isLoading, 'player:', player ? 'exists' : 'null', 'segments:', segments);
-    
+  useEffect(() => {    
     if (!isLoading) {
       const inAuthGroup = segments[0] === '(tabs)';
       
@@ -34,7 +31,6 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   }, [player, isLoading, segments, router]);
 
   if (isLoading) {
-    console.log('⏳ AuthGuard - Showing loading spinner');
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.loadingBackground }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -42,7 +38,6 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     );
   }
 
-  console.log('✅ AuthGuard - Rendering children (allowing navigation to work)');
   return <>{children}</>;
 };
 

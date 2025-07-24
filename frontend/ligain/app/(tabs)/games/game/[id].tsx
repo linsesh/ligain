@@ -52,10 +52,6 @@ const useMatchesForGame = (gameId: string) => {
     try {
       const { getAuthenticatedHeaders } = await import('../../../../src/config/api');
       const headers = await getAuthenticatedHeaders();
-      console.log('🔧 useMatches - Using authenticated headers:', {
-        hasApiKey: !!headers['X-API-Key'],
-        hasAuth: !!headers['Authorization']
-      });
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
         headers,
@@ -141,10 +137,8 @@ const useMatchesForGame = (gameId: string) => {
   useEffect(() => {
     // Only fetch matches if we have a gameId and a player (authenticated)
     if (gameId && player) {
-      console.log('🔧 useMatchesForGame - Fetching matches for authenticated player:', player.name);
       fetchMatches();
     } else if (gameId && !player) {
-      console.log('🔧 useMatchesForGame - Waiting for player authentication...');
       setLoading(true);
     }
   }, [gameId, player]);
@@ -469,8 +463,6 @@ function MatchesList() {
   const { id } = useLocalSearchParams();
   const gameId = id as string;
   
-  console.log('📋 MatchesList - Rendering matches list for game:', gameId);
-  
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatchesForGame(gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
@@ -481,9 +473,6 @@ function MatchesList() {
   const { player } = useAuth();
   const { t } = useTranslation();
   
-  // Debug player information
-  console.log('🔍 Current player:', player);
-
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
 
@@ -539,28 +528,17 @@ function MatchesList() {
 
   // Initialize tempScores with existing bets
   useEffect(() => {
-    console.log('🔍 Initializing tempScores - Player ID:', player?.id);
-    console.log('🔍 Available bets:', Object.keys(incomingMatches).map(key => ({
-      matchId: key,
-      betKeys: Object.keys(incomingMatches[key].bets || {})
-    })));
-    
     const initialTempScores: TempScores = {};
     [...Object.values(incomingMatches), ...Object.values(pastMatches)].forEach((matchResult: MatchResult) => {
       // Only use the current user's bet for tempScores
       if (player && matchResult.bets && matchResult.bets[player.id]) {
         const userBet = matchResult.bets[player.id];
-        console.log('🔍 Found user bet for match:', matchResult.match.id(), 'Bet:', userBet);
         initialTempScores[matchResult.match.id()] = {
           home: userBet.predictedHomeGoals,
           away: userBet.predictedAwayGoals
         };
-      } else {
-        console.log('🔍 No bet found for player:', player?.id, 'in match:', matchResult.match.id());
-        console.log('🔍 Available bet keys:', Object.keys(matchResult.bets || {}));
       }
     });
-    console.log('🔍 Final tempScores:', initialTempScores);
     setTempScores(initialTempScores);
   }, [incomingMatches, pastMatches, player]);
 
@@ -604,9 +582,7 @@ function MatchesList() {
       
       // Only submit if both values are valid numbers and greater than or equal to 0
       if (!isNaN(homeGoals) && !isNaN(awayGoals) && homeGoals >= 0 && awayGoals >= 0) {
-        console.log('🔍 Submitting bet:', { matchId, homeGoals, awayGoals, playerId: player?.id });
         await submitBet(matchId, homeGoals, awayGoals);
-        console.log('🔍 Bet submitted successfully');
         // Refresh matches data to get the updated bet
         await refresh();
       }
@@ -795,8 +771,6 @@ function MatchesList() {
 export default function GameScreen() {
   const { id } = useLocalSearchParams();
   const gameId = id as string;
-  
-  console.log('🏠 GameScreen - Rendering game screen with gameId:', gameId);
   
   const mockTime = new Date('2024-03-20T20:10:00');
   const timeService = React.useMemo(() => new MockTimeService(mockTime), []);

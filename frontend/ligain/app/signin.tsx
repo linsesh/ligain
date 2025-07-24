@@ -22,13 +22,6 @@ import { setItem } from '../src/utils/storage';
 import { useTranslation } from 'react-i18next';
 
 export default function SignInScreen() {
-  console.log('🔐 SignInScreen - Rendering signin screen');
-  console.log('🔐 SignInScreen - Platform:', Platform.OS);
-  console.log('🔐 SignInScreen - API_CONFIG:', {
-    BASE_URL: API_CONFIG.BASE_URL,
-    API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED'
-  });
-  
   const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -39,7 +32,6 @@ export default function SignInScreen() {
 
   // Get available providers for current platform
   const availableProviders = AuthService.getAvailableProviders();
-  console.log('🔐 SignInScreen - Available providers:', availableProviders);
 
   // Test provider availability in development
   React.useEffect(() => {
@@ -48,11 +40,6 @@ export default function SignInScreen() {
       AuthService.testProviderAvailability();
     }
   }, []);
-
-  // Debug modal state
-  React.useEffect(() => {
-    console.log('🔐 SignInScreen - Modal state changed - showNameModal:', showNameModal);
-  }, [showNameModal]);
 
   // Store pending auth info for two-step flow
   const [pendingAuth, setPendingAuth] = useState<{ provider: string, token: string, email: string } | null>(null);

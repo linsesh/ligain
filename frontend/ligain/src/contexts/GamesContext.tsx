@@ -215,7 +215,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
       
-      if (!response.ok) throw new Error('Failed to join game');
+      if (!response.ok) throw new Error(t('games.failedToJoinGame'));
       
       const data = await response.json();
       Alert.alert(t('common.success'), data.message);

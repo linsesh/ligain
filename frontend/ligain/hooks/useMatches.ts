@@ -14,10 +14,6 @@ export const useMatches = (gameId: string) => {
   const fetchMatches = async () => {
     try {
       const headers = await getAuthenticatedHeaders();
-      console.log('🔧 useMatches - Using authenticated headers:', {
-        hasApiKey: !!headers['X-API-Key'],
-        hasAuth: !!headers['Authorization']
-      });
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
         headers,
