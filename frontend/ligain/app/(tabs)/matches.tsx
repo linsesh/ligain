@@ -57,6 +57,7 @@ export default function MatchesTabScreen() {
   }
 
   const selectedGame = games.find(g => g.gameId === selectedGameId);
+  const initialMatchday = selectedGame?.closestUnfinishedMatchday?.matchday || undefined;
 
   return (
     <View style={styles.container}>
@@ -111,7 +112,7 @@ export default function MatchesTabScreen() {
       {/* Old MatchesList UI for the selected game */}
       {selectedGameId && (
         <View style={{ flex: 1 }}>
-          <MatchesList gameId={selectedGameId} />
+          <MatchesList gameId={selectedGameId} initialMatchday={initialMatchday} />
         </View>
       )}
     </View>

@@ -50,18 +50,6 @@ export class AuthService {
         familyName: (userInfo as any)?.familyName,
       });
       
-      // Log the entire userInfo object to see its structure
-      console.log('🔐 Google Sign-In - Full userInfo object:', JSON.stringify(userInfo, null, 2));
-      
-      // Simple debug: log each property individually
-      console.log('🔐 Google Sign-In - Debug individual properties:');
-      console.log('  - userInfo type:', typeof userInfo);
-      console.log('  - userInfo keys:', userInfo ? Object.keys(userInfo as any) : 'null');
-      console.log('  - userInfo.email:', (userInfo as any)?.email);
-      console.log('  - userInfo.name:', (userInfo as any)?.name);
-      console.log('  - userInfo.givenName:', (userInfo as any)?.givenName);
-      console.log('  - userInfo.familyName:', (userInfo as any)?.familyName);
-
       // Get tokens separately
       const tokens = await GoogleSignin.getTokens();
       console.log('🔐 Google Sign-In - Tokens retrieved:', {

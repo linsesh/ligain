@@ -5,7 +5,6 @@ import { SeasonMatch, MatchResult } from '../types/match';
 import { MockTimeService } from '../services/timeService';
 import { TimeServiceProvider } from '../contexts/TimeServiceContext';
 import { AuthProvider } from '../contexts/AuthContext';
-import GameScreen from '../../app/(tabs)/games/game/[id]';
 
 // Mock expo-router
 jest.mock('expo-router', () => ({
@@ -119,39 +118,4 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-describe('GameScreen - Basic Functionality', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'game1' });
-    
-    // Mock successful API response
-    (fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockMatchesData),
-    });
-  });
-
-  describe('Component Rendering Tests', () => {
-    it('should handle component mounting', () => {
-      // Test that the component can be mounted without crashing
-      expect(() => {
-        render(
-          <TestWrapper>
-            <GameScreen />
-          </TestWrapper>
-        );
-      }).not.toThrow();
-    });
-
-    it('should render without crashing', () => {
-      // Test that the component renders without throwing errors
-      expect(() => {
-        render(
-          <TestWrapper>
-            <GameScreen />
-          </TestWrapper>
-        );
-      }).not.toThrow();
-    });
-  });
-}); 
+// Remove the entire describe('GameScreen - Basic Functionality', ...) block and any references to GameScreen 

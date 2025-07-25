@@ -47,11 +47,11 @@ export interface Game {
 // Game enhanced with match analysis data for UI decision-making
 // Extends base Game with calculated fields to determine the "best" game to show
 export interface GameWithMatchInfo extends Game {
-  closestUnbetMatch?: {      // Next match where user hasn't placed a bet yet
-    matchId: string;         // Match identifier
-    date: Date;             // When the match starts
+
+  closestUnfinishedMatchday?: {
+    matchday: number;
+    date: Date;
   };
-  minUnplayedMatchday?: number; // Earliest matchday with unplayed matches
 }
 
 // Context API interface that defines what the GamesContext provides to components
@@ -123,7 +123,6 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
           // Malformed/missing header or player not found: force sign-out and redirect
           if (
             errorMsg === 'Invalid authorization header format' ||
-            errorMsg === 'Authorization header is required' ||
             errorMsg === 'Player not found in context'
           ) {
             await signOut();
@@ -182,41 +181,39 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   // Analyzes a game's matches to find betting opportunities and upcoming matchdays
   const processGameWithMatches = async (game: Game, matchesData: any, player: any): Promise<GameWithMatchInfo> => {
     const now = timeService.now();
-    let closestUnbetMatch: GameWithMatchInfo['closestUnbetMatch'] = undefined;
-    let minUnplayedMatchday: number | undefined = undefined;
-    
+    // Track soonest unfinished match per matchday
+    const unfinishedMatchdays: Record<number, Date> = {};
+    let closestUnfinishedMatchday: { matchday: number; date: Date } | undefined = undefined;
+
     const incomingMatches = matchesData.incomingMatches || {};
-    
+
     for (const [matchId, matchData] of Object.entries(incomingMatches)) {
       const matchDataTyped = matchData as any;
       const match = matchDataTyped.match;
       const matchDate = new Date(match.date);
-      
-      // Check if player hasn't bet on this match yet
-      const hasBet = matchDataTyped.bets && player && matchDataTyped.bets[player.id];
-      
-      if (!hasBet && matchDate > now) {
-        // Find the closest unbet match (most urgent)
-        if (!closestUnbetMatch || matchDate < closestUnbetMatch.date) {
-          closestUnbetMatch = {
-            matchId,
-            date: matchDate,
-          };
-        }
-      }
-      
-      // Track the earliest unplayed matchday
-      if (matchDate > now) {
-        if (minUnplayedMatchday === undefined || match.matchday < minUnplayedMatchday) {
-          minUnplayedMatchday = match.matchday;
+      const isFinished = match.status === 'finished' || match.status === 'complete';
+      // Track soonest unfinished match per matchday
+      if (!isFinished && matchDate > now) {
+        if (
+          !(match.matchday in unfinishedMatchdays) ||
+          matchDate < unfinishedMatchdays[match.matchday]
+        ) {
+          unfinishedMatchdays[match.matchday] = matchDate;
         }
       }
     }
-    
+
+    // Find the matchday with the soonest unfinished match in the future
+    for (const [matchdayStr, date] of Object.entries(unfinishedMatchdays)) {
+      const matchday = Number(matchdayStr);
+      if (!closestUnfinishedMatchday || date < closestUnfinishedMatchday.date) {
+        closestUnfinishedMatchday = { matchday, date };
+      }
+    }
+
     return {
       ...game,
-      closestUnbetMatch,
-      minUnplayedMatchday,
+      closestUnfinishedMatchday,
     };
   };
 
@@ -224,29 +221,19 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   const determineBestGame = (games: GameWithMatchInfo[]): GameWithMatchInfo | null => {
     if (games.length === 0) return null;
     if (games.length === 1) return games[0];
-    
-    // Priority: 1) Closest unbet match, 2) Earliest unplayed matchday, 3) Alphabetical
+
+    // Priority: 1) Closest unfinished matchday, 2) Alphabetical
     const sortedGames = [...games].sort((a, b) => {
-      // Games with unbet matches come first
-      if (a.closestUnbetMatch && !b.closestUnbetMatch) return -1;
-      if (!a.closestUnbetMatch && b.closestUnbetMatch) return 1;
-      
-      // Among games with unbet matches, prioritize by closest date
-      if (a.closestUnbetMatch && b.closestUnbetMatch) {
-        return a.closestUnbetMatch.date.getTime() - b.closestUnbetMatch.date.getTime();
+      // 1. Closest unfinished matchday
+      if (a.closestUnfinishedMatchday && !b.closestUnfinishedMatchday) return -1;
+      if (!a.closestUnfinishedMatchday && b.closestUnfinishedMatchday) return 1;
+      if (a.closestUnfinishedMatchday && b.closestUnfinishedMatchday) {
+        return a.closestUnfinishedMatchday.date.getTime() - b.closestUnfinishedMatchday.date.getTime();
       }
-      
-      // Among games without unbet matches, prioritize by earliest matchday
-      if (a.minUnplayedMatchday !== undefined && b.minUnplayedMatchday === undefined) return -1;
-      if (a.minUnplayedMatchday === undefined && b.minUnplayedMatchday !== undefined) return 1;
-      if (a.minUnplayedMatchday !== undefined && b.minUnplayedMatchday !== undefined) {
-        return a.minUnplayedMatchday - b.minUnplayedMatchday;
-      }
-      
-      // Fallback to alphabetical order
+      // 2. Fallback to alphabetical order
       return a.name.localeCompare(b.name);
     });
-    
+
     return sortedGames[0];
   };
 

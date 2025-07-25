@@ -299,13 +299,18 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   );
 }
 
-export default function MatchesList({ gameId }: { gameId: string }) {
+interface MatchesListProps {
+  gameId: string;
+  initialMatchday?: number;
+}
+
+export default function MatchesList({ gameId, initialMatchday }: MatchesListProps) {
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches(gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
-  const [currentMatchday, setCurrentMatchday] = useState<number | null>(null);
+  const [currentMatchday, setCurrentMatchday] = useState<number | null>(initialMatchday ?? null);
   const { player } = useAuth();
   const { t } = useTranslation();
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -331,9 +336,15 @@ export default function MatchesList({ gameId }: { gameId: string }) {
   // Set initial matchday if not set
   useEffect(() => {
     if (sortedMatchdays.length > 0 && currentMatchday === null) {
-      setCurrentMatchday(sortedMatchdays[0]);
+      if (initialMatchday && sortedMatchdays.includes(initialMatchday)) {
+        setCurrentMatchday(initialMatchday);
+      } else {
+        setCurrentMatchday(sortedMatchdays[0]);
+      }
     }
-  }, [sortedMatchdays, currentMatchday]);
+    // Only run on mount or when sortedMatchdays changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedMatchdays]);
 
   // Group matches by time within the current matchday
   const getMatchesByTime = (matchday: number) => {
