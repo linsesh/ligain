@@ -14,7 +14,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -81,7 +81,7 @@ func setupTestDB(t *testing.T) *testDB {
 	// Connect to test database
 	dbURL := fmt.Sprintf("postgres://postgres:postgres@localhost:%s/ligain_test?sslmode=disable", port.Port())
 	log.Printf("Connecting to database at %s", dbURL)
-	db, err := sql.Open("postgres", dbURL)
+	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		t.Fatalf("Failed to connect to test database: %v", err)
 	}
@@ -146,7 +146,7 @@ func (db *testDB) cleanup(t *testing.T) {
 	dbURL := fmt.Sprintf("postgres://postgres:postgres@localhost:%s/ligain_test?sslmode=disable", port.Port())
 
 	// Create separate connection for migration
-	migrationDB, err := sql.Open("postgres", dbURL)
+	migrationDB, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		t.Fatalf("Failed to create migration database connection: %v", err)
 	}

@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is not set")
 	}
 
-	db, err := sql.Open("postgres", databaseURL)
+	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
