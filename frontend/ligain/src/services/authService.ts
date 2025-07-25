@@ -1,5 +1,6 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_CONFIG, getApiHeaders } from '../config/api';
 
 // Configure Google Sign-In (only once, here)
@@ -38,8 +39,29 @@ export class AuthService {
       // Check if your device supports Google Play
       await GoogleSignin.hasPlayServices();
       
-      // Sign in - userInfo is the User object directly
-      const userInfo = await GoogleSignin.signIn();
+            // Sign in - userInfo is the User object directly
+      let userInfo;
+      try {
+        userInfo = await GoogleSignin.signIn();
+      } catch (signInError: any) {
+        console.log('🔐 Google Sign-In - SignIn error caught:', {
+          code: signInError.code,
+          message: signInError.message,
+          statusCodes: statusCodes,
+          SIGN_IN_CANCELLED: statusCodes.SIGN_IN_CANCELLED,
+          isCancelled: signInError.code === statusCodes.SIGN_IN_CANCELLED
+        });
+        
+        // Handle sign-in cancellation immediately
+        if (signInError.code === statusCodes.SIGN_IN_CANCELLED) {
+          console.log('🔐 Google Sign-In - Cancellation detected, throwing cancellation error');
+          throw new Error('Sign-in was cancelled');
+        }
+        // Re-throw other sign-in errors
+        console.log('🔐 Google Sign-In - Re-throwing non-cancellation error');
+        throw signInError;
+      }
+      
       console.log('🔐 Google Sign-In - Sign in successful:', userInfo);
       console.log('🔐 Google Sign-In - User info structure:', {
         hasUser: !!userInfo,
@@ -48,7 +70,15 @@ export class AuthService {
         name: (userInfo as any)?.name,
         givenName: (userInfo as any)?.givenName,
         familyName: (userInfo as any)?.familyName,
+        type: (userInfo as any)?.type,
+        data: (userInfo as any)?.data,
       });
+      
+      // Check if this is a cancellation result (not an error)
+      if (userInfo && (userInfo as any).type === 'cancelled') {
+        console.log('🔐 Google Sign-In - Cancellation result detected');
+        throw new Error('Sign-in was cancelled');
+      }
       
       // Get tokens separately
       const tokens = await GoogleSignin.getTokens();
@@ -121,12 +151,13 @@ export class AuthService {
     } catch (error: any) {
       console.error('🔐 Google Sign-In - Error during sign in:', error);
       
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        throw new Error('Sign-in was cancelled');
-      } else if (error.code === statusCodes.IN_PROGRESS) {
+      // SIGN_IN_CANCELLED is already handled above
+      if (error.code === statusCodes.IN_PROGRESS) {
         throw new Error('Sign-in is already in progress');
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         throw new Error('Google Play Services not available');
+      } else if (error.code === statusCodes.SIGN_IN_REQUIRED) {
+        throw new Error('Sign-in required');
       } else {
         throw new Error(`Sign-in failed: ${error.message}`);
       }
@@ -138,9 +169,66 @@ export class AuthService {
       throw new Error('Apple sign-in is only supported on iOS');
     }
 
-    // For now, return a mock result for Apple
-    // TODO: Implement real Apple Sign-In
-    throw new Error('Apple Sign-In not yet implemented');
+    console.log('🔐 Apple Sign-In - Starting sign in process');
+
+    try {
+      // Check if Apple Authentication is available
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Apple Sign-In is not available on this device');
+      }
+
+      // Perform Apple Sign-In
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      console.log('🔐 Apple Sign-In - Sign in successful:', {
+        user: credential.user,
+        email: credential.email,
+        fullName: credential.fullName,
+        identityToken: credential.identityToken ? '***token***' : 'NO_TOKEN',
+        authorizationCode: credential.authorizationCode ? '***code***' : 'NO_CODE'
+      });
+
+      // Extract user information
+      const email = credential.email || '';
+      const fullName = credential.fullName;
+      const name = fullName ? `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim() : '';
+      
+      // Use identity token as the authentication token
+      const token = credential.identityToken || '';
+      
+      if (!token) {
+        throw new Error('Failed to get identity token from Apple');
+      }
+
+      return {
+        provider: 'apple',
+        token,
+        email,
+        name,
+      };
+    } catch (error: any) {
+      console.error('🔐 Apple Sign-In - Error:', error);
+      
+      if (error.code === 'ERR_CANCELED') {
+        throw new Error('Sign-in was canceled by the user');
+      } else if (error.code === 'ERR_INVALID_RESPONSE') {
+        throw new Error('Invalid response from Apple');
+      } else if (error.code === 'ERR_NOT_AVAILABLE') {
+        throw new Error('Apple Sign-In is not available on this device');
+      } else if (error.code === 'ERR_REQUEST_EXPIRED') {
+        throw new Error('Apple Sign-In request expired');
+      } else if (error.code === 'ERR_REQUEST_NOT_HANDLED') {
+        throw new Error('Apple Sign-In request not handled');
+      } else {
+        throw new Error(`Apple Sign-In failed: ${error.message}`);
+      }
+    }
   }
 
   // Get available sign-in options for the current platform

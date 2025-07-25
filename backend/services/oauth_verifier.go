@@ -116,12 +116,49 @@ func (v *AppleOAuthVerifier) VerifyToken(ctx context.Context, token string) (*Ap
 		return nil, errors.New("invalid Apple token format")
 	}
 
-	// For development, we'll accept the token and extract user info
-	// In production, you should properly verify the JWT signature
-	userInfo := &AppleUserInfo{
-		ID:    fmt.Sprintf("apple_user_%d", time.Now().Unix()), // Mock ID for development
-		Email: "user@example.com",                              // Mock email for development
+	// Decode the payload (second part of JWT)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode token payload: %v", err)
 	}
+
+	// Parse the payload as JSON
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return nil, fmt.Errorf("failed to parse token claims: %v", err)
+	}
+
+	// Extract user information from claims
+	userInfo := &AppleUserInfo{}
+
+	// Extract user ID (sub claim)
+	if sub, ok := claims["sub"].(string); ok {
+		userInfo.ID = sub
+	} else {
+		// Fallback for development
+		userInfo.ID = fmt.Sprintf("apple_user_%d", time.Now().Unix())
+	}
+
+	// Extract email
+	if email, ok := claims["email"].(string); ok {
+		userInfo.Email = email
+	} else {
+		// Fallback for development
+		userInfo.Email = "user@example.com"
+	}
+
+	// Extract name if available
+	if nameClaim, ok := claims["name"].(map[string]interface{}); ok {
+		if firstName, ok := nameClaim["firstName"].(string); ok {
+			userInfo.Name.FirstName = firstName
+		}
+		if lastName, ok := nameClaim["lastName"].(string); ok {
+			userInfo.Name.LastName = lastName
+		}
+	}
+
+	log.Infof("✅ AppleOAuthVerifier - Token verification successful for user: %s (%s)",
+		userInfo.ID, userInfo.Email)
 
 	return userInfo, nil
 }

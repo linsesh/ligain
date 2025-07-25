@@ -7,7 +7,7 @@ export default function AboutScreen() {
   const { t } = useTranslation();
   
   const handleEmailPress = () => {
-    Linking.openURL('mailto:benoitlinsey27@gmail.com');
+    Linking.openURL('mailto:contact@ligain.com');
   };
 
   const handleGithubPress = () => {
@@ -34,7 +34,7 @@ export default function AboutScreen() {
         </Text>
         <Text style={[styles.text, { color: colors.text }]}>
           {t('about.contactInfo')}{' '}
-          <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>benoitlinsey27@gmail.com</Text>
+          <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>contact@ligain.com</Text>
         </Text>
 
         {/* Support Section */}

@@ -4,6 +4,7 @@ import { getItem } from '../utils/storage';
 export const API_CONFIG = {
   BASE_URL: Constants.expoConfig?.extra?.apiBaseUrl,
   API_KEY: Constants.expoConfig?.extra?.apiKey,
+  APPLE_CLIENT_ID: Constants.expoConfig?.extra?.appleClientId,
 } as const;
 
 export const getApiHeaders = (additionalHeaders?: Record<string, string>) => {

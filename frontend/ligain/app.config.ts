@@ -17,7 +17,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         iosUrlScheme: 'com.googleusercontent.apps.628283030166-unsbr5lm16u1fgps9re6bp46u32l2gh2'
       }
-    ]
+    ],
+    'expo-apple-authentication'
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -27,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '13',
+    buildNumber: '14',
   },
   android: {
     package: 'com.ligain.app',
@@ -44,6 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiBaseUrl: process.env.API_BASE_URL || 'https://server-dev-09f6d83f-uyqlakruuq-ew.a.run.app',
     apiKey: process.env.API_KEY, // Required - no default value
     environment: process.env.NODE_ENV || 'development',
+    appleClientId: process.env.EXPO_PUBLIC_APPLE_CLIENT_ID, // Apple Sign-In client ID
     eas: {
       projectId: '55e40a95-c826-4c19-9d13-dfe6b906019b'
     }

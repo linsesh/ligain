@@ -27,6 +27,12 @@ func main() {
 		sportsmonkToken := ligainCfg.Require("sportsmonk_api_token")
 		googleClientID := ligainCfg.Get("google_client_id") // Optional for now
 
+		// Apple authentication configuration
+		appleClientID := ligainCfg.Get("apple_client_id")
+		appleTeamID := ligainCfg.Get("apple_team_id")
+		appleKeyID := ligainCfg.Get("apple_key_id")
+		applePrivateKeyPath := ligainCfg.Get("apple_private_key_path")
+
 		// Create a Cloud Run service
 		service, err := cloudrun.NewService(ctx, serviceName, &cloudrun.ServiceArgs{
 			Name:     pulumi.String(serviceName), // Ensure consistent service name
@@ -77,6 +83,22 @@ func main() {
 								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
 									Name:  pulumi.String("GOOGLE_CLIENT_ID"),
 									Value: pulumi.String(googleClientID),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("APPLE_CLIENT_ID"),
+									Value: pulumi.String(appleClientID),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("APPLE_TEAM_ID"),
+									Value: pulumi.String(appleTeamID),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("APPLE_KEY_ID"),
+									Value: pulumi.String(appleKeyID),
+								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("APPLE_PRIVATE_KEY_PATH"),
+									Value: pulumi.String(applePrivateKeyPath),
 								},
 							},
 						},

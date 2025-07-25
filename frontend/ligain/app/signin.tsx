@@ -55,7 +55,7 @@ export default function SignInScreen() {
         setShowNameModal(true);
         setDisplayName(result.suggestedName || '');
         setAuthResult({ provider, token, email });
-        if (result.error) Alert.alert('Error', result.error);
+        // Don't show error alert for display name requirement - it's part of normal flow
         return;
       }
 
@@ -63,6 +63,13 @@ export default function SignInScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('OAuth sign-in error:', error);
+      
+      // Check if this is a display name requirement (should not show as error)
+      if (error.message && error.message.includes('display name is required for new users')) {
+        console.log('OAuth sign-in - Display name required (normal flow)');
+        return;
+      }
+      
       Alert.alert('Sign In Failed', error.message || 'Unknown error');
     } finally {
       setIsLoading(false);
@@ -181,7 +188,24 @@ export default function SignInScreen() {
                 
                 console.log('🔐 GoogleSignInButton onNewUser - Modal should now be visible');
               }}
-              onSignInError={(error) => {
+              onSignInError={(error: any) => {
+                // Check if this is a cancellation (normal behavior, not an error)
+                // Use error codes when available, fallback to message checking
+                const isCancellation = 
+                  error.code === 'SIGN_IN_CANCELLED' || 
+                  error.code === 'ERR_CANCELED' ||
+                  (error.message && (
+                    error.message.toLowerCase().includes('cancelled') || 
+                    error.message.toLowerCase().includes('canceled') ||
+                    error.message.toLowerCase().includes('sign-in was cancelled') ||
+                    error.message.toLowerCase().includes('sign-in was canceled')
+                  ));
+                
+                if (isCancellation) {
+                  console.log('Google Sign-In - User cancelled sign-in (normal behavior)');
+                  return; // Don't show error alert for cancellation
+                }
+                
                 console.error('Google Sign-In error:', error);
                 Alert.alert('Sign-In Failed', error.message);
               }}
@@ -243,6 +267,17 @@ export default function SignInScreen() {
                     }
                   }
                 } catch (error: any) {
+                  // Check if this is a cancellation (normal behavior, not an error)
+                  if (error.message && (
+                    error.message.includes('cancelled') || 
+                    error.message.includes('canceled') ||
+                    error.message.includes('Sign-in was cancelled') ||
+                    error.message.includes('Sign-in was canceled')
+                  )) {
+                    console.log('Apple Sign-In - User cancelled sign-in (normal behavior)');
+                    return; // Don't show error alert for cancellation
+                  }
+                  
                   console.error('Apple Sign-In error:', error);
                   Alert.alert(t('errors.signInFailed'), error.message);
                 }

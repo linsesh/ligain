@@ -56,10 +56,18 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 			}
 		}())
 
-	if req.Provider == "" || req.Token == "" || req.Email == "" {
-		log.Errorf("❌ SignIn - Missing required fields: provider=%t, token=%t, email=%t",
-			req.Provider != "", req.Token != "", req.Email != "")
+	if req.Provider == "" || req.Token == "" {
+		log.Errorf("❌ SignIn - Missing required fields: provider=%t, token=%t",
+			req.Provider != "", req.Token != "")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
+		return
+	}
+
+	// Email is optional for Apple Sign-In (Apple doesn't always provide it)
+	// For Google Sign-In, email should be provided
+	if req.Provider == "google" && req.Email == "" {
+		log.Errorf("❌ SignIn - Email is required for Google Sign-In")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required for Google Sign-In"})
 		return
 	}
 

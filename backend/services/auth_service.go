@@ -178,103 +178,183 @@ func (s *AuthService) CleanupExpiredTokens(ctx context.Context) error {
 // GetOrCreatePlayer handles player creation, updates, and account linking
 // This is a separate concern from authentication
 func (s *AuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error) {
-	verifiedEmail := verifiedUser["email"].(string)
-	verifiedID := verifiedUser["id"].(string)
+	// Extract and validate user information from OAuth provider
+	userInfo, err := s.extractUserInfoFromOAuth(verifiedUser, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to find existing player by provider ID
+	existingPlayer, err := s.findExistingPlayerByProvider(ctx, provider, userInfo.providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	if existingPlayer != nil {
+		return s.handleExistingPlayer(ctx, existingPlayer, displayName)
+	}
+
+	// Try to find existing player by email (for account linking)
+	existingPlayerByEmail, err := s.findExistingPlayerByEmail(ctx, userInfo.email)
+	if err != nil {
+		return nil, err
+	}
+
+	if existingPlayerByEmail != nil {
+		return s.linkExistingAccount(ctx, existingPlayerByEmail, provider, userInfo.providerID, displayName)
+	}
+
+	// Create new player
+	return s.createNewPlayer(ctx, provider, userInfo, displayName)
+}
+
+// userInfo holds extracted information from OAuth provider
+type userInfo struct {
+	providerID string
+	email      string
+	name       string
+}
+
+// extractUserInfoFromOAuth extracts and validates user information from OAuth provider
+func (s *AuthService) extractUserInfoFromOAuth(verifiedUser map[string]interface{}, provider string) (*userInfo, error) {
+	providerID, ok := verifiedUser["id"].(string)
+	if !ok {
+		return nil, &models.GeneralAuthError{Reason: "invalid user ID from OAuth provider"}
+	}
+
 	verifiedName := ""
-	if n, ok := verifiedUser["name"].(string); ok {
-		verifiedName = n
+	if name, ok := verifiedUser["name"].(string); ok {
+		verifiedName = name
 	}
 
-	if verifiedEmail == "" {
-		return nil, &models.GeneralAuthError{Reason: "invalid user information from OAuth provider"}
+	// Handle email - it's optional for Apple Sign-In
+	var email string
+	if emailVal, ok := verifiedUser["email"].(string); ok {
+		email = emailVal
 	}
 
-	// First, check if player already exists by provider ID
-	existingPlayer, err := s.playerRepo.GetPlayerByProvider(ctx, provider, verifiedID)
+	// For Google Sign-In, email is required
+	if provider == "google" && email == "" {
+		return nil, &models.GeneralAuthError{Reason: "email is required for Google Sign-In"}
+	}
+
+	return &userInfo{
+		providerID: providerID,
+		email:      email,
+		name:       verifiedName,
+	}, nil
+}
+
+// findExistingPlayerByProvider looks for an existing player with the same provider and provider ID
+func (s *AuthService) findExistingPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
+	existingPlayer, err := s.playerRepo.GetPlayerByProvider(ctx, provider, providerID)
 	if err != nil {
 		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by provider: %v", err)}
 	}
+	return existingPlayer, nil
+}
 
-	var player *models.PlayerData
-	if existingPlayer != nil {
-		// Player exists with this provider, return existing player
-		// Only update name if provided and different
-		if displayName != "" && displayName != existingPlayer.Name {
-			player = existingPlayer
-			player.Name = displayName
-			player.UpdatedAt = &time.Time{}
-			*player.UpdatedAt = s.timeFunc()
+// handleExistingPlayer handles the case where a player already exists with this provider
+func (s *AuthService) handleExistingPlayer(ctx context.Context, existingPlayer *models.PlayerData, displayName string) (*models.PlayerData, error) {
+	// Only update name if provided and different
+	if displayName != "" && displayName != existingPlayer.Name {
+		existingPlayer.Name = displayName
+		existingPlayer.UpdatedAt = &time.Time{}
+		*existingPlayer.UpdatedAt = s.timeFunc()
 
-			err = s.playerRepo.UpdatePlayer(ctx, player)
-			if err != nil {
-				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update player: %v", err)}
-			}
-		} else {
-			player = existingPlayer
-		}
-	} else {
-		// Check if player exists by email (different provider)
-		existingPlayerByEmail, err := s.playerRepo.GetPlayerByEmail(ctx, verifiedEmail)
+		err := s.playerRepo.UpdatePlayer(ctx, existingPlayer)
 		if err != nil {
-			return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by email: %v", err)}
-		}
-
-		if existingPlayerByEmail != nil {
-			// Player exists with different provider, link accounts
-			player = existingPlayerByEmail
-			player.Provider = &provider
-			player.ProviderID = &verifiedID
-			player.UpdatedAt = &time.Time{}
-			*player.UpdatedAt = s.timeFunc()
-
-			// Update name if provided and different
-			if displayName != "" && displayName != player.Name {
-				player.Name = displayName
-			}
-
-			err = s.playerRepo.UpdatePlayer(ctx, player)
-			if err != nil {
-				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update player: %v", err)}
-			}
-		} else {
-			// New user: require display name
-			if displayName == "" {
-				return nil, &models.NeedDisplayNameError{
-					Reason:        "display name is required for new users",
-					SuggestedName: verifiedName,
-				}
-			}
-
-			// Validate display name
-			if len(displayName) < 2 {
-				return nil, &models.NeedDisplayNameError{
-					Reason:        "display name must be at least 2 characters long",
-					SuggestedName: verifiedName,
-				}
-			}
-			if len(displayName) > 20 {
-				return nil, &models.NeedDisplayNameError{
-					Reason:        "display name must be 20 characters or less",
-					SuggestedName: verifiedName,
-				}
-			}
-
-			// Create new player
-			player = &models.PlayerData{
-				Name:       displayName,
-				Email:      &verifiedEmail,
-				Provider:   &provider,
-				ProviderID: &verifiedID,
-			}
-
-			err = s.playerRepo.CreatePlayer(ctx, player)
-			if err != nil {
-				return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to create player: %v", err)}
-			}
+			return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update player: %v", err)}
 		}
 	}
 
+	return existingPlayer, nil
+}
+
+// findExistingPlayerByEmail looks for an existing player with the same email (for account linking)
+func (s *AuthService) findExistingPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
+	if email == "" {
+		return nil, nil // No email to search by
+	}
+
+	existingPlayer, err := s.playerRepo.GetPlayerByEmail(ctx, email)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by email: %v", err)}
+	}
+	return existingPlayer, nil
+}
+
+// linkExistingAccount links an existing account to a new OAuth provider
+func (s *AuthService) linkExistingAccount(ctx context.Context, existingPlayer *models.PlayerData, provider, providerID, displayName string) (*models.PlayerData, error) {
+	existingPlayer.Provider = &provider
+	existingPlayer.ProviderID = &providerID
+	existingPlayer.UpdatedAt = &time.Time{}
+	*existingPlayer.UpdatedAt = s.timeFunc()
+
+	// Update name if provided and different
+	if displayName != "" && displayName != existingPlayer.Name {
+		existingPlayer.Name = displayName
+	}
+
+	err := s.playerRepo.UpdatePlayer(ctx, existingPlayer)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to update player: %v", err)}
+	}
+
+	return existingPlayer, nil
+}
+
+// createNewPlayer creates a new player account
+func (s *AuthService) createNewPlayer(ctx context.Context, provider string, userInfo *userInfo, displayName string) (*models.PlayerData, error) {
+	// Validate display name requirements
+	if err := s.validateDisplayNameForNewUser(displayName, userInfo.name); err != nil {
+		return nil, err
+	}
+
+	// Create new player
+	player := &models.PlayerData{
+		Name:       displayName,
+		Provider:   &provider,
+		ProviderID: &userInfo.providerID,
+	}
+
+	// Only set email if provided (Apple might not provide email)
+	if userInfo.email != "" {
+		player.Email = &userInfo.email
+	}
+
+	err := s.playerRepo.CreatePlayer(ctx, player)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to create player: %v", err)}
+	}
+
 	return player, nil
+}
+
+// validateDisplayNameForNewUser validates display name requirements for new users
+func (s *AuthService) validateDisplayNameForNewUser(displayName, suggestedName string) error {
+	if displayName == "" {
+		return &models.NeedDisplayNameError{
+			Reason:        "display name is required for new users",
+			SuggestedName: suggestedName,
+		}
+	}
+
+	if len(displayName) < 2 {
+		return &models.NeedDisplayNameError{
+			Reason:        "display name must be at least 2 characters long",
+			SuggestedName: suggestedName,
+		}
+	}
+
+	if len(displayName) > 20 {
+		return &models.NeedDisplayNameError{
+			Reason:        "display name must be 20 characters or less",
+			SuggestedName: suggestedName,
+		}
+	}
+
+	return nil
 }
 
 // UpdateDisplayName updates a player's display name

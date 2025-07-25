@@ -8,7 +8,7 @@ import { useTranslation } from '../hooks/useTranslation';
 
 interface GoogleSignInButtonProps {
   onSignInSuccess?: (result: any) => void;
-  onSignInError?: (error: Error) => void;
+  onSignInError?: (error: any) => void;
   onNewUser?: (result: any) => void; // Callback for new users who need to choose display name
   disabled?: boolean;
 }
@@ -56,7 +56,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           onSignInSuccess(result);
         }
       } catch (authError: any) {
-        console.log('Google Sign-In - Authentication failed:', authError.message);
+        console.log('Google Sign-In - Authentication failed:', {
+          message: authError.message,
+          code: authError.code,
+          stack: authError.stack
+        });
         
         // Check if this is a "display name required" error for new users (two-step flow)
         if (authError.message && authError.message.startsWith('NEED_DISPLAY_NAME:')) {
@@ -84,12 +88,34 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         }
       }
     } catch (error: any) {
+      console.log('Google Sign-In - Caught error:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      // Check if this is a cancellation (normal behavior, not an error)
+      // Use error codes when available, fallback to message checking
+      const isCancellation = 
+        error.code === 'SIGN_IN_CANCELLED' || 
+        error.code === 'ERR_CANCELED' ||
+        (error.message && (
+          error.message.toLowerCase().includes('cancelled') || 
+          error.message.toLowerCase().includes('canceled') ||
+          error.message.toLowerCase().includes('sign-in was cancelled') ||
+          error.message.toLowerCase().includes('sign-in was canceled')
+        ));
+      
+      if (isCancellation) {
+        console.log('Google Sign-In - User cancelled sign-in (normal behavior)');
+        return; // Don't show error alert for cancellation
+      }
+      
       console.error('Google Sign-In error:', error);
       
       Alert.alert('Sign-In Error', error.message);
       
       if (onSignInError) {
-        console.error('Google Sign-In error:', error);
         onSignInError(error);
       }
     }

@@ -6,8 +6,15 @@
 
 ```bash
 # API Configuration
-API_BASE_URL=https://server-dev-4c7b2bc-uyqlakruuq-ew.a.run.app
+API_BASE_URL=server_url
 API_KEY=your_api_key_here
+
+# Apple Sign-In Configuration
+EXPO_PUBLIC_APPLE_CLIENT_ID=apple_client_id
+
+# Google Sign-In Configuration
+EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID=your_web_client_id_here
+EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID=your_ios_client_id_here
 
 # Environment
 NODE_ENV=development

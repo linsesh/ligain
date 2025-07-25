@@ -77,13 +77,13 @@ Conformément au RGPD, vous disposez des droits suivants :
 • Suppression de votre compte et de vos données
 • Limitation ou opposition au traitement
 
-Vous pouvez exercer ces droits en nous contactant à : benoitlinsey27@gmail.com
+Vous pouvez exercer ces droits en nous contactant à : contact@ligain.com
 
 8. Contact
 
 Pour toute question concernant la protection de vos données :
 Benoît Linsey Fazi
-Email : benoitlinsey27@gmail.com`,
+Email : contact@ligain.com`,
 
     en: `🔐 Privacy Policy
 
@@ -134,13 +134,13 @@ In accordance with GDPR, you have the following rights:
 • Deletion of your account and data
 • Limitation or opposition to processing
 
-You can exercise these rights by contacting us at: benoitlinsey27@gmail.com
+You can exercise these rights by contacting us at: contact@ligain.com
 
 8. Contact
 
 For any questions regarding the protection of your data:
 Benoît Linsey Fazi
-Email: benoitlinsey27@gmail.com`
+Email: contact@ligain.com`
   };
 
   const termsOfService = {
@@ -175,7 +175,7 @@ L'application et son contenu sont protégés par le droit de la propriété inte
 
 6. Suppression de compte
 
-Vous pouvez demander la suppression de votre compte à tout moment en nous contactant à : benoitlinsey27@gmail.com. La suppression est effective sous 30 jours.
+Vous pouvez demander la suppression de votre compte à tout moment en nous contactant à : contact@ligain.com. La suppression est effective sous 30 jours.
 
 7. Limitation de responsabilité
 
@@ -216,7 +216,7 @@ The application and its content are protected by intellectual property law. You 
 
 6. Account Deletion
 
-You can request deletion of your account at any time by contacting us at: benoitlinsey27@gmail.com. Deletion is effective within 30 days.
+You can request deletion of your account at any time by contacting us at: contact@ligain.com. Deletion is effective within 30 days.
 
 7. Limitation of Liability
 

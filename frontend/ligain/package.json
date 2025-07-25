@@ -21,6 +21,7 @@
     "@react-native-picker/picker": "^2.11.1",
     "dotenv": "^17.0.1",
     "expo": "53.0.20",
+    "expo-apple-authentication": "^7.2.4",
     "expo-auth-session": "^6.2.1",
     "expo-clipboard": "^7.1.5",
     "expo-constants": "~17.1.6",
