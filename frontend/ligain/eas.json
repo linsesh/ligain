@@ -5,17 +5,24 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APPLE_CLIENT_ID": "com.ligain.app.service"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APPLE_CLIENT_ID": "com.ligain.app.service"
+      }
     },
     "production": {
       "ios": {
         "resourceClass": "m-medium"
       },
       "env": {
-        "EXPO_ROUTER_APP_ROOT": "app"
+        "EXPO_ROUTER_APP_ROOT": "app",
+        "APPLE_CLIENT_ID": "com.ligain.app.service"
       }
     }
   },
