@@ -249,8 +249,6 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (!response.ok) throw new Error(t('games.failedToJoinGame'));
       
-      const data = await response.json();
-      Alert.alert(t('common.success'), data.message);
       await fetchGames(); // Refresh to show new game
     } catch (err) {
       Alert.alert(t('common.error'), err instanceof Error ? err.message : t('games.failedToJoinGame'));

@@ -2,7 +2,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'ligain',
+  name: 'Ligain',
   slug: 'ligain',
   version: '1.0.0',
   orientation: 'portrait',
@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/images/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#25292e',
   },
   ios: {
     bundleIdentifier: 'com.ligain.app',

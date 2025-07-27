@@ -150,15 +150,9 @@ func getCPULimit(stack string) string {
 }
 
 func getMinScale(stack string) string {
-	if stack == "dev" {
-		return "0" // Dev starts with 0 instances and is managed manually
-	}
-	return "1" // Prod always runs
+	return "1"
 }
 
 func getMaxScale(stack string) string {
-	if stack == "dev" {
-		return "2" // Dev environment only needs 2 instances max
-	}
-	return "10" // Prod can scale higher if needed
+	return "1"
 }

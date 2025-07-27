@@ -40,7 +40,6 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatal("Failed to ping database:", err)
 	}
-	log.Println("Successfully connected to database")
 
 	gameRepo, err := postgres.NewPostgresGameRepository(db)
 	if err != nil {
