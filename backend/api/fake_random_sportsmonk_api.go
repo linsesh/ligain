@@ -49,7 +49,9 @@ func (a *FakeRandomSportsmonkAPI) GetSeasonIds(seasonCodes []string, competition
 
 // GetFixturesInfos will sometimes return updated fixtures, sometimes not
 func (a *FakeRandomSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]models.Match, error) {
+	log.Infof("Getting fixtures infos for matchday %d", a.currentMatchday)
 	if a.currentMatchday > len(a.fixtures) {
+		log.Infof("Season looks finished")
 		return nil, nil
 	}
 
