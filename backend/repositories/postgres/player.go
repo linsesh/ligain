@@ -59,7 +59,7 @@ func (r *PostgresPlayerRepository) CreatePlayer(ctx context.Context, player *mod
 	`
 	err := r.db.QueryRowContext(ctx, query,
 		player.Name, player.Email, player.Provider, player.ProviderID,
-		player.CreatedAt, player.UpdatedAt).Scan(&player.ID)
+		time.Now(), time.Now()).Scan(&player.ID)
 	return err
 }
 

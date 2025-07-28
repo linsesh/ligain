@@ -38,6 +38,14 @@ func (m *MockGameRepository) SaveWithId(gameId string, game models.Game) error {
 	return args.Error(0)
 }
 
+func (m *MockGameRepository) GetAllGames() (map[string]models.Game, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]models.Game), args.Error(1)
+}
+
 // MockGameCodeRepository is a mock implementation of GameCodeRepository
 type MockGameCodeRepository struct {
 	mock.Mock
@@ -1177,6 +1185,229 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	assert.NotNil(t, joinResp)
 	assert.Equal(t, gameID, joinResp.GameID)
 
+	mockGameRepo.AssertExpectations(t)
+	mockGameCodeRepo.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
+	mockMatchRepo.AssertExpectations(t)
+	mockWatcher.AssertExpectations(t)
+}
+
+func TestNewGameCreationServiceWithLoadedGames_Success(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	// Create mock games
+	mockGame1 := &SimpleMockGame{}
+	mockGame2 := &SimpleMockGame{}
+	games := map[string]models.Game{
+		"game1": mockGame1,
+		"game2": mockGame2,
+	}
+
+	// Mock expectations
+	mockGameRepo.On("GetAllGames").Return(games, nil)
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil).Times(2)
+
+	// Execute
+	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+
+	// Verify that the service can access the loaded games
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Mock that player is in both games
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(true, nil)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game2", "player1").Return(true, nil)
+
+	// Test GetGameService for both games
+	gameService1, err := service.GetGameService("game1", player)
+	assert.NoError(t, err)
+	assert.NotNil(t, gameService1)
+	assert.Equal(t, "game1", gameService1.GetGameID())
+
+	gameService2, err := service.GetGameService("game2", player)
+	assert.NoError(t, err)
+	assert.NotNil(t, gameService2)
+	assert.Equal(t, "game2", gameService2.GetGameID())
+
+	// Verify mocks
+	mockGameRepo.AssertExpectations(t)
+	mockWatcher.AssertExpectations(t)
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestNewGameCreationServiceWithLoadedGames_RepositoryError(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	// Mock expectations - repository error
+	mockGameRepo.On("GetAllGames").Return(nil, errors.New("database error"))
+
+	// Execute
+	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, service)
+	assert.Contains(t, err.Error(), "failed to load games from repository")
+
+	// Verify mocks
+	mockGameRepo.AssertExpectations(t)
+}
+
+func TestNewGameCreationServiceWithLoadedGames_EmptyRepository(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	// Mock expectations - empty repository
+	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
+
+	// Execute
+	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+
+	// Verify mocks
+	mockGameRepo.AssertExpectations(t)
+}
+
+func TestNewGameCreationServiceWithLoadedGames_WatcherSubscriptionError(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	// Create mock games
+	mockGame1 := &SimpleMockGame{}
+	mockGame2 := &SimpleMockGame{}
+	games := map[string]models.Game{
+		"game1": mockGame1,
+		"game2": mockGame2,
+	}
+
+	// Mock expectations - watcher subscription fails for one game
+	mockGameRepo.On("GetAllGames").Return(games, nil)
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil).Once()
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(errors.New("subscription error")).Once()
+
+	// Execute
+	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+
+	// Assert - should still succeed even if some subscriptions fail
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+
+	// Verify mocks
+	mockGameRepo.AssertExpectations(t)
+	mockWatcher.AssertExpectations(t)
+}
+
+func TestNewGameCreationServiceWithLoadedGames_NoWatcher(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	// Create mock games
+	mockGame1 := &SimpleMockGame{}
+	mockGame2 := &SimpleMockGame{}
+	games := map[string]models.Game{
+		"game1": mockGame1,
+		"game2": mockGame2,
+	}
+
+	// Mock expectations
+	mockGameRepo.On("GetAllGames").Return(games, nil)
+
+	// Execute with nil watcher
+	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+
+	// Verify mocks
+	mockGameRepo.AssertExpectations(t)
+}
+
+func TestNewGameCreationServiceWithLoadedGames_IntegrationWithExistingMethods(t *testing.T) {
+	// Setup
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockMatchRepo := new(MockMatchRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	// Create mock games
+	mockGame1 := &SimpleMockGame{}
+	games := map[string]models.Game{
+		"game1": mockGame1,
+	}
+
+	// Mock expectations for loading games
+	mockGameRepo.On("GetAllGames").Return(games, nil)
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+
+	// Create service with loaded games
+	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	assert.NoError(t, err)
+	assert.NotNil(t, service)
+
+	// Test that we can still create new games
+	request := &CreateGameRequest{
+		SeasonYear:      "2025/2026",
+		CompetitionName: "Ligue 1",
+		Name:            "New Game",
+	}
+	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Mock expectations for creating a new game
+	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("new-game-id", nil)
+	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "new-game-id", "player1").Return(nil)
+	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
+	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+
+	response, err := service.CreateGame(request, player)
+	assert.NoError(t, err)
+	assert.NotNil(t, response)
+	assert.Equal(t, "new-game-id", response.GameID)
+
+	// Test that we can access the newly created game
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "new-game-id", "player1").Return(true, nil)
+	gameService, err := service.GetGameService("new-game-id", player)
+	assert.NoError(t, err)
+	assert.NotNil(t, gameService)
+	assert.Equal(t, "new-game-id", gameService.GetGameID())
+
+	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
 	mockGameCodeRepo.AssertExpectations(t)
 	mockGamePlayerRepo.AssertExpectations(t)

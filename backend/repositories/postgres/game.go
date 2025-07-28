@@ -121,6 +121,46 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 	return gameImpl, nil
 }
 
+func (r *PostgresGameRepository) GetAllGames() (map[string]models.Game, error) {
+	query := `
+		SELECT id, season_year, competition_name, status, game_name
+		FROM game
+		WHERE status != 'finished'
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all games: %v", err)
+	}
+	defer rows.Close()
+
+	games := make(map[string]models.Game)
+	for rows.Next() {
+		var id, seasonYear, competitionName, status, name string
+		err := rows.Scan(&id, &seasonYear, &competitionName, &status, &name)
+		if err != nil {
+			log.Errorf("error scanning game row: %v", err)
+			continue
+		}
+
+		// Get the game using the existing GetGame method
+		game, err := r.GetGame(id)
+		if err != nil {
+			log.Errorf("error getting game %s: %v", id, err)
+			continue
+		}
+
+		games[id] = game
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating game rows: %v", err)
+	}
+
+	return games, nil
+}
+
 func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, string, error) {
 	query := `
 		SELECT g.season_year, g.competition_name, g.game_name
@@ -228,7 +268,6 @@ func (r *PostgresGameRepository) processMatchData(rows *sql.Rows) ([]models.Matc
 			return nil, nil, nil, nil, fmt.Errorf("error scanning match data: %v", err)
 		}
 
-		// Create or get match
 		match, exists := matchesById[matchId]
 		if !exists {
 			match = CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore, homeWinOdds, awayWinOdds, drawOdds)

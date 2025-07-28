@@ -28,6 +28,10 @@ func (r *gameRepositoryMock) SaveWithId(gameId string, game models.Game) error {
 	return nil
 }
 
+func (r *gameRepositoryMock) GetAllGames() (map[string]models.Game, error) {
+	return make(map[string]models.Game), nil
+}
+
 type scorerMock struct{}
 
 func (s *scorerMock) Score(match models.Match, bets []*models.Bet) []int {

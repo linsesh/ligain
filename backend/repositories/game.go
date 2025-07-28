@@ -15,6 +15,8 @@ type GameRepository interface {
 	CreateGame(game models.Game) (string, error)
 	// SaveWithId saves a game with a provided ID and returns an error if saving failed
 	SaveWithId(gameId string, game models.Game) error
+	// GetAllGames returns all games in the repository
+	GetAllGames() (map[string]models.Game, error)
 }
 
 type InMemoryGameRepository struct {
@@ -47,4 +49,15 @@ func (r *InMemoryGameRepository) GetGame(gameId string) (models.Game, error) {
 		return game, nil
 	}
 	return nil, fmt.Errorf("game %s not found", gameId)
+}
+
+func (r *InMemoryGameRepository) GetAllGames() (map[string]models.Game, error) {
+	games := make(map[string]models.Game)
+	for _, entry := range r.cache.GetAll() {
+		// Only include non-finished games
+		if entry.Value.GetGameStatus() != models.GameStatusFinished {
+			games[entry.Key] = entry.Value
+		}
+	}
+	return games, nil
 }

@@ -48,6 +48,41 @@ func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo r
 	}
 }
 
+// NewGameCreationServiceWithLoadedGames creates a new GameCreationService instance and loads all existing games from the repository
+func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
+	service := &GameCreationService{
+		gameRepo:       gameRepo,
+		gameCodeRepo:   gameCodeRepo,
+		gamePlayerRepo: gamePlayerRepo,
+		betRepo:        betRepo,
+		matchRepo:      matchRepo,
+		watcher:        watcher,
+		gameServices:   make(map[string]GameService),
+	}
+
+	// Load all games from the repository
+	games, err := gameRepo.GetAllGames()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load games from repository: %v", err)
+	}
+
+	// Create GameService instances for each game
+	for gameID, game := range games {
+		gameService := NewGameService(gameID, game, gameRepo, betRepo)
+		service.gameServices[gameID] = gameService
+
+		// Subscribe to the watcher if available
+		if watcher != nil {
+			if err := watcher.Subscribe(gameService); err != nil {
+				log.WithError(err).Warnf("Failed to subscribe game %s to watcher", gameID)
+			}
+		}
+	}
+
+	log.WithField("gameCount", len(games)).Info("Loaded games from repository")
+	return service, nil
+}
+
 // GetGameService returns a GameService by ID, but only if the player has access to it
 func (s *GameCreationService) GetGameService(gameID string, player models.Player) (GameService, error) {
 	// Check if player is in the game first
@@ -152,8 +187,8 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		req.SeasonYear,
 		req.CompetitionName,
 		req.Name,
-		[]models.Player{player}, // Include the creator initially
-		matches,                 // Load all matches for this competition/season
+		[]models.Player{player},
+		matches,
 		&rules.ScorerOriginal{},
 	)
 

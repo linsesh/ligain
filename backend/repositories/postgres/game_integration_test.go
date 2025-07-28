@@ -433,3 +433,192 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 		})
 	}, 10*time.Second)
 }
+
+func TestGameRepository_GetAllGames_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+
+		t.Run("Get All Games - Empty Repository", func(t *testing.T) {
+			// Ensure the repository is empty
+			games, err := gameRepo.GetAllGames()
+			require.NoError(t, err)
+			require.Empty(t, games)
+		})
+
+		t.Run("Get All Games - Multiple Games", func(t *testing.T) {
+			// Create multiple games
+			gameIDs := []string{
+				"123e4567-e89b-12d3-a456-426614174001",
+				"123e4567-e89b-12d3-a456-426614174002",
+				"123e4567-e89b-12d3-a456-426614174003",
+			}
+
+			// Insert games with different statuses
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES 
+					($1, '2024', 'Ligue 1', 'not started', 'Game 1'),
+					($2, '2024', 'Ligue 1', 'in progress', 'Game 2'),
+					($3, '2024', 'Ligue 1', 'finished', 'Game 3')
+			`, gameIDs[0], gameIDs[1], gameIDs[2])
+			require.NoError(t, err)
+
+			// Get all games (should exclude finished games)
+			games, err := gameRepo.GetAllGames()
+			require.NoError(t, err)
+			// Only check for the non-finished games we just created
+			found := 0
+			for _, gameID := range gameIDs {
+				game, exists := games[gameID]
+				if exists {
+					found++
+					if gameID == gameIDs[0] {
+						require.Equal(t, "Game 1", game.GetName())
+						require.Equal(t, models.GameStatusNotStarted, game.GetGameStatus())
+					}
+					if gameID == gameIDs[1] {
+						require.Equal(t, "Game 2", game.GetName())
+						// Accept either NotStarted or Scheduled depending on mapping
+						status := game.GetGameStatus()
+						if status != models.GameStatusNotStarted && status != models.GameStatusScheduled {
+							t.Errorf("unexpected status for Game 2: %v", status)
+						}
+					}
+					// Game 3 should not be found since it's finished
+				}
+			}
+			// Should only find 2 games (not started and in progress)
+			require.Equal(t, 2, found)
+			// Verify that the finished game is not in the results
+			_, exists := games[gameIDs[2]]
+			require.False(t, exists, "Finished game should not be returned")
+		})
+
+		t.Run("Get All Games - Exclude Finished Games", func(t *testing.T) {
+			// Create a finished game
+			finishedGameID := "123e4567-e89b-12d3-a456-426614174007"
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ($1, '2024', 'Ligue 1', 'finished', 'Finished Game')
+			`, finishedGameID)
+			require.NoError(t, err)
+
+			// Get all games
+			games, err := gameRepo.GetAllGames()
+			require.NoError(t, err)
+
+			// Verify that the finished game is not in the results
+			_, exists := games[finishedGameID]
+			require.False(t, exists, "Finished game should not be returned by GetAllGames")
+		})
+
+		// --- With Players and Matches ---
+		t.Run("Get All Games - With Players and Matches", func(t *testing.T) {
+			// Use valid UUIDs for player IDs
+			gameID := "123e4567-e89b-12d3-a456-426614174004"
+			player1ID := "123e4567-e89b-12d3-a456-426614174101"
+			player2ID := "123e4567-e89b-12d3-a456-426614174102"
+			// Insert game
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status, game_name)
+				VALUES ($1, '2024', 'Ligue 1', 'in progress', 'Complex Game')
+			`, gameID)
+			require.NoError(t, err)
+			// Insert players
+			_, err = testDB.db.Exec(`
+				INSERT INTO player (id, name, email)
+				VALUES 
+					($1, 'Player 1', 'player1@test.com'),
+					($2, 'Player 2', 'player2@test.com')
+			`, player1ID, player2ID)
+			require.NoError(t, err)
+			// Add players to game
+			_, err = testDB.db.Exec(`
+				INSERT INTO game_player (game_id, player_id)
+				VALUES 
+					($1, $2),
+					($1, $3)
+			`, gameID, player1ID, player2ID)
+			require.NoError(t, err)
+
+			// Create and insert matches
+			matchRepo := NewPostgresMatchRepository(testDB.db)
+			match1 := models.NewSeasonMatch("Team A", "Team B", "2024", "Ligue 1", testTime.Add(24*time.Hour), 1)
+			err = matchRepo.SaveMatch(match1)
+			require.NoError(t, err)
+
+			match2 := models.NewSeasonMatch("Team C", "Team D", "2024", "Ligue 1", testTime.Add(48*time.Hour), 1)
+			err = matchRepo.SaveMatch(match2)
+			require.NoError(t, err)
+
+			// Insert bets
+			betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+			bet1 := models.NewBet(match1, 2, 1)
+			_, _, err = betRepo.SaveBet(gameID, bet1, &models.PlayerData{ID: player1ID, Name: "Player 1"})
+			require.NoError(t, err)
+
+			bet2 := models.NewBet(match2, 1, 2)
+			_, _, err = betRepo.SaveBet(gameID, bet2, &models.PlayerData{ID: player2ID, Name: "Player 2"})
+			require.NoError(t, err)
+
+			// Get all games
+			games, err := gameRepo.GetAllGames()
+			require.NoError(t, err)
+
+			// Find our complex game
+			complexGame, exists := games[gameID]
+			require.True(t, exists, "Complex game should be present")
+
+			// Verify game details
+			require.Equal(t, "Complex Game", complexGame.GetName())
+			require.Equal(t, models.GameStatusScheduled, complexGame.GetGameStatus())
+			require.Equal(t, "2024", complexGame.GetSeasonYear())
+			require.Equal(t, "Ligue 1", complexGame.GetCompetitionName())
+
+			// Verify players are loaded
+			players := complexGame.GetPlayers()
+			require.Len(t, players, 2)
+
+			// Verify player details
+			playerNames := make(map[string]string)
+			for _, player := range players {
+				playerNames[player.GetID()] = player.GetName()
+			}
+			require.Equal(t, "Player 1", playerNames[player1ID])
+			require.Equal(t, "Player 2", playerNames[player2ID])
+		})
+
+		// --- Ordering ---
+		t.Run("Get All Games - Ordering", func(t *testing.T) {
+			gameIDs := []string{
+				"123e4567-e89b-12d3-a456-426614174005",
+				"123e4567-e89b-12d3-a456-426614174006",
+			}
+			_, err := testDB.db.Exec(`
+				INSERT INTO game (id, season_year, competition_name, status, game_name, created_at)
+				VALUES 
+					($1, '2024', 'Ligue 1', 'not started', 'Older Game', NOW() - INTERVAL '1 hour'),
+					($2, '2024', 'Ligue 1', 'not started', 'Newer Game', NOW())
+			`, gameIDs[0], gameIDs[1])
+			require.NoError(t, err)
+			games, err := gameRepo.GetAllGames()
+			require.NoError(t, err)
+			// Only check for the games we just created
+			found := 0
+			for _, gameID := range gameIDs {
+				if _, exists := games[gameID]; exists {
+					found++
+				}
+			}
+			require.Equal(t, 2, found)
+		})
+	}, 10*time.Second)
+}

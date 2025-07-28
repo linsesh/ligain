@@ -81,7 +81,11 @@ func main() {
 	// Initialize game creation service
 	gameCodeRepo := postgres.NewPostgresGameCodeRepository(db)
 	gamePlayerRepo := postgres.NewPostgresGamePlayerRepository(db)
-	gameCreationService := services.NewGameCreationService(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher)
+	gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher)
+	if err != nil {
+		log.Fatal("Failed to create game creation service:", err)
+		os.Exit(1)
+	}
 
 	router := gin.Default()
 
