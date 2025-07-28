@@ -57,6 +57,8 @@
     "playerLeaderboard": "Classement des Joueurs",
     "viewMatches": "Voir les Matchs",
     "betNotSaved": "Pari Non Sauvegardé",
+    "gameOverview": "Aperçu de la Partie",
+    "back": "Retour",
     "betNotSavedMessage": "Nous n'avons pas pu sauvegarder ton pari. Vérifie ta connexion internet et réessaie.",
     "failedToLoadGame": "Échec du chargement de la partie :",
     "gameNotFound": "Partie non trouvée",

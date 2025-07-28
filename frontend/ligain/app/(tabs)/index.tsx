@@ -14,6 +14,8 @@ import Leaderboard from '../../src/components/Leaderboard';
 import { useGames } from '../../src/contexts/GamesContext';
 import { useUIEvent } from '../../src/contexts/UIEventContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
+import { getTranslatedGameStatus } from '../../src/utils/gameStatusUtils';
+import StatusTag from '../../src/components/StatusTag';
 
 interface CreateGameResponse {
   gameId: string;
@@ -25,20 +27,6 @@ interface JoinGameResponse {
   seasonYear: string;
   competitionName: string;
   message: string;
-}
-
-function StatusTag({ text, variant }: { text: string; variant: string }) {
-  const baseStyle = [styles.statusTag];
-  let variantStyle = null;
-  if (variant === 'success') variantStyle = styles.successTag;
-  else if (variant === 'warning') variantStyle = styles.inProgressTag;
-  else if (variant === 'finished') variantStyle = styles.finishedTag;
-  else if (variant === 'primary') variantStyle = styles.primaryTag;
-  return (
-    <View style={[...baseStyle, variantStyle]}>
-      <Text style={styles.statusTagText}>{text}</Text>
-    </View>
-  );
 }
 
 function GamesList() {
@@ -242,7 +230,8 @@ function GamesList() {
           </View>
         ) : (
           games.map((game) => {
-            const status = (game.status || '').toLowerCase();
+
+            const { text, variant } = getTranslatedGameStatus(game.status || '', t);
             
             return (
               <Swipeable
@@ -267,7 +256,7 @@ function GamesList() {
                     onPress={() => handleGamePress(game.gameId)}
                     activeOpacity={0.2}
                   >
-                    <StatusTag text={String(game.status)} variant="warning" />
+                    <StatusTag text={text} variant={variant} style={styles.statusTag} />
                     <View style={styles.headerGroupAbsolute}>
                       <Text style={styles.leagueNamePlain}>{game.name}</Text>
                       <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
@@ -722,28 +711,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 5,
     zIndex: 1,
-  },
-  statusTagText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  successTag: {
-    backgroundColor: '#4CAF50',
-  },
-  inProgressTag: {
-    backgroundColor: '#FFC107',
-  },
-  finishedTag: {
-    backgroundColor: '#9E9E9E',
-  },
-  primaryTag: {
-    backgroundColor: colors.primary,
   },
   headerGroupAbsolute: {
     position: 'absolute',

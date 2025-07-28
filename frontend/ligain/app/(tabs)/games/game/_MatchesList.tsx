@@ -7,21 +7,7 @@ import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 import { colors } from '../../../../src/constants/colors';
-
-function StatusTag({ text, variant }: { text: string; variant: string }) {
-  const baseStyle = [styles.statusTag];
-  let variantStyle = null;
-  if (variant === 'success') variantStyle = styles.successTag;
-  else if (variant === 'warning') variantStyle = styles.inProgressTag;
-  else if (variant === 'finished') variantStyle = styles.finishedTag;
-  else if (variant === 'primary') variantStyle = styles.primaryTag;
-  else if (variant === 'negative') variantStyle = styles.negativeTag;
-  return (
-    <View style={[...baseStyle, variantStyle]}>
-      <Text style={styles.statusTagText}>{text}</Text>
-    </View>
-  );
-}
+import StatusTag from '../../../../src/components/StatusTag';
 
 interface TempScores {
   [key: string]: {
@@ -78,8 +64,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   const canModify = isFuture && (userBet?.isModifiable(now) !== false);
 
   // Tag logic
-  let tagText = null;
-  let tagVariant = null;
+  let tagText: string | null = null;
+  let tagVariant: 'warning' | 'success' | 'negative' | 'finished' | 'primary' | null = null;
   let hasTag = false;
   if (matchResult.match.isInProgress()) {
     tagText = t('games.inProgressTag');

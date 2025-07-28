@@ -69,6 +69,8 @@
     "playerLeaderboard": "Player Leaderboard",
     "viewMatches": "View Matches",
     "betNotSaved": "Bet Not Saved",
+    "gameOverview": "Game Overview",
+    "back": "Back",
     "betNotSavedMessage": "We couldn't save your bet. Please check your internet connection and try again.",
     "failedToLoadGame": "Failed to load game:",
     "gameNotFound": "Game not found",

@@ -9,21 +9,8 @@ import { colors } from '../../../../../src/constants/colors';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../../../../src/components/Leaderboard';
 import { useGames } from '../../../../../src/contexts/GamesContext';
-
-function StatusTag({ text, variant }: { text: string; variant: string }) {
-  const baseStyle = [styles.statusTag];
-  let variantStyle = null;
-  if (variant === 'success') variantStyle = styles.successTag;
-  else if (variant === 'warning') variantStyle = styles.inProgressTag;
-  else if (variant === 'finished') variantStyle = styles.finishedTag;
-  else if (variant === 'primary') variantStyle = styles.primaryTag;
-  else if (variant === 'negative') variantStyle = styles.negativeTag;
-  return (
-    <View style={[...baseStyle, variantStyle]}>
-      <Text style={styles.statusTagText}>{text}</Text>
-    </View>
-  );
-}
+import { getTranslatedGameStatus } from '../../../../../src/utils/gameStatusUtils';
+import StatusTag from '../../../../../src/components/StatusTag';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -114,15 +101,10 @@ export default function GameOverviewScreen() {
             {gameDetails.seasonYear} • {gameDetails.competitionName}
           </Text>
           <View style={styles.statusContainer}>
-            {gameDetails.status === 'in progress' && (
-              <StatusTag text={t('games.inProgressTag')} variant="warning" />
-            )}
-            {gameDetails.status === 'finished' && (
-              <StatusTag text={t('games.finishedTag')} variant="success" />
-            )}
-            {gameDetails.status === 'not started' && (
-              <StatusTag text={t('games.scheduledTag')} variant="primary" />
-            )}
+            {(() => {
+              const { text, variant } = getTranslatedGameStatus(gameDetails.status || '', t);
+              return <StatusTag text={text} variant={variant} />;
+            })()}
           </View>
         </View>
         {gameDetails.code && (
@@ -324,32 +306,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  statusTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  successTag: {
-    backgroundColor: '#4CAF50',
-  },
-  inProgressTag: {
-    backgroundColor: '#ffd33d',
-  },
-  finishedTag: {
-    backgroundColor: '#ff6b6b',
-  },
-  primaryTag: {
-    backgroundColor: '#4CAF50',
-  },
-  negativeTag: {
-    backgroundColor: '#ff6b6b',
-  },
-  statusTagText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
+
 
 
 }); 
