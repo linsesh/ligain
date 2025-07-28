@@ -14,6 +14,7 @@ type FakeRandomSportsmonkAPI struct {
 	fixtures           map[int][]models.SeasonMatch
 	matchIdToFixtureId map[string]int
 	currentMatchday    int
+	maxMatchday        int
 }
 
 func NewFakeRandomSportsmonkAPI(matches []models.SeasonMatch) *FakeRandomSportsmonkAPI {
@@ -27,6 +28,7 @@ func NewFakeRandomSportsmonkAPI(matches []models.SeasonMatch) *FakeRandomSportsm
 	matchIdToFixtureId := make(map[string]int)
 	id := 0
 	minMatchday := math.MaxInt32
+	maxMatchday := 0
 	for _, matches := range fixtures {
 		for _, match := range matches {
 			matchIdToFixtureId[match.Id()] = id
@@ -34,12 +36,16 @@ func NewFakeRandomSportsmonkAPI(matches []models.SeasonMatch) *FakeRandomSportsm
 			if match.Matchday < minMatchday {
 				minMatchday = match.Matchday
 			}
+			if match.Matchday > maxMatchday {
+				maxMatchday = match.Matchday
+			}
 		}
 	}
 	return &FakeRandomSportsmonkAPI{
 		fixtures:           fixtures,
 		matchIdToFixtureId: matchIdToFixtureId,
 		currentMatchday:    minMatchday,
+		maxMatchday:        maxMatchday,
 	}
 }
 
@@ -50,7 +56,7 @@ func (a *FakeRandomSportsmonkAPI) GetSeasonIds(seasonCodes []string, competition
 // GetFixturesInfos will sometimes return updated fixtures, sometimes not
 func (a *FakeRandomSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]models.Match, error) {
 	log.Infof("Getting fixtures infos for matchday %d", a.currentMatchday)
-	if a.currentMatchday > len(a.fixtures) {
+	if a.currentMatchday > a.maxMatchday {
 		log.Infof("Season looks finished")
 		return nil, nil
 	}
