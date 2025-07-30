@@ -230,4 +230,59 @@ describe('Match', () => {
         expect(match.getAwayGoals()).toBe(1);
         expect(match.isFinished()).toBe(true);
     });
+
+    test('transforms Paris to Paris FC for home team', () => {
+        const match = new SeasonMatch(
+            'Paris',
+            'Liverpool',
+            3,
+            1,
+            1.0,
+            2.0,
+            3.0,
+            'finished',
+            '2024',
+            'Premier League',
+            new Date('2024-01-01T15:00:00Z'),
+            1
+        );
+        expect(match.getHomeTeam()).toBe('Paris FC');
+    });
+
+    test('transforms Paris to Paris FC for away team', () => {
+        const match = new SeasonMatch(
+            'Manchester United',
+            'Paris',
+            3,
+            1,
+            1.0,
+            2.0,
+            3.0,
+            'finished',
+            '2024',
+            'Premier League',
+            new Date('2024-01-01T15:00:00Z'),
+            1
+        );
+        expect(match.getAwayTeam()).toBe('Paris FC');
+    });
+
+    test('does not transform other team names', () => {
+        const match = new SeasonMatch(
+            'Manchester United',
+            'Liverpool',
+            3,
+            1,
+            1.0,
+            2.0,
+            3.0,
+            'finished',
+            '2024',
+            'Premier League',
+            new Date('2024-01-01T15:00:00Z'),
+            1
+        );
+        expect(match.getHomeTeam()).toBe('Manchester United');
+        expect(match.getAwayTeam()).toBe('Liverpool');
+    });
 }); 

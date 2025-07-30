@@ -109,7 +109,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
     >
       {/* Status Tag */}
       {tagText && typeof tagVariant === 'string' && (
-        <StatusTag text={tagText} variant={tagVariant} />
+        <StatusTag text={tagText} variant={tagVariant} style={styles.statusTag} />
       )}
       <View style={styles.bettingContainer}>
         {/* Only show the current user's bet for future matches */}

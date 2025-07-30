@@ -49,11 +49,11 @@ export class SeasonMatch {
     }
 
     getHomeTeam(): string {
-        return this.homeTeam;
+        return this.homeTeam === 'Paris' ? 'Paris FC' : this.homeTeam;
     }
 
     getAwayTeam(): string {
-        return this.awayTeam;
+        return this.awayTeam === 'Paris' ? 'Paris FC' : this.awayTeam;
     }
 
     getHomeGoals(): number {
@@ -90,10 +90,10 @@ export class SeasonMatch {
 
     getWinner(): string {
         if (this.homeGoals > this.awayGoals) {
-            return this.homeTeam;
+            return this.getHomeTeam();
         }
         if (this.awayGoals > this.homeGoals) {
-            return this.awayTeam;
+            return this.getAwayTeam();
         }
         return 'Draw';
     }
@@ -123,9 +123,9 @@ export class SeasonMatch {
             return '';
         }
         if (this.homeTeamOdds < this.awayTeamOdds) {
-            return this.homeTeam;
+            return this.getHomeTeam();
         }
-        return this.awayTeam;
+        return this.getAwayTeam();
     }
 
     finish(homeGoals: number, awayGoals: number): void {
