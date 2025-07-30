@@ -341,7 +341,7 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		}
 		query := s.basicQuery(req)
 		// Add the season filter
-		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:1;markets:1", seasonId))
+		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:2;markets:1", seasonId))
 		// Use semicolons for includes
 		query.Add("include", "league;season;round;scores;participants;odds")
 		// Add pagination parameters
@@ -377,6 +377,9 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 				log.Printf("  Fixture %d: ID=%d, Name='%s', StartingAt='%s', Round='%s'",
 					i+1, fixture.ID, fixture.Name, fixture.StartingAt, fixture.Round.Name)
 			}
+			if fixture.Round.Name == "1" {
+				log.Printf("Match de la première journée: %+v", fixture)
+			}
 		}
 
 		// Convert the fixtures to a map of models.Match and add to our collection
@@ -393,8 +396,8 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 			if existingFixtureId, exists := matchIdToFixtureId[matchId]; exists {
 				existingMatch := allFixtures[existingFixtureId]
 				log.Printf("Duplicate match found: %s", matchId)
-				log.Printf("  Existing fixture ID %d: %s vs %s (%s)", existingFixtureId, existingMatch.GetHomeTeam(), existingMatch.GetAwayTeam(), existingMatch.GetDate().Format("2006-01-02 15:04"))
-				log.Printf("  New fixture ID %d: %s vs %s (%s)", fixture.ID, match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"))
+				log.Printf("  Existing fixture ID %d: %s vs %s (%s)\n homeOdd: %v, awayOdd: %v, drawOdd: %v", existingFixtureId, existingMatch.GetHomeTeam(), existingMatch.GetAwayTeam(), existingMatch.GetDate().Format("2006-01-02 15:04"), existingMatch.GetHomeTeamOdds(), existingMatch.GetAwayTeamOdds(), existingMatch.GetDrawOdds())
+				log.Printf("  New fixture ID %d: %s vs %s (%s)\n homeOdd: %v, awayOdd: %v, drawOdd: %v", fixture.ID, match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"), match.GetHomeTeamOdds(), match.GetAwayTeamOdds(), match.GetDrawOdds())
 
 				// Keep the fixture with the later time (more likely to be the current schedule)
 				if match.GetDate().After(existingMatch.GetDate()) {
@@ -438,7 +441,7 @@ func (s *SportsmonkAPIImpl) GetFixturesInfos(fixtureIds []int) (map[int]models.M
 	// Use semicolons for includes - this is the key change
 	query.Add("include", "league;season;round;scores;participants;odds")
 	// Filter for specific bookmaker and market if needed
-	query.Add("filters", "bookmakers:1;markets:1")
+	query.Add("filters", "bookmakers:2;markets:1")
 	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {

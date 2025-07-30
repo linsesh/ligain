@@ -75,7 +75,7 @@ func (h *GameHandler) createGame(c *gin.Context) {
 	// Create the game
 	response, err := h.gameCreationService.CreateGame(&request, player.(models.Player))
 	if err != nil {
-		if err == services.ErrInvalidCompetition || err == services.ErrInvalidSeasonYear {
+		if err == services.ErrInvalidCompetition || err == services.ErrInvalidSeasonYear || err == services.ErrPlayerGameLimit {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -118,6 +118,10 @@ func (h *GameHandler) joinGame(c *gin.Context) {
 			return
 		}
 		if strings.Contains(err.Error(), "expired") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err == services.ErrPlayerGameLimit {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}

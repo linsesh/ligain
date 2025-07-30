@@ -91,6 +91,12 @@ func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) er
 	if g.game.IsFinished() {
 		winners := g.game.GetWinner()
 		log.Infof("Game %v is finished, with winner(s) %v", g.gameId, winners)
+
+		err := g.gameRepo.SaveWithId(g.gameId, g.game)
+		if err != nil {
+			log.Errorf("Error saving finished game status: %v", err)
+			return err
+		}
 	}
 
 	return nil

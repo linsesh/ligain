@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"ligain/backend/models"
+	"math"
 	"time"
 )
 
@@ -103,7 +104,7 @@ func (g *GameImpl) finishMatch(match models.Match) {
 	delete(g.incomingMatches, match.Id())
 	g.pastMatches[match.Id()] = match
 	if len(g.incomingMatches) == 0 {
-		g.gameStatus = models.GameStatusFinished
+		g.Finish()
 	}
 }
 
@@ -282,27 +283,22 @@ func (g *GameImpl) GetPlayers() []models.Player {
 }
 
 func (g *GameImpl) GetWinner() []models.Player {
-	bestScore := 0
+	bestScore := math.MinInt32
 	winners := make([]models.Player, 0)
 	totalPlayerPoints := g.GetPlayersPoints()
+
+	// Create a map for faster player lookup
+	playerMap := make(map[string]models.Player)
+	for _, player := range g.players {
+		playerMap[player.GetID()] = player
+	}
+
 	for playerID, points := range totalPlayerPoints {
 		if points > bestScore {
 			bestScore = points
-			// Find the player by ID
-			for _, player := range g.players {
-				if player.GetID() == playerID {
-					winners = []models.Player{player}
-					break
-				}
-			}
+			winners = []models.Player{playerMap[playerID]}
 		} else if points == bestScore {
-			// Find the player by ID
-			for _, player := range g.players {
-				if player.GetID() == playerID {
-					winners = append(winners, player)
-					break
-				}
-			}
+			winners = append(winners, playerMap[playerID])
 		}
 	}
 	return winners

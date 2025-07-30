@@ -159,6 +159,7 @@ var (
 	ErrInvalidCompetition = errors.New("only 'Ligue 1' is supported as competition name")
 	ErrInvalidSeasonYear  = errors.New("only '2025/2026' is supported as season year")
 	ErrPlayerNotInGame    = errors.New("player is not in the game")
+	ErrPlayerGameLimit    = errors.New("player has reached the maximum limit of 5 games")
 )
 
 // CreateGame creates a new game with a unique 4-character code
@@ -174,6 +175,15 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	// Validate name - must not be empty
 	if req.Name == "" {
 		return nil, fmt.Errorf("game name is required")
+	}
+
+	// Check if player has reached the game limit (5 games)
+	playerGames, err := s.gamePlayerRepo.GetPlayerGames(context.Background(), player.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("failed to check player games: %v", err)
+	}
+	if len(playerGames) >= 5 {
+		return nil, ErrPlayerGameLimit
 	}
 
 	// Load all matches for this competition and season
@@ -222,8 +232,8 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		return nil, fmt.Errorf("failed to generate unique code: %v", err)
 	}
 
-	// Create game code with 1 week expiration
-	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	// Create game code with 6 months expiration
+	expiresAt := time.Now().AddDate(0, 6, 0)
 	gameCode := models.NewGameCode(gameID, code, expiresAt)
 
 	err = s.gameCodeRepo.CreateGameCode(gameCode)
@@ -258,6 +268,15 @@ func (s *GameCreationService) JoinGame(code string, player models.Player) (*Join
 	// Prevent joining if finished
 	if game.GetGameStatus() == models.GameStatusFinished {
 		return nil, fmt.Errorf("cannot join a finished game")
+	}
+
+	// Check if player has reached the game limit (5 games)
+	playerGames, err := s.gamePlayerRepo.GetPlayerGames(context.Background(), player.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("failed to check player games: %v", err)
+	}
+	if len(playerGames) >= 5 {
+		return nil, ErrPlayerGameLimit
 	}
 
 	// Add the player to the game

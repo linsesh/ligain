@@ -105,7 +105,6 @@ func (r *InMemoryBetRepository) SaveScore(gameId string, match models.Match, pla
 	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), match.Id())
 	entry, err := r.cache.Get(betKey)
 	if err != nil {
-		fmt.Printf("Saving score with betKey %s\n", betKey)
 		r.cache.Set(betKey, BetEntry{
 			GameId:  gameId,
 			Player:  player,
