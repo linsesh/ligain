@@ -40,4 +40,44 @@ export async function handleApiError(response: Response): Promise<never> {
   }
   const humanReadableError = getHumanReadableError(response.status, errorData.error);
   throw new Error(humanReadableError);
-} 
+}
+
+/**
+ * Handles game-related errors with specific translations and user-friendly messages
+ */
+export const handleGameError = (errorMessage: string): { title: string; message: string } => {
+  // Check for specific game-related errors
+  if (errorMessage.includes('player has reached the maximum limit of 5 games')) {
+    return {
+      title: i18n.t('errors.playerGameLimitReachedTitle'),
+      message: i18n.t('errors.playerGameLimitReached')
+    };
+  }
+  
+  if (errorMessage.includes('invalid game code')) {
+    return {
+      title: i18n.t('errors.error'),
+      message: i18n.t('errors.pleaseEnterGameCode')
+    };
+  }
+  
+  if (errorMessage.includes('game code has expired')) {
+    return {
+      title: i18n.t('errors.error'),
+      message: i18n.t('errors.gameCodeExpired', 'This game code has expired. Please ask for a new one.')
+    };
+  }
+  
+  if (errorMessage.includes('cannot join a finished game')) {
+    return {
+      title: i18n.t('errors.error'),
+      message: i18n.t('errors.cannotJoinFinishedGame', 'Cannot join a finished game.')
+    };
+  }
+  
+  // Default fallback
+  return {
+    title: i18n.t('errors.error'),
+    message: errorMessage || i18n.t('errors.unknownError')
+  };
+}; 

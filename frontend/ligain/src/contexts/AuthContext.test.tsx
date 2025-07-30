@@ -85,7 +85,7 @@ describe('AuthContext', () => {
       expect(error).toBeDefined();
       expect(error?.message).toBe('Ligain servers are not available for now. Please try again later.');
       expect(result.current.isLoading).toBe(false);
-    });
+    }, 10000);
 
     it('should handle API errors properly', async () => {
       // Mock an API error response

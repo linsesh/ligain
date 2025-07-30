@@ -31,6 +31,7 @@ import { useAuth } from './AuthContext';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { handleGameError } from '../utils/errorMessages';
 
 // Basic game data structure returned from the API
 // Contains core game information without any derived/calculated fields
@@ -247,11 +248,23 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
       
-      if (!response.ok) throw new Error(t('games.failedToJoinGame'));
+      if (!response.ok) {
+        let errorMessage = '';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || '';
+        } catch (e) {
+          errorMessage = '';
+        }
+        
+        // Use the game error handling utility
+        const { title, message } = handleGameError(errorMessage);
+        throw new Error(message);
+      }
       
       await fetchGames(); // Refresh to show new game
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('games.failedToJoinGame'));
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('errors.failedToJoinGame'));
     }
   };
 
@@ -269,11 +282,23 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         }),
       });
       
-      if (!response.ok) throw new Error('Failed to create game');
+      if (!response.ok) {
+        let errorMessage = '';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || '';
+        } catch (e) {
+          errorMessage = '';
+        }
+        
+        // Use the game error handling utility
+        const { title, message } = handleGameError(errorMessage);
+        throw new Error(message);
+      }
       
       await fetchGames(); // Refresh to show new game
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('games.failedToCreateGame'));
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('errors.failedToCreateGame'));
     }
   };
 

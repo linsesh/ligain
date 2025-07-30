@@ -176,9 +176,13 @@
     "signInFailed": "Échec de la connexion",
     "authenticationError": "Erreur d'authentification",
     "error": "Erreur",
-    "pleaseEnterGameName": "Veuillez entrer un nom de partie",
+    "pleaseEnterGameName": "Entre un nom de partie",
     "failedToCreateGame": "Échec de la création de partie",
-    "pleaseEnterGameCode": "Veuillez entrer un code de partie",
-    "failedToJoinGame": "Échec pour rejoindre la partie"
+    "pleaseEnterGameCode": "Entre un code de partie",
+    "failedToJoinGame": "Échec pour rejoindre la partie",
+    "playerGameLimitReached": "Tu as atteint la limite maximale de 5 parties. Quitte une de tes parties existantes avant de créer ou rejoindre une nouvelle.",
+    "playerGameLimitReachedTitle": "Limite de Parties atteinte",
+    "gameCodeExpired": "Ce code de partie a expiré. Demandes un nouveau code.",
+    "cannotJoinFinishedGame": "Impossible de rejoindre une partie terminée."
   }
 } 

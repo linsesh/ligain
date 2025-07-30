@@ -189,6 +189,10 @@
     "pleaseEnterGameName": "Please enter a game name",
     "failedToCreateGame": "Failed to create game",
     "pleaseEnterGameCode": "Please enter a game code",
-    "failedToJoinGame": "Failed to join game"
+    "failedToJoinGame": "Failed to join game",
+    "playerGameLimitReached": "You have reached the maximum limit of 5 games. Please leave one of your existing games before creating or joining a new one.",
+    "playerGameLimitReachedTitle": "Game Limit Reached",
+    "gameCodeExpired": "This game code has expired. Please ask for a new one.",
+    "cannotJoinFinishedGame": "Cannot join a finished game."
   }
 } 

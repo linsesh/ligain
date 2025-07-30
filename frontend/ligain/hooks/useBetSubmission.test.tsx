@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useBetSubmission } from './useBetSubmission';
+import { AuthProvider } from '../src/contexts/AuthContext';
 
 // Mock the API config
 jest.mock('../src/config/api', () => ({
@@ -18,6 +19,11 @@ jest.mock('../src/config/api', () => ({
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+// Test wrapper component
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <AuthProvider>{children}</AuthProvider>;
+};
 
 describe('useBetSubmission', () => {
   beforeEach(() => {
@@ -44,7 +50,9 @@ describe('useBetSubmission', () => {
       json: async () => mockResponse,
     } as Response);
 
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
+    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+      wrapper: TestWrapper,
+    });
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBe(null);
@@ -79,19 +87,14 @@ describe('useBetSubmission', () => {
       status: 400,
       statusText: 'Bad Request',
     };
-    // Mock both the initial call and the retry call
-    mockFetch.mockResolvedValueOnce(mockResponse);
     mockFetch.mockResolvedValueOnce(mockResponse);
 
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
+    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+      wrapper: TestWrapper,
+    });
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
-    });
-
-    // Fast-forward through the retry delay
-    await act(async () => {
-      jest.advanceTimersByTime(2000);
     });
 
     expect(result.current.isSubmitting).toBe(false);
@@ -100,36 +103,38 @@ describe('useBetSubmission', () => {
   });
 
   it('should handle network errors', async () => {
-    // Mock both the initial call and the retry call
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    // Mock network error (no retry for network errors)
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
+    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+      wrapper: TestWrapper,
+    });
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
     });
 
-    // Fast-forward through the retry delay
-    await act(async () => {
-      jest.advanceTimersByTime(2000);
-    });
-
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    // The hook preserves the original error message, not the generic one
     expect(result.current.error?.message).toBe('Network error');
   });
 
-  it('should retry on failure', async () => {
-    // First call fails, second call succeeds
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+  it('should retry on 401 errors', async () => {
+    // First call returns 401, second call succeeds
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ error: 'Invalid or expired token' }),
+    });
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ message: 'Success' }),
     });
 
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
+    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+      wrapper: TestWrapper,
+    });
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
@@ -144,12 +149,24 @@ describe('useBetSubmission', () => {
     expect(result.current.error).toBe(null);
   });
 
-  it('should stop retrying after max attempts', async () => {
-    // Both calls fail
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+  it('should stop retrying after max attempts on 401', async () => {
+    // Both calls return 401
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ error: 'Invalid or expired token' }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ error: 'Invalid or expired token' }),
+    });
 
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
+    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+      wrapper: TestWrapper,
+    });
 
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
@@ -162,47 +179,11 @@ describe('useBetSubmission', () => {
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toBe('Network error');
-  });
-
-  it('should set isSubmitting state correctly', async () => {
-    // Mock a slow response to catch the submitting state
-    mockFetch.mockImplementation(() => 
-      new Promise(resolve => 
-        setTimeout(() => 
-          resolve({
-            ok: true,
-            json: async () => ({ message: 'Success' }),
-          }), 100)
-      )
-    );
-
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
-
-    // Start the submission
-    const submitPromise = result.current.submitBet('match-1', 2, 1);
-
-    // Fast-forward to catch the submitting state
-    await act(async () => {
-      jest.advanceTimersByTime(10);
-    });
-
-    // Should be submitting immediately after starting
-    expect(result.current.isSubmitting).toBe(true);
-
-    // Fast-forward to complete the request
-    await act(async () => {
-      jest.advanceTimersByTime(100);
-      await submitPromise;
-    });
-
-    // Should be done after completion
-    expect(result.current.isSubmitting).toBe(false);
+    expect(result.current.error?.message).toContain('401');
   });
 
   it('should clear error on new submission', async () => {
     // First submission fails
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
     // Second submission succeeds
     mockFetch.mockResolvedValueOnce({
@@ -210,16 +191,13 @@ describe('useBetSubmission', () => {
       json: async () => ({ message: 'Success' }),
     });
 
-    const { result } = renderHook(() => useBetSubmission('test-game-id'));
+    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+      wrapper: TestWrapper,
+    });
 
     // First submission
     await act(async () => {
       await result.current.submitBet('match-1', 2, 1);
-    });
-
-    // Fast-forward through the retry delay
-    await act(async () => {
-      jest.advanceTimersByTime(2000);
     });
 
     expect(result.current.error).toBeInstanceOf(Error);

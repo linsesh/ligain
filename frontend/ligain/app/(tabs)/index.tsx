@@ -8,7 +8,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 // Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
-import { getHumanReadableError, handleApiError } from '../../src/utils/errorMessages';
+import { getHumanReadableError, handleApiError, handleGameError } from '../../src/utils/errorMessages';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../src/components/Leaderboard';
 import { useGames } from '../../src/contexts/GamesContext';
@@ -67,7 +67,9 @@ function GamesList() {
       setNewGameName('');
       refresh();
     } catch (err) {
-      Alert.alert(t('errors.error'), err instanceof Error ? err.message : t('errors.failedToCreateGame'));
+      const errorMessage = err instanceof Error ? err.message : t('errors.failedToCreateGame');
+      const { title, message } = handleGameError(errorMessage);
+      Alert.alert(title, message);
     } finally {
       setCreatingGame(false);
     }
@@ -85,7 +87,9 @@ function GamesList() {
       setShowJoinModal(false);
       refresh();
     } catch (err) {
-      Alert.alert(t('errors.error'), err instanceof Error ? err.message : t('errors.failedToJoinGame'));
+      const errorMessage = err instanceof Error ? err.message : t('errors.failedToJoinGame');
+      const { title, message } = handleGameError(errorMessage);
+      Alert.alert(title, message);
     } finally {
       setJoiningGame(false);
     }
