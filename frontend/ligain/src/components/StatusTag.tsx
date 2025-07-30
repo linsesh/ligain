@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '../constants/colors';
 
 export interface StatusTagProps {
   text: string;
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#9E9E9E',
   },
   primaryTag: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.primary,
   },
   negativeTag: {
     backgroundColor: '#ff6b6b',

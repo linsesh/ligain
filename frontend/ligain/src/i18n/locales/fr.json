@@ -10,7 +10,8 @@
     "signOut": "Se déconnecter",
     "failedToCopyToClipboard": "Échec de la copie dans le presse-papiers",
     "close": "Fermer",
-    "ligainNotAvailable": "Ligain n'est pas disponible pour le moment."
+    "ligainNotAvailable": "Ligain n'est pas disponible pour le moment.",
+    "me": "Moi"
   },
   "navigation": {
     "games": "Parties",

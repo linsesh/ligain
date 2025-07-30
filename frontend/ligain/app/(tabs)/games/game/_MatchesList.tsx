@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../../../hooks/useMatches';
 import { useBetSubmission } from '../../../../hooks/useBetSubmission';
@@ -46,7 +46,7 @@ function TeamInput({ teamName, value, onChange, canModify, isAway = false, onFoc
   );
 }
 
-function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur, onDone }: {
+function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur, onDone, onRef }: {
   matchResult: any;
   tempScores: TempScores;
   expandedMatches: { [key: string]: boolean };
@@ -55,6 +55,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   onFocus: () => void;
   onBlur: () => void;
   onDone?: () => void;
+  onRef?: (ref: View | null) => void;
 }) {
   const { player } = useAuth();
   const { t } = useTranslation();
@@ -69,7 +70,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   let hasTag = false;
   if (matchResult.match.isInProgress()) {
     tagText = t('games.inProgressTag');
-    tagVariant = 'warning';
+    tagVariant = 'primary';
     hasTag = true;
   } else if (matchResult.match.isFinished() && player) {
     if (matchResult.scores && matchResult.scores[player.id]) {
@@ -106,6 +107,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
     <View 
       key={matchResult.match.id()} 
       style={cardStyle}
+      ref={onRef}
     >
       {/* Status Tag */}
       {tagText && typeof tagVariant === 'string' && (
@@ -143,6 +145,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               value={matchResult.match.getHomeGoals().toString()}
               onChange={() => {}}
               canModify={false}
+              isFavorite={matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getHomeTeam()}
             />
             <Text style={styles.vsText}>{t('common.vs')}</Text>
             <TeamInput
@@ -151,6 +154,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               onChange={() => {}}
               canModify={false}
               isAway
+              isFavorite={matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getAwayTeam()}
             />
           </>
         )}
@@ -215,9 +219,11 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                       if (player && playerId === player.id) {
                         userRow = (
                           <View key={playerId} style={styles.playerScoreRow}>
-                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {s.playerName} (Me): {s.points} points </Text>
-                            {matchResult.bets?.[playerId] && (
+                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {s.playerName} ({t('common.me')}): {s.points} points </Text>
+                            {matchResult.bets?.[playerId] ? (
                               <Text style={styles.betResultText}> ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals}) </Text>
+                            ) : (
+                              <Text style={[styles.betResultText, { fontStyle: 'italic', color: '#999' }]}> ({t('games.negativePointsTag')}) </Text>
                             )}
                           </View>
                         );
@@ -225,8 +231,10 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                         otherRows.push(
                           <View key={playerId} style={styles.playerScoreRow}>
                             <Text style={styles.scoreText}> {s.playerName}: {s.points} points </Text>
-                            {matchResult.bets?.[playerId] && (
+                            {matchResult.bets?.[playerId] ? (
                               <Text style={styles.betResultText}> ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals}) </Text>
+                            ) : (
+                              <Text style={[styles.betResultText, { fontStyle: 'italic', color: '#999' }]}> ({t('games.negativePointsTag')}) </Text>
                             )}
                           </View>
                         );
@@ -235,7 +243,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                     if (!userRow && player) {
                       userRow = (
                         <View key={player.id} style={styles.playerScoreRow}>
-                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {player.name} (Me): <Text style={{ fontStyle: 'italic', color: '#999' }}>No bet</Text> </Text>
+                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
                         </View>
                       );
                     }
@@ -253,7 +261,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                       if (player && playerId === player.id) {
                         userRow = (
                           <View key={playerId} style={styles.playerScoreRow}>
-                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {b.playerName} (Me): </Text>
+                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {b.playerName} ({t('common.me')}): </Text>
                             <Text style={styles.betResultText}> ({b.predictedHomeGoals} - {b.predictedAwayGoals}) </Text>
                           </View>
                         );
@@ -269,7 +277,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                     if (!userRow && player) {
                       userRow = (
                         <View key={player.id} style={styles.playerScoreRow}>
-                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {player.name} (Me): <Text style={{ fontStyle: 'italic', color: '#999' }}>No bet</Text> </Text>
+                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
                         </View>
                       );
                     }
@@ -300,6 +308,8 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const { player } = useAuth();
   const { t } = useTranslation();
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const matchCardRefs = React.useRef<{ [key: string]: View | null }>({});
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
@@ -332,23 +342,42 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedMatchdays]);
 
-  // Group matches by time within the current matchday
+  // Listen to keyboard events to track keyboard height
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Group matches by date and time within the current matchday
   const getMatchesByTime = (matchday: number) => {
     const matchdayMatches = matchesByMatchday[matchday] || [];
-    // Sort by time (ascending)
+    // Sort by date and time (ascending)
     const sortedMatches = matchdayMatches.sort((a, b) => 
       a.match.getDate().getTime() - b.match.getDate().getTime()
     );
-    // Group by time
-    const groupedByTime = sortedMatches.reduce((acc, matchResult) => {
-      const timeKey = formatTime(matchResult.match.getDate());
-      if (!acc[timeKey]) {
-        acc[timeKey] = [];
+    // Group by date and time
+    const groupedByDateTime = sortedMatches.reduce((acc, matchResult) => {
+      const date = matchResult.match.getDate();
+      const dateKey = formatDate(date);
+      const timeKey = formatTime(date);
+      const dateTimeKey = `${dateKey} - ${timeKey}`;
+      
+      if (!acc[dateTimeKey]) {
+        acc[dateTimeKey] = [];
       }
-      acc[timeKey].push(matchResult);
+      acc[dateTimeKey].push(matchResult);
       return acc;
     }, {} as { [key: string]: any[] });
-    return groupedByTime;
+    return groupedByDateTime;
   };
 
   const onRefresh = React.useCallback(async () => {
@@ -439,6 +468,20 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
 
   const handleFocus = (matchId: string) => {
     setEditingMatchId(matchId);
+    
+    // Get all matches for the current matchday
+    const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
+    const allMatches = Object.values(currentMatchdayMatches).flat() as any[];
+    
+    // Check if this is the last match
+    const lastMatch = allMatches[allMatches.length - 1];
+    
+    // Only scroll if this is the last match
+    if (lastMatch && lastMatch.match.id() === matchId && scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
   };
 
   const handleBlur = () => {
@@ -497,7 +540,33 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   }
 
   const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
-  const sortedTimes = Object.keys(currentMatchdayMatches).sort();
+  const sortedDateTimeKeys = Object.keys(currentMatchdayMatches).sort((a, b) => {
+    // Extract date and time from the key format "Monday, January 15 - 20:00"
+    const dateTimeA = a.split(' - ');
+    const dateTimeB = b.split(' - ');
+    
+    if (dateTimeA.length !== 2 || dateTimeB.length !== 2) {
+      return a.localeCompare(b); // Fallback to string comparison
+    }
+    
+    const dateA = dateTimeA[0];
+    const timeA = dateTimeA[1];
+    const dateB = dateTimeB[0];
+    const timeB = dateTimeB[1];
+    
+    // First compare by date
+    if (dateA !== dateB) {
+      // Parse dates for comparison (assuming format like "Monday, January 15")
+      const dateAObj = new Date(dateA);
+      const dateBObj = new Date(dateB);
+      return dateAObj.getTime() - dateBObj.getTime();
+    }
+    
+    // If same date, compare by time
+    const timeANum = parseInt(timeA.replace(':', ''));
+    const timeBNum = parseInt(timeB.replace(':', ''));
+    return timeANum - timeBNum;
+  });
 
   // Show legend if not editing a match or if the editing match has a clear favorite
   const editingMatch = editingMatchId ? matches.find(m => m.match.id() === editingMatchId) : null;
@@ -557,15 +626,16 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         </View>
         {/* Matches for current matchday */}
         <View style={styles.matchesContainer}>
-          {sortedTimes.map(time => {
-            const matchesAtTime = currentMatchdayMatches[time];
-            const matchDate = matchesAtTime[0]?.match.getDate();
-            const dayDisplay = matchDate ? formatDate(matchDate) : '';
+          {sortedDateTimeKeys.map((dateTimeKey: string) => {
+            const matchesAtTime = currentMatchdayMatches[dateTimeKey];
+            const dateTimeParts = dateTimeKey.split(' - ');
+            const dateDisplay = dateTimeParts[0] || '';
+            const timeDisplay = dateTimeParts[1] || '';
             return (
-              <View key={time} style={styles.timeGroup}>
+              <View key={dateTimeKey} style={styles.timeGroup}>
                 <View style={styles.timeHeaderContainer}>
-                  <Text style={styles.timeHeader}>{time}</Text>
-                  <Text style={styles.dayHeader}>{dayDisplay}</Text>
+                  <Text style={styles.timeHeader}>{timeDisplay}</Text>
+                  <Text style={styles.dayHeader}>{dateDisplay}</Text>
                 </View>
                 {matchesAtTime.map((matchResult: any) => (
                   <MatchCard
@@ -578,6 +648,9 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
                     onFocus={() => handleFocus(matchResult.match.id())}
                     onBlur={handleBlur}
                     onDone={editingMatchId === matchResult.match.id() ? handleDone : undefined}
+                    onRef={(ref) => {
+                      matchCardRefs.current[matchResult.match.id()] = ref;
+                    }}
                   />
                 ))}
               </View>
@@ -606,6 +679,8 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             </View>
           </View>
         )}
+        {/* Add padding at the bottom to ensure last match is visible above keyboard */}
+        <View style={{ height: 100 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -747,7 +822,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 5,
