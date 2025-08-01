@@ -96,7 +96,9 @@
     "noGamesToBetSubtext": "Join or create a league to start betting on matches",
     "goToGames": "Go to Games",
     "closestMatch": "Closest match",
-    "noUnbetMatches": "No matches to bet on"
+    "noUnbetMatches": "No matches to bet on",
+    "leftGame": "You have left the game.",
+    "failedToLeaveGame": "Failed to leave game"
   },
   "profile": {
     "noUserInfo": "No user information available",
@@ -114,8 +116,8 @@
   "about": {
     "whatIsLigain": "What is Ligain?",
     "description": "Ligain is a platform for betting on football matches between friends.",
-    "alphaNote": "It's currently in alpha and only available for Ligue 1 matches.",
-    "contactInfo": "If you have any feedback, please contact me at",
+    "alphaNote": "It's currently only available for Ligue 1 matches.",
+    "contactInfo": "If you have any feedback, requests or suggestions, please contact me at",
     "supportSection": "Support the Project",
     "supportDescription": "I'm working alone on this project and it costs me hundreds of euros per year to keep it running. If you enjoy using Ligain, consider tipping me to help support the development!",
     "buyMeACoffee": "Buy me a coffee"
@@ -181,10 +183,8 @@
     "invalidData": "Invalid information provided. Please check your details",
     "tooManyRequests": "Too many requests. Please wait a moment and try again",
     "serverError": "Server error. Please try again later",
-    "serviceUnavailable": "Service temporarily unavailable. Please try again later",
+    "serviceUnavailable": "Ligain is currently unavailable",
     "unknownError": "Something went wrong. Please try again later",
-    "signInFailed": "Sign In Failed",
-    "authenticationError": "Authentication Error",
     "error": "Error",
     "pleaseEnterGameName": "Please enter a game name",
     "failedToCreateGame": "Failed to create game",
@@ -193,6 +193,13 @@
     "playerGameLimitReached": "You have reached the maximum limit of 5 games. Please leave one of your existing games before creating or joining a new one.",
     "playerGameLimitReachedTitle": "Game Limit Reached",
     "gameCodeExpired": "This game code has expired. Please ask for a new one.",
-    "cannotJoinFinishedGame": "Cannot join a finished game."
+    "cannotJoinFinishedGame": "Cannot join a finished game.",
+    "failedToLoadGames": "Unable to load games. Please check your internet connection and try again.",
+    "serverNotConnected": "Server is not available. Please try again later.",
+    "networkError": "Network error. Please check your connection and try again.",
+    "signInFailed": "Sign In Failed",
+    "authenticationError": "Authentication Error",
+    "serverUnavailable": "Ligain servers are not available for now. Please try again later.",
+    "missingAuthContext": "Missing authentication context. Please try again."
   }
 } 

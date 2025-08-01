@@ -3,6 +3,7 @@ import { SeasonMatch, MatchResult } from '../src/types/match';
 import { BetImpl } from '../src/types/bet';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
+import { translateError } from '../src/utils/errorMessages';
 
 export const useMatches = (gameId: string) => {
   const timeService = useTimeService();
@@ -68,7 +69,8 @@ export const useMatches = (gameId: string) => {
       setPastMatches(processMatches(data.pastMatches));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch matches'));
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch matches';
+      setError(new Error(translateError(errorMessage)));
     } finally {
       setLoading(false);
     }

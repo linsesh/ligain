@@ -195,7 +195,7 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 		bets:            make(map[string]map[string]*models.Bet),
 	}
 	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
-	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", game, gameRepo, betRepo)
+	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", gameRepo, betRepo)
 
 	mockAuthService := &MockBetAuthService{}
 	mockGameCreationService := &MockGameCreationService{}

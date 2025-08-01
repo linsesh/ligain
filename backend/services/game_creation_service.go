@@ -67,8 +67,8 @@ func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository,
 	}
 
 	// Create GameService instances for each game
-	for gameID, game := range games {
-		gameService := NewGameService(gameID, game, gameRepo, betRepo)
+	for gameID := range games {
+		gameService := NewGameService(gameID, gameRepo, betRepo)
 		service.gameServices[gameID] = gameService
 
 		// Subscribe to the watcher if available
@@ -96,14 +96,8 @@ func (s *GameCreationService) GetGameService(gameID string, player models.Player
 
 	gameService, exists := s.gameServices[gameID]
 	if !exists {
-		// Try to load the game from the database
-		game, err := s.gameRepo.GetGame(gameID)
-		if err != nil {
-			return nil, fmt.Errorf("game not found: %v", err)
-		}
-
 		// Create a new game service
-		gameService = NewGameService(gameID, game, s.gameRepo, s.betRepo)
+		gameService = NewGameService(gameID, s.gameRepo, s.betRepo)
 		s.gameServices[gameID] = gameService
 
 		// Subscribe to the watcher if available
@@ -215,7 +209,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	}
 
 	// Create and store the game service
-	gameService := NewGameService(gameID, game, s.gameRepo, s.betRepo)
+	gameService := NewGameService(gameID, s.gameRepo, s.betRepo)
 	s.gameServices[gameID] = gameService
 
 	// Subscribe the new game to the watcher
@@ -369,6 +363,7 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 
 	var playerGames []PlayerGame
 	for _, gameID := range gameIDs {
+		// Always get fresh data from the database, not from cache
 		game, err := s.gameRepo.GetGame(gameID)
 		if err != nil {
 			log.Errorf("error getting game %s: %v", gameID, err)
@@ -415,15 +410,17 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 			code = gameCode.Code
 		}
 
+		gameStatus := string(game.GetGameStatus())
 		playerGame := PlayerGame{
 			GameID:          gameID,
 			SeasonYear:      game.GetSeasonYear(),
 			CompetitionName: game.GetCompetitionName(),
 			Name:            game.GetName(), // Add game name here
-			Status:          string(game.GetGameStatus()),
+			Status:          gameStatus,
 			Players:         playerInfos,
 			Code:            code,
 		}
+
 		playerGames = append(playerGames, playerGame)
 	}
 

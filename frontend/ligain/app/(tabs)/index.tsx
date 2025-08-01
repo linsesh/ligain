@@ -223,7 +223,7 @@ function GamesList() {
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{t('games.errorLoadingGames')} {error}</Text>
+            <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.refreshHint}>{t('games.pullToRefresh')}</Text>
           </View>
         ) : games.length === 0 ? (

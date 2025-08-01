@@ -85,7 +85,9 @@
     "noGamesToBetSubtext": "Rejoins ou crée une partie pour commencer à parier sur les matchs",
     "goToGames": "Aller aux Parties",
     "closestMatch": "Match le plus proche",
-    "noUnbetMatches": "Aucun match pour parier"
+    "noUnbetMatches": "Aucun match pour parier",
+    "leftGame": "Tu as quitté la partie.",
+    "failedToLeaveGame": "Je n'ai pas pu quitter la partie"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",
@@ -103,8 +105,8 @@
   "about": {
     "whatIsLigain": "Qu'est-ce que Ligain ?",
     "description": "Ligain est une plateforme pour parier sur les matchs de football entre amis.",
-    "alphaNote": "C'est actuellement en version alpha et disponible uniquement pour les matchs de Ligue 1.",
-    "contactInfo": "Si tu as des commentaires, contacte-moi via l'email suivant :",
+    "alphaNote": "C'est pour le moment uniquement disponible pour les matchs de Ligue 1.",
+    "contactInfo": "Si tu as des commentaires, des demandes ou des suggestions, contacte-moi via l'email suivant :",
     "supportSection": "Soutenir le Projet",
     "supportDescription": "Je travaille seul sur ce projet et cela me coûte plusieurs centaines d'euros par an pour le maintenir. Si tu apprécies utiliser Ligain, considère m'offrir un café pour soutenir le développement !",
     "buyMeACoffee": "M'offrir un café"
@@ -172,10 +174,8 @@
     "invalidData": "Informations invalides fournies. Veuillez vérifier vos détails",
     "tooManyRequests": "Trop de requêtes. Veuillez attendre un moment et réessayer",
     "serverError": "Erreur serveur. Veuillez réessayer plus tard",
-    "serviceUnavailable": "Service temporairement indisponible. Veuillez réessayer plus tard",
+    "serviceUnavailable": "Ligain est indisponible pour le moment",
     "unknownError": "Quelque chose s'est mal passé. Veuillez réessayer plus tard",
-    "signInFailed": "Échec de la connexion",
-    "authenticationError": "Erreur d'authentification",
     "error": "Erreur",
     "pleaseEnterGameName": "Entre un nom de partie",
     "failedToCreateGame": "Échec de la création de partie",
@@ -184,6 +184,13 @@
     "playerGameLimitReached": "Tu as atteint la limite maximale de 5 parties. Quitte une de tes parties existantes avant de créer ou rejoindre une nouvelle.",
     "playerGameLimitReachedTitle": "Limite de Parties atteinte",
     "gameCodeExpired": "Ce code de partie a expiré. Demandes un nouveau code.",
-    "cannotJoinFinishedGame": "Impossible de rejoindre une partie terminée."
+    "cannotJoinFinishedGame": "Impossible de rejoindre une partie terminée.",
+    "failedToLoadGames": "Impossible de charger les parties. Vérifie ta connexion internet et réessaie.",
+    "serverNotConnected": "Le serveur n'est pas disponible. Veuillez réessayer plus tard.",
+    "networkError": "Erreur réseau. Vérifie ta connexion et réessaie.",
+    "signInFailed": "Échec de la connexion",
+    "authenticationError": "Erreur d'authentification",
+    "serverUnavailable": "Les serveurs Ligain ne sont pas disponibles pour le moment. Veuillez réessayer plus tard.",
+    "missingAuthContext": "Contexte d'authentification manquant. Veuillez réessayer."
   }
 } 

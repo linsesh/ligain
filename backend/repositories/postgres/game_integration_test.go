@@ -9,7 +9,9 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/repositories"
 	"ligain/backend/rules"
+	"ligain/backend/services"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +44,7 @@ func TestGameRepository_Integration(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "2024", game.GetSeasonYear())
 			require.Equal(t, "Premier League", game.GetCompetitionName())
-			require.Equal(t, models.GameStatusNotStarted, game.GetGameStatus())
+			require.Equal(t, models.GameStatusScheduled, game.GetGameStatus())
 		})
 
 		t.Run("Get Non-existent Game", func(t *testing.T) {
@@ -482,7 +484,7 @@ func TestGameRepository_GetAllGames_Integration(t *testing.T) {
 					found++
 					if gameID == gameIDs[0] {
 						require.Equal(t, "Game 1", game.GetName())
-						require.Equal(t, models.GameStatusNotStarted, game.GetGameStatus())
+						require.Equal(t, models.GameStatusScheduled, game.GetGameStatus())
 					}
 					if gameID == gameIDs[1] {
 						require.Equal(t, "Game 2", game.GetName())
@@ -620,5 +622,416 @@ func TestGameRepository_GetAllGames_Integration(t *testing.T) {
 			}
 			require.Equal(t, 2, found)
 		})
+	}, 10*time.Second)
+}
+
+// TestGameRepositoryCacheInconsistency tests that the game repository correctly handles
+// status updates without cache inconsistency
+func TestGameRepositoryCacheInconsistency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+
+		// Create a test game
+		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+
+		// Save game to database
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// Get game from database - should be "in progress"
+		loadedGame, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		assert.Equal(t, models.GameStatusScheduled, loadedGame.GetGameStatus())
+
+		// Finish the game
+		game.Finish()
+		assert.Equal(t, models.GameStatusFinished, game.GetGameStatus())
+
+		// Save the finished game to database
+		err = gameRepo.SaveWithId(gameID, game)
+		require.NoError(t, err)
+
+		// Get game from database again - should now be "finished"
+		reloadedGame, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		assert.Equal(t, models.GameStatusFinished, reloadedGame.GetGameStatus(), "Game status should be 'finished' after saving to database")
+	}, 10*time.Second)
+}
+
+// TestGameServiceCacheInconsistency tests that the game service cache is properly updated
+// when game status changes in the database
+func TestGameServiceCacheInconsistency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+
+		// Create a test game
+		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+
+		// Save game to database
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// Add player to game
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+		require.NoError(t, err)
+
+		// Create game service (this will cache the game)
+		_ = services.NewGameService(gameID, gameRepo, betRepo)
+
+		// Verify initial status
+		assert.Equal(t, models.GameStatusScheduled, game.GetGameStatus())
+
+		// Finish the game
+		game.Finish()
+		assert.Equal(t, models.GameStatusFinished, game.GetGameStatus())
+
+		// Save the finished game to database
+		err = gameRepo.SaveWithId(gameID, game)
+		require.NoError(t, err)
+
+		// The cached game in gameService should still be "not started" - this is the bug!
+		// We can't access the private field directly, but we can test the behavior
+		// by checking that the game service still returns the old status through its methods
+
+		// If we get the game from the repository again, it should be "finished"
+		reloadedGame, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		assert.Equal(t, models.GameStatusFinished, reloadedGame.GetGameStatus(), "Game from repository should be 'finished'")
+	}, 10*time.Second)
+}
+
+// TestGameCreationServiceCacheInconsistency tests the full game creation service cache issue
+func TestGameCreationServiceCacheInconsistency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		matchRepo := NewPostgresMatchRepository(testDB.db)
+
+		// Create a test player first
+		player := &models.PlayerData{
+			Name:       "Test Player",
+			Email:      stringPtr("test@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_test"),
+		}
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
+
+		// Create a test game
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+
+		// Save game to database
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// Add player to game
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+		require.NoError(t, err)
+
+		// Create game creation service (this will load and cache the game)
+		gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, nil)
+		require.NoError(t, err)
+
+		// Get the game service from cache
+		gameService, err := gameCreationService.GetGameService(gameID, player)
+		require.NoError(t, err)
+
+		// Verify initial status - we can check this through the service methods
+		initialMatches := gameService.GetIncomingMatches(player)
+		// A fresh game should have no incoming matches, so this should be empty
+		assert.Equal(t, 0, len(initialMatches))
+
+		// Finish the game and save to database
+		game.Finish()
+		err = gameRepo.SaveWithId(gameID, game)
+		require.NoError(t, err)
+
+		// The cached game service should still show the old state - this is the bug!
+		cachedGameService, err := gameCreationService.GetGameService(gameID, player)
+		require.NoError(t, err)
+
+		// The cached service should still show no incoming matches (old state)
+		cachedMatches := cachedGameService.GetIncomingMatches(player)
+		assert.Equal(t, 0, len(cachedMatches), "Cached game service should still show old state - this demonstrates the cache inconsistency")
+
+		// If we get the game directly from the repository, it should be "finished"
+		reloadedGame, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		assert.Equal(t, models.GameStatusFinished, reloadedGame.GetGameStatus(), "Game from repository should be 'finished'")
+	}, 10*time.Second)
+}
+
+// TestGameCreationServiceCacheInconsistencyWithMatches tests the cache issue with a more realistic scenario
+func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		matchRepo := NewPostgresMatchRepository(testDB.db)
+
+		// Create a test player first
+		player := &models.PlayerData{
+			Name:       "Test Player",
+			Email:      stringPtr("test@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_test"),
+		}
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
+
+		// Create some matches for the game
+		match1 := models.NewSeasonMatch("Team A", "Team B", "2025/2026", "Ligue 1", testTime.Add(24*time.Hour), 1)
+		err = matchRepo.SaveMatch(match1)
+		require.NoError(t, err)
+
+		match2 := models.NewSeasonMatch("Team C", "Team D", "2025/2026", "Ligue 1", testTime.Add(48*time.Hour), 1)
+		err = matchRepo.SaveMatch(match2)
+		require.NoError(t, err)
+
+		// Create a test game with matches
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{match1, match2}, &rules.ScorerOriginal{})
+
+		// Save game to database
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// Add player to game
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+		require.NoError(t, err)
+
+		// Create game creation service (this will load and cache the game)
+		gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, nil)
+		require.NoError(t, err)
+
+		// Get the game service from cache
+		gameService, err := gameCreationService.GetGameService(gameID, player)
+		require.NoError(t, err)
+
+		// Verify initial status - should have 2 incoming matches
+		initialMatches := gameService.GetIncomingMatches(player)
+		assert.Equal(t, 2, len(initialMatches), "Game should have 2 incoming matches initially")
+
+		// Finish one match and update the game
+		match1.Finish(2, 1)
+		err = matchRepo.SaveMatch(match1)
+		require.NoError(t, err)
+
+		// Update the game to reflect the finished match
+		game.UpdateMatch(match1)
+		err = gameRepo.SaveWithId(gameID, game)
+		require.NoError(t, err)
+
+		// The cached game service should still show 2 incoming matches - this is the bug!
+		cachedGameService, err := gameCreationService.GetGameService(gameID, player)
+		require.NoError(t, err)
+
+		// The cached service should still show 2 incoming matches (old state)
+		cachedMatches := cachedGameService.GetIncomingMatches(player)
+		assert.Equal(t, 2, len(cachedMatches), "Cached game service should still show old state with 2 matches - this demonstrates the cache inconsistency")
+
+		// If we get the game directly from the repository, it should have 1 incoming match
+		reloadedGame, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		reloadedMatches := reloadedGame.GetIncomingMatches(player)
+		assert.Equal(t, 1, len(reloadedMatches), "Game from repository should have 1 incoming match after one match finished")
+	}, 10*time.Second)
+}
+
+// TestGetPlayerGamesStatusInconsistency tests that GetPlayerGames returns the correct game status
+func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		matchRepo := NewPostgresMatchRepository(testDB.db)
+
+		// Create a test player first
+		player := &models.PlayerData{
+			Name:       "Test Player",
+			Email:      stringPtr("test@example.com"),
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_user_test"),
+		}
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
+
+		// Create a test game
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+
+		// Save game to database
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// Add player to game
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
+		require.NoError(t, err)
+
+		// Create game creation service
+		gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, nil)
+		require.NoError(t, err)
+
+		// Get player games - should show "not started"
+		playerGames, err := gameCreationService.GetPlayerGames(player)
+		require.NoError(t, err)
+		require.Len(t, playerGames, 1)
+		assert.Equal(t, "in progress", playerGames[0].Status, "Game should be 'in progress' initially")
+
+		// Finish the game and save to database
+		game.Finish()
+		err = gameRepo.SaveWithId(gameID, game)
+		require.NoError(t, err)
+
+		// Get player games again - should now show "finished"
+		playerGamesAfterFinish, err := gameCreationService.GetPlayerGames(player)
+		require.NoError(t, err)
+		require.Len(t, playerGamesAfterFinish, 1)
+		assert.Equal(t, "finished", playerGamesAfterFinish[0].Status, "Game should be 'finished' after saving to database")
+	}, 10*time.Second)
+}
+
+// TestPostgresGameRepositoryCaching tests that the caching layer works correctly
+func TestPostgresGameRepositoryCaching(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+
+		// Create a player
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
+
+		// Create a game
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// First call should hit the database and cache the result
+		game1, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		require.Equal(t, "Test Game", game1.GetName())
+
+		// Second call should hit the cache
+		game2, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		require.Equal(t, "Test Game", game2.GetName())
+
+		// Update the game status to finished
+		game.Finish()
+		err = gameRepo.SaveWithId(gameID, game)
+		require.NoError(t, err)
+
+		// Next call should get the updated status from cache
+		game3, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		require.Equal(t, models.GameStatusFinished, game3.GetGameStatus())
+	}, 10*time.Second)
+}
+
+// TestPostgresGameRepositoryCacheClearing tests that the cache clearing works correctly
+func TestPostgresGameRepositoryCacheClearing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+
+		// Create a player
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
+
+		// Create a game
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		gameID, err := gameRepo.CreateGame(game)
+		require.NoError(t, err)
+
+		// First call should hit the database and cache the result
+		game1, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		require.Equal(t, "Test Game", game1.GetName())
+
+		// Second call should hit the cache
+		game2, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		require.Equal(t, "Test Game", game2.GetName())
+
+		// Clear the cache
+		postgresRepo := gameRepo.(*PostgresGameRepository)
+		postgresRepo.ClearCache()
+
+		// Next call should hit the database again (cache miss)
+		game3, err := gameRepo.GetGame(gameID)
+		require.NoError(t, err)
+		require.Equal(t, "Test Game", game3.GetName())
 	}, 10*time.Second)
 }

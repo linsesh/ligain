@@ -183,19 +183,7 @@ export default function ProfileScreen() {
               </View>
             )}
 
-            {player.provider && (
-              <View style={styles.infoRow}>
-                <Ionicons 
-                  name={player.provider === 'google' ? 'logo-google' : 'logo-apple'} 
-                  size={20} 
-                  color={colors.textSecondary} 
-                />
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.provider')}:</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {player.provider.charAt(0).toUpperCase() + player.provider.slice(1)}
-                </Text>
-              </View>
-            )}
+
 
             {player.created_at && (
               <View style={styles.infoRow}>

@@ -99,7 +99,7 @@ describe('useBetSubmission', () => {
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toContain('400');
+    expect(result.current.error?.message).toBe('Invalid information provided. Please check your details');
   });
 
   it('should handle network errors', async () => {
@@ -116,7 +116,7 @@ describe('useBetSubmission', () => {
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toBe('Network error');
+    expect(result.current.error?.message).toBe('Something went wrong. Please try again later');
   });
 
   it('should retry on 401 errors', async () => {
@@ -179,7 +179,7 @@ describe('useBetSubmission', () => {
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toContain('401');
+    expect(result.current.error?.message).toBe('Authentication went wrong, please refresh the page and retry');
   });
 
   it('should clear error on new submission', async () => {

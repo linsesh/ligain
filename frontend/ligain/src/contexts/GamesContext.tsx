@@ -31,7 +31,7 @@ import { useAuth } from './AuthContext';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { handleGameError } from '../utils/errorMessages';
+import { handleGameError, translateError } from '../utils/errorMessages';
 
 // Basic game data structure returned from the API
 // Contains core game information without any derived/calculated fields
@@ -162,6 +162,10 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         return;
       } catch (err) {
+        console.log('🔍 GamesContext - Caught error:', err);
+        console.log('🔍 GamesContext - Error type:', err instanceof Error ? err.constructor.name : typeof err);
+        console.log('🔍 GamesContext - Error message:', err instanceof Error ? err.message : String(err));
+        
         lastError = err;
         // Only retry on first 401 with expired token, otherwise break
         if (!(err instanceof Error && err.message.includes('401')) || didRetry) {
@@ -169,7 +173,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     }
-    setError(lastError instanceof Error ? lastError.message : 'Failed to fetch games');
+    setError(translateError(lastError instanceof Error ? lastError.message : 'Failed to fetch games'));
     setLoading(false);
   }, [player, timeService, checkAuth, signOut, router]);
 

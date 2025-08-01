@@ -14,6 +14,7 @@ type PostgresGameRepository struct {
 	*PostgresRepository
 	matchRepo repositories.MatchRepository
 	betRepo   repositories.BetRepository
+	cache     repositories.GameRepository // In-memory cache
 }
 
 func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) {
@@ -21,10 +22,12 @@ func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) 
 	betCache := repositories.NewInMemoryBetRepository()
 	matchRepo := NewPostgresMatchRepository(db)
 	betRepo := NewPostgresBetRepository(db, betCache)
+	cache := repositories.NewInMemoryGameRepository()
 	return &PostgresGameRepository{
 		PostgresRepository: baseRepo,
 		matchRepo:          matchRepo,
 		betRepo:            betRepo,
+		cache:              cache,
 	}, nil
 }
 
@@ -47,11 +50,25 @@ func (r *PostgresGameRepository) CreateGame(game models.Game) (string, error) {
 		return "", fmt.Errorf("error saving game: %v", err)
 	}
 
+	// Cache the newly created game
+	if err := r.cache.SaveWithId(id, game); err != nil {
+		log.WithError(err).Warn("Failed to cache newly created game")
+	}
+
 	return id, nil
 }
 
 func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
-	seasonYear, competitionName, name, err := r.getGameDetails(gameId)
+	// Try to get from cache first
+	if cachedGame, err := r.cache.GetGame(gameId); err == nil {
+		log.WithField("gameId", gameId).Debug("Game found in cache")
+		return cachedGame, nil
+	}
+
+	// Cache miss, load from database
+	log.WithField("gameId", gameId).Debug("Game not found in cache, loading from database")
+
+	seasonYear, competitionName, name, status, err := r.getGameDetails(gameId)
 	if err != nil {
 		log.Errorf("error getting game details: %v", err)
 		return nil, err
@@ -118,6 +135,15 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 		)
 	}
 
+	if status == "finished" {
+		gameImpl.Finish()
+	}
+
+	// Store in cache for future requests
+	if err := r.cache.SaveWithId(gameId, gameImpl); err != nil {
+		log.WithError(err).Warn("Failed to cache game")
+	}
+
 	return gameImpl, nil
 }
 
@@ -161,28 +187,29 @@ func (r *PostgresGameRepository) GetAllGames() (map[string]models.Game, error) {
 	return games, nil
 }
 
-func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, string, error) {
+func (r *PostgresGameRepository) getGameDetails(gameId string) (string, string, string, string, error) {
 	query := `
-		SELECT g.season_year, g.competition_name, g.game_name
+		SELECT g.season_year, g.competition_name, g.game_name, g.status
 		FROM game g
 		WHERE g.id = $1::uuid`
 
-	var seasonYear, competitionName, name string
+	var seasonYear, competitionName, name, status string
 	err := r.db.QueryRow(query, gameId).Scan(
 		&seasonYear,
 		&competitionName,
 		&name,
+		&status,
 	)
 
 	if err == sql.ErrNoRows {
 		log.Errorf("The postgres query returned no rows for game %s", gameId)
-		return "", "", "", fmt.Errorf("game %s not found", gameId)
+		return "", "", "", "", fmt.Errorf("game %s not found", gameId)
 	}
 	if err != nil {
-		return "", "", "", fmt.Errorf("error getting game: %v", err)
+		return "", "", "", "", fmt.Errorf("error getting game: %v", err)
 	}
 
-	return seasonYear, competitionName, name, nil
+	return seasonYear, competitionName, name, status, nil
 }
 
 func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Match, []models.Match, map[string]map[string]*models.Bet, []models.Player, error) {
@@ -338,6 +365,11 @@ func (r *PostgresGameRepository) SaveWithId(gameId string, game models.Game) err
 		return fmt.Errorf("error saving game: %v", err)
 	}
 
+	// Update cache with the new game state
+	if err := r.cache.SaveWithId(gameId, game); err != nil {
+		log.WithError(err).Warn("Failed to update game cache")
+	}
+
 	return nil
 }
 
@@ -371,4 +403,10 @@ func (r *PostgresGameRepository) getGamePlayers(gameId string) ([]models.Player,
 	}
 
 	return players, nil
+}
+
+// ClearCache clears the in-memory cache
+func (r *PostgresGameRepository) ClearCache() {
+	// The InMemoryGameRepository doesn't have a clear method, but we can create a new one
+	r.cache = repositories.NewInMemoryGameRepository()
 }

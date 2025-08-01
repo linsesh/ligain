@@ -32,7 +32,7 @@ func NewFreshGame(seasonCode, competitionCode, name string, players []models.Pla
 		competitionCode: competitionCode,
 		name:            name,
 		players:         players,
-		gameStatus:      models.GameStatusNotStarted,
+		gameStatus:      models.GameStatusScheduled,
 		playersPoints:   make(map[string]map[string]int),
 		incomingMatches: make(map[string]models.Match),
 		pastMatches:     make(map[string]models.Match),

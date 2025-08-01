@@ -11,6 +11,7 @@ import Leaderboard from '../../../../../src/components/Leaderboard';
 import { useGames } from '../../../../../src/contexts/GamesContext';
 import { getTranslatedGameStatus } from '../../../../../src/utils/gameStatusUtils';
 import StatusTag from '../../../../../src/components/StatusTag';
+import { translateError } from '../../../../../src/utils/errorMessages';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -62,7 +63,7 @@ export default function GameOverviewScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{t('games.failedToLoadGame')} {error}</Text>
+          <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={refresh}>
             <Text style={styles.retryButtonText}>{t('games.retry')}</Text>
           </TouchableOpacity>

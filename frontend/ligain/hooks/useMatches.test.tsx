@@ -115,7 +115,7 @@ describe('useMatches', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toContain('500');
+    expect(result.current.error?.message).toBe('Server error. Please try again later');
     expect(result.current.incomingMatches).toEqual({});
     expect(result.current.pastMatches).toEqual({});
   });
@@ -129,7 +129,7 @@ describe('useMatches', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toBe('Network error');
+    expect(result.current.error?.message).toBe('Something went wrong. Please try again later');
   });
 
   it('should process scores correctly', async () => {

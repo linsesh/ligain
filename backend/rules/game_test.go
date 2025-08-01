@@ -59,8 +59,8 @@ func TestGameBasicProperties(t *testing.T) {
 	if game.GetName() != "Test Game" {
 		t.Errorf("Expected game name 'Test Game', got %s", game.GetName())
 	}
-	if game.GetGameStatus() != models.GameStatusNotStarted {
-		t.Errorf("Expected game status 'not started', got %s", game.GetGameStatus())
+	if game.GetGameStatus() != models.GameStatusScheduled {
+		t.Errorf("Expected game status 'in progress', got %s", game.GetGameStatus())
 	}
 }
 

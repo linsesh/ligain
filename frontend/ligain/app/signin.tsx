@@ -20,6 +20,7 @@ import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
 import { PrivacyTermsModal } from '../src/components/PrivacyTermsModal';
 import { setItem } from '../src/utils/storage';
 import { useTranslation } from 'react-i18next';
+import { translateError } from '../src/utils/errorMessages';
 
 export default function SignInScreen() {
   const { signIn, player, setPlayer, showNameModal, setShowNameModal, authResult, setAuthResult, selectedProvider, setSelectedProvider } = useAuth();
@@ -70,7 +71,7 @@ export default function SignInScreen() {
         return;
       }
       
-      Alert.alert('Sign In Failed', error.message || 'Unknown error');
+      Alert.alert(t('errors.signInFailed'), translateError(error.message || 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +128,7 @@ export default function SignInScreen() {
     }
     if (!authResult) {
       console.log('🔐 handleNameSubmit - ERROR: authResult is null');
-      Alert.alert('Error', 'Missing authentication context. Please try again.');
+      Alert.alert(t('errors.error'), t('errors.missingAuthContext'));
       setShowNameModal(false);
       return;
     }
@@ -207,7 +208,7 @@ export default function SignInScreen() {
                 }
                 
                 console.error('Google Sign-In error:', error);
-                Alert.alert('Sign-In Failed', error.message);
+                Alert.alert(t('errors.signInFailed'), translateError(error.message));
               }}
               disabled={isLoading}
             />
@@ -263,7 +264,7 @@ export default function SignInScreen() {
                     } else {
                       // For other authentication errors, show error alert
                       console.error('Apple Sign-In - Authentication error:', authError.message);
-                      Alert.alert(t('errors.authenticationError'), authError.message);
+                      Alert.alert(t('errors.authenticationError'), translateError(authError.message));
                     }
                   }
                 } catch (error: any) {
@@ -279,7 +280,7 @@ export default function SignInScreen() {
                   }
                   
                   console.error('Apple Sign-In error:', error);
-                  Alert.alert(t('errors.signInFailed'), error.message);
+                  Alert.alert(t('errors.signInFailed'), translateError(error.message));
                 }
               }}
               disabled={isLoading}

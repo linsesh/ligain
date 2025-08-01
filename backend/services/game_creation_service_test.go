@@ -1679,7 +1679,10 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, matches, &rules.ScorerOriginal{})
 
 	// Create a game service to interact with the game
-	gameService := NewGameService(gameID, realGame, mockGameRepo, mockBetRepo)
+	gameService := NewGameService(gameID, mockGameRepo, mockBetRepo)
+
+	// Set up mock to return the real game when GetGame is called
+	mockGameRepo.On("GetGame", gameID).Return(realGame, nil)
 
 	// Add bets directly to the game (simpler for testing)
 	bet1 := models.NewBet(match1, 2, 1)

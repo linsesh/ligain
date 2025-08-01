@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
 import { useAuth } from '../src/contexts/AuthContext';
+import { translateError } from '../src/utils/errorMessages';
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000; // 2 seconds
@@ -61,9 +62,10 @@ export const useBetSubmission = (gameId: string, onFail?: (matchId: string) => v
       console.log('Bet saved successfully:', data);
       setIsSubmitting(false); // Set to false immediately after success
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to save bet');
-      console.error('Error saving bet:', error);
-      setError(error);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save bet';
+      const translatedError = new Error(translateError(errorMessage));
+      console.error('Error saving bet:', translatedError);
+      setError(translatedError);
       setIsSubmitting(false); // Set to false after max retries
       setLastFailedMatchId(matchId);
       if (onFail) onFail(matchId);

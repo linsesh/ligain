@@ -3,6 +3,7 @@ import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
 import { useMatches } from './useMatches';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 import { useAuth } from '../src/contexts/AuthContext';
+import { translateError } from '../src/utils/errorMessages';
 
 interface Game {
   gameId: string;
@@ -80,7 +81,7 @@ export const useGamesForMatches = () => {
       
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch games');
+      setError(translateError(err instanceof Error ? err.message : 'Failed to fetch games'));
     } finally {
       setLoading(false);
     }

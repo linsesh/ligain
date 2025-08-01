@@ -51,7 +51,7 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 			matchRepo:    matchRepo,
 			subscribers:  make(map[string]GameService),
 			stopChan:     make(chan struct{}),
-			pollInterval: time.Minute * 5,
+			pollInterval: time.Second * 30,
 		}
 	})
 	return watcher, nil

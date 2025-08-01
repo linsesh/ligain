@@ -726,3 +726,95 @@ func TestLeaveGame_Error(t *testing.T) {
 	mockGameCreationService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
+
+// TestGetPlayerGamesAPIStatusInconsistency tests the actual API endpoint for game status consistency
+func TestGetPlayerGamesAPIStatusInconsistency(t *testing.T) {
+	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+
+	// Setup test data
+	player := &models.PlayerData{
+		ID:   "test-player-id",
+		Name: "Test Player",
+	}
+
+	// Initial games with "in progress" status
+	initialGames := []services.PlayerGame{
+		{
+			GameID:          "game-1",
+			SeasonYear:      "2025/2026",
+			CompetitionName: "Ligue 1",
+			Name:            "Test Game",
+			Status:          "in progress",
+			Players:         []services.PlayerGameInfo{},
+			Code:            "ABC1",
+		},
+	}
+
+	// Updated games with "finished" status
+	updatedGames := []services.PlayerGame{
+		{
+			GameID:          "game-1",
+			SeasonYear:      "2025/2026",
+			CompetitionName: "Ligue 1",
+			Name:            "Test Game",
+			Status:          "finished",
+			Players:         []services.PlayerGameInfo{},
+			Code:            "ABC1",
+		},
+	}
+
+	// Mock expectations for initial call
+	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil).Times(2)
+	mockGameCreationService.On("GetPlayerGames", player).Return(initialGames, nil).Once()
+	mockGameCreationService.On("GetPlayerGames", player).Return(updatedGames, nil).Once()
+
+	// Create request
+	req := httptest.NewRequest("GET", "/api/games", nil)
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+
+	// Perform request
+	router.ServeHTTP(w, req)
+
+	// Assert initial response
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var initialResponse map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &initialResponse)
+	assert.NoError(t, err)
+	assert.Contains(t, initialResponse, "games")
+
+	initialGamesResponse := initialResponse["games"].([]interface{})
+	assert.Len(t, initialGamesResponse, 1)
+
+	// Verify initial game status
+	initialGame := initialGamesResponse[0].(map[string]interface{})
+	assert.Equal(t, "in progress", initialGame["status"], "Initial game status should be 'in progress'")
+
+	// Create second request
+	req2 := httptest.NewRequest("GET", "/api/games", nil)
+	req2.Header.Set("Authorization", "Bearer testtoken")
+	w2 := httptest.NewRecorder()
+
+	// Perform second request
+	router.ServeHTTP(w2, req2)
+
+	// Assert updated response
+	assert.Equal(t, http.StatusOK, w2.Code)
+
+	var updatedResponse map[string]interface{}
+	err = json.Unmarshal(w2.Body.Bytes(), &updatedResponse)
+	assert.NoError(t, err)
+	assert.Contains(t, updatedResponse, "games")
+
+	updatedGamesResponse := updatedResponse["games"].([]interface{})
+	assert.Len(t, updatedGamesResponse, 1)
+
+	// Verify updated game status
+	updatedGame := updatedGamesResponse[0].(map[string]interface{})
+	assert.Equal(t, "finished", updatedGame["status"], "Updated game status should be 'finished'")
+
+	// Verify mocks
+	mockGameCreationService.AssertExpectations(t)
+	mockAuthService.AssertExpectations(t)
+}

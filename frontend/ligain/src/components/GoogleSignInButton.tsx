@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useTranslation } from '../hooks/useTranslation';
+import { translateError } from '../utils/errorMessages';
 
 interface GoogleSignInButtonProps {
   onSignInSuccess?: (result: any) => void;
@@ -79,9 +80,8 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
             throw authError;
           }
         } else {
-          // For other authentication errors, show error alert
+          // For other authentication errors, let the parent handle the error
           console.error('Google Sign-In - Authentication error:', authError.message);
-          Alert.alert('Authentication Error', authError.message);
           if (onSignInError) {
             onSignInError(authError);
           }
@@ -113,8 +113,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       
       console.error('Google Sign-In error:', error);
       
-      Alert.alert('Sign-In Error', error.message);
-      
+      // Let the parent handle the error display
       if (onSignInError) {
         onSignInError(error);
       }

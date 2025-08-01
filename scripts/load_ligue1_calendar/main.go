@@ -92,10 +92,10 @@ func main() {
 		if seenMatches[matchId] {
 			log.Printf("Skipping duplicate match for database: %s (fixture ID: %d)", matchId, fixtureId)
 			continue
-		}
+		} /* not adjusting odds because we will try in real conditions
 		if match.GetHomeTeamOdds() == 0 || match.GetAwayTeamOdds() == 0 || match.GetDrawOdds() == 0 {
 			match = adjustOdds(match)
-		}
+		}*/
 		seenMatches[matchId] = true
 
 		err := matchRepo.SaveMatch(match)
