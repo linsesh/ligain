@@ -103,7 +103,6 @@ func main() {
 			log.Printf("Error saving match %s (fixture ID: %d): %v", matchId, fixtureId, err)
 			errorCount++
 		} else {
-			log.Printf("Saved match: %s", matchId)
 			savedCount++
 		}
 	}
@@ -135,7 +134,7 @@ func main() {
 		if matches, exists := matchesByMatchday[matchday]; exists {
 			log.Printf("Matchday %d: %d matches", matchday, len(matches))
 			for _, match := range matches {
-				log.Printf("  - %s vs %s (%s)  --  Odds: %v - %v - %v", match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"), match.GetHomeTeamOdds(), match.GetAwayTeamOdds(), match.GetDrawOdds())
+				log.Printf("  - %s vs %s (%s)  --  Odds: %v - %v - %v", match.GetHomeTeam(), match.GetAwayTeam(), match.GetDate().Format("2006-01-02 15:04"), match.GetHomeTeamOdds(), match.GetDrawOdds(), match.GetAwayTeamOdds())
 			}
 		} else {
 			log.Printf("Matchday %d: No matches found", matchday)

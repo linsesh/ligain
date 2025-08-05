@@ -176,10 +176,10 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// Extract odds for home, draw, away (market_id=1, bookmaker_id=2 is bet365)
+	// Extract odds for home, draw, away (market_id=1, bookmaker_id=37 is betclic)
 	var homeOdd, drawOdd, awayOdd float64
 	for _, o := range f.Odds {
-		if o.MarketID == 1 && o.BookmakerID == 2 {
+		if o.MarketID == 1 && o.BookmakerID == 37 {
 			switch o.Label {
 			case "Home":
 				homeOdd, _ = strconv.ParseFloat(o.Value, 64)
@@ -337,7 +337,7 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		}
 		query := s.basicQuery(req)
 		// Add the season filter
-		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:2;markets:1", seasonId))
+		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:37;markets:1", seasonId))
 		// Use semicolons for includes
 		query.Add("include", "league;season;round;scores;participants;odds")
 		// Add pagination parameters
@@ -363,9 +363,6 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 			errChan <- err
 			return
 		}
-
-		fixtureCount := len(responseBody.Data)
-		log.Printf("Received %d fixtures on page %d for season ID %d", fixtureCount, currentPage, seasonId)
 
 		// Convert the fixtures to a map of models.Match and add to our collection
 		for _, fixture := range responseBody.Data {
@@ -424,7 +421,7 @@ func (s *SportsmonkAPIImpl) GetFixturesInfos(fixtureIds []int) (map[int]models.M
 	// Use semicolons for includes - this is the key change
 	query.Add("include", "league;season;round;scores;participants;odds")
 	// Filter for specific bookmaker and market if needed
-	query.Add("filters", "bookmakers:2;markets:1")
+	query.Add("filters", "bookmakers:37;markets:1")
 	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
@@ -460,7 +457,6 @@ func (s *SportsmonkAPIImpl) GetCompetitionId(competitionCode string) (int, error
 }
 
 func (s *SportsmonkAPIImpl) makeRequest(req *http.Request) (resp *http.Response, err error) {
-	log.Printf("Request: %s", req.URL.String())
 	client := &http.Client{}
 	resp, err = client.Do(req)
 	if err != nil {
