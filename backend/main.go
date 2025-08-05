@@ -50,8 +50,6 @@ func main() {
 	playerRepo := postgres.NewPostgresPlayerRepository(db)
 	matchRepo := postgres.NewPostgresMatchRepository(db)
 
-	// Create match watcher service
-	var watcher services.MatchWatcherService
 	env := os.Getenv("ENV")
 	matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2025/2026")
 	log.Infof("Got %d matches", len(matches))
@@ -64,7 +62,7 @@ func main() {
 			matchesMap[match.Id()] = match
 		}
 	}
-	watcher, err = services.NewMatchWatcherServiceSportsmonk(env, matchesMap, matchRepo)
+	watcher, err := services.NewMatchWatcherServiceSportsmonk(env, matchesMap, matchRepo)
 	if err != nil {
 		log.Fatal("Failed to create match watcher service:", err)
 	}

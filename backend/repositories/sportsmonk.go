@@ -70,7 +70,6 @@ func (r *SportsmonkRepositoryImpl) askAndCacheFixtureInfo(seasonId int, matches 
 }
 
 func (r *SportsmonkRepositoryImpl) askAndCacheSeasonId(matches map[string]models.Match) (int, error) {
-	var seasonId int
 	matchesSlice := utils.MapValues(matches)
 
 	seasonCode := matchesSlice[0].GetSeasonCode()
@@ -88,8 +87,10 @@ func (r *SportsmonkRepositoryImpl) askAndCacheSeasonId(matches map[string]models
 		if err != nil {
 			return -1, err
 		}
-		seasonId = seasonIds[seasonCode]
+		seasonId := seasonIds[seasonCode]
 		r.seasonCodeToSeasonId[seasonCode] = seasonId
+		return seasonId, nil
 	}
-	return seasonId, nil
+
+	return r.seasonCodeToSeasonId[seasonCode], nil
 }

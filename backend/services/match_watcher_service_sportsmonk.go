@@ -38,20 +38,20 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 				log.Errorf("Error initializing local environment: %v", err)
 			}
 		}
-		seasonMatches := make([]models.SeasonMatch, 0, len(matches))
-		for _, m := range matches {
-			if sm, ok := m.(*models.SeasonMatch); ok {
-				seasonMatches = append(seasonMatches, *sm)
-			}
-		}
+		/*
+			seasonMatches := make([]models.SeasonMatch, 0, len(matches))
+			for _, m := range matches {
+				if sm, ok := m.(*models.SeasonMatch); ok {
+					seasonMatches = append(seasonMatches, *sm)
+				}
+			}*/
 		watcher = &MatchWatcherServiceSportsmonk{
 			watchedMatches: matches,
-			//repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
-			repo:         repositories.NewSportsmonkRepository(api.NewFakeRandomSportsmonkAPI(seasonMatches)),
-			matchRepo:    matchRepo,
-			subscribers:  make(map[string]GameService),
-			stopChan:     make(chan struct{}),
-			pollInterval: time.Second * 30,
+			repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
+			matchRepo:      matchRepo,
+			subscribers:    make(map[string]GameService),
+			stopChan:       make(chan struct{}),
+			pollInterval:   time.Minute * 1,
 		}
 	})
 	return watcher, nil

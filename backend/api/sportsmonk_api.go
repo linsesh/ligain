@@ -371,17 +371,6 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		fixtureCount := len(responseBody.Data)
 		log.Printf("Received %d fixtures on page %d for season ID %d", fixtureCount, currentPage, seasonId)
 
-		// Log first few fixtures for debugging
-		for i, fixture := range responseBody.Data {
-			if i < 3 { // Only log first 3 fixtures per page to avoid spam
-				log.Printf("  Fixture %d: ID=%d, Name='%s', StartingAt='%s', Round='%s'",
-					i+1, fixture.ID, fixture.Name, fixture.StartingAt, fixture.Round.Name)
-			}
-			if fixture.Round.Name == "1" {
-				log.Printf("Match de la première journée: %+v", fixture)
-			}
-		}
-
 		// Convert the fixtures to a map of models.Match and add to our collection
 		for _, fixture := range responseBody.Data {
 			match, err := fixture.toMatch()
