@@ -252,7 +252,7 @@ func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string, competitionId int
 	seasons := make(chan []season)
 	errChan := make(chan error)
 	//should we forward the context from the caller?
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	go s.fetchSeasons(competitionId, ctx, seasons, errChan)
 
@@ -268,7 +268,7 @@ func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string, competitionId int
 	case err := <-errChan:
 		return nil, err
 	case <-ctx.Done():
-		return nil, fmt.Errorf("request timed out after 1 second")
+		return nil, fmt.Errorf("request timed out after 10 seconds")
 	}
 }
 
@@ -305,7 +305,7 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 	seasonFixtures := make(chan map[int]models.Match)
 	errChan := make(chan error)
 	//should we forward the context from the caller?
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	go s.fetchSeasonFixtures(seasonId, ctx, seasonFixtures, errChan)
 
@@ -315,7 +315,7 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 	case err := <-errChan:
 		return nil, err
 	case <-ctx.Done():
-		return nil, fmt.Errorf("request timed out after 30 seconds")
+		return nil, fmt.Errorf("request timed out after 10 seconds")
 	}
 }
 
@@ -327,12 +327,8 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 	currentPage := 1
 	hasMore := true
 
-	log.Printf("Starting to fetch fixtures for season ID %d", seasonId)
-
 	// Loop through all pages
 	for hasMore {
-		log.Printf("Fetching page %d of fixtures for season ID %d", currentPage, seasonId)
-
 		// Use the fixtures endpoint with a season filter
 		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sfixtures", baseURL), nil)
 		if err != nil {
@@ -408,8 +404,6 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		// Check if there are more pages
 		hasMore = responseBody.Pagination.HasMore
 		currentPage++
-
-		log.Printf("Processed page %d for season ID %d. Has more pages: %v", currentPage-1, seasonId, hasMore)
 	}
 
 	log.Printf("Completed fetching all fixtures for season ID %d. Total fixtures: %d (after deduplication)", seasonId, len(allFixtures))

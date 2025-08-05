@@ -126,6 +126,7 @@ func (m *MatchWatcherServiceSportsmonk) checkForUpdates() {
 	}
 
 	if len(updates) == 0 {
+		log.Infof("No match updates found")
 		return
 	}
 
