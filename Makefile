@@ -1,7 +1,49 @@
-.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down docker-build db-start db-stop db-create db-drop db-init docker-push docker-build-push docker-deploy deploy
+.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down docker-build db-start db-stop db-create db-drop db-init docker-push docker-build-push docker-deploy deploy deploy-prd build-prd push-prd build-push-prd help
 
 # Default target
-all: test test-frontend build
+all: help
+
+# Show help
+help:
+	@echo "Available commands:"
+	@echo ""
+	@echo "Development commands:"
+	@echo "  make test              - Run tests"
+	@echo "  make test-frontend     - Run frontend tests"
+	@echo "  make test-integration  - Run integration tests"
+	@echo "  make build             - Build the application"
+	@echo "  make clean             - Clean build artifacts"
+	@echo "  make format            - Format Go files"
+	@echo "  make deps              - Install dependencies"
+	@echo ""
+	@echo "Docker commands (dev):"
+	@echo "  make docker-build      - Build Docker image for dev"
+	@echo "  make docker-push       - Push Docker image to dev GCR"
+	@echo "  make docker-build-push - Build and push Docker image for dev"
+	@echo "  make docker-deploy     - Deploy dev service"
+	@echo "  make deploy            - Complete dev deployment workflow"
+	@echo ""
+	@echo "Production commands:"
+	@echo "  make deploy-prd        - Complete production deployment workflow"
+	@echo "  make build-prd         - Build Docker image for production"
+	@echo "  make push-prd          - Push Docker image to production GCR"
+	@echo "  make build-push-prd    - Build and push Docker image for production"
+	@echo ""
+	@echo "Database commands:"
+	@echo "  make db-start          - Start PostgreSQL container"
+	@echo "  make db-stop           - Stop PostgreSQL container"
+	@echo "  make db-create         - Create database"
+	@echo "  make db-drop           - Drop database"
+	@echo "  make db-init           - Initialize database with schema and test data"
+	@echo "  make migrate-up        - Run migrations"
+	@echo "  make migrate-down      - Rollback migrations"
+	@echo ""
+	@echo "Environment variables:"
+	@echo "  ENV=prd               - Use production environment (default: dev)"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make deploy-prd        - Deploy to production"
+	@echo "  make ENV=prd deploy    - Alternative way to deploy to production"
 
 # Run tests
 test:
@@ -24,24 +66,42 @@ test-all: test test-frontend test-integration
 build:
 	go build -o backend/bin/app ./backend/...
 
+# Environment configuration
+ENV ?= dev
+PROJECT_ID := $(shell if [ "$(ENV)" = "prd" ]; then echo "prd-ligain"; else echo "woven-century-307314"; fi)
+SERVICE_NAME := $(shell if [ "$(ENV)" = "prd" ]; then echo "server-prd"; else echo "server-dev"; fi)
+
 # Build Docker image
 docker-build:
-	docker build -t gcr.io/woven-century-307314/server-dev:latest -f backend/Dockerfile .
+	docker build -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest -f backend/Dockerfile .
 
 # Push Docker image to GCR
 docker-push:
-	docker push gcr.io/woven-century-307314/server-dev:latest
+	docker push gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest
 
 # Build and push Docker image
 docker-build-push:
-	docker buildx build --platform linux/amd64 -t gcr.io/woven-century-307314/server-dev:latest -f backend/Dockerfile . --push
+	docker buildx build --platform linux/amd64 -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest -f backend/Dockerfile . --push
 
 # Deploy to GCP (requires image to be pushed first)
 docker-deploy:
-	cd infrastructure && pulumi up --yes
+	cd infrastructure && pulumi stack select $(ENV) && pulumi up --yes
 
 # Complete deployment workflow
 deploy: docker-build-push docker-deploy
+
+# Production-specific commands
+deploy-prd:
+	$(MAKE) ENV=prd deploy
+
+build-prd:
+	$(MAKE) ENV=prd docker-build
+
+push-prd:
+	$(MAKE) ENV=prd docker-push
+
+build-push-prd:
+	$(MAKE) ENV=prd docker-build-push
 
 # Clean build artifacts
 clean:
