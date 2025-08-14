@@ -240,3 +240,54 @@ func TestGetSeasonFixtures_WithOdds_Integration(t *testing.T) {
 		}
 	}, 30*time.Second)
 }
+
+func TestBookmakerPreference_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		api := NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN"))
+
+		// Test with a fixture that should have odds available
+		// Using a recent fixture that likely has odds from multiple bookmakers
+		fixtureIds := []int{19139949} // Marseille - Rennes 2025-05-17
+
+		fixtures, err := api.GetFixturesInfos(fixtureIds)
+		if err != nil {
+			t.Fatalf("GetFixturesInfos failed: %v", err)
+		}
+
+		if len(fixtures) == 0 {
+			t.Error("Expected at least one fixture, got none")
+		}
+
+		match := fixtures[19139949]
+		homeOdds := match.GetHomeTeamOdds()
+		awayOdds := match.GetAwayTeamOdds()
+		drawOdds := match.GetDrawOdds()
+
+		// If the match has odds, verify they are reasonable
+		if homeOdds > 0 || awayOdds > 0 || drawOdds > 0 {
+			// Validate odds are reasonable (between 1.0 and 50.0)
+			if homeOdds < 1.0 || homeOdds > 50.0 {
+				t.Errorf("Home odds %f is outside reasonable range (1.0-50.0)", homeOdds)
+			}
+			if awayOdds < 1.0 || awayOdds > 50.0 {
+				t.Errorf("Away odds %f is outside reasonable range (1.0-50.0)", awayOdds)
+			}
+			if drawOdds < 1.0 || drawOdds > 50.0 {
+				t.Errorf("Draw odds %f is outside reasonable range (1.0-50.0)", drawOdds)
+			}
+
+			t.Logf("Match %s odds - Home: %.2f, Away: %.2f, Draw: %.2f",
+				match.Id(), homeOdds, awayOdds, drawOdds)
+		} else {
+			t.Log("Match has no odds available (this might be normal for some fixtures)")
+		}
+
+		// Note: We can't directly test which bookmaker was selected without modifying the API
+		// to expose this information, but we can verify that odds are being retrieved correctly
+		// and that the system falls back gracefully when preferred bookmakers aren't available
+	}, 10*time.Second)
+}

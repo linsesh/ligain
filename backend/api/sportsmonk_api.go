@@ -176,17 +176,40 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// Extract odds for home, draw, away (market_id=1, bookmaker_id=37 is betclic)
+	// Extract odds for home, draw, away (market_id=1, 1X2 market)
 	var homeOdd, drawOdd, awayOdd float64
-	for _, o := range f.Odds {
-		if o.MarketID == 1 && o.BookmakerID == 37 {
-			switch o.Label {
-			case "Home":
-				homeOdd, _ = strconv.ParseFloat(o.Value, 64)
-			case "Draw":
-				drawOdd, _ = strconv.ParseFloat(o.Value, 64)
-			case "Away":
-				awayOdd, _ = strconv.ParseFloat(o.Value, 64)
+
+	// Try Unibet (23) first, then Bet365 (2), then any available
+	for _, bookmakerID := range []int{23, 2} {
+		for _, o := range f.Odds {
+			if o.MarketID == 1 && o.BookmakerID == bookmakerID {
+				switch o.Label {
+				case "Home":
+					homeOdd, _ = strconv.ParseFloat(o.Value, 64)
+				case "Draw":
+					drawOdd, _ = strconv.ParseFloat(o.Value, 64)
+				case "Away":
+					awayOdd, _ = strconv.ParseFloat(o.Value, 64)
+				}
+			}
+		}
+		if homeOdd > 0 && drawOdd > 0 && awayOdd > 0 {
+			break
+		}
+	}
+
+	// If no preferred bookmaker found, use any available
+	if homeOdd == 0 && drawOdd == 0 && awayOdd == 0 {
+		for _, o := range f.Odds {
+			if o.MarketID == 1 {
+				switch o.Label {
+				case "Home":
+					homeOdd, _ = strconv.ParseFloat(o.Value, 64)
+				case "Draw":
+					drawOdd, _ = strconv.ParseFloat(o.Value, 64)
+				case "Away":
+					awayOdd, _ = strconv.ParseFloat(o.Value, 64)
+				}
 			}
 		}
 	}
@@ -337,7 +360,7 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		}
 		query := s.basicQuery(req)
 		// Add the season filter
-		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:37;markets:1", seasonId))
+		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;markets:1", seasonId))
 		// Use semicolons for includes
 		query.Add("include", "league;season;round;scores;participants;odds")
 		// Add pagination parameters

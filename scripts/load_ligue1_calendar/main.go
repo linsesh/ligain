@@ -98,6 +98,10 @@ func main() {
 		}*/
 		seenMatches[matchId] = true
 
+		seasonMatch := match.(*models.SeasonMatch)
+		if seasonMatch.Matchday == 1 {
+			log.Printf("fixtureId: %d, match: %v", fixtureId, match)
+		}
 		err := matchRepo.SaveMatch(match)
 		if err != nil {
 			log.Printf("Error saving match %s (fixture ID: %d): %v", matchId, fixtureId, err)
