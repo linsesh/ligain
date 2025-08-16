@@ -80,9 +80,15 @@ type round struct {
 
 // Score represents a score entry in the API response
 type score struct {
-	Type      string `json:"type"`
-	HomeScore int    `json:"home_score"`
-	AwayScore int    `json:"away_score"`
+	ID            int `json:"id"`
+	FixtureID     int `json:"fixture_id"`
+	TypeID        int `json:"type_id"`
+	ParticipantID int `json:"participant_id"`
+	Score         struct {
+		Goals       int    `json:"goals"`
+		Participant string `json:"participant"`
+	} `json:"score"`
+	Description string `json:"description"`
 }
 
 // Participant represents a team participant in the API response
@@ -166,13 +172,15 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		return nil, fmt.Errorf("could not find home or away team in participants")
 	}
 
-	// Extract full time score (if available)
+	// Extract current score from the scores array
 	homeScore, awayScore := 0, 0
 	for _, s := range f.Scores {
-		if s.Type == "FT" || s.Type == "fulltime" || s.Type == "" { // fallback if type is missing
-			homeScore = s.HomeScore
-			awayScore = s.AwayScore
-			break
+		if s.Description == "CURRENT" {
+			if s.Score.Participant == "home" {
+				homeScore = s.Score.Goals
+			} else if s.Score.Participant == "away" {
+				awayScore = s.Score.Goals
+			}
 		}
 	}
 
@@ -223,8 +231,9 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// State ID 5 means the match is finished
-	if f.StateID == 5 {
+	// Handle different match states
+	switch f.StateID {
+	case 5: // Finished match
 		return models.NewFinishedSeasonMatch(
 			homeTeam.Name,
 			awayTeam.Name,
@@ -238,10 +247,8 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 			awayOdd,
 			drawOdd,
 		), nil
-	}
-
-	if f.HasOdds {
-		return models.NewSeasonMatchWithKnownOdds(
+	case 2, 3, 4: // In progress states (2=1st Half, 3=Half Time, 4=2nd Half)
+		match := models.NewSeasonMatchWithKnownOdds(
 			homeTeam.Name,
 			awayTeam.Name,
 			f.Season.Name,
@@ -251,17 +258,36 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 			homeOdd,
 			awayOdd,
 			drawOdd,
+		)
+		// Set the current score and mark as in progress
+		match.Start()               // This marks it as in progress
+		match.HomeGoals = homeScore // Set current score without changing status
+		match.AwayGoals = awayScore // Set current score without changing status
+		return match, nil
+	default: // Scheduled or other states
+		if f.HasOdds {
+			return models.NewSeasonMatchWithKnownOdds(
+				homeTeam.Name,
+				awayTeam.Name,
+				f.Season.Name,
+				f.League.Name,
+				startTime,
+				matchday,
+				homeOdd,
+				awayOdd,
+				drawOdd,
+			), nil
+		}
+
+		return models.NewSeasonMatch(
+			homeTeam.Name,
+			awayTeam.Name,
+			f.Season.Name,
+			f.League.Name,
+			startTime,
+			matchday,
 		), nil
 	}
-
-	return models.NewSeasonMatch(
-		homeTeam.Name,
-		awayTeam.Name,
-		f.Season.Name,
-		f.League.Name,
-		startTime,
-		matchday,
-	), nil
 }
 
 const baseURL = "https://api.sportmonks.com/v3/football/"
