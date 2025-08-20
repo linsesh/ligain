@@ -219,3 +219,22 @@ func (r *PostgresPlayerRepository) DeleteExpiredTokens(ctx context.Context) erro
 	_, err := r.db.ExecContext(ctx, query)
 	return err
 }
+
+func (r *PostgresPlayerRepository) DeletePlayer(ctx context.Context, playerID string) error {
+	query := `DELETE FROM player WHERE id = $1`
+	result, err := r.db.ExecContext(ctx, query, playerID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}

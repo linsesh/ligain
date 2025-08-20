@@ -125,6 +125,17 @@ func (m *MockPlayerRepository) UpdateAuthToken(ctx context.Context, token *model
 	return nil
 }
 
+func (m *MockPlayerRepository) DeletePlayer(ctx context.Context, playerID string) error {
+	delete(m.players, playerID)
+	// Also delete any tokens for this player
+	for token, authToken := range m.tokens {
+		if authToken.PlayerID == playerID {
+			delete(m.tokens, token)
+		}
+	}
+	return nil
+}
+
 func TestAuthService_Authenticate_NewUser(t *testing.T) {
 	mockRepo := NewMockPlayerRepository()
 	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
@@ -744,6 +755,10 @@ func (m *MockPlayerRepositoryWithErrors) DeleteAuthToken(ctx context.Context, to
 }
 
 func (m *MockPlayerRepositoryWithErrors) DeleteExpiredTokens(ctx context.Context) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) DeletePlayer(ctx context.Context, playerID string) error {
 	return fmt.Errorf("mock error")
 }
 

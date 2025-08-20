@@ -338,6 +338,16 @@ func (m *MockAuthService) UpdateDisplayName(ctx context.Context, playerID string
 	return m.player, nil
 }
 
+func (m *MockAuthService) DeleteAccount(ctx context.Context, playerID string) error {
+	if m.shouldFail {
+		return errors.New("mock delete account failed")
+	}
+	if m.player == nil || m.player.ID != playerID {
+		return &models.PlayerNotFoundError{Reason: "player not found"}
+	}
+	return nil
+}
+
 func TestSignInHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

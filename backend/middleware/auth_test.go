@@ -123,6 +123,17 @@ func (m *MockPlayerRepository) DeleteExpiredTokens(ctx context.Context) error {
 	return nil
 }
 
+func (m *MockPlayerRepository) DeletePlayer(ctx context.Context, playerID string) error {
+	delete(m.players, playerID)
+	// Also delete any tokens for this player
+	for token, authToken := range m.tokens {
+		if authToken.PlayerID == playerID {
+			delete(m.tokens, token)
+		}
+	}
+	return nil
+}
+
 // MockAuthService implements AuthServiceInterface for testing
 type MockAuthService struct {
 	shouldFail bool
@@ -196,6 +207,10 @@ func (m *MockAuthService) GetOrCreatePlayer(ctx context.Context, verifiedUser ma
 
 func (m *MockAuthService) UpdateDisplayName(ctx context.Context, playerID string, newDisplayName string) (*models.PlayerData, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *MockAuthService) DeleteAccount(ctx context.Context, playerID string) error {
+	return nil
 }
 
 func setupTestRouter() *gin.Engine {

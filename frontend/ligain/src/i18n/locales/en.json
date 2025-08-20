@@ -111,7 +111,16 @@
     "editDisplayName": "Edit Display Name",
     "editDisplayNameSubtitle": "Choose a new display name for your profile",
     "displayNameUpdated": "Display name updated successfully",
-    "displayNameUpdateFailed": "Failed to update display name. Please try again."
+    "displayNameUpdateFailed": "Failed to update display name. Please try again.",
+    "deleteAccount": "Delete Account",
+    "deleteAccountWarning": "This action cannot be undone. All your data, including bets, scores, and game participation will be permanently deleted.",
+    "deleteAccountConfirm": "Are you absolutely sure you want to delete your account?",
+    "deleteAccountFinalConfirm": "Type 'DELETE' to confirm:",
+    "typeDeleteToConfirm": "Type DELETE to confirm",
+    "deleteAccountSuccess": "Your account has been deleted successfully",
+    "deleteAccountFailed": "Failed to delete account. Please try again.",
+    "deleteAccountTestAccount": "Test accounts cannot be deleted",
+    "deleteAccountTestAccountMessage": "This is a test account and cannot be deleted. Please use a regular account to test the deletion feature."
   },
   "about": {
     "whatIsLigain": "What is Ligain?",

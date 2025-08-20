@@ -100,7 +100,16 @@
     "editDisplayName": "Modifier le pseudo",
     "editDisplayNameSubtitle": "Choisissez un nouveau pseudo pour votre profil",
     "displayNameUpdated": "Pseudo mis à jour avec succès",
-    "displayNameUpdateFailed": "Échec de la mise à jour du pseudo. Veuillez réessayer."
+    "displayNameUpdateFailed": "Échec de la mise à jour du pseudo. Veuillez réessayer.",
+    "deleteAccount": "Supprimer le compte",
+    "deleteAccountWarning": "Cette action ne peut pas être annulée. Toutes tes données, y compris les paris, scores et participations aux jeux seront définitivement supprimées.",
+    "deleteAccountConfirm": "Êtes-tu absolument sûr de vouloir supprimer ton compte ?",
+    "deleteAccountFinalConfirm": "Tapez 'SUPPRIMER' pour confirmer :",
+    "typeDeleteToConfirm": "Tape 'SUPPRIMER' pour confirmer",
+    "deleteAccountSuccess": "Ton compte a été supprimé avec succès",
+    "deleteAccountFailed": "Échec de la suppression du compte. Réessaye.",
+    "deleteAccountTestAccount": "Les comptes de test ne peuvent pas être supprimés",
+    "deleteAccountTestAccountMessage": "Ceci est un compte de test et ne peut pas être supprimé. Utilise un compte normal pour tester la fonctionnalité de suppression."
   },
   "about": {
     "whatIsLigain": "Qu'est-ce que Ligain ?",

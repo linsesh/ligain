@@ -31,6 +31,7 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 		auth.POST("/signout", middleware.PlayerAuth(h.authService), h.SignOut)
 		auth.GET("/me", middleware.PlayerAuth(h.authService), h.GetCurrentPlayer)
 		auth.PUT("/profile/display-name", middleware.PlayerAuth(h.authService), h.UpdateDisplayName)
+		auth.DELETE("/account", middleware.PlayerAuth(h.authService), h.DeleteAccount)
 	}
 }
 
@@ -212,4 +213,44 @@ func (h *AuthHandler) UpdateDisplayName(c *gin.Context) {
 
 	log.Infof("✅ UpdateDisplayName - Display name updated successfully for user: %s", updatedPlayer.Name)
 	c.JSON(http.StatusOK, gin.H{"player": updatedPlayer})
+}
+
+// DeleteAccount handles permanent account deletion
+func (h *AuthHandler) DeleteAccount(c *gin.Context) {
+	log.Infof("🗑️ DeleteAccount - Request received from %s", c.ClientIP())
+
+	// Get authenticated player from middleware
+	playerInterface, exists := c.Get("player")
+	if !exists {
+		log.Error("❌ DeleteAccount - Player not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	playerData, ok := playerInterface.(*models.PlayerData)
+	if !ok {
+		log.Error("❌ DeleteAccount - Invalid player type in context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	log.Infof("🗑️ DeleteAccount - Deleting account for player %s (%s)", playerData.Name, playerData.ID)
+
+	err := h.authService.DeleteAccount(c.Request.Context(), playerData.ID)
+	if err != nil {
+		log.Errorf("❌ DeleteAccount - Error deleting account: %v", err)
+
+		// Check for specific error types
+		var playerNotFoundErr *models.PlayerNotFoundError
+		if errors.As(err, &playerNotFoundErr) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Player not found"})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete account"})
+		return
+	}
+
+	log.Infof("✅ DeleteAccount - Account deleted successfully for player: %s", playerData.Name)
+	c.JSON(http.StatusOK, gin.H{"message": "Account deleted successfully"})
 }

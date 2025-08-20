@@ -22,6 +22,7 @@ type PlayerRepository interface {
 	GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error)
 	GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error)
 	UpdatePlayer(ctx context.Context, player *models.PlayerData) error
+	DeletePlayer(ctx context.Context, playerID string) error
 	CreateAuthToken(ctx context.Context, token *models.AuthToken) error
 	GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error)
 	UpdateAuthToken(ctx context.Context, token *models.AuthToken) error
@@ -143,5 +144,17 @@ func (r *InMemoryPlayerRepository) DeleteExpiredTokens(ctx context.Context) erro
 	// In-memory implementation
 	// This would typically iterate through tokens and delete expired ones
 	// For simplicity in testing, we'll just return nil
+	return nil
+}
+
+func (r *InMemoryPlayerRepository) DeletePlayer(ctx context.Context, playerID string) error {
+	// In-memory implementation
+	delete(r.players, playerID)
+	// Also delete any tokens for this player
+	for token, authToken := range r.tokens {
+		if authToken.PlayerID == playerID {
+			delete(r.tokens, token)
+		}
+	}
 	return nil
 }

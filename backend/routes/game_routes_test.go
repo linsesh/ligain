@@ -147,6 +147,11 @@ func (m *MockGameAuthService) RefreshTokenByPlayerID(ctx context.Context, player
 	return args.Get(0).(*models.AuthResponse), args.Error(1)
 }
 
+func (m *MockGameAuthService) DeleteAccount(ctx context.Context, playerID string) error {
+	args := m.Called(ctx, playerID)
+	return args.Error(0)
+}
+
 func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

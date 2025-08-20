@@ -23,6 +23,7 @@ type AuthServiceInterface interface {
 	CleanupExpiredTokens(ctx context.Context) error
 	GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error)
 	UpdateDisplayName(ctx context.Context, playerID string, newDisplayName string) (*models.PlayerData, error)
+	DeleteAccount(ctx context.Context, playerID string) error
 }
 
 // AuthService implements authentication with Google or Apple
@@ -488,4 +489,26 @@ func (s *AuthService) generateAuthToken(ctx context.Context, playerID string) (s
 	}
 
 	return token, nil
+}
+
+// DeleteAccount permanently deletes a player account and all associated data
+func (s *AuthService) DeleteAccount(ctx context.Context, playerID string) error {
+	// First verify the player exists
+	player, err := s.playerRepo.GetPlayerByID(ctx, playerID)
+	if err != nil {
+		return &models.PlayerNotFoundError{Reason: "player not found"}
+	}
+
+	if player == nil {
+		return &models.PlayerNotFoundError{Reason: "player not found"}
+	}
+
+	// Delete the player (this will cascade delete all related data due to our foreign key constraints)
+	// This includes: auth_tokens, bets, scores, game_player entries
+	err = s.playerRepo.DeletePlayer(ctx, playerID)
+	if err != nil {
+		return &models.GeneralAuthError{Reason: fmt.Sprintf("failed to delete player account: %v", err)}
+	}
+
+	return nil
 }

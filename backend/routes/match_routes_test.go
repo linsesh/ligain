@@ -195,6 +195,10 @@ func (m *MockBetAuthService) RefreshTokenByPlayerID(ctx context.Context, playerI
 	panic("not implemented")
 }
 
+func (m *MockBetAuthService) DeleteAccount(ctx context.Context, playerID string) error {
+	panic("not implemented")
+}
+
 func setupTestRouter() (*gin.Engine, *MockGame) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

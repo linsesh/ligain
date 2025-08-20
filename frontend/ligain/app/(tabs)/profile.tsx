@@ -23,11 +23,16 @@ import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch 
 
 export default function ProfileScreen() {
   const { player, signOut, setPlayer } = useAuth();
-  const { t } = useTranslation();
+  const { t, isFrench } = useTranslation();
   const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const nameInputRef = React.useRef<TextInput>(null);
+  const deleteInputRef = React.useRef<TextInput>(null);
 
   const handleEditDisplayName = () => {
     setNewDisplayName(player?.name || '');
@@ -108,6 +113,88 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleDeleteAccount = () => {
+    // Check if this is a test account (guest account or test pattern)
+    const isTestAccount = !player?.email && !player?.provider;
+    
+    if (isTestAccount) {
+      Alert.alert(
+        t('profile.deleteAccountTestAccount'),
+        t('profile.deleteAccountTestAccountMessage'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
+      return;
+    }
+    
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteAccountConfirm = () => {
+    setShowDeleteModal(false);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const handleDeleteAccountFinal = async () => {
+    const expectedText = isFrench ? 'SUPPRIMER' : 'DELETE';
+    
+    if (deleteConfirmText.trim().toUpperCase() !== expectedText) {
+      Alert.alert(t('errors.error'), `${t('profile.typeDeleteToConfirm')}`);
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      
+      const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/account`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete account');
+      }
+
+      // Account deleted successfully - sign out the user
+      Alert.alert(
+        t('common.success'),
+        t('profile.deleteAccountSuccess'),
+        [
+          {
+            text: t('common.ok'),
+            onPress: async () => {
+              try {
+                await signOut();
+              } catch (error) {
+                // Even if signOut fails, the account is deleted, so we can ignore this error
+                console.warn('Failed to sign out after account deletion:', error);
+              }
+            },
+          },
+        ]
+      );
+      
+      setShowDeleteConfirmModal(false);
+      setDeleteConfirmText('');
+    
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      Alert.alert(t('errors.error'), errorMessage || t('profile.deleteAccountFailed'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteModalCancel = () => {
+    setShowDeleteModal(false);
+  };
+
+  const handleDeleteConfirmModalCancel = () => {
+    setShowDeleteConfirmModal(false);
+    setDeleteConfirmText('');
+    if (deleteInputRef.current) deleteInputRef.current.blur();
   };
 
   const handleModalSave = () => {
@@ -203,6 +290,30 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={20} color={colors.text} />
               <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.actionButton, 
+                styles.deleteButton,
+                (!player?.email && !player?.provider) && styles.disabledButton
+              ]} 
+              onPress={handleDeleteAccount}
+              testID="delete-account-button"
+              disabled={!player?.email && !player?.provider}
+            >
+              <Ionicons 
+                name="trash-outline" 
+                size={20} 
+                color={(!player?.email && !player?.provider) ? colors.textSecondary : colors.danger} 
+              />
+              <Text style={[
+                styles.actionButtonText, 
+                styles.deleteButtonText,
+                (!player?.email && !player?.provider) && { color: colors.textSecondary }
+              ]}>
+                {t('profile.deleteAccount')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -262,6 +373,101 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Warning Modal */}
+      <Modal
+        visible={showDeleteModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleDeleteModalCancel}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Ionicons name="warning" size={60} color={colors.danger} style={{ marginBottom: 20 }} />
+            <Text style={[styles.modalTitle, { color: colors.danger }]}>
+              {t('profile.deleteAccount')}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center' }]}>
+              {t('profile.deleteAccountWarning')}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center', marginTop: 10, fontWeight: 'bold' }]}>
+              {t('profile.deleteAccountConfirm')}
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleDeleteModalCancel}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.danger }]}
+                onPress={handleDeleteAccountConfirm}
+              >
+                <Text style={[styles.continueButtonText, { color: '#fff' }]}>{t('common.continue')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Final Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirmModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleDeleteConfirmModalCancel}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Ionicons name="alert-circle" size={60} color={colors.danger} style={{ marginBottom: 20 }} />
+            <Text style={[styles.modalTitle, { color: colors.danger }]}>
+              {t('profile.deleteAccountFinalConfirm')}
+            </Text>
+            
+            <TextInput
+              ref={deleteInputRef}
+              style={[styles.nameInput, { 
+                backgroundColor: colors.background,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
+              placeholder={t('profile.typeDeleteToConfirm')}
+              placeholderTextColor={colors.textSecondary}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              autoFocus={true}
+              autoCapitalize="characters"
+              autoComplete="off"
+              autoCorrect={false}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleDeleteConfirmModalCancel}
+                disabled={isDeleting}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.danger }]}
+                onPress={handleDeleteAccountFinal}
+                disabled={isDeleting || !deleteConfirmText.trim()}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.continueButtonText, { color: '#fff' }]}>{t('profile.deleteAccount')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </>
@@ -425,5 +631,16 @@ const styles = StyleSheet.create({
   },
   pencilIcon: {
     marginLeft: 10,
+  },
+  deleteButton: {
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor: 'transparent',
+  },
+  deleteButtonText: {
+    color: colors.danger,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 }); 
