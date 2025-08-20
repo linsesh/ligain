@@ -183,6 +183,18 @@ func (m *MockBetAuthService) UpdateDisplayName(ctx context.Context, playerID str
 	return testPlayer, nil
 }
 
+func (m *MockBetAuthService) RefreshToken(ctx context.Context, expiredToken string) (*models.AuthResponse, error) {
+	panic("not implemented")
+}
+
+func (m *MockBetAuthService) GetAuthTokenDirectly(ctx context.Context, token string) (*models.AuthToken, error) {
+	panic("not implemented")
+}
+
+func (m *MockBetAuthService) RefreshTokenByPlayerID(ctx context.Context, playerID string) (*models.AuthResponse, error) {
+	panic("not implemented")
+}
+
 func setupTestRouter() (*gin.Engine, *MockGame) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

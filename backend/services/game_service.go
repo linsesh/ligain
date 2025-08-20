@@ -95,14 +95,12 @@ func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) er
 			return err
 		}
 		if match.IsFinished() {
-			log.Infof("Match %v is finished, handling score update", match.Id())
+			log.Infof("Match %v is finished with score %d - %d, handling score update", match.Id(), match.GetHomeGoals(), match.GetAwayGoals())
 			err = g.handleScoreUpdate(match)
 			if err != nil {
 				log.Errorf("Error handling score update: %v", err)
 				return err
 			}
-		} else {
-			log.Infof("Match %v is being updated", match.Id())
 		}
 	}
 

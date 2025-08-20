@@ -19,7 +19,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
-import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders } from '../../src/config/api';
+import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
 
 export default function ProfileScreen() {
   const { player, signOut, setPlayer } = useAuth();
@@ -58,10 +58,9 @@ export default function ProfileScreen() {
     try {
       setIsUpdating(true);
       
-      const headers = await getAuthenticatedHeaders({ 'Content-Type': 'application/json' });
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/profile/display-name`, {
+      const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/profile/display-name`, {
         method: 'PUT',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: newDisplayName.trim()
         }),

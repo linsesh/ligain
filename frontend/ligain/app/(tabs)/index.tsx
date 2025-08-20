@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../src/components/Leaderboard';
 import { useGames } from '../../src/contexts/GamesContext';
 import { useUIEvent } from '../../src/contexts/UIEventContext';
-import { API_CONFIG, getAuthenticatedHeaders } from '../../src/config/api';
+import { API_CONFIG, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
 import { getTranslatedGameStatus } from '../../src/utils/gameStatusUtils';
 import StatusTag from '../../src/components/StatusTag';
 
@@ -108,10 +108,8 @@ function GamesList() {
           onPress: async () => {
             try {
               // Call backend with proper headers and URL
-              const headers = await getAuthenticatedHeaders({ 'Content-Type': 'application/json' });
-              const res = await fetch(`${API_CONFIG.BASE_URL}/api/games/${gameId}/leave`, {
+              const res = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games/${gameId}/leave`, {
                 method: 'DELETE',
-                headers,
               });
               if (!res.ok) {
                 const data = await res.json().catch(() => ({}));

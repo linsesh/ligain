@@ -192,6 +192,22 @@ func (r *PostgresPlayerRepository) GetAuthToken(ctx context.Context, token strin
 	return &authToken, nil
 }
 
+func (r *PostgresPlayerRepository) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	query := `
+		UPDATE auth_tokens 
+		SET player_id = $2, token = $3, expires_at = $4, created_at = $5
+		WHERE id = $1
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		token.ID,
+		token.PlayerID,
+		token.Token,
+		token.ExpiresAt,
+		token.CreatedAt,
+	)
+	return err
+}
+
 func (r *PostgresPlayerRepository) DeleteAuthToken(ctx context.Context, token string) error {
 	query := `DELETE FROM auth_tokens WHERE token = $1`
 	_, err := r.db.ExecContext(ctx, query, token)

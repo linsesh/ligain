@@ -125,11 +125,6 @@ func (m *MatchWatcherServiceSportsmonk) checkForUpdates() {
 		return
 	}
 
-	if len(updates) == 0 {
-		log.Infof("No match updates found")
-		return
-	}
-
 	// Save updates to the database before notifying subscribers
 	for _, updatedMatch := range updates {
 		if err := m.matchRepo.SaveMatch(updatedMatch); err != nil {
@@ -164,35 +159,45 @@ func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.M
 			}
 		}
 	}
-	log.Infof("Found %d updates", len(updates))
+	if len(updates) > 0 {
+		log.Infof("Found %d updates", len(updates))
+	}
 	return updates, nil
 }
 
 func matchWasUpdated(match models.Match, lastMatchState models.Match) bool {
-	if match.IsFinished() != lastMatchState.IsFinished() {
+	if match.GetStatus() != lastMatchState.GetStatus() {
+		log.Infof("Status updated from %v to %v in match %s", lastMatchState.GetStatus(), match.GetStatus(), match.Id())
 		return true
 	}
-	if match.GetHomeTeamOdds() != lastMatchState.GetHomeTeamOdds() {
-		return true
+	if lastMatchState.IsInProgress() || match.IsInProgress() || match.IsFinished() {
+		if match.GetHomeGoals() != lastMatchState.GetHomeGoals() {
+			log.Infof("Home goals updated from %v to %v in match %s", lastMatchState.GetHomeGoals(), match.GetHomeGoals(), match.Id())
+			return true
+		}
+		if match.GetAwayGoals() != lastMatchState.GetAwayGoals() {
+			log.Infof("Away goals updated from %v to %v in match %s", lastMatchState.GetAwayGoals(), match.GetAwayGoals(), match.Id())
+			return true
+		}
+	} else { // Match is not in progress, so we need to check the odds/date only
+		if match.GetHomeTeamOdds() != lastMatchState.GetHomeTeamOdds() {
+			log.Infof("Home team odds updated from %v to %v in match %s", lastMatchState.GetHomeTeamOdds(), match.GetHomeTeamOdds(), match.Id())
+			return true
+		}
+		if match.GetAwayTeamOdds() != lastMatchState.GetAwayTeamOdds() {
+			log.Infof("Away team odds updated from %v to %v in match %s", lastMatchState.GetAwayTeamOdds(), match.GetAwayTeamOdds(), match.Id())
+			return true
+		}
+		if match.GetDrawOdds() != lastMatchState.GetDrawOdds() {
+			log.Infof("Draw odds updated from %v to %v in match %s", lastMatchState.GetDrawOdds(), match.GetDrawOdds(), match.Id())
+			return true
+		}
+		if match.GetDate() != lastMatchState.GetDate() {
+			log.Infof("Date updated from %v to %v in match %s", lastMatchState.GetDate(), match.GetDate(), match.Id())
+			return true
+		}
 	}
-	if match.GetAwayTeamOdds() != lastMatchState.GetAwayTeamOdds() {
-		return true
-	}
-	if match.GetDrawOdds() != lastMatchState.GetDrawOdds() {
-		return true
-	}
-	if match.GetDate() != lastMatchState.GetDate() {
-		return true
-	}
-	if match.GetHomeGoals() != lastMatchState.GetHomeGoals() {
-		return true
-	}
-	if match.GetAwayGoals() != lastMatchState.GetAwayGoals() {
-		return true
-	}
-	if match.IsInProgress() != lastMatchState.IsInProgress() {
-		return true
-	}
+
 	return false
 }
 

@@ -16,6 +16,9 @@ type AuthServiceInterface interface {
 	Authenticate(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
 	AuthenticateGuest(ctx context.Context, displayName string) (*models.AuthResponse, error)
 	ValidateToken(ctx context.Context, token string) (*models.PlayerData, error)
+	RefreshToken(ctx context.Context, expiredToken string) (*models.AuthResponse, error)
+	GetAuthTokenDirectly(ctx context.Context, token string) (*models.AuthToken, error)
+	RefreshTokenByPlayerID(ctx context.Context, playerID string) (*models.AuthResponse, error)
 	Logout(ctx context.Context, token string) error
 	CleanupExpiredTokens(ctx context.Context) error
 	GetOrCreatePlayer(ctx context.Context, verifiedUser map[string]interface{}, provider string, displayName string) (*models.PlayerData, error)
@@ -163,6 +166,74 @@ func (s *AuthService) ValidateToken(ctx context.Context, token string) (*models.
 	}
 
 	return player, nil
+}
+
+// RefreshToken refreshes an authentication token (expired or not)
+func (s *AuthService) RefreshToken(ctx context.Context, token string) (*models.AuthResponse, error) {
+	authToken, err := s.playerRepo.GetAuthToken(ctx, token)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get auth token for refresh: %v", err)}
+	}
+
+	if authToken == nil {
+		return nil, &models.PlayerNotFoundError{Reason: "invalid token for refresh"}
+	}
+
+	// Get the player data first to ensure they exist
+	player, err := s.playerRepo.GetPlayerByID(ctx, authToken.PlayerID)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by ID for refresh: %v", err)}
+	}
+
+	if player == nil {
+		return nil, &models.PlayerNotFoundError{Reason: "player not found for refresh"}
+	}
+
+	// Generate a new token
+	newToken, err := s.generateAuthToken(ctx, authToken.PlayerID)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to generate new auth token: %v", err)}
+	}
+
+	// Delete the old token
+	err = s.playerRepo.DeleteAuthToken(ctx, token)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to delete old auth token: %v", err)}
+	}
+
+	return &models.AuthResponse{
+		Player: *player,
+		Token:  newToken,
+	}, nil
+}
+
+// GetAuthTokenDirectly gets an auth token without validation (for internal use)
+func (s *AuthService) GetAuthTokenDirectly(ctx context.Context, token string) (*models.AuthToken, error) {
+	return s.playerRepo.GetAuthToken(ctx, token)
+}
+
+// RefreshTokenByPlayerID refreshes a token using player ID directly
+func (s *AuthService) RefreshTokenByPlayerID(ctx context.Context, playerID string) (*models.AuthResponse, error) {
+	// Get the player data first to ensure they exist
+	player, err := s.playerRepo.GetPlayerByID(ctx, playerID)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to get player by ID for refresh: %v", err)}
+	}
+
+	if player == nil {
+		return nil, &models.PlayerNotFoundError{Reason: "player not found for refresh"}
+	}
+
+	// Generate a new token
+	newToken, err := s.generateAuthToken(ctx, playerID)
+	if err != nil {
+		return nil, &models.GeneralAuthError{Reason: fmt.Sprintf("failed to generate new auth token: %v", err)}
+	}
+
+	return &models.AuthResponse{
+		Player: *player,
+		Token:  newToken,
+	}, nil
 }
 
 // Logout invalidates a token

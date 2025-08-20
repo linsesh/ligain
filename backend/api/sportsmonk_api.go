@@ -151,6 +151,120 @@ type allFixturesResponse struct {
 	} `json:"pagination"`
 }
 
+// extractScores extracts home and away scores from the fixture's scores array
+// using a comprehensive strategy based on Sportsmonk API documentation
+func (f *sportmonksFixture) extractScores() (*int, *int) {
+	// Use pointers to distinguish between "not found" (nil) and "found with 0 goals"
+	var homeScore, awayScore *int
+
+	// Priority order for score extraction:
+	// 1. CURRENT - preferred for all match states
+	// 2. For finished matches, try to sum up all available scores
+	// 3. Fall back to any available score if needed
+
+	// First try to get CURRENT scores (preferred for all match states)
+	for _, s := range f.Scores {
+		if s.Description == "CURRENT" {
+			if s.Score.Participant == "home" {
+				homeScore = &s.Score.Goals
+			} else if s.Score.Participant == "away" {
+				awayScore = &s.Score.Goals
+			}
+		}
+	}
+
+	// If we don't have both CURRENT scores, try to construct the final score
+	// from available score descriptions according to Sportsmonk documentation
+	if homeScore == nil || awayScore == nil {
+		// For finished matches, we can try to sum up the scores
+		// Track all available scores by description
+		scoresByDescription := make(map[string]map[string]int)
+
+		for _, s := range f.Scores {
+			if scoresByDescription[s.Description] == nil {
+				scoresByDescription[s.Description] = make(map[string]int)
+			}
+			scoresByDescription[s.Description][s.Score.Participant] = s.Score.Goals
+		}
+
+		// Try different strategies to get the final score
+		if homeScore == nil || awayScore == nil {
+			// Strategy 1: If we have 2ND_HALF, use it (it represents the final score after 2nd half)
+			if scores, exists := scoresByDescription["2ND_HALF"]; exists {
+				if homeScore == nil {
+					if homeGoals := scores["home"]; homeGoals > 0 {
+						homeScore = &homeGoals
+					}
+				}
+				if awayScore == nil {
+					if awayGoals := scores["away"]; awayGoals > 0 {
+						awayScore = &awayGoals
+					}
+				}
+			}
+
+			// Strategy 2: If we have EXTRA TIME, use it (for matches that went to ET)
+			if scores, exists := scoresByDescription["ET"]; exists {
+				if homeScore == nil {
+					if homeGoals := scores["home"]; homeGoals > 0 {
+						homeScore = &homeGoals
+					}
+				}
+				if awayScore == nil {
+					if awayGoals := scores["away"]; awayGoals > 0 {
+						awayScore = &awayGoals
+					}
+				}
+			}
+
+			// Strategy 3: Sum up 1ST_HALF and 2ND_HALF_ONLY (if 2ND_HALF is not available)
+			if homeScore == nil || awayScore == nil {
+				firstHalfHome := scoresByDescription["1ST_HALF"]["home"]
+				firstHalfAway := scoresByDescription["1ST_HALF"]["away"]
+				secondHalfOnlyHome := scoresByDescription["2ND_HALF_ONLY"]["home"]
+				secondHalfOnlyAway := scoresByDescription["2ND_HALF_ONLY"]["away"]
+
+				if homeScore == nil && (firstHalfHome > 0 || secondHalfOnlyHome > 0) {
+					totalHome := firstHalfHome + secondHalfOnlyHome
+					homeScore = &totalHome
+				}
+				if awayScore == nil && (secondHalfOnlyAway > 0 || firstHalfAway > 0) {
+					totalAway := firstHalfAway + secondHalfOnlyAway
+					awayScore = &totalAway
+				}
+			}
+
+			// Strategy 4: Use any available score as last resort
+			if homeScore == nil || awayScore == nil {
+				for description, scores := range scoresByDescription {
+					if description != "CURRENT" { // Skip CURRENT as we already tried it
+						if homeScore == nil {
+							if homeGoals := scores["home"]; homeGoals > 0 {
+								homeScore = &homeGoals
+							}
+						}
+						if awayScore == nil {
+							if awayGoals := scores["away"]; awayGoals > 0 {
+								awayScore = &awayGoals
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Convert to final values, defaulting to 0 if no scores found
+	if homeScore == nil {
+		homeScore = new(int) // Default to 0
+	}
+	if awayScore == nil {
+		awayScore = new(int) // Default to 0
+	}
+
+	return homeScore, awayScore
+}
+
 // toMatch converts a sportmonksFixture to a models.Match
 func (f *sportmonksFixture) toMatch() (models.Match, error) {
 	// Parse the timestamp
@@ -172,17 +286,8 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		return nil, fmt.Errorf("could not find home or away team in participants")
 	}
 
-	// Extract current score from the scores array
-	homeScore, awayScore := 0, 0
-	for _, s := range f.Scores {
-		if s.Description == "CURRENT" {
-			if s.Score.Participant == "home" {
-				homeScore = s.Score.Goals
-			} else if s.Score.Participant == "away" {
-				awayScore = s.Score.Goals
-			}
-		}
-	}
+	// Extract scores using the comprehensive score extraction logic
+	homeScore, awayScore := f.extractScores()
 
 	// Extract odds for home, draw, away (market_id=1, 1X2 market)
 	var homeOdd, drawOdd, awayOdd float64
@@ -206,22 +311,6 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// If no preferred bookmaker found, use any available
-	if homeOdd == 0 && drawOdd == 0 && awayOdd == 0 {
-		for _, o := range f.Odds {
-			if o.MarketID == 1 {
-				switch o.Label {
-				case "Home":
-					homeOdd, _ = strconv.ParseFloat(o.Value, 64)
-				case "Draw":
-					drawOdd, _ = strconv.ParseFloat(o.Value, 64)
-				case "Away":
-					awayOdd, _ = strconv.ParseFloat(o.Value, 64)
-				}
-			}
-		}
-	}
-
 	// Extract the matchday
 	matchday := 1 // default value
 	if f.Round.Name != "" {
@@ -237,8 +326,8 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		return models.NewFinishedSeasonMatch(
 			homeTeam.Name,
 			awayTeam.Name,
-			homeScore,
-			awayScore,
+			*homeScore,
+			*awayScore,
 			f.Season.Name,
 			f.League.Name,
 			startTime,
@@ -260,9 +349,9 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 			drawOdd,
 		)
 		// Set the current score and mark as in progress
-		match.Start()               // This marks it as in progress
-		match.HomeGoals = homeScore // Set current score without changing status
-		match.AwayGoals = awayScore // Set current score without changing status
+		match.Start()                // This marks it as in progress
+		match.HomeGoals = *homeScore // Set current score without changing status
+		match.AwayGoals = *awayScore // Set current score without changing status
 		return match, nil
 	default: // Scheduled or other states
 		if f.HasOdds {

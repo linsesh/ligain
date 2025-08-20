@@ -806,3 +806,97 @@ func TestGameService_HandleMatchUpdates_SaveFinishedGameError(t *testing.T) {
 	// Verify SaveWithId was called
 	mockGameRepo.AssertExpectations(t)
 }
+
+// TestBug_PlayersOnlyGetPointsForDraws_HandleMatchUpdates tests for the bug in the complete HandleMatchUpdates flow
+func TestBug_PlayersOnlyGetPointsForDraws_HandleMatchUpdates(t *testing.T) {
+	// Create a game service
+	service := &GameServiceImpl{
+		timeFunc: func() time.Time { return time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC) },
+	}
+
+	// Create a finished match that is NOT a draw (home team wins 2-1)
+	finishedMatch := models.NewFinishedSeasonMatch(
+		"Paris Saint Germain",
+		"Lyon",
+		2, 1, // Home team wins 2-1 (NOT a draw)
+		"2024/2025",
+		"Ligue 1",
+		time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
+		1,
+		1.5, 2.5, 3.0, // Odds
+	)
+
+	// Create the last match state (before the match was finished)
+	lastMatchState := models.NewSeasonMatchWithKnownOdds(
+		"Paris Saint Germain",
+		"Lyon",
+		"2024/2025",
+		"Ligue 1",
+		time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
+		1,
+		1.5, 2.5, 3.0, // Same odds
+	)
+	lastMatchState.Start()       // Mark as in progress
+	lastMatchState.HomeGoals = 1 // Partial score
+	lastMatchState.AwayGoals = 0
+
+	// Simulate the adjustOdds call that happens in HandleMatchUpdates
+	adjustedMatch := service.adjustOdds(finishedMatch, lastMatchState)
+
+	// Now test the scoring logic with the adjusted match
+	bets := []*models.Bet{
+		// Player 1: Correctly predicts home win (2-1) - should get points
+		models.NewBet(adjustedMatch, 2, 1),
+		// Player 2: Predicts draw (1-1) - should get 0 points
+		models.NewBet(adjustedMatch, 1, 1),
+		// Player 3: Predicts away win (0-2) - should get 0 points
+		models.NewBet(adjustedMatch, 0, 2),
+		// Player 4: Predicts different home win (3-0) - should get points (close prediction)
+		models.NewBet(adjustedMatch, 3, 0),
+	}
+
+	// Use the original scorer to calculate points
+	scorer := &rules.ScorerOriginal{}
+	scores := scorer.Score(adjustedMatch, bets)
+
+	// The bug would cause all scores to be 0 except for draw predictions
+	// But in this case, the match result is NOT a draw, so only players who predicted the correct result should get points
+
+	// Player 1 should get points for perfect prediction (2-1)
+	if scores[0] <= 0 {
+		t.Errorf("Player 1 (correct prediction 2-1) should get points, but got %d", scores[0])
+	}
+
+	// Player 2 should get 0 points for wrong prediction (draw)
+	if scores[1] != 0 {
+		t.Errorf("Player 2 (wrong prediction 1-1) should get 0 points, but got %d", scores[1])
+	}
+
+	// Player 3 should get 0 points for wrong prediction (away win)
+	if scores[2] != 0 {
+		t.Errorf("Player 3 (wrong prediction 0-2) should get 0 points, but got %d", scores[2])
+	}
+
+	// Player 4 should get points for close prediction (3-0 vs 2-1)
+	if scores[3] <= 0 {
+		t.Errorf("Player 4 (close prediction 3-0) should get points, but got %d", scores[3])
+	}
+
+	// Verify that at least one player got points (this would fail if the bug exists)
+	anyPlayerGotPoints := false
+	for i, score := range scores {
+		if score > 0 {
+			anyPlayerGotPoints = true
+			t.Logf("Player %d got %d points for prediction %d-%d", i+1, score, bets[i].PredictedHomeGoals, bets[i].PredictedAwayGoals)
+		}
+	}
+
+	if !anyPlayerGotPoints {
+		t.Fatal("BUG DETECTED: No players got points for a non-draw match result after adjustOdds. This indicates the bug where players only get points for draws.")
+	}
+
+	t.Logf("Test passed: Players correctly got points for non-draw match result after adjustOdds")
+	t.Logf("Match result: %s %d-%d %s",
+		adjustedMatch.GetHomeTeam(), adjustedMatch.GetHomeGoals(), adjustedMatch.GetAwayGoals(), adjustedMatch.GetAwayTeam())
+	t.Logf("Scores: %v", scores)
+}

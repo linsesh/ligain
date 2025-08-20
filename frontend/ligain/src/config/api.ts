@@ -44,4 +44,30 @@ export const getAuthenticatedHeaders = async (additionalHeaders?: Record<string,
     console.error('❌ API - Error getting auth token:', error);
     return baseHeaders;
   }
+};
+
+// Enhanced fetch function that handles automatic token refresh
+export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  console.log('🔧 API - Making authenticated request to:', url);
+  
+  // Get headers with current token
+  const headers = await getAuthenticatedHeaders(options.headers as Record<string, string>);
+  
+  // Make the request
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+  
+  // Check if we got a new token in the response headers
+  const newToken = response.headers.get('X-New-Token');
+  const tokenRefreshed = response.headers.get('X-Token-Refreshed');
+  
+  if (newToken && tokenRefreshed === 'true') {
+    console.log('🔄 API - Token was refreshed automatically, updating stored token');
+    const { setItem } = await import('../utils/storage');
+    await setItem('auth_token', newToken);
+  }
+  
+  return response;
 }; 

@@ -2,10 +2,14 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"ligain/backend/models"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // frozenTime is a fixed time for consistent testing
@@ -104,12 +108,20 @@ func (m *MockPlayerRepository) DeleteAuthToken(ctx context.Context, token string
 }
 
 func (m *MockPlayerRepository) DeleteExpiredTokens(ctx context.Context) error {
-	now := time.Now()
+	now := frozenTime
 	for token, authToken := range m.tokens {
 		if now.After(authToken.ExpiresAt) {
 			delete(m.tokens, token)
 		}
 	}
+	return nil
+}
+
+func (m *MockPlayerRepository) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	// In-memory implementation - update in a simple map
+	// Since we're using a map with token as key, we need to delete and recreate
+	delete(m.tokens, token.Token)
+	m.tokens[token.Token] = token
 	return nil
 }
 
@@ -306,7 +318,7 @@ func TestAuthService_ValidateToken_ValidToken(t *testing.T) {
 	authToken := &models.AuthToken{
 		PlayerID:  player.ID,
 		Token:     "valid_token",
-		ExpiresAt: time.Now().Add(1 * time.Hour),
+		ExpiresAt: frozenTime.Add(1 * time.Hour),
 	}
 	mockRepo.CreateAuthToken(ctx, authToken)
 
@@ -355,7 +367,7 @@ func TestAuthService_ValidateToken_ExpiredToken(t *testing.T) {
 	authToken := &models.AuthToken{
 		PlayerID:  player.ID,
 		Token:     "expired_token",
-		ExpiresAt: frozenTime.Add(-1 * time.Hour), // Expired
+		ExpiresAt: frozenTime.Add(-25 * time.Hour), // Expired (more than 24 hours)
 	}
 	mockRepo.CreateAuthToken(ctx, authToken)
 
@@ -515,6 +527,224 @@ func TestAuthService_UpdateDisplayName(t *testing.T) {
 			t.Errorf("Expected error containing 'player not found', got %s", err.Error())
 		}
 	})
+}
+
+// TestRefreshToken tests the RefreshToken functionality
+func TestRefreshToken(t *testing.T) {
+	mockRepo := NewMockPlayerRepository()
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Create a test player
+	player := &models.PlayerData{
+		ID:   "test_player_id",
+		Name: "Test Player",
+	}
+	mockRepo.CreatePlayer(ctx, player)
+
+	// Create an expired token
+	expiredToken := &models.AuthToken{
+		PlayerID:  player.ID,
+		Token:     "expired_token_123",
+		ExpiresAt: frozenTime.Add(-25 * time.Hour), // Expired (more than 24 hours)
+	}
+	mockRepo.CreateAuthToken(ctx, expiredToken)
+
+	// Test successful token refresh
+	t.Run("Success", func(t *testing.T) {
+		resp, err := authService.RefreshToken(ctx, "expired_token_123")
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, player.ID, resp.Player.ID)
+		assert.Equal(t, player.Name, resp.Player.Name)
+		assert.NotEmpty(t, resp.Token)
+		assert.NotEqual(t, "expired_token_123", resp.Token) // Should be a new token
+	})
+
+	// Test refresh with invalid token
+	t.Run("InvalidToken", func(t *testing.T) {
+		resp, err := authService.RefreshToken(ctx, "invalid_token")
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+
+		var playerNotFoundErr *models.PlayerNotFoundError
+		assert.True(t, errors.As(err, &playerNotFoundErr))
+		assert.Contains(t, playerNotFoundErr.Reason, "invalid token for refresh")
+	})
+
+	// Test refresh with nil token
+	t.Run("NilToken", func(t *testing.T) {
+		resp, err := authService.RefreshToken(ctx, "")
+		assert.Error(t, err)
+		assert.Nil(t, resp)
+
+		var playerNotFoundErr *models.PlayerNotFoundError
+		assert.True(t, errors.As(err, &playerNotFoundErr))
+		assert.Contains(t, playerNotFoundErr.Reason, "invalid token for refresh")
+	})
+}
+
+// TestRefreshTokenWithExpiredToken tests refresh when token is actually expired
+func TestRefreshTokenWithExpiredToken(t *testing.T) {
+	mockRepo := NewMockPlayerRepository()
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Create a test player
+	player := &models.PlayerData{
+		ID:   "test_player_id",
+		Name: "Test Player",
+	}
+	mockRepo.CreatePlayer(ctx, player)
+
+	// Create an expired token
+	expiredToken := &models.AuthToken{
+		PlayerID:  player.ID,
+		Token:     "expired_token_123",
+		ExpiresAt: frozenTime.Add(-25 * time.Hour), // Expired (more than 24 hours)
+	}
+	mockRepo.CreateAuthToken(ctx, expiredToken)
+
+	// Test refresh with expired token - should work now
+	resp, err := authService.RefreshToken(ctx, "expired_token_123")
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, player.ID, resp.Player.ID)
+	assert.Equal(t, player.Name, resp.Player.Name)
+	assert.NotEmpty(t, resp.Token)
+	assert.NotEqual(t, "expired_token_123", resp.Token) // Should be a new token
+}
+
+// TestRefreshTokenWithValidToken tests refresh when token is still valid
+func TestRefreshTokenWithValidToken(t *testing.T) {
+	mockRepo := NewMockPlayerRepository()
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Create a test player
+	player := &models.PlayerData{
+		ID:   "test_player_id",
+		Name: "Test Player",
+	}
+	mockRepo.CreatePlayer(ctx, player)
+
+	// Create a valid token
+	validToken := &models.AuthToken{
+		PlayerID:  player.ID,
+		Token:     "valid_token_123",
+		ExpiresAt: frozenTime.Add(1 * time.Hour), // Valid
+	}
+	mockRepo.CreateAuthToken(ctx, validToken)
+
+	// Test refresh with valid token
+	resp, err := authService.RefreshToken(ctx, "valid_token_123")
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, player.ID, resp.Player.ID)
+	assert.Equal(t, player.Name, resp.Player.Name)
+	assert.NotEmpty(t, resp.Token)
+	assert.NotEqual(t, "valid_token_123", resp.Token) // Should be a new token
+}
+
+// TestRefreshTokenWithMissingPlayer tests refresh when player doesn't exist
+func TestRefreshTokenWithMissingPlayer(t *testing.T) {
+	mockRepo := NewMockPlayerRepository()
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Create a token for a non-existent player
+	orphanedToken := &models.AuthToken{
+		PlayerID:  "non_existent_player",
+		Token:     "orphaned_token_123",
+		ExpiresAt: frozenTime.Add(1 * time.Hour), // Valid
+	}
+	mockRepo.CreateAuthToken(ctx, orphanedToken)
+
+	// Test refresh with orphaned token
+	resp, err := authService.RefreshToken(ctx, "orphaned_token_123")
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+
+	var playerNotFoundErr *models.PlayerNotFoundError
+	assert.True(t, errors.As(err, &playerNotFoundErr))
+	assert.Contains(t, playerNotFoundErr.Reason, "player not found for refresh")
+}
+
+// TestRefreshTokenRepositoryError tests refresh when repository operations fail
+func TestRefreshTokenRepositoryError(t *testing.T) {
+	// Create a mock repository that returns errors
+	mockRepo := &MockPlayerRepositoryWithErrors{}
+	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
+
+	ctx := context.Background()
+
+	// Test refresh with repository error
+	resp, err := authService.RefreshToken(ctx, "any_token")
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+
+	var generalAuthErr *models.GeneralAuthError
+	assert.True(t, errors.As(err, &generalAuthErr))
+	assert.Contains(t, generalAuthErr.Reason, "failed to get auth token for refresh")
+}
+
+// MockPlayerRepositoryWithErrors is a mock that returns errors for testing error scenarios
+type MockPlayerRepositoryWithErrors struct{}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayer(playerId string) (models.Player, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayers(gameId string) ([]models.Player, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) CreatePlayer(ctx context.Context, player *models.PlayerData) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByID(ctx context.Context, id string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdatePlayer(ctx context.Context, player *models.PlayerData) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) CreateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) DeleteAuthToken(ctx context.Context, token string) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) DeleteExpiredTokens(ctx context.Context) error {
+	return fmt.Errorf("mock error")
 }
 
 // Helper function to create string pointers

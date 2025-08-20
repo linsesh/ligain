@@ -25,7 +25,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { API_CONFIG, getAuthenticatedHeaders } from '../config/api';
+import { API_CONFIG, getAuthenticatedHeaders, authenticatedFetch } from '../config/api';
 import { useTimeService } from './TimeServiceContext';
 import { useAuth } from './AuthContext';
 import { useRouter } from 'expo-router';
@@ -97,8 +97,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     let lastError: any = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const headers = await getAuthenticatedHeaders();
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, { headers });
+        const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`);
         if (response.status === 401) {
           let errorMsg = '';
           try {
@@ -142,7 +141,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         const gamesWithMatchInfo: GameWithMatchInfo[] = [];
         for (const game of gamesData) {
           try {
-            const matchesResponse = await fetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`, { headers });
+            const matchesResponse = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`);
             if (matchesResponse.ok) {
               const matchesData = await matchesResponse.json();
               const gameWithInfo = await processGameWithMatches(game, matchesData, player);
@@ -245,10 +244,9 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   // Joins a game by code - handles API call and refreshes games list
   const joinGame = async (code: string) => {
     try {
-      const headers = await getAuthenticatedHeaders({ 'Content-Type': 'application/json' });
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games/join`, {
+      const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games/join`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
       
@@ -275,10 +273,9 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   // Creates a new game - handles API call and refreshes games list
   const createGame = async (name: string) => {
     try {
-      const headers = await getAuthenticatedHeaders({ 'Content-Type': 'application/json' });
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
+      const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           seasonYear: '2025/2026',
           competitionName: 'Ligue 1',

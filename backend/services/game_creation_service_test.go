@@ -659,14 +659,14 @@ func TestGameCreationService_JoinGame_ExpiredCode(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameCode := &models.GameCode{
 		GameID:    "game1",
 		Code:      code,
-		ExpiresAt: time.Now().Add(-24 * time.Hour), // Actually expired
+		ExpiresAt: testTime.Add(-24 * time.Hour), // Actually expired
 	}
 
 	// Mock expectations
@@ -970,8 +970,8 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 		ID:        "code-id",
 		Code:      "TEST",
 		GameID:    "test-game-id",
-		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(24 * time.Hour), // Set to expire in 24 hours
+		CreatedAt: testTime,
+		ExpiresAt: testTime.Add(24 * time.Hour), // Set to expire in 24 hours
 	}, nil)
 
 	// Create a real game instead of using a mock
@@ -1225,7 +1225,7 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	mockGameCodeRepo.On("GetGameCodeByCode", code).Return(&models.GameCode{
 		GameID:    gameID,
 		Code:      code,
-		ExpiresAt: time.Now().Add(24 * time.Hour),
+		ExpiresAt: testTime.Add(24 * time.Hour),
 	}, nil)
 
 	// Create a real game instead of using a mock
@@ -1431,7 +1431,7 @@ func TestNewGameCreationServiceWithLoadedGames_IntegrationWithExistingMethods(t 
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
 	// Create service with loaded games
-	service, err := NewGameCreationServiceWithLoadedGames(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service, err := NewGameCreationServiceWithLoadedGamesAndTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 	assert.NoError(t, err)
 	assert.NotNil(t, service)
 

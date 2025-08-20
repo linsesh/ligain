@@ -123,6 +123,30 @@ func (m *MockGameAuthService) UpdateDisplayName(ctx context.Context, playerID st
 	return args.Get(0).(*models.PlayerData), args.Error(1)
 }
 
+func (m *MockGameAuthService) RefreshToken(ctx context.Context, expiredToken string) (*models.AuthResponse, error) {
+	args := m.Called(ctx, expiredToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AuthResponse), args.Error(1)
+}
+
+func (m *MockGameAuthService) GetAuthTokenDirectly(ctx context.Context, token string) (*models.AuthToken, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AuthToken), args.Error(1)
+}
+
+func (m *MockGameAuthService) RefreshTokenByPlayerID(ctx context.Context, playerID string) (*models.AuthResponse, error) {
+	args := m.Called(ctx, playerID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AuthResponse), args.Error(1)
+}
+
 func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

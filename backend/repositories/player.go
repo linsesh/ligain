@@ -24,6 +24,7 @@ type PlayerRepository interface {
 	UpdatePlayer(ctx context.Context, player *models.PlayerData) error
 	CreateAuthToken(ctx context.Context, token *models.AuthToken) error
 	GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error)
+	UpdateAuthToken(ctx context.Context, token *models.AuthToken) error
 	DeleteAuthToken(ctx context.Context, token string) error
 	DeleteExpiredTokens(ctx context.Context) error
 }
@@ -31,11 +32,13 @@ type PlayerRepository interface {
 // InMemoryPlayerRepository is a simple in-memory implementation of PlayerRepository
 type InMemoryPlayerRepository struct {
 	players map[string]models.Player
+	tokens  map[string]*models.AuthToken
 }
 
 func NewInMemoryPlayerRepository() *InMemoryPlayerRepository {
 	return &InMemoryPlayerRepository{
 		players: make(map[string]models.Player),
+		tokens:  make(map[string]*models.AuthToken),
 	}
 }
 
@@ -110,21 +113,35 @@ func (r *InMemoryPlayerRepository) UpdatePlayer(ctx context.Context, player *mod
 
 func (r *InMemoryPlayerRepository) CreateAuthToken(ctx context.Context, token *models.AuthToken) error {
 	// In-memory implementation - store in a simple map
-	// This is a simplified version for testing
+	r.tokens[token.Token] = token
 	return nil
 }
 
 func (r *InMemoryPlayerRepository) GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error) {
-	// In-memory implementation - return nil for testing
+	// In-memory implementation - return from map
+	if authToken, exists := r.tokens[token]; exists {
+		return authToken, nil
+	}
 	return nil, nil
+}
+
+func (r *InMemoryPlayerRepository) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	// In-memory implementation - update in a simple map
+	// Since we're using a map with token as key, we need to delete and recreate
+	delete(r.tokens, token.Token)
+	r.tokens[token.Token] = token
+	return nil
 }
 
 func (r *InMemoryPlayerRepository) DeleteAuthToken(ctx context.Context, token string) error {
 	// In-memory implementation
+	delete(r.tokens, token)
 	return nil
 }
 
 func (r *InMemoryPlayerRepository) DeleteExpiredTokens(ctx context.Context) error {
 	// In-memory implementation
+	// This would typically iterate through tokens and delete expired ones
+	// For simplicity in testing, we'll just return nil
 	return nil
 }

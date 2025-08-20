@@ -33,10 +33,16 @@ type GameCreationService struct {
 	matchRepo      repositories.MatchRepository
 	watcher        MatchWatcherService
 	gameServices   map[string]GameService
+	timeFunc       func() time.Time
 }
 
 // NewGameCreationService creates a new GameCreationService instance
 func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) GameCreationServiceInterface {
+	return NewGameCreationServiceWithTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
+}
+
+// NewGameCreationServiceWithTimeFunc creates a new GameCreationService instance with a custom time function
+func NewGameCreationServiceWithTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) GameCreationServiceInterface {
 	return &GameCreationService{
 		gameRepo:       gameRepo,
 		gameCodeRepo:   gameCodeRepo,
@@ -45,11 +51,17 @@ func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo r
 		matchRepo:      matchRepo,
 		watcher:        watcher,
 		gameServices:   make(map[string]GameService),
+		timeFunc:       timeFunc,
 	}
 }
 
 // NewGameCreationServiceWithLoadedGames creates a new GameCreationService instance and loads all existing games from the repository
 func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
+	return NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
+}
+
+// NewGameCreationServiceWithLoadedGamesAndTimeFunc creates a new GameCreationService instance with a custom time function and loads all existing games from the repository
+func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) (GameCreationServiceInterface, error) {
 	service := &GameCreationService{
 		gameRepo:       gameRepo,
 		gameCodeRepo:   gameCodeRepo,
@@ -58,6 +70,7 @@ func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository,
 		matchRepo:      matchRepo,
 		watcher:        watcher,
 		gameServices:   make(map[string]GameService),
+		timeFunc:       timeFunc,
 	}
 
 	// Load all games from the repository
@@ -227,7 +240,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	}
 
 	// Create game code with 6 months expiration
-	expiresAt := time.Now().AddDate(0, 6, 0)
+	expiresAt := s.timeFunc().AddDate(0, 6, 0)
 	gameCode := models.NewGameCode(gameID, code, expiresAt)
 
 	err = s.gameCodeRepo.CreateGameCode(gameCode)
@@ -250,7 +263,7 @@ func (s *GameCreationService) JoinGame(code string, player models.Player) (*Join
 	}
 
 	// Check if the code is expired
-	if gameCode.ExpiresAt.Before(time.Now()) {
+	if gameCode.ExpiresAt.Before(s.timeFunc()) {
 		return nil, fmt.Errorf("game code has expired")
 	}
 

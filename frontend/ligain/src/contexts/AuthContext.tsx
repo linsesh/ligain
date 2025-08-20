@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Platform } from 'react-native';
-import { API_CONFIG, getApiHeaders } from '../config/api';
+import { API_CONFIG, getApiHeaders, authenticatedFetch } from '../config/api';
 import { getItem, setItem, multiRemove, isUsingMemoryFallback } from '../utils/storage';
 import { getHumanReadableError, handleApiError } from '../utils/errorMessages';
 
@@ -80,12 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔍 AuthContext - Validating token with backend');
         // Validate token with backend
         try {
-          const response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/me`, {
-            headers: {
-              ...getApiHeaders(),
-              'Authorization': `Bearer ${token}`,
-            },
-          });
+          const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/me`);
 
           console.log('🔍 AuthContext - Backend response status:', response.status);
 
@@ -293,13 +288,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token) {
         // Call backend to invalidate token
         try {
-          await fetch(`${API_CONFIG.BASE_URL}/api/auth/signout`, {
-            method: 'POST',
-            headers: {
-              ...getApiHeaders(),
-              'Authorization': `Bearer ${token}`,
-            },
-          });
+                  await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/signout`, {
+          method: 'POST',
+        });
         } catch (fetchError) {
           // Handle network errors (server unreachable, etc.)
           if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {

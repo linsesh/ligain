@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"ligain/backend/middleware"
 	"ligain/backend/models"
 	"net/http"
@@ -11,12 +12,179 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"bytes"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
+
+// frozenTime is a fixed time for consistent testing
+var frozenTime = time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+// MockPlayerRepository is a mock implementation for testing
+type MockPlayerRepository struct {
+	players map[string]*models.PlayerData
+	tokens  map[string]*models.AuthToken
+}
+
+func NewMockPlayerRepository() *MockPlayerRepository {
+	return &MockPlayerRepository{
+		players: make(map[string]*models.PlayerData),
+		tokens:  make(map[string]*models.AuthToken),
+	}
+}
+
+func (m *MockPlayerRepository) GetPlayer(playerId string) (models.Player, error) {
+	if player, exists := m.players[playerId]; exists {
+		return player, nil
+	}
+	return nil, nil
+}
+
+func (m *MockPlayerRepository) GetPlayers(gameId string) ([]models.Player, error) {
+	var players []models.Player
+	for _, player := range m.players {
+		players = append(players, player)
+	}
+	return players, nil
+}
+
+func (m *MockPlayerRepository) CreatePlayer(ctx context.Context, player *models.PlayerData) error {
+	if player.ID == "" {
+		player.ID = "mock_id_" + frozenTime.String()
+	}
+	m.players[player.ID] = player
+	return nil
+}
+
+func (m *MockPlayerRepository) GetPlayerByID(ctx context.Context, id string) (*models.PlayerData, error) {
+	if player, exists := m.players[id]; exists {
+		return player, nil
+	}
+	return nil, nil
+}
+
+func (m *MockPlayerRepository) GetPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
+	for _, player := range m.players {
+		if player.Email != nil && *player.Email == email {
+			return player, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *MockPlayerRepository) GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
+	for _, player := range m.players {
+		if player.Provider != nil && *player.Provider == provider &&
+			player.ProviderID != nil && *player.ProviderID == providerID {
+			return player, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *MockPlayerRepository) GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error) {
+	for _, player := range m.players {
+		if player.Name == name {
+			return player, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *MockPlayerRepository) UpdatePlayer(ctx context.Context, player *models.PlayerData) error {
+	m.players[player.ID] = player
+	return nil
+}
+
+func (m *MockPlayerRepository) CreateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	m.tokens[token.Token] = token
+	return nil
+}
+
+func (m *MockPlayerRepository) GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error) {
+	if authToken, exists := m.tokens[token]; exists {
+		return authToken, nil
+	}
+	return nil, nil
+}
+
+func (m *MockPlayerRepository) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	// In-memory implementation - update in a simple map
+	// Since we're using a map with token as key, we need to delete and recreate
+	delete(m.tokens, token.Token)
+	m.tokens[token.Token] = token
+	return nil
+}
+
+func (m *MockPlayerRepository) DeleteAuthToken(ctx context.Context, token string) error {
+	delete(m.tokens, token)
+	return nil
+}
+
+func (m *MockPlayerRepository) DeleteExpiredTokens(ctx context.Context) error {
+	// In-memory implementation
+	// This would typically iterate through tokens and delete expired ones
+	// For simplicity in testing, we'll just return nil
+	return nil
+}
+
+// MockPlayerRepositoryWithErrors is a mock that returns errors for testing error scenarios
+type MockPlayerRepositoryWithErrors struct{}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayer(playerId string) (models.Player, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayers(gameId string) ([]models.Player, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) CreatePlayer(ctx context.Context, player *models.PlayerData) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByID(ctx context.Context, id string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdatePlayer(ctx context.Context, player *models.PlayerData) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) CreateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) DeleteAuthToken(ctx context.Context, token string) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) DeleteExpiredTokens(ctx context.Context) error {
+	return fmt.Errorf("mock error")
+}
 
 // MockAuthService implements AuthServiceInterface for testing
 type MockAuthService struct {
@@ -98,9 +266,61 @@ func (m *MockAuthService) AuthenticateGuest(ctx context.Context, displayName str
 		ID:   "guest-id",
 		Name: displayName,
 	}
+
 	return &models.AuthResponse{
 		Player: *m.player,
-		Token:  "guest-token",
+		Token:  "mock-guest-token",
+	}, nil
+}
+
+func (m *MockAuthService) RefreshToken(ctx context.Context, expiredToken string) (*models.AuthResponse, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock refresh failed")
+	}
+	if expiredToken == "" {
+		return nil, errors.New("token is required")
+	}
+	if m.player == nil {
+		return nil, errors.New("player not found")
+	}
+
+	return &models.AuthResponse{
+		Player: *m.player,
+		Token:  "mock-refreshed-token",
+	}, nil
+}
+
+func (m *MockAuthService) GetAuthTokenDirectly(ctx context.Context, token string) (*models.AuthToken, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock get token failed")
+	}
+	if token == "" {
+		return nil, nil
+	}
+	return &models.AuthToken{
+		PlayerID:  "test-player-id",
+		Token:     token,
+		ExpiresAt: frozenTime.Add(1 * time.Hour),
+	}, nil
+}
+
+func (m *MockAuthService) RefreshTokenByPlayerID(ctx context.Context, playerID string) (*models.AuthResponse, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock refresh by player ID failed")
+	}
+	if playerID == "" {
+		return nil, errors.New("player ID is required")
+	}
+	if m.player == nil {
+		m.player = &models.PlayerData{
+			ID:   playerID,
+			Name: "Test Player",
+		}
+	}
+
+	return &models.AuthResponse{
+		Player: *m.player,
+		Token:  "mock-refreshed-token",
 	}, nil
 }
 
@@ -446,7 +666,7 @@ func TestSignInGuestHandler(t *testing.T) {
 				err := json.Unmarshal(w.Body.Bytes(), &resp)
 				assert.NoError(t, err)
 				assert.Equal(t, "GuestUser", resp.Player.Name)
-				assert.Equal(t, "guest-token", resp.Token)
+				assert.Equal(t, "mock-guest-token", resp.Token)
 			}
 		})
 	}
