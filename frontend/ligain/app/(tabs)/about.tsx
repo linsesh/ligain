@@ -36,8 +36,8 @@ export default function AboutScreen() {
           {t('about.contactInfo')}{' '}
           <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>contact@ligain.com</Text>
         </Text>
-
         {/* Support Section */}
+{/* Section removed for now because Apple are rats and they don't allow it
         <View style={styles.supportSection}>
           <Text style={[styles.supportTitle, { color: colors.text }]}>{t('about.supportSection')}</Text>
           <Text style={[styles.text, { color: colors.text }]}>
@@ -47,7 +47,8 @@ export default function AboutScreen() {
             <FontAwesome name="coffee" size={20} color="#FFFFFF" />
             <Text style={styles.buyMeACoffeeText}>{t('about.buyMeACoffee')}</Text>
           </TouchableOpacity>
-        </View>
+        </View>*/}
+
 
         <View style={styles.socialContainer}>
           <TouchableOpacity onPress={handleGithubPress} style={styles.socialButton}>
