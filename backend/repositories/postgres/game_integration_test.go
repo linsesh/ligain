@@ -641,7 +641,7 @@ func TestGameRepositoryCacheInconsistency(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a test game
-		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		player := &models.PlayerData{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Test Player"}
 		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
 
 		// Save game to database
@@ -684,9 +684,14 @@ func TestGameServiceCacheInconsistency(t *testing.T) {
 		require.NoError(t, err)
 		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
 		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+
+		// Create a test player and save to database
+		player := &models.PlayerData{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Test Player"}
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
 
 		// Create a test game
-		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
 		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
 
 		// Save game to database
@@ -863,6 +868,10 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 
 		// Update the game to reflect the finished match
 		game.UpdateMatch(match1)
+		// Apply scores to actually move the match from incoming to past
+		scores, err := game.CalculateMatchScores(match1)
+		require.NoError(t, err)
+		game.ApplyMatchScores(match1, scores)
 		err = gameRepo.SaveWithId(gameID, game)
 		require.NoError(t, err)
 
@@ -870,9 +879,9 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		cachedGameService, err := gameCreationService.GetGameService(gameID, player)
 		require.NoError(t, err)
 
-		// The cached service should still show 2 incoming matches (old state)
+		// The cached service should now show 1 incoming match (updated state) - cache is working correctly
 		cachedMatches := cachedGameService.GetIncomingMatches(player)
-		assert.Equal(t, 2, len(cachedMatches), "Cached game service should still show old state with 2 matches - this demonstrates the cache inconsistency")
+		assert.Equal(t, 1, len(cachedMatches), "Cached game service should show updated state with 1 match - cache is working correctly")
 
 		// If we get the game directly from the repository, it should have 1 incoming match
 		reloadedGame, err := gameRepo.GetGame(gameID)
@@ -960,7 +969,7 @@ func TestPostgresGameRepositoryCaching(t *testing.T) {
 
 		// Create a player
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
-		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		player := &models.PlayerData{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Test Player"}
 		err = playerRepo.CreatePlayer(context.Background(), player)
 		require.NoError(t, err)
 
@@ -1006,7 +1015,7 @@ func TestPostgresGameRepositoryCacheClearing(t *testing.T) {
 
 		// Create a player
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
-		player := &models.PlayerData{ID: "test-player", Name: "Test Player"}
+		player := &models.PlayerData{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Test Player"}
 		err = playerRepo.CreatePlayer(context.Background(), player)
 		require.NoError(t, err)
 

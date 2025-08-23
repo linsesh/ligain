@@ -189,64 +189,99 @@ func (f *sportmonksFixture) extractScores() (*int, *int) {
 
 		// Try different strategies to get the final score
 		if homeScore == nil || awayScore == nil {
-			// Strategy 1: If we have 2ND_HALF, use it (it represents the final score after 2nd half)
-			if scores, exists := scoresByDescription["2ND_HALF"]; exists {
-				if homeScore == nil {
-					if homeGoals := scores["home"]; homeGoals > 0 {
-						homeScore = &homeGoals
+			// Strategy 1: Sum up 1ST_HALF + 2ND_HALF when both are available
+			// This handles the timing issue where CURRENT scores aren't available yet
+			if homeScore == nil || awayScore == nil {
+				firstHalfHome := scoresByDescription["1ST_HALF"]["home"]
+				firstHalfAway := scoresByDescription["1ST_HALF"]["away"]
+				secondHalfHome := scoresByDescription["2ND_HALF"]["home"]
+				secondHalfAway := scoresByDescription["2ND_HALF"]["away"]
+
+				// If we have both 1ST_HALF and 2ND_HALF, sum them up
+				if _, has1st := scoresByDescription["1ST_HALF"]; has1st {
+					if _, has2nd := scoresByDescription["2ND_HALF"]; has2nd {
+						if homeScore == nil {
+							totalHome := firstHalfHome + secondHalfHome
+							homeScore = &totalHome
+						}
+						if awayScore == nil {
+							totalAway := firstHalfAway + secondHalfAway
+							awayScore = &totalAway
+						}
 					}
 				}
-				if awayScore == nil {
-					if awayGoals := scores["away"]; awayGoals > 0 {
+			}
+
+			// Strategy 2: If we have 2ND_HALF only, use it (represents cumulative score)
+			if homeScore == nil || awayScore == nil {
+				if scores, exists := scoresByDescription["2ND_HALF"]; exists {
+					if homeScore == nil {
+						homeGoals := scores["home"]
+						homeScore = &homeGoals
+					}
+					if awayScore == nil {
+						awayGoals := scores["away"]
 						awayScore = &awayGoals
 					}
 				}
 			}
 
-			// Strategy 2: If we have EXTRA TIME, use it (for matches that went to ET)
-			if scores, exists := scoresByDescription["ET"]; exists {
-				if homeScore == nil {
-					if homeGoals := scores["home"]; homeGoals > 0 {
+			// Strategy 3: If we have EXTRA TIME, use it (for matches that went to ET)
+			if homeScore == nil || awayScore == nil {
+				if scores, exists := scoresByDescription["ET"]; exists {
+					if homeScore == nil {
+						homeGoals := scores["home"]
 						homeScore = &homeGoals
 					}
-				}
-				if awayScore == nil {
-					if awayGoals := scores["away"]; awayGoals > 0 {
+					if awayScore == nil {
+						awayGoals := scores["away"]
 						awayScore = &awayGoals
 					}
 				}
 			}
 
-			// Strategy 3: Sum up 1ST_HALF and 2ND_HALF_ONLY (if 2ND_HALF is not available)
+			// Strategy 3.5: If we have PENALTIES, use it (for penalty shootouts)
+			if homeScore == nil || awayScore == nil {
+				if scores, exists := scoresByDescription["PENALTIES"]; exists {
+					if homeScore == nil {
+						homeGoals := scores["home"]
+						homeScore = &homeGoals
+					}
+					if awayScore == nil {
+						awayGoals := scores["away"]
+						awayScore = &awayGoals
+					}
+				}
+			}
+
+			// Strategy 4: Sum up 1ST_HALF and 2ND_HALF_ONLY (alternative format)
 			if homeScore == nil || awayScore == nil {
 				firstHalfHome := scoresByDescription["1ST_HALF"]["home"]
 				firstHalfAway := scoresByDescription["1ST_HALF"]["away"]
 				secondHalfOnlyHome := scoresByDescription["2ND_HALF_ONLY"]["home"]
 				secondHalfOnlyAway := scoresByDescription["2ND_HALF_ONLY"]["away"]
 
-				if homeScore == nil && (firstHalfHome > 0 || secondHalfOnlyHome > 0) {
+				if homeScore == nil {
 					totalHome := firstHalfHome + secondHalfOnlyHome
 					homeScore = &totalHome
 				}
-				if awayScore == nil && (secondHalfOnlyAway > 0 || firstHalfAway > 0) {
+				if awayScore == nil {
 					totalAway := firstHalfAway + secondHalfOnlyAway
 					awayScore = &totalAway
 				}
 			}
 
-			// Strategy 4: Use any available score as last resort
+			// Strategy 5: Use any available score as last resort
 			if homeScore == nil || awayScore == nil {
 				for description, scores := range scoresByDescription {
 					if description != "CURRENT" { // Skip CURRENT as we already tried it
 						if homeScore == nil {
-							if homeGoals := scores["home"]; homeGoals > 0 {
-								homeScore = &homeGoals
-							}
+							homeGoals := scores["home"]
+							homeScore = &homeGoals
 						}
 						if awayScore == nil {
-							if awayGoals := scores["away"]; awayGoals > 0 {
-								awayScore = &awayGoals
-							}
+							awayGoals := scores["away"]
+							awayScore = &awayGoals
 						}
 					}
 				}
@@ -311,6 +346,28 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
+	// If preferred bookmakers don't have all odds, try any available bookmaker
+	if !(homeOdd > 0 && drawOdd > 0 && awayOdd > 0) {
+		for _, o := range f.Odds {
+			if o.MarketID == 1 {
+				switch o.Label {
+				case "Home":
+					if homeOdd == 0 {
+						homeOdd, _ = strconv.ParseFloat(o.Value, 64)
+					}
+				case "Draw":
+					if drawOdd == 0 {
+						drawOdd, _ = strconv.ParseFloat(o.Value, 64)
+					}
+				case "Away":
+					if awayOdd == 0 {
+						awayOdd, _ = strconv.ParseFloat(o.Value, 64)
+					}
+				}
+			}
+		}
+	}
+
 	// Extract the matchday
 	matchday := 1 // default value
 	if f.Round.Name != "" {
@@ -320,23 +377,42 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// Handle different match states
+	// Handle different match states explicitly
 	switch f.StateID {
-	case 5: // Finished match
-		return models.NewFinishedSeasonMatch(
+	// Pre-match states
+	case 1: // Not Started (NS)
+		if f.HasOdds {
+			return models.NewSeasonMatchWithKnownOdds(
+				homeTeam.Name,
+				awayTeam.Name,
+				f.Season.Name,
+				f.League.Name,
+				startTime,
+				matchday,
+				homeOdd,
+				awayOdd,
+				drawOdd,
+			), nil
+		}
+		return models.NewSeasonMatch(
 			homeTeam.Name,
 			awayTeam.Name,
-			*homeScore,
-			*awayScore,
 			f.Season.Name,
 			f.League.Name,
 			startTime,
 			matchday,
-			homeOdd,
-			awayOdd,
-			drawOdd,
 		), nil
-	case 2, 3, 4: // In progress states (2=1st Half, 3=Half Time, 4=2nd Half)
+
+	// In-progress states
+	case 2, 3, 4: // 1st Half, Half Time, 2nd Half
+		fallthrough
+	case 6, 7, 8: // Extra Time 1st Half, Extra Time Half Time, Extra Time 2nd Half
+		fallthrough
+	case 9, 10: // Penalty Shootout, Full Time (after extra time, before penalties)
+		fallthrough
+	case 11, 12, 13: // Break Time, Awaiting Extra Time, Extra Time
+		fallthrough
+	case 14, 15: // Awaiting Penalties, Pending
 		match := models.NewSeasonMatchWithKnownOdds(
 			homeTeam.Name,
 			awayTeam.Name,
@@ -353,7 +429,25 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		match.HomeGoals = *homeScore // Set current score without changing status
 		match.AwayGoals = *awayScore // Set current score without changing status
 		return match, nil
-	default: // Scheduled or other states
+
+	// Finished states
+	case 5: // Full Time (FT)
+		return models.NewFinishedSeasonMatch(
+			homeTeam.Name,
+			awayTeam.Name,
+			*homeScore,
+			*awayScore,
+			f.Season.Name,
+			f.League.Name,
+			startTime,
+			matchday,
+			homeOdd,
+			awayOdd,
+			drawOdd,
+		), nil
+
+	// Special states that are scheduled
+	case 16, 17, 19: // Postponed, Cancelled, Abandoned
 		if f.HasOdds {
 			return models.NewSeasonMatchWithKnownOdds(
 				homeTeam.Name,
@@ -367,7 +461,6 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 				drawOdd,
 			), nil
 		}
-
 		return models.NewSeasonMatch(
 			homeTeam.Name,
 			awayTeam.Name,
@@ -376,6 +469,27 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 			startTime,
 			matchday,
 		), nil
+
+	// Special states that are in-progress (can be resumed)
+	case 18, 20: // Interrupted, Suspended
+		match := models.NewSeasonMatchWithKnownOdds(
+			homeTeam.Name,
+			awayTeam.Name,
+			f.Season.Name,
+			f.League.Name,
+			startTime,
+			matchday,
+			homeOdd,
+			awayOdd,
+			drawOdd,
+		)
+		match.Start() // Mark as in progress
+		match.HomeGoals = *homeScore
+		match.AwayGoals = *awayScore
+		return match, nil
+
+	default:
+		return nil, fmt.Errorf("unknown or unsupported Sportsmonk state ID: %d for fixture %d (%s vs %s)", f.StateID, f.ID, homeTeam.Name, awayTeam.Name)
 	}
 }
 

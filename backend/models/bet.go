@@ -1,7 +1,6 @@
 package models
 
 import (
-	"math"
 	"time"
 )
 
@@ -30,30 +29,6 @@ func (b *Bet) IsBetCorrect() bool {
 		return b.PredictedHomeGoals < b.PredictedAwayGoals
 	}
 	return b.PredictedHomeGoals == b.PredictedAwayGoals
-}
-
-func (b *Bet) IsBetPerfect() bool {
-	return b.PredictedHomeGoals == b.Match.GetHomeGoals() && b.PredictedAwayGoals == b.Match.GetAwayGoals()
-}
-
-func (b *Bet) AbsoluteDifferenceGoalDifferenceWithMatch() int {
-	return int(math.Abs(float64(b.Match.AbsoluteGoalDifference() - b.AbsoluteGoalDifference())))
-}
-
-func (b *Bet) IsGoalDifferenceTheSameAsMatch() bool {
-	return b.AbsoluteDifferenceGoalDifferenceWithMatch() == 0
-}
-
-func (b *Bet) AbsoluteGoalDifference() int {
-	return int(math.Abs(float64(b.PredictedHomeGoals - b.PredictedAwayGoals)))
-}
-
-func (b *Bet) TotalPredictedGoals() int {
-	return b.PredictedHomeGoals + b.PredictedAwayGoals
-}
-
-func (b *Bet) AbsoluteDifferenceTotalGoalsWithMatch() int {
-	return int(math.Abs(float64(b.TotalPredictedGoals() - b.Match.TotalGoals())))
 }
 
 func (b *Bet) GetPredictedResult() string {

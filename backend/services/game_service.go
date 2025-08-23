@@ -72,8 +72,6 @@ func (g *GameServiceImpl) GetIncomingMatches(player models.Player) map[string]*m
 
 // HandleMatchUpdates implements GameUpdateHandler interface
 func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) error {
-	log.Infof("Game %v received %d match updates", g.gameId, len(updates))
-
 	// Get current game state
 	game, err := g.getGame()
 	if err != nil {

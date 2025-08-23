@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"ligain/backend/models"
+	"strings"
 	"testing"
 )
 
@@ -544,6 +546,176 @@ func TestToMatch_StateTransitionsAndScores(t *testing.T) {
 				match.GetHomeTeam(), match.GetAwayTeam(),
 				match.GetHomeGoals(), match.GetAwayGoals(),
 				match.GetStatus(), match.IsFinished(), match.IsInProgress())
+		})
+	}
+}
+
+func TestToMatch_UnknownStateID(t *testing.T) {
+	tests := []struct {
+		name        string
+		stateID     int
+		expectedErr string
+		description string
+	}{
+		{
+			name:        "Unknown state ID 99",
+			stateID:     99,
+			expectedErr: "unknown or unsupported Sportsmonk state ID: 99",
+			description: "Should return error for unknown state ID",
+		},
+		{
+			name:        "Unknown state ID -1",
+			stateID:     -1,
+			expectedErr: "unknown or unsupported Sportsmonk state ID: -1",
+			description: "Should return error for negative state ID",
+		},
+		{
+			name:        "Unknown state ID 1000",
+			stateID:     1000,
+			expectedErr: "unknown or unsupported Sportsmonk state ID: 1000",
+			description: "Should return error for very large state ID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a fixture with unknown state ID
+			fixture := sportmonksFixture{
+				ID:         12345,
+				StateID:    tt.stateID,
+				StartingAt: "2025-01-01 15:00:00",
+				HasOdds:    true,
+				League:     league{Name: "Test League"},
+				Season:     season{Name: "2024/2025"},
+				Round:      round{Name: "1"},
+				Participants: []participant{
+					{Name: "Home Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "home"}},
+					{Name: "Away Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "away"}},
+				},
+				Scores: []score{},
+				Odds:   []odd{},
+			}
+
+			// Convert to match - should return error
+			match, err := fixture.toMatch()
+
+			// Verify error occurred
+			if err == nil {
+				t.Fatalf("Expected error for unknown state ID %d, but got none", tt.stateID)
+			}
+
+			// Verify match is nil
+			if match != nil {
+				t.Errorf("Expected nil match when error occurs, but got %v", match)
+			}
+
+			// Verify error message contains expected text
+			if !strings.Contains(err.Error(), tt.expectedErr) {
+				t.Errorf("Expected error to contain '%s', but got '%s'", tt.expectedErr, err.Error())
+			}
+
+			t.Logf("Test: %s - %s", tt.name, tt.description)
+			t.Logf("Error: %s", err.Error())
+		})
+	}
+}
+
+func TestToMatch_AllKnownStateIDs(t *testing.T) {
+	// Test that all known state IDs are handled without error
+	knownStateIDs := []struct {
+		stateID            int
+		description        string
+		expectedStatus     models.MatchStatus
+		shouldBeInProgress bool
+		shouldBeFinished   bool
+	}{
+		{1, "Not Started", models.MatchStatusScheduled, false, false},
+		{2, "1st Half", models.MatchStatusStarted, true, false},
+		{3, "Half Time", models.MatchStatusStarted, true, false},
+		{4, "2nd Half", models.MatchStatusStarted, true, false},
+		{5, "Full Time", models.MatchStatusFinished, false, true},
+		{6, "Extra Time 1st Half", models.MatchStatusStarted, true, false},
+		{7, "Extra Time Half Time", models.MatchStatusStarted, true, false},
+		{8, "Extra Time 2nd Half", models.MatchStatusStarted, true, false},
+		{9, "Penalty Shootout", models.MatchStatusStarted, true, false},
+		{10, "Full Time (after extra time)", models.MatchStatusStarted, true, false},
+		{11, "Break Time", models.MatchStatusStarted, true, false},
+		{12, "Awaiting Extra Time", models.MatchStatusStarted, true, false},
+		{13, "Extra Time", models.MatchStatusStarted, true, false},
+		{14, "Awaiting Penalties", models.MatchStatusStarted, true, false},
+		{15, "Pending", models.MatchStatusStarted, true, false},
+		{16, "Postponed", models.MatchStatusScheduled, false, false},
+		{17, "Cancelled", models.MatchStatusScheduled, false, false},
+		{18, "Interrupted", models.MatchStatusStarted, true, false},
+		{19, "Abandoned", models.MatchStatusScheduled, false, false},
+		{20, "Suspended", models.MatchStatusStarted, true, false},
+	}
+
+	for _, tt := range knownStateIDs {
+		t.Run(fmt.Sprintf("StateID_%d_%s", tt.stateID, tt.description), func(t *testing.T) {
+			// Create a fixture with the test state ID
+			fixture := sportmonksFixture{
+				ID:         12345,
+				StateID:    tt.stateID,
+				StartingAt: "2025-01-01 15:00:00",
+				HasOdds:    true,
+				League:     league{Name: "Test League"},
+				Season:     season{Name: "2024/2025"},
+				Round:      round{Name: "1"},
+				Participants: []participant{
+					{Name: "Home Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "home"}},
+					{Name: "Away Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "away"}},
+				},
+				Scores: []score{},
+				Odds:   []odd{},
+			}
+
+			// Convert to match - should NOT return error
+			match, err := fixture.toMatch()
+
+			// Verify no error occurred
+			if err != nil {
+				t.Fatalf("Unexpected error for known state ID %d (%s): %v", tt.stateID, tt.description, err)
+			}
+
+			// Verify match is not nil
+			if match == nil {
+				t.Fatalf("Expected non-nil match for known state ID %d (%s)", tt.stateID, tt.description)
+			}
+
+			// Verify status
+			if match.GetStatus() != tt.expectedStatus {
+				t.Errorf("StateID %d (%s): Expected status %s, got %s", tt.stateID, tt.description, tt.expectedStatus, match.GetStatus())
+			}
+
+			// Verify in-progress state
+			if match.IsInProgress() != tt.shouldBeInProgress {
+				t.Errorf("StateID %d (%s): Expected IsInProgress %t, got %t", tt.stateID, tt.description, tt.shouldBeInProgress, match.IsInProgress())
+			}
+
+			// Verify finished state
+			if match.IsFinished() != tt.shouldBeFinished {
+				t.Errorf("StateID %d (%s): Expected IsFinished %t, got %t", tt.stateID, tt.description, tt.shouldBeFinished, match.IsFinished())
+			}
+
+			t.Logf("StateID %d (%s): Status=%s, InProgress=%t, Finished=%t",
+				tt.stateID, tt.description, match.GetStatus(), match.IsInProgress(), match.IsFinished())
 		})
 	}
 }
@@ -1530,9 +1702,26 @@ func TestScoreExtraction_AllScoreDescriptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := sportmonksFixture{
-				ID:      1,
-				StateID: 5, // Finished match
-				Scores:  tt.scores,
+				ID:         1,
+				StateID:    5, // Finished match
+				StartingAt: "2025-01-01 15:00:00",
+				League:     league{Name: "Test League"},
+				Season:     season{Name: "2024/2025"},
+				Round:      round{Name: "1"},
+				Participants: []participant{
+					{Name: "Home Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "home"}},
+					{Name: "Away Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "away"}},
+				},
+				Scores: tt.scores,
+				Odds:   []odd{},
 			}
 
 			match, err := fixture.toMatch()
