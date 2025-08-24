@@ -29,7 +29,7 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 		auth.POST("/signin", h.SignIn)
 		auth.POST("/signin/guest", h.SignInGuest)
 		auth.POST("/signout", middleware.PlayerAuth(h.authService), h.SignOut)
-		auth.GET("/me", middleware.PlayerAuth(h.authService), h.GetCurrentPlayer)
+		auth.GET("/me", middleware.PlayerAuthWithRefresh(h.authService), h.GetCurrentPlayer)
 		auth.PUT("/profile/display-name", middleware.PlayerAuth(h.authService), h.UpdateDisplayName)
 		auth.DELETE("/account", middleware.PlayerAuth(h.authService), h.DeleteAccount)
 	}
