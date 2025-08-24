@@ -640,7 +640,7 @@ func TestToMatch_AllKnownStateIDs(t *testing.T) {
 		{1, "Not Started", models.MatchStatusScheduled, false, false},
 		{2, "1st Half", models.MatchStatusStarted, true, false},
 		{3, "Half Time", models.MatchStatusStarted, true, false},
-		{4, "2nd Half", models.MatchStatusStarted, true, false},
+		{4, "Break", models.MatchStatusStarted, true, false},
 		{5, "Full Time", models.MatchStatusFinished, false, true},
 		{6, "Extra Time 1st Half", models.MatchStatusStarted, true, false},
 		{7, "Extra Time Half Time", models.MatchStatusStarted, true, false},
@@ -657,6 +657,7 @@ func TestToMatch_AllKnownStateIDs(t *testing.T) {
 		{18, "Interrupted", models.MatchStatusStarted, true, false},
 		{19, "Abandoned", models.MatchStatusScheduled, false, false},
 		{20, "Suspended", models.MatchStatusStarted, true, false},
+		{22, "2nd Half", models.MatchStatusStarted, true, false},
 	}
 
 	for _, tt := range knownStateIDs {

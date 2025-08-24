@@ -404,15 +404,21 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		), nil
 
 	// In-progress states
-	case 2, 3, 4: // 1st Half, Half Time, 2nd Half
+	case 2: // 1st Half (INPLAY_1ST_HALF)
 		fallthrough
-	case 6, 7, 8: // Extra Time 1st Half, Extra Time Half Time, Extra Time 2nd Half
+	case 3: // Half Time (HT)
+		fallthrough
+	case 4: // Break (BREAK)
+		fallthrough
+	case 6, 7, 8: // Extra Time states
 		fallthrough
 	case 9, 10: // Penalty Shootout, Full Time (after extra time, before penalties)
 		fallthrough
 	case 11, 12, 13: // Break Time, Awaiting Extra Time, Extra Time
 		fallthrough
 	case 14, 15: // Awaiting Penalties, Pending
+		fallthrough
+	case 22: // 2nd Half (INPLAY_2ND_HALF)
 		match := models.NewSeasonMatchWithKnownOdds(
 			homeTeam.Name,
 			awayTeam.Name,
