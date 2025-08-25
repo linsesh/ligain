@@ -2,7 +2,9 @@
   "name": "isolated-tests",
   "version": "1.0.0",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "jest": "^29.7.0",
@@ -10,5 +12,10 @@
     "@babel/preset-env": "^7.28.0",
     "@babel/preset-typescript": "^7.27.1",
     "babel-jest": "^30.0.5"
+  },
+  "dependencies": {
+    "expo": "~53.0.22",
+    "react": "19.0.0",
+    "react-native": "0.79.6"
   }
 }

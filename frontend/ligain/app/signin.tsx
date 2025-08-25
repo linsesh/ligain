@@ -27,6 +27,8 @@ export default function SignInScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [showPrivacyTermsModal, setShowPrivacyTermsModal] = useState(false);
+  const [showGuestPasswordModal, setShowGuestPasswordModal] = useState(false);
+  const [guestPassword, setGuestPassword] = useState('');
   const { t } = useTranslation();
   
   const router = useRouter();
@@ -97,13 +99,30 @@ export default function SignInScreen() {
 
   // Guest sign-in handler
   const handleGuestSignIn = async () => {
+    setShowGuestPasswordModal(true);
+  };
+
+  // Handle guest password submission
+  const handleGuestPasswordSubmit = async () => {
+    const correctPassword = 'H1F03ogLxPtf5mG';
+    
+    if (guestPassword !== correctPassword) {
+      Alert.alert(t('errors.error'), t('auth.incorrectPassword'));
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await AuthService.signInAsGuest('Player1');
       await setItem('auth_token', result.token);
       await setItem('player_data', JSON.stringify({ id: result.playerId, name: result.name }));
       setPlayer({ id: result.playerId || 'guest-player', name: result.name || 'Guest Player' });
+      setShowGuestPasswordModal(false);
+      setGuestPassword('');
       router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Guest sign-in error:', error);
+      Alert.alert(t('errors.signInFailed'), translateError(error.message || 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
@@ -381,6 +400,68 @@ export default function SignInScreen() {
                 style={[styles.modalButton, styles.continueButton]}
                 onPress={handleNameSubmit}
                 disabled={isLoading || !displayName.trim()}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Guest Password Modal */}
+      <Modal
+        visible={showGuestPasswordModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowGuestPasswordModal(false);
+          setGuestPassword('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {t('auth.guestPasswordTitle')}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              {t('auth.guestPasswordSubtitle')}
+            </Text>
+            
+            <TextInput
+              style={[styles.nameInput, { 
+                backgroundColor: colors.background,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
+              placeholder={t('auth.enterPassword')}
+              placeholderTextColor={colors.textSecondary}
+              value={guestPassword}
+              onChangeText={setGuestPassword}
+              autoFocus={true}
+              secureTextEntry={true}
+              autoCapitalize="none"
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowGuestPasswordModal(false);
+                  setGuestPassword('');
+                }}
+                disabled={isLoading}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.continueButton]}
+                onPress={handleGuestPasswordSubmit}
+                disabled={isLoading || !guestPassword.trim()}
               >
                 {isLoading ? (
                   <ActivityIndicator color={colors.primary} />
