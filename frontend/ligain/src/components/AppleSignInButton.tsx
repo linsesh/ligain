@@ -1,20 +1,19 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { AuthService } from '../services/authService';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useTranslation } from '../hooks/useTranslation';
-import { translateError } from '../utils/errorMessages';
 
-interface GoogleSignInButtonProps {
+interface AppleSignInButtonProps {
   onSignInSuccess?: (result: any) => void;
   onSignInError?: (error: any) => void;
   onNewUser?: (result: any) => void; // Callback for new users who need to choose display name
   disabled?: boolean;
 }
 
-export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
+export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
   onSignInSuccess,
   onSignInError,
   onNewUser,
@@ -24,15 +23,20 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const router = useRouter();
   const { t } = useTranslation();
 
-  const handleGoogleSignIn = async () => {
+  const handleAppleSignIn = async () => {
+    if (Platform.OS !== 'ios') {
+      console.error('Apple Sign-In is only available on iOS');
+      return;
+    }
+
     try {
-      const result = await AuthService.signInWithGoogle();
-      console.log('Google Sign-In success:', result);
+      const result = await AuthService.signInWithApple();
+      console.log('Apple Sign-In success:', result);
       
       try {
         // Try to authenticate without display name first (two-step flow)
         const authResult = await signIn(
-          'google',
+          'apple',
           result.token,
           result.email,
           '' // Empty name to trigger display name requirement for new users
@@ -40,7 +44,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         
         // Check if backend is requesting display name
         if (authResult && authResult.needDisplayName) {
-          console.log('Google Sign-In - New user detected, showing display name modal');
+          console.log('Apple Sign-In - New user detected, showing display name modal');
           if (onNewUser) {
             onNewUser(result);
           } else {
@@ -57,7 +61,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           onSignInSuccess(result);
         }
       } catch (authError: any) {
-        console.log('Google Sign-In - Authentication failed:', {
+        console.log('Apple Sign-In - Authentication failed:', {
           message: authError.message,
           code: authError.code,
           stack: authError.stack
@@ -81,37 +85,33 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           }
         } else {
           // For other authentication errors, let the parent handle the error
-          console.error('Google Sign-In - Authentication error:', authError.message);
+          console.error('Apple Sign-In - Authentication error:', authError.message);
           if (onSignInError) {
             onSignInError(authError);
           }
         }
       }
     } catch (error: any) {
-      console.log('Google Sign-In - Caught error:', {
+      console.log('Apple Sign-In - Caught error:', {
         message: error.message,
         code: error.code,
         stack: error.stack
       });
       
       // Check if this is a cancellation (normal behavior, not an error)
-      // Use error codes when available, fallback to message checking
-      const isCancellation = 
-        error.code === 'SIGN_IN_CANCELLED' || 
-        error.code === 'ERR_CANCELED' ||
-        (error.message && (
-          error.message.toLowerCase().includes('cancelled') || 
-          error.message.toLowerCase().includes('canceled') ||
-          error.message.toLowerCase().includes('sign-in was cancelled') ||
-          error.message.toLowerCase().includes('sign-in was canceled')
-        ));
+      const isCancellation = error.message && (
+        error.message.includes('cancelled') || 
+        error.message.includes('canceled') ||
+        error.message.includes('Sign-in was cancelled') ||
+        error.message.includes('Sign-in was canceled')
+      );
       
       if (isCancellation) {
-        console.log('Google Sign-In - User cancelled sign-in (normal behavior)');
+        console.log('Apple Sign-In - User cancelled sign-in (normal behavior)');
         return; // Don't show error alert for cancellation
       }
       
-      console.error('Google Sign-In error:', error);
+      console.error('Apple Sign-In error:', error);
       
       // Let the parent handle the error display
       if (onSignInError) {
@@ -120,15 +120,20 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
   };
 
+  // Only render on iOS
+  if (Platform.OS !== 'ios') {
+    return null;
+  }
+
   return (
     <TouchableOpacity 
       style={[styles.button, disabled && styles.buttonDisabled]} 
-      onPress={handleGoogleSignIn}
+      onPress={handleAppleSignIn}
       disabled={disabled}
     >
       <View style={styles.contentRow}>
-        <Ionicons name="logo-google" size={24} color="#4285F4" style={{ marginRight: 10 }} />
-        <Text style={styles.buttonText}>{t('auth.continueWithGoogleButton')}</Text>
+        <Ionicons name="logo-apple" size={24} color="#FFFFFF" style={{ marginRight: 10 }} />
+        <Text style={styles.buttonText}>{t('auth.continueWithApple')}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -136,9 +141,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#000000',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -151,7 +154,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#333333',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -160,4 +163,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-}); 
+});

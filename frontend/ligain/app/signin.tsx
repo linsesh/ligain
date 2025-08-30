@@ -17,6 +17,7 @@ import { AuthService } from '../src/services/authService';
 import { colors } from '../src/constants/colors';
 import { API_CONFIG, getApiHeaders } from '../src/config/api';
 import { GoogleSignInButton } from '../src/components/GoogleSignInButton';
+import { AppleSignInButton } from '../src/components/AppleSignInButton';
 import { PrivacyTermsModal } from '../src/components/PrivacyTermsModal';
 import { setItem } from '../src/utils/storage';
 import { useTranslation } from 'react-i18next';
@@ -204,6 +205,7 @@ export default function SignInScreen() {
                 
                 setAuthResult(result);
                 setSelectedProvider('google');
+
                 setShowNameModal(true);
                 
                 console.log('🔐 GoogleSignInButton onNewUser - Modal should now be visible');
@@ -235,84 +237,44 @@ export default function SignInScreen() {
 
           {/* Apple Sign In (iOS only) */}
           {availableProviders.includes('apple') && (
-            <TouchableOpacity
-              style={[styles.button, styles.appleButton]}
-              onPress={async () => {
-                try {
-                  const result = await AuthService.signInWithApple();
-                  console.log('Apple Sign-In success:', result);
-                  
-                  // Always try to authenticate without a display name first
-                  // This will fail for new users, triggering the display name modal
-                  try {
-                    console.log('Apple Sign-In - Attempting authentication without display name');
-                    await handleOAuthSignIn(
-                      'apple',
-                      result.token,
-                      result.email,
-                      '' // Never use Apple name, always require user to choose
-                    );
-                    
-                    // If successful, navigate to main app (existing user)
-                    console.log('Apple Sign-In - Existing user authenticated successfully');
-                  } catch (authError: any) {
-                    console.log('Apple Sign-In - Authentication failed:', authError.message);
-                    
-                    // Check if this is a "display name required" error for new users (two-step flow)
-                    if (authError.message && authError.message.startsWith('NEED_DISPLAY_NAME:')) {
-                      console.log('Apple Sign-In - New user detected, showing display name modal');
-                      setAuthResult({
-                        provider: result.provider,
-                        token: result.token,
-                        email: result.email
-                      });
-                      setSelectedProvider('apple');
-                      setShowNameModal(true);
-                      console.log('Apple Sign-In - Showing name modal for user');
-                    } else if (authError.message && authError.message.includes('display name is required for new users')) {
-                      // Fallback for old error format
-                      console.log('Apple Sign-In - New user detected (legacy), showing display name modal');
-                      setAuthResult({
-                        provider: result.provider,
-                        token: result.token,
-                        email: result.email
-                      });
-                      setSelectedProvider('apple');
-                      setShowNameModal(true);
-                      console.log('Apple Sign-In - Showing name modal for user');
-                    } else {
-                      // For other authentication errors, show error alert
-                      console.error('Apple Sign-In - Authentication error:', authError.message);
-                      Alert.alert(t('errors.authenticationError'), translateError(authError.message));
-                    }
-                  }
-                } catch (error: any) {
-                  // Check if this is a cancellation (normal behavior, not an error)
-                  if (error.message && (
-                    error.message.includes('cancelled') || 
-                    error.message.includes('canceled') ||
-                    error.message.includes('Sign-in was cancelled') ||
-                    error.message.includes('Sign-in was canceled')
-                  )) {
-                    console.log('Apple Sign-In - User cancelled sign-in (normal behavior)');
-                    return; // Don't show error alert for cancellation
-                  }
-                  
-                  console.error('Apple Sign-In error:', error);
-                  Alert.alert(t('errors.signInFailed'), translateError(error.message));
+            <AppleSignInButton
+              onSignInSuccess={(result) => {
+                console.log('Apple Sign-In success for existing user:', result);
+              }}
+              onNewUser={(result) => {
+                console.log('🔐 AppleSignInButton onNewUser - Called with result:', result);
+                console.log('🔐 AppleSignInButton onNewUser - Setting authResult to:', {
+                  provider: result.provider,
+                  token: result.token ? `${result.token.substring(0, 10)}...` : 'null',
+                  email: result.email
+                });
+                
+                setAuthResult(result);
+                setSelectedProvider('apple');
+
+                setShowNameModal(true);
+                
+                console.log('🔐 AppleSignInButton onNewUser - Modal should now be visible');
+              }}
+              onSignInError={(error: any) => {
+                // Check if this is a cancellation (normal behavior, not an error)
+                const isCancellation = error.message && (
+                  error.message.toLowerCase().includes('cancelled') || 
+                  error.message.toLowerCase().includes('canceled') ||
+                  error.message.toLowerCase().includes('sign-in was cancelled') ||
+                  error.message.toLowerCase().includes('sign-in was canceled')
+                );
+                
+                if (isCancellation) {
+                  console.log('Apple Sign-In - User cancelled sign-in (normal behavior)');
+                  return; // Don't show error alert for cancellation
                 }
+                
+                console.error('Apple Sign-In error:', error);
+                Alert.alert(t('errors.signInFailed'), translateError(error.message));
               }}
               disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={colors.primary} />
-              ) : (
-                <>
-                  <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
-                  <Text style={styles.appleButtonText}>{t('auth.continueWithApple')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            />
           )}
         </View>
         {/* Separation between main sign-in and guest */}
@@ -531,15 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333333',
   },
-  appleButton: {
-    backgroundColor: '#000000',
-  },
-  appleButtonText: {
-    marginLeft: 12,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+
   guestButton: {
     backgroundColor: '#f0f0f0',
     borderWidth: 1,

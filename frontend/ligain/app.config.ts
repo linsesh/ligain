@@ -28,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '24',
+    buildNumber: '25',
   },
   android: {
     package: 'com.ligain.app',
