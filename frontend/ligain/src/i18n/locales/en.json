@@ -171,8 +171,8 @@
     "oddsUpdatesDescription": "Odds are updated in real-time based on the latest betting market data. However, to ensure fair play and prevent last-minute changes that could affect betting decisions, odds are locked and will not be updated in the last 5 minutes before a match starts.",
     "completeExample": "Complete example",
     "completeExampleText": "Competition between 4 players\nTeam A at 1.3 vs Team B at 3.0\nPrediction : 1-1\nThe 3 other players predict 2-1\nMatch : 2-2\nClose score = 400 points\n× 1.5 (draw) = 600 points\nAlone in the draw prediction : +25% = 750 points",
-    "noBet": "• No bet placed : -100 points",
-    "noBetDescription": "If a player forgets to place a bet before the match starts, they will lose 100 points for that match."
+    "missedBet": "• No bet placed : -100 points",
+    "missedBetDescription": "If a player forgets to place a bet before the match starts, they will lose 100 points for that match."
   },
   "notFound": {
     "title": "Oops! Page Not Found",
