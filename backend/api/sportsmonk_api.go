@@ -563,7 +563,7 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 	seasonFixtures := make(chan map[int]models.Match)
 	errChan := make(chan error)
 	//should we forward the context from the caller?
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	go s.fetchSeasonFixtures(seasonId, ctx, seasonFixtures, errChan)
 
@@ -573,7 +573,7 @@ func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Matc
 	case err := <-errChan:
 		return nil, err
 	case <-ctx.Done():
-		return nil, fmt.Errorf("request timed out after 10 seconds")
+		return nil, fmt.Errorf("request timed out after 30 seconds")
 	}
 }
 

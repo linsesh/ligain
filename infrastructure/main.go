@@ -140,11 +140,17 @@ func main() {
 }
 
 func getMemoryLimit(stack string) string {
+	if stack == "prd" {
+		return "4Gi"
+	}
 	// Minimum memory required for 100m CPU in Cloud Run
 	return "128Mi"
 }
 
 func getCPULimit(stack string) string {
+	if stack == "prd" {
+		return "2" // 2 vCPUs for production to support 4GB memory
+	}
 	// Same minimal resources for both environments
 	return "100m"
 }
