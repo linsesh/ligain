@@ -18,7 +18,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         iosUrlScheme: 'com.googleusercontent.apps.628283030166-unsbr5lm16u1fgps9re6bp46u32l2gh2'
       }
     ],
-    'expo-apple-authentication'
+    'expo-apple-authentication',
+    'expo-splash-screen'
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -32,11 +33,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.ligain.app',
+    versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
     edgeToEdgeEnabled: true,
+    permissions: [
+      'android.permission.INTERNET',
+      'android.permission.ACCESS_NETWORK_STATE'
+    ],
+    splash: {
+      image: './assets/images/splash-icon.png',
+      resizeMode: 'contain',
+      backgroundColor: '#25292e',
+    },
   },
   web: {
     favicon: './assets/images/favicon.png',
