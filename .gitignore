@@ -13,6 +13,13 @@ infrastructure/Pulumi.*.yml
 *.dll
 *.so
 *.dylib
+*.apk
+*.jar
+!frontend/ligain/android/gradle/wrapper/gradle-wrapper.jar
+*.pb
+*.aab
+*.apks
+frontend/ligain/splits/
 
 # Test binary, built with `go test -c`
 *.test

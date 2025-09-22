@@ -4,11 +4,16 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_CONFIG, getApiHeaders } from '../config/api';
 
 // Configure Google Sign-In (only once, here)
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID, // Required for getting the idToken on iOS
-  iosClientId: process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID, // Required for iOS
-  offlineAccess: true, // if you want to access Google API on behalf of the user
-});
+const googleSignInConfig: Record<string, any> = {
+  offlineAccess: true,
+  webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID,
+};
+
+if (Platform.OS === 'ios') {
+  googleSignInConfig.iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
+}
+
+GoogleSignin.configure(googleSignInConfig);
 
 export interface AuthResult {
   provider: 'google' | 'apple' | 'guest';
@@ -25,19 +30,29 @@ export class AuthService {
     // Check if Google Sign-In is properly configured
     const webClientId = process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID;
     const iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
+    const androidClientId = process.env.EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID;
     
     console.log('🔐 Google Sign-In - Configuration check:', {
       webClientId: webClientId ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: iosClientId ? 'configured' : 'NOT_CONFIGURED',
+      androidClientId: androidClientId ? 'configured' : 'NOT_CONFIGURED',
     });
     
-    if (!webClientId || !iosClientId) {
-      throw new Error('Google Sign-In not properly configured. Please check your environment variables.');
+    if (!webClientId) {
+      throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID');
+    }
+    if (Platform.OS === 'ios' && !iosClientId) {
+      throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID on iOS');
+    }
+    if (Platform.OS === 'android' && !androidClientId) {
+      throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID on Android');
     }
     
     try {
       // Check if your device supports Google Play
-      await GoogleSignin.hasPlayServices();
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
       
             // Sign in - userInfo is the User object directly
       let userInfo;
@@ -308,6 +323,7 @@ export class AuthService {
     console.log('🔐 AuthService - Google Sign-In configured:', {
       webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
+      androidClientId: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
     });
   }
 } 
