@@ -586,6 +586,10 @@ func (m *SimpleMockGame) AddPlayer(player models.Player) error {
 	return nil
 }
 
+func (m *SimpleMockGame) RemovePlayer(player models.Player) error {
+	return nil
+}
+
 func (m *SimpleMockGame) CalculateMatchScores(match models.Match) (map[string]int, error) {
 	return make(map[string]int), nil
 }
@@ -1018,10 +1022,24 @@ func TestGameCreationService_LeaveGame_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	// Create the concrete service type to access private fields
+	service := &GameCreationService{
+		gameRepo:       mockGameRepo,
+		gameCodeRepo:   mockGameCodeRepo,
+		gamePlayerRepo: mockGamePlayerRepo,
+		betRepo:        mockBetRepo,
+		matchRepo:      mockMatchRepo,
+		watcher:        nil,
+		gameServices:   make(map[string]GameService),
+		timeFunc:       time.Now,
+	}
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Create a mock game service and add it to the service's gameServices map
+	mockGameService := &SimpleMockGameService{gameID: gameID}
+	service.gameServices[gameID] = mockGameService
 
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
 	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(nil)
@@ -1083,10 +1101,24 @@ func TestGameCreationService_LeaveGame_LastPlayerFinishesGame(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	// Create the concrete service type to access private fields
+	service := &GameCreationService{
+		gameRepo:       mockGameRepo,
+		gameCodeRepo:   mockGameCodeRepo,
+		gamePlayerRepo: mockGamePlayerRepo,
+		betRepo:        mockBetRepo,
+		matchRepo:      mockMatchRepo,
+		watcher:        mockWatcher,
+		gameServices:   make(map[string]GameService),
+		timeFunc:       time.Now,
+	}
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
+
+	// Create a mock game service and add it to the service's gameServices map
+	mockGameService := &SimpleMockGameService{gameID: gameID}
+	service.gameServices[gameID] = mockGameService
 
 	// Player is in game
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
@@ -1162,7 +1194,8 @@ func (m *SimpleMockGameFinished) CheckPlayerBetValidity(player models.Player, be
 func (m *SimpleMockGameFinished) AddPlayerBet(player models.Player, bet *models.Bet) error {
 	return nil
 }
-func (m *SimpleMockGameFinished) AddPlayer(player models.Player) error { return nil }
+func (m *SimpleMockGameFinished) AddPlayer(player models.Player) error    { return nil }
+func (m *SimpleMockGameFinished) RemovePlayer(player models.Player) error { return nil }
 func (m *SimpleMockGameFinished) CalculateMatchScores(match models.Match) (map[string]int, error) {
 	return make(map[string]int), nil
 }
@@ -1181,6 +1214,47 @@ func (m *SimpleMockGameFinished) GetMatchById(matchId string) (models.Match, err
 
 func (m *SimpleMockGameFinished) Finish() {}
 
+// SimpleMockGameService is a simple mock that implements GameService without making repository calls
+type SimpleMockGameService struct {
+	gameID string
+}
+
+func (m *SimpleMockGameService) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+
+func (m *SimpleMockGameService) GetMatchResults() map[string]*models.MatchResult {
+	return make(map[string]*models.MatchResult)
+}
+
+func (m *SimpleMockGameService) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {
+	return nil
+}
+
+func (m *SimpleMockGameService) GetPlayerBets(player models.Player) ([]*models.Bet, error) {
+	return nil, nil
+}
+
+func (m *SimpleMockGameService) GetPlayers() []models.Player {
+	return nil
+}
+
+func (m *SimpleMockGameService) HandleMatchUpdates(updates map[string]models.Match) error {
+	return nil
+}
+
+func (m *SimpleMockGameService) GetGameID() string {
+	return m.gameID
+}
+
+func (m *SimpleMockGameService) AddPlayer(player models.Player) error {
+	return nil
+}
+
+func (m *SimpleMockGameService) RemovePlayer(player models.Player) error {
+	return nil
+}
+
 func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	mockGameRepo := new(MockGameRepository)
 	mockGameCodeRepo := new(MockGameCodeRepository)
@@ -1189,7 +1263,17 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	// Create the concrete service type to access private fields
+	service := &GameCreationService{
+		gameRepo:       mockGameRepo,
+		gameCodeRepo:   mockGameCodeRepo,
+		gamePlayerRepo: mockGamePlayerRepo,
+		betRepo:        mockBetRepo,
+		matchRepo:      mockMatchRepo,
+		watcher:        mockWatcher,
+		gameServices:   make(map[string]GameService),
+		timeFunc:       time.Now,
+	}
 
 	// Step 1: Create game and join as player1
 	request := &CreateGameRequest{
@@ -1212,6 +1296,10 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	gameID := createResp.GameID
 	code := createResp.Code
 
+	// Add a mock game service to replace the real one created by CreateGame
+	mockGameService := &SimpleMockGameService{gameID: gameID}
+	service.gameServices[gameID] = mockGameService
+
 	// Step 2: Leave the game as player1
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
 	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(nil)
@@ -1229,8 +1317,8 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	}, nil)
 
 	// Create a real game instead of using a mock
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
-	mockGameRepo.On("GetGame", gameID).Return(realGame, nil)
+	realGameForRejoin := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	mockGameRepo.On("GetGame", gameID).Return(realGameForRejoin, nil)
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil)
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(false, nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, gameID, player.ID).Return(nil)

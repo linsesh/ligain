@@ -456,6 +456,10 @@ func (s *GameCreationService) LeaveGame(gameID string, player models.Player) err
 	if err != nil {
 		return fmt.Errorf("error removing player from game: %v", err)
 	}
+	err = s.gameServices[gameID].RemovePlayer(player)
+	if err != nil {
+		return fmt.Errorf("failed to remove player from game: %v", err)
+	}
 	// Check if any players are left
 	players, err := s.gamePlayerRepo.GetPlayersInGame(ctx, gameID)
 	if err != nil {

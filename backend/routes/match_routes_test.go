@@ -114,6 +114,10 @@ func (m *MockGame) AddPlayer(player models.Player) error {
 	return nil
 }
 
+func (m *MockGame) RemovePlayer(player models.Player) error {
+	return nil
+}
+
 func (m *MockGame) GetMatchById(matchId string) (models.Match, error) {
 	// Check in incoming matches
 	if matchResult, exists := m.incomingMatches[matchId]; exists {

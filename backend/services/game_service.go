@@ -18,6 +18,7 @@ type GameService interface {
 	HandleMatchUpdates(updates map[string]models.Match) error
 	GetGameID() string
 	AddPlayer(player models.Player) error
+	RemovePlayer(player models.Player) error
 }
 
 // GameService is used to really run a game
@@ -229,6 +230,20 @@ func (g *GameServiceImpl) AddPlayer(player models.Player) error {
 		return err
 	}
 
+	return nil
+}
+
+func (g *GameServiceImpl) RemovePlayer(player models.Player) error {
+	game, err := g.getGame()
+	if err != nil {
+		log.Errorf("Error getting game: %v", err)
+		return err
+	}
+	err = game.RemovePlayer(player)
+	if err != nil {
+		log.Errorf("Error removing player: %v", err)
+		return err
+	}
 	return nil
 }
 

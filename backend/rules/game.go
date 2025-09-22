@@ -141,6 +141,16 @@ func (g *GameImpl) AddPlayer(player models.Player) error {
 	return nil
 }
 
+func (g *GameImpl) RemovePlayer(player models.Player) error {
+	for i, p := range g.players {
+		if p.GetID() == player.GetID() {
+			g.players = append(g.players[:i], g.players[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("player not found")
+}
+
 func (g *GameImpl) scoreMatch(match models.Match) map[string]int {
 	bets := g.bets[match.Id()]
 

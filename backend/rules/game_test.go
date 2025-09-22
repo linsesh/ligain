@@ -398,3 +398,222 @@ func TestGame_CalculateMatchScores_ForgottenBets(t *testing.T) {
 		}
 	}
 }
+
+func TestRemovePlayer(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3")}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Test removing an existing player
+	err := game.RemovePlayer(players[1])
+	if err != nil {
+		t.Errorf("Expected no error removing existing player, got %v", err)
+	}
+
+	// Verify player was removed
+	remainingPlayers := game.GetPlayers()
+	if len(remainingPlayers) != 2 {
+		t.Errorf("Expected 2 players remaining, got %d", len(remainingPlayers))
+	}
+
+	// Verify the correct player was removed
+	playerIDs := make(map[string]bool)
+	for _, player := range remainingPlayers {
+		playerIDs[player.GetID()] = true
+	}
+	if playerIDs["Player2"] {
+		t.Error("Expected Player2 to be removed, but it's still in the game")
+	}
+	if !playerIDs["Player1"] || !playerIDs["Player3"] {
+		t.Error("Expected Player1 and Player3 to remain in the game")
+	}
+}
+
+func TestRemovePlayer_NonExistentPlayer(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Test removing a non-existent player
+	nonExistentPlayer := newTestPlayer("NonExistentPlayer")
+	err := game.RemovePlayer(nonExistentPlayer)
+	if err == nil {
+		t.Error("Expected error removing non-existent player, got nil")
+	}
+	if err.Error() != "player not found" {
+		t.Errorf("Expected error message 'player not found', got %v", err)
+	}
+
+	// Verify no players were removed
+	remainingPlayers := game.GetPlayers()
+	if len(remainingPlayers) != 2 {
+		t.Errorf("Expected 2 players remaining, got %d", len(remainingPlayers))
+	}
+}
+
+func TestRemovePlayer_WithBets(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3")}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Add bets for all players
+	bet1 := models.NewBet(match, 2, 1)
+	bet2 := models.NewBet(match, 1, 1)
+	bet3 := models.NewBet(match, 0, 0)
+
+	err := game.AddPlayerBet(players[0], bet1)
+	if err != nil {
+		t.Fatalf("Failed to add bet for Player1: %v", err)
+	}
+	err = game.AddPlayerBet(players[1], bet2)
+	if err != nil {
+		t.Fatalf("Failed to add bet for Player2: %v", err)
+	}
+	err = game.AddPlayerBet(players[2], bet3)
+	if err != nil {
+		t.Fatalf("Failed to add bet for Player3: %v", err)
+	}
+
+	// Remove Player2 who has a bet
+	err = game.RemovePlayer(players[1])
+	if err != nil {
+		t.Errorf("Expected no error removing player with bet, got %v", err)
+	}
+
+	// Verify player was removed
+	remainingPlayers := game.GetPlayers()
+	if len(remainingPlayers) != 2 {
+		t.Errorf("Expected 2 players remaining, got %d", len(remainingPlayers))
+	}
+
+	// Verify the bet is still in the game (bets are not automatically removed)
+	incomingMatches := game.GetIncomingMatchesForTesting()
+	matchResult := incomingMatches[match.Id()]
+	if matchResult == nil {
+		t.Fatal("Expected match result not to be nil")
+	}
+
+	// The bet should still exist in the game's internal state
+	// This tests that removing a player doesn't automatically clean up their bets
+	// (which might be intentional behavior depending on business requirements)
+}
+
+func TestRemovePlayer_LastPlayer(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1")}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Remove the last player
+	err := game.RemovePlayer(players[0])
+	if err != nil {
+		t.Errorf("Expected no error removing last player, got %v", err)
+	}
+
+	// Verify no players remain
+	remainingPlayers := game.GetPlayers()
+	if len(remainingPlayers) != 0 {
+		t.Errorf("Expected 0 players remaining, got %d", len(remainingPlayers))
+	}
+}
+
+func TestRemovePlayer_EmptyGame(t *testing.T) {
+	players := []models.Player{}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Try to remove a player from an empty game
+	player := newTestPlayer("Player1")
+	err := game.RemovePlayer(player)
+	if err == nil {
+		t.Error("Expected error removing player from empty game, got nil")
+	}
+	if err.Error() != "player not found" {
+		t.Errorf("Expected error message 'player not found', got %v", err)
+	}
+}
+
+func TestRemovePlayer_MultipleRemovals(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3"), newTestPlayer("Player4")}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Remove multiple players
+	err := game.RemovePlayer(players[1]) // Remove Player2
+	if err != nil {
+		t.Errorf("Expected no error removing Player2, got %v", err)
+	}
+
+	err = game.RemovePlayer(players[3]) // Remove Player4
+	if err != nil {
+		t.Errorf("Expected no error removing Player4, got %v", err)
+	}
+
+	// Verify correct players remain
+	remainingPlayers := game.GetPlayers()
+	if len(remainingPlayers) != 2 {
+		t.Errorf("Expected 2 players remaining, got %d", len(remainingPlayers))
+	}
+
+	playerIDs := make(map[string]bool)
+	for _, player := range remainingPlayers {
+		playerIDs[player.GetID()] = true
+	}
+	if !playerIDs["Player1"] || !playerIDs["Player3"] {
+		t.Error("Expected Player1 and Player3 to remain in the game")
+	}
+	if playerIDs["Player2"] || playerIDs["Player4"] {
+		t.Error("Expected Player2 and Player4 to be removed from the game")
+	}
+}
+
+func TestRemovePlayer_AfterGameStarted(t *testing.T) {
+	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3")}
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matches := []models.Match{match}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Add bets and finish a match to simulate a game in progress
+	bet1 := models.NewBet(match, 2, 1)
+	bet2 := models.NewBet(match, 1, 1)
+	bet3 := models.NewBet(match, 0, 0)
+
+	game.AddPlayerBet(players[0], bet1)
+	game.AddPlayerBet(players[1], bet2)
+	game.AddPlayerBet(players[2], bet3)
+
+	// Finish the match
+	match.Finish(2, 1)
+	scores, _ := game.CalculateMatchScores(match)
+	game.ApplyMatchScores(match, scores)
+
+	// Now try to remove a player after the game has started
+	err := game.RemovePlayer(players[1])
+	if err != nil {
+		t.Errorf("Expected no error removing player after game started, got %v", err)
+	}
+
+	// Verify player was removed
+	remainingPlayers := game.GetPlayers()
+	if len(remainingPlayers) != 2 {
+		t.Errorf("Expected 2 players remaining, got %d", len(remainingPlayers))
+	}
+
+	// Verify the game can still function (e.g., get past results)
+	pastResults := game.GetPastResults()
+	if len(pastResults) != 1 {
+		t.Errorf("Expected 1 past result, got %d", len(pastResults))
+	}
+}

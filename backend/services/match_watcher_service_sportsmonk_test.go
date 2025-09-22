@@ -68,6 +68,10 @@ func (m *MockGameService) AddPlayer(player models.Player) error {
 	return nil
 }
 
+func (m *MockGameService) RemovePlayer(player models.Player) error {
+	return nil
+}
+
 func NewMockGameService(gameID string) *MockGameService {
 	return &MockGameService{
 		gameID:  gameID,
