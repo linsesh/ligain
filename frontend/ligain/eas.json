@@ -16,7 +16,7 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       },
       "env": {
         "APPLE_CLIENT_ID": "com.ligain.app.service"
