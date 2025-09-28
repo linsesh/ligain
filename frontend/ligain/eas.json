@@ -9,6 +9,7 @@
         "buildType": "app-bundle"
       },
       "env": {
+        "EXPO_ROUTER_APP_ROOT": "app",
         "APPLE_CLIENT_ID": "com.ligain.app.service"
       }
     },
