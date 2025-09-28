@@ -30,12 +30,10 @@ export class AuthService {
     // Check if Google Sign-In is properly configured
     const webClientId = process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID;
     const iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
-    const androidClientId = process.env.EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID;
     
     console.log('🔐 Google Sign-In - Configuration check:', {
       webClientId: webClientId ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: iosClientId ? 'configured' : 'NOT_CONFIGURED',
-      androidClientId: androidClientId ? 'configured' : 'NOT_CONFIGURED',
     });
     
     if (!webClientId) {
@@ -43,9 +41,6 @@ export class AuthService {
     }
     if (Platform.OS === 'ios' && !iosClientId) {
       throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID on iOS');
-    }
-    if (Platform.OS === 'android' && !androidClientId) {
-      throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID on Android');
     }
     
     try {
@@ -323,7 +318,6 @@ export class AuthService {
     console.log('🔐 AuthService - Google Sign-In configured:', {
       webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
-      androidClientId: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
     });
   }
 } 
