@@ -2,6 +2,7 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_CONFIG, getApiHeaders } from '../config/api';
+import { setCrashUser, logError } from '../utils/crashlytics';
 
 // Configure Google Sign-In (only once, here)
 const googleSignInConfig: Record<string, any> = {
@@ -152,14 +153,24 @@ export class AuthService {
         throw new Error('Name not provided by Google Sign-In');
       }
 
-      return {
+      const result: AuthResult = {
         provider: 'google',
         token: tokens.idToken!, // Use ID token for backend verification
         email: email,
         name: name,
       };
+
+      // Optional: set user id/email for Crashlytics
+      try {
+        setCrashUser(email || name || null);
+      } catch (e) {
+        // ignore
+      }
+
+      return result;
     } catch (error: any) {
       console.error('🔐 Google Sign-In - Error during sign in:', error);
+      try { logError(error, { provider: 'google' }); } catch {}
       
       // SIGN_IN_CANCELLED is already handled above
       if (error.code === statusCodes.IN_PROGRESS) {
@@ -216,14 +227,21 @@ export class AuthService {
         throw new Error('Failed to get identity token from Apple');
       }
 
-      return {
+      const result: AuthResult = {
         provider: 'apple',
         token,
         email,
         name,
       };
+
+      try {
+        setCrashUser(email || name || null);
+      } catch (e) {}
+
+      return result;
     } catch (error: any) {
       console.error('🔐 Apple Sign-In - Error:', error);
+      try { logError(error, { provider: 'apple' }); } catch {}
       
       if (error.code === 'ERR_CANCELED') {
         throw new Error('Sign-in was canceled by the user');
@@ -290,15 +308,22 @@ export class AuthService {
       const data = await response.json();
       console.log('🔐 Guest Sign-In - Success:', data);
       
-      return {
+      const result: AuthResult = {
         provider: 'guest',
         token: data.token,
         email: '', // Guest users don't have email
         name: data.player.name,
         playerId: data.player.id, // Include the player ID from backend
       };
+
+      try {
+        setCrashUser(result.playerId || result.name || null);
+      } catch (e) {}
+
+      return result;
     } catch (error) {
       console.error('🔐 Guest Sign-In - Error:', error);
+      try { logError(error, { provider: 'guest' }); } catch {}
       
       // Handle network errors (server unreachable, etc.)
       if (error instanceof TypeError && error.message.includes('fetch')) {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "557351644624",
+    "project_id": "prd-ligain",
+    "storage_bucket": "prd-ligain.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:557351644624:android:3ecf3730b79d7ca5efddd5",
+        "android_client_info": {
+          "package_name": "com.ligain.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhRaOMgErBTpEMz6lta5XV9j9H_YsHDl4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

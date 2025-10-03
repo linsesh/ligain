@@ -19,7 +19,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       }
     ],
     'expo-apple-authentication',
-    'expo-splash-screen'
+    'expo-splash-screen',
+    [
+      '@react-native-firebase/app',
+      {
+        iosGoogleServicesFile: './ios/GoogleService-Info.plist',
+        androidGoogleServicesFile: './android/app/google-services.json'
+      }
+    ],
+    '@react-native-firebase/crashlytics'
   ],
   splash: {
     image: './assets/images/splash-icon.png',
