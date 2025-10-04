@@ -172,7 +172,32 @@ func (m *MockAuthService) ValidateToken(ctx context.Context, token string) (*mod
 }
 
 func (m *MockAuthService) RefreshToken(ctx context.Context, expiredToken string) (*models.AuthResponse, error) {
-	return nil, fmt.Errorf("not implemented")
+	if m.shouldFail {
+		return nil, fmt.Errorf("mock refresh failed")
+	}
+
+	// Get the token to extract player ID
+	if authToken, exists := m.tokens[expiredToken]; exists {
+		// Generate new token
+		newToken := "new_refreshed_token_" + expiredToken
+
+		// Delete old token
+		delete(m.tokens, expiredToken)
+
+		// Create new token entry
+		m.tokens[newToken] = &models.AuthToken{
+			PlayerID:  authToken.PlayerID,
+			Token:     newToken,
+			ExpiresAt: frozenTime.Add(24 * time.Hour), // Valid for 24 hours
+		}
+
+		return &models.AuthResponse{
+			Player: models.PlayerData{ID: authToken.PlayerID, Name: "Test Player"},
+			Token:  newToken,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("token not found for refresh")
 }
 
 func (m *MockAuthService) GetAuthTokenDirectly(ctx context.Context, token string) (*models.AuthToken, error) {
