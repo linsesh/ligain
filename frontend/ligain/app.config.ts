@@ -26,8 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         iosGoogleServicesFile: './ios/GoogleService-Info.plist',
         androidGoogleServicesFile: './android/app/google-services.json'
       }
-    ],
-    '@react-native-firebase/crashlytics'
+    ]
   ],
   splash: {
     image: './assets/images/splash-icon.png',

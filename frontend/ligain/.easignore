@@ -1,0 +1,2 @@
+# Include google-services.json even if it's not committed
+!android/app/google-services.json

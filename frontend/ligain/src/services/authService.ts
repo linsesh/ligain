@@ -2,7 +2,6 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { API_CONFIG, getApiHeaders } from '../config/api';
-import { setCrashUser, logError } from '../utils/crashlytics';
 
 // Configure Google Sign-In (only once, here)
 const googleSignInConfig: Record<string, any> = {
@@ -13,6 +12,9 @@ const googleSignInConfig: Record<string, any> = {
 if (Platform.OS === 'ios') {
   googleSignInConfig.iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
 }
+
+// Note: For Android, the library automatically reads the client ID from google-services.json
+// No androidClientId parameter is needed or supported
 
 GoogleSignin.configure(googleSignInConfig);
 
@@ -35,6 +37,7 @@ export class AuthService {
     console.log('🔐 Google Sign-In - Configuration check:', {
       webClientId: webClientId ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: iosClientId ? 'configured' : 'NOT_CONFIGURED',
+      platform: Platform.OS,
     });
     
     if (!webClientId) {
@@ -43,6 +46,7 @@ export class AuthService {
     if (Platform.OS === 'ios' && !iosClientId) {
       throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID on iOS');
     }
+    // Note: For Android, the library reads client ID from google-services.json automatically
     
     try {
       // Check if your device supports Google Play
@@ -159,18 +163,9 @@ export class AuthService {
         email: email,
         name: name,
       };
-
-      // Optional: set user id/email for Crashlytics
-      try {
-        setCrashUser(email || name || null);
-      } catch (e) {
-        // ignore
-      }
-
       return result;
     } catch (error: any) {
       console.error('🔐 Google Sign-In - Error during sign in:', error);
-      try { logError(error, { provider: 'google' }); } catch {}
       
       // SIGN_IN_CANCELLED is already handled above
       if (error.code === statusCodes.IN_PROGRESS) {
@@ -234,14 +229,9 @@ export class AuthService {
         name,
       };
 
-      try {
-        setCrashUser(email || name || null);
-      } catch (e) {}
-
       return result;
     } catch (error: any) {
       console.error('🔐 Apple Sign-In - Error:', error);
-      try { logError(error, { provider: 'apple' }); } catch {}
       
       if (error.code === 'ERR_CANCELED') {
         throw new Error('Sign-in was canceled by the user');
@@ -316,14 +306,9 @@ export class AuthService {
         playerId: data.player.id, // Include the player ID from backend
       };
 
-      try {
-        setCrashUser(result.playerId || result.name || null);
-      } catch (e) {}
-
       return result;
     } catch (error) {
       console.error('🔐 Guest Sign-In - Error:', error);
-      try { logError(error, { provider: 'guest' }); } catch {}
       
       // Handle network errors (server unreachable, etc.)
       if (error instanceof TypeError && error.message.includes('fetch')) {
