@@ -238,6 +238,8 @@ func (r *PostgresGameRepository) getMatchesAndBets(gameId string) ([]models.Matc
 			LEFT JOIN bet b ON m.id = b.match_id AND b.game_id = $1
 			LEFT JOIN player p ON b.player_id = p.id
 			LEFT JOIN score s ON b.id = s.bet_id
+			/* Useful to remove players that are not in the game anymore */
+			INNER JOIN game_player gp ON b.game_id = gp.game_id and b.player_id = gp.player_id
 			WHERE m.season_code = (SELECT season_year FROM game WHERE id = $1::uuid)
 			AND m.competition_code = (SELECT competition_name FROM game WHERE id = $1::uuid)
 		)

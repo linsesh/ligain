@@ -19,7 +19,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       }
     ],
     'expo-apple-authentication',
-    'expo-splash-screen'
+    'expo-splash-screen',
+    [
+      '@react-native-firebase/app',
+      {
+        iosGoogleServicesFile: './ios/GoogleService-Info.plist',
+        androidGoogleServicesFile: './android/app/google-services.json'
+      }
+    ]
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -33,7 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.ligain.app',
-    versionCode: 1,
+    versionCode: 8,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#ffffff',

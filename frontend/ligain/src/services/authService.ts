@@ -13,6 +13,9 @@ if (Platform.OS === 'ios') {
   googleSignInConfig.iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
 }
 
+// Note: For Android, the library automatically reads the client ID from google-services.json
+// No androidClientId parameter is needed or supported
+
 GoogleSignin.configure(googleSignInConfig);
 
 export interface AuthResult {
@@ -30,12 +33,11 @@ export class AuthService {
     // Check if Google Sign-In is properly configured
     const webClientId = process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID;
     const iosClientId = process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID;
-    const androidClientId = process.env.EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID;
     
     console.log('🔐 Google Sign-In - Configuration check:', {
       webClientId: webClientId ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: iosClientId ? 'configured' : 'NOT_CONFIGURED',
-      androidClientId: androidClientId ? 'configured' : 'NOT_CONFIGURED',
+      platform: Platform.OS,
     });
     
     if (!webClientId) {
@@ -44,9 +46,7 @@ export class AuthService {
     if (Platform.OS === 'ios' && !iosClientId) {
       throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID on iOS');
     }
-    if (Platform.OS === 'android' && !androidClientId) {
-      throw new Error('Google Sign-In not properly configured: missing EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID on Android');
-    }
+    // Note: For Android, the library reads client ID from google-services.json automatically
     
     try {
       // Check if your device supports Google Play
@@ -157,12 +157,13 @@ export class AuthService {
         throw new Error('Name not provided by Google Sign-In');
       }
 
-      return {
+      const result: AuthResult = {
         provider: 'google',
         token: tokens.idToken!, // Use ID token for backend verification
         email: email,
         name: name,
       };
+      return result;
     } catch (error: any) {
       console.error('🔐 Google Sign-In - Error during sign in:', error);
       
@@ -221,12 +222,14 @@ export class AuthService {
         throw new Error('Failed to get identity token from Apple');
       }
 
-      return {
+      const result: AuthResult = {
         provider: 'apple',
         token,
         email,
         name,
       };
+
+      return result;
     } catch (error: any) {
       console.error('🔐 Apple Sign-In - Error:', error);
       
@@ -295,13 +298,15 @@ export class AuthService {
       const data = await response.json();
       console.log('🔐 Guest Sign-In - Success:', data);
       
-      return {
+      const result: AuthResult = {
         provider: 'guest',
         token: data.token,
         email: '', // Guest users don't have email
         name: data.player.name,
         playerId: data.player.id, // Include the player ID from backend
       };
+
+      return result;
     } catch (error) {
       console.error('🔐 Guest Sign-In - Error:', error);
       
@@ -323,7 +328,6 @@ export class AuthService {
     console.log('🔐 AuthService - Google Sign-In configured:', {
       webClientId: process.env.EXPO_PUBLIC_WEB_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
       iosClientId: process.env.EXPO_PUBLIC_IOS_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
-      androidClientId: process.env.EXPO_PUBLIC_ANDROID_GOOGLE_CLIENT_ID ? 'configured' : 'NOT_CONFIGURED',
     });
   }
 } 

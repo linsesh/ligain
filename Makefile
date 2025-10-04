@@ -81,11 +81,11 @@ docker-push:
 
 # Build and push Docker image
 docker-build-push:
-	docker buildx build --platform linux/amd64 -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest -f backend/Dockerfile . --push
+	docker buildx build --platform linux/amd64 -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest -f backend/Dockerfile . --push --provenance=false --sbom=false
 
 # Deploy to GCP (requires image to be pushed first)
 docker-deploy:
-	cd infrastructure && pulumi stack select $(ENV) && pulumi up --yes
+	cd infrastructure && pulumi stack select linsesh/$(ENV) && pulumi up --yes
 
 # Complete deployment workflow
 deploy: docker-build-push docker-deploy
