@@ -1,4 +1,4 @@
-import { computeMonthlyAndMatchdayScores, computeTotalScores } from './aggregations';
+import { computeMonthlyAndMatchdayScores, computeTotalScores, computeCumulativePointsByMatchday } from './aggregations';
 
 describe('computeMonthlyAndMatchdayScores', () => {
   it('returns empty structures for null/undefined input', () => {
@@ -103,6 +103,34 @@ describe('computeMonthlyAndMatchdayScores', () => {
     expect(computeTotalScores(undefined as any)).toEqual([]);
     expect(computeTotalScores(null as any)).toEqual([]);
     expect(computeTotalScores({} as any)).toEqual([]);
+  });
+
+  it('computes cumulative points by matchday for each player', () => {
+    const perMatchdayLeaderboard = {
+      1: [
+        { PlayerID: 'p1', PlayerName: 'Alice', Points: 2 },
+        { PlayerID: 'p2', PlayerName: 'Bob', Points: 1 },
+      ],
+      2: [
+        { PlayerID: 'p1', PlayerName: 'Alice', Points: 3 },
+      ],
+      3: [
+        { PlayerID: 'p2', PlayerName: 'Bob', Points: 5 },
+      ],
+    } as any;
+
+    const res = computeCumulativePointsByMatchday(perMatchdayLeaderboard);
+
+    expect(res.matchdays).toEqual([1, 2, 3]);
+    expect(res.series.map(s => s.playerId)).toEqual(['p1', 'p2']);
+    expect(res.series[0].playerName).toBe('Alice');
+    expect(res.series[1].playerName).toBe('Bob');
+    expect(res.series[0].values).toEqual([2, 5, 5]);
+    expect(res.series[1].values).toEqual([1, 1, 6]);
+  });
+
+  it('returns empty structures for empty input in cumulative computation', () => {
+    expect(computeCumulativePointsByMatchday({} as any)).toEqual({ matchdays: [], series: [] });
   });
 });
 

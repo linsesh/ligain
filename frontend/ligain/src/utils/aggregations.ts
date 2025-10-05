@@ -153,3 +153,50 @@ export function computeTotalScores(
 }
 
 
+// Build cumulative points per matchday for each player from an already aggregated perMatchday leaderboard map.
+// Returns sorted unique matchdays and a series per player with cumulative values aligned to matchdays.
+export function computeCumulativePointsByMatchday(
+  perMatchdayLeaderboard: Record<number, AggregatedScore[] | undefined | null>
+): { matchdays: number[]; series: { playerId: string; playerName: string; values: number[] }[] } {
+  const mdKeys = Object.keys(perMatchdayLeaderboard || {})
+    .map((k) => Number(k))
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b);
+  if (mdKeys.length === 0) return { matchdays: [], series: [] };
+
+  const playerIdToName: Record<string, string> = {};
+  for (const md of mdKeys) {
+    for (const score of (perMatchdayLeaderboard[md] || [])) {
+      playerIdToName[score.PlayerID] = score.PlayerName;
+    }
+  }
+  const playerIds = Object.keys(playerIdToName).sort();
+
+  const runningTotals: Record<string, number> = {};
+  const valuesByPlayer: Record<string, number[]> = {};
+  for (const pid of playerIds) {
+    runningTotals[pid] = 0;
+    valuesByPlayer[pid] = [];
+  }
+
+  for (const md of mdKeys) {
+    const deltaByPlayer: Record<string, number> = {};
+    for (const s of (perMatchdayLeaderboard[md] || [])) {
+      deltaByPlayer[s.PlayerID] = s.Points;
+    }
+    for (const pid of playerIds) {
+      runningTotals[pid] += deltaByPlayer[pid] ?? 0;
+      valuesByPlayer[pid].push(runningTotals[pid]);
+    }
+  }
+
+  const series = playerIds.map((pid) => ({
+    playerId: pid,
+    playerName: playerIdToName[pid] || '',
+    values: valuesByPlayer[pid],
+  }));
+
+  return { matchdays: mdKeys, series };
+}
+
+

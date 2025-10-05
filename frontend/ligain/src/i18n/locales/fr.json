@@ -108,7 +108,8 @@
     "selectPeriod": "Sélectionner une période",
     "general": "Général",
     "currentMonthLeader": "Leader du mois en cours",
-    "lastMonthWinner": "Vainqueur du mois dernier"
+    "lastMonthWinner": "Vainqueur du mois dernier",
+    "cumulativePointsByMatchday": "Points cumulés par journée"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

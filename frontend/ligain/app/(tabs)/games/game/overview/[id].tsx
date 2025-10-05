@@ -13,6 +13,8 @@ import { getTranslatedGameStatus } from '../../../../../src/utils/gameStatusUtil
 import StatusTag from '../../../../../src/components/StatusTag';
 import { translateError } from '../../../../../src/utils/errorMessages';
 import { Picker } from '@react-native-picker/picker';
+import { computeCumulativePointsByMatchday } from '../../../../../src/utils/aggregations';
+import CumulativePointsChart from '../../../../../src/components/CumulativePointsChart';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -136,6 +138,10 @@ export default function GameOverviewScreen() {
   const currentMonthTop = (gameDetails.perMonthLeaderboard?.[currentMonthKey] || [])[0];
   const lastMonthTop = (gameDetails.perMonthLeaderboard?.[lastMonthKey] || [])[0];
 
+  const cumulativeData = useMemo(() => {
+    return computeCumulativePointsByMatchday(gameDetails.perMatchdayLeaderboard || {});
+  }, [gameDetails.perMatchdayLeaderboard]);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -242,6 +248,19 @@ export default function GameOverviewScreen() {
               <Text style={styles.cardPrimary}>{lastMonthTop.PlayerName}</Text>
               <Text style={styles.cardSecondary}>{lastMonthTop.Points} {t('game.points')}</Text>
             </View>
+          </View>
+        )}
+        {cumulativeData.series.length > 0 && cumulativeData.matchdays.length > 0 && (
+          <View style={styles.cardContainer}>
+            <Text style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
+            <CumulativePointsChart
+              matchdays={cumulativeData.matchdays}
+              series={cumulativeData.series.map(s => ({
+                playerId: s.playerId,
+                playerName: s.playerName,
+                values: s.values,
+              }))}
+            />
           </View>
         )}
         <TouchableOpacity
