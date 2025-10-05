@@ -420,20 +420,19 @@ function GamesList() {
 export default function TabOneScreen() {
   const { player, isLoading: isAuthLoading } = useAuth();
   const { games, loading: isGamesLoading } = useGames();
-  const [hasAttemptedInitialRedirect, setHasAttemptedInitialRedirect] = useState(false);
   const router = useRouter();
 
   // Auto-redirect to matches if user has games (only on initial app load)
   useEffect(() => {
-    if (!isAuthLoading && !isGamesLoading && games.length > 0 && !hasAttemptedInitialRedirect) {
+    if (isAuthLoading || isGamesLoading) return;
+    if (hasAttemptedInitialRedirectGlobal) return;
+    // Only perform the auto-redirect once after the app loads data
+    hasAttemptedInitialRedirectGlobal = true;
+    if (games.length > 0) {
       console.log('🔄 Auto-redirecting to matches on initial load - user has games:', games.length);
-      setHasAttemptedInitialRedirect(true);
       router.replace('/(tabs)/matches');
-    } else if (!isAuthLoading && !isGamesLoading && !hasAttemptedInitialRedirect) {
-      // Mark as attempted even if no redirect happened (no games)
-      setHasAttemptedInitialRedirect(true);
     }
-  }, [isAuthLoading, isGamesLoading, games.length, router, hasAttemptedInitialRedirect]);
+  }, [isAuthLoading, isGamesLoading, games.length, router]);
 
   if (isAuthLoading || isGamesLoading) {
     return (
@@ -445,6 +444,9 @@ export default function TabOneScreen() {
 
   return <GamesList />;
 }
+
+// Module-level flag to ensure auto-redirect triggers only once per app session
+let hasAttemptedInitialRedirectGlobal = false;
 
 const styles = StyleSheet.create({
   container: {
