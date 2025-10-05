@@ -103,7 +103,12 @@
     "closestMatch": "Match le plus proche",
     "noUnbetMatches": "Aucun match à pronostiquer",
     "leftGame": "Tu as quitté la partie.",
-    "failedToLeaveGame": "Je n'ai pas pu quitter la partie"
+    "failedToLeaveGame": "Je n'ai pas pu quitter la partie",
+    "leaderboardPeriod": "Période du classement",
+    "selectPeriod": "Sélectionner une période",
+    "general": "Général",
+    "currentMonthLeader": "Leader du mois en cours",
+    "lastMonthWinner": "Vainqueur du mois dernier"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

@@ -208,6 +208,7 @@ function GamesList() {
       )}
       <ScrollView 
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -263,9 +264,9 @@ function GamesList() {
                       <Text style={styles.leagueNamePlain}>{game.name}</Text>
                       <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
                     </View>
-                    {game.players && Array.isArray(game.players) && (
+                    {game.totalLeaderboard && game.totalLeaderboard.length > 0 && (
                       <Leaderboard
-                        players={[...game.players].sort((a, b) => b.totalScore - a.totalScore)}
+                        players={game.totalLeaderboard.map(p => ({ id: p.PlayerID, name: p.PlayerName, totalScore: p.Points }))}
                         t={t}
                         showTitle={false}
                         align="left"
