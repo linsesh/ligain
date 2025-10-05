@@ -19,9 +19,8 @@ type PostgresGameRepository struct {
 
 func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) {
 	baseRepo := NewPostgresRepository(db)
-	betCache := repositories.NewInMemoryBetRepository()
 	matchRepo := NewPostgresMatchRepository(db)
-	betRepo := NewPostgresBetRepository(db, betCache)
+	betRepo := NewPostgresBetRepository(db)
 	cache := repositories.NewInMemoryGameRepository()
 	return &PostgresGameRepository{
 		PostgresRepository: baseRepo,

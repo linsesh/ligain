@@ -12,17 +12,12 @@ import (
 )
 
 type PostgresBetRepository struct {
-	db    DBExecutor
-	cache repositories.BetRepository
+	db DBExecutor
 }
 
-func NewPostgresBetRepository(db DBExecutor, cache repositories.BetRepository) repositories.BetRepository {
-	if cache == nil {
-		cache = repositories.NewInMemoryBetRepository()
-	}
+func NewPostgresBetRepository(db DBExecutor) repositories.BetRepository {
 	return &PostgresBetRepository{
-		db:    db,
-		cache: cache,
+		db: db,
 	}
 }
 
@@ -65,32 +60,10 @@ func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player m
 		return "", nil, fmt.Errorf("error saving bet: %v", err)
 	}
 
-	// Update cache
-	_, _, err = r.cache.SaveBet(gameId, bet, player)
-	if err != nil {
-		return "", nil, fmt.Errorf("error saving bet to cache: %v", err)
-	}
-
 	return id, bet, nil
 }
 
-// updateBetsCache updates the cache with the given bets and players
-func (r *PostgresBetRepository) updateBetsCache(gameId string, bets []*models.Bet, players []models.Player) error {
-	for i, bet := range bets {
-		_, _, err := r.cache.SaveBet(gameId, bet, players[i])
-		if err != nil {
-			return fmt.Errorf("error saving bet to cache: %v", err)
-		}
-	}
-	return nil
-}
-
 func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]*models.Bet, error) {
-	// Try cache first
-	if bets, err := r.cache.GetBets(gameId, player); err == nil {
-		return bets, nil
-	}
-
 	// Query database with JOIN to player table
 	query := `
 		SELECT b.id, b.match_id, b.predicted_home_goals, b.predicted_away_goals,
@@ -153,20 +126,10 @@ func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]
 		return nil, fmt.Errorf("error iterating bet rows: %v", err)
 	}
 
-	// Update cache
-	if err := r.updateBetsCache(gameId, bets, []models.Player{player}); err != nil {
-		return nil, err
-	}
-
 	return bets, nil
 }
 
 func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId string) ([]*models.Bet, []models.Player, error) {
-	// Try cache first
-	if bets, players, err := r.cache.GetBetsForMatch(match, gameId); err == nil {
-		return bets, players, nil
-	}
-
 	// Query database with JOIN to get player names and IDs
 	query := `
 		SELECT b.id, p.id, p.name, b.predicted_home_goals, b.predicted_away_goals
@@ -215,11 +178,6 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 		return nil, nil, fmt.Errorf("error iterating bet rows: %v", err)
 	}
 
-	// Update cache
-	if err := r.updateBetsCache(gameId, bets, players); err != nil {
-		return nil, nil, err
-	}
-
 	return bets, players, nil
 }
 
@@ -254,9 +212,7 @@ func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *mod
 		}
 		return fmt.Errorf("error saving bet: %w", err)
 	}
-
-	// Update cache
-	return r.cache.SaveWithId(gameId, betId, bet, player)
+	return nil
 }
 
 func (r *PostgresBetRepository) SaveScore(gameId string, match models.Match, player models.Player, points int) error {
@@ -281,8 +237,7 @@ func (r *PostgresBetRepository) SaveScore(gameId string, match models.Match, pla
 		return fmt.Errorf("error saving score: %v", err)
 	}
 
-	// Update cache
-	return r.cache.SaveScore(gameId, match, player, points)
+	return nil
 }
 
 func (r *PostgresBetRepository) GetScore(gameId string, betId string) (int, error) {

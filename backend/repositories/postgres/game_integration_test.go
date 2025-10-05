@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"ligain/backend/models"
-	"ligain/backend/repositories"
 	"ligain/backend/rules"
 	"ligain/backend/services"
 
@@ -121,7 +120,7 @@ func TestGameRepository_Integration(t *testing.T) {
 			require.NoError(t, err)
 
 			// Create a bet for one of the matches
-			betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+			betRepo := NewPostgresBetRepository(testDB.db)
 			bet := models.NewBet(match1, 2, 1)
 			_, _, err = betRepo.SaveBet(gameID, bet, player)
 			require.NoError(t, err)
@@ -203,8 +202,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create bets
-		betCache := repositories.NewInMemoryBetRepository()
-		betRepo := NewPostgresBetRepository(testDB.db, betCache)
+		betRepo := NewPostgresBetRepository(testDB.db)
 		postgresBetRepo := betRepo.(*PostgresBetRepository)
 
 		// Player 1 bets
@@ -385,8 +383,7 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 		require.NoError(t, err)
 
 		// Only Player1 and Player2 make bets, Player3 doesn't bet yet
-		betCache := repositories.NewInMemoryBetRepository()
-		betRepo := NewPostgresBetRepository(testDB.db, betCache)
+		betRepo := NewPostgresBetRepository(testDB.db)
 		postgresBetRepo := betRepo.(*PostgresBetRepository)
 
 		// Player 1 bets
@@ -562,7 +559,7 @@ func TestGameRepository_GetAllGames_Integration(t *testing.T) {
 			require.NoError(t, err)
 
 			// Insert bets
-			betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+			betRepo := NewPostgresBetRepository(testDB.db)
 			bet1 := models.NewBet(match1, 2, 1)
 			_, _, err = betRepo.SaveBet(gameID, bet1, &models.PlayerData{ID: player1ID, Name: "Player 1"})
 			require.NoError(t, err)
@@ -682,7 +679,7 @@ func TestGameServiceCacheInconsistency(t *testing.T) {
 		// Create repositories
 		gameRepo, err := NewPostgresGameRepository(testDB.db)
 		require.NoError(t, err)
-		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		betRepo := NewPostgresBetRepository(testDB.db)
 		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
 
@@ -740,7 +737,7 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		// Create repositories
 		gameRepo, err := NewPostgresGameRepository(testDB.db)
 		require.NoError(t, err)
-		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
 		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
 		matchRepo := NewPostgresMatchRepository(testDB.db)
@@ -813,7 +810,7 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		// Create repositories
 		gameRepo, err := NewPostgresGameRepository(testDB.db)
 		require.NoError(t, err)
-		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
 		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
 		matchRepo := NewPostgresMatchRepository(testDB.db)
@@ -904,7 +901,7 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		// Create repositories
 		gameRepo, err := NewPostgresGameRepository(testDB.db)
 		require.NoError(t, err)
-		betRepo := NewPostgresBetRepository(testDB.db, repositories.NewInMemoryBetRepository())
+		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
 		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
 		matchRepo := NewPostgresMatchRepository(testDB.db)
