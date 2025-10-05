@@ -35,7 +35,7 @@ func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player m
 		SELECT $6, m.id, p.id, $7, $8
 		FROM match_id m
 		JOIN player p ON p.name = $9
-		ON CONFLICT (match_id, player_id) DO UPDATE 
+		ON CONFLICT (game_id, match_id, player_id) DO UPDATE 
 		SET predicted_home_goals = $7, predicted_away_goals = $8, updated_at = NOW()
 		RETURNING id`
 
