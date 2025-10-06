@@ -122,8 +122,8 @@ func PlayerAuthWithRefresh(authService services.AuthServiceInterface) gin.Handle
 					return
 				}
 
-				// Attempt to refresh the token using the player ID
-				refreshResp, refreshErr := authService.RefreshTokenByPlayerID(c.Request.Context(), authToken.PlayerID)
+				// Attempt to refresh the token (this will delete the old token)
+				refreshResp, refreshErr := authService.RefreshToken(c.Request.Context(), token)
 				if refreshErr != nil {
 					log.Error("PlayerAuthWithRefresh - Token refresh failed")
 					c.JSON(http.StatusUnauthorized, gin.H{"error": "Token expired and refresh failed"})

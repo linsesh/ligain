@@ -152,8 +152,7 @@ func (s *AuthService) ValidateToken(ctx context.Context, token string) (*models.
 	}
 
 	if s.timeFunc().After(authToken.ExpiresAt) {
-		// Token expired, delete it
-		s.playerRepo.DeleteAuthToken(ctx, token)
+		// Token expired, but don't delete it yet - let the refresh mechanism handle it
 		return nil, &models.TokenExpiredError{Reason: "token expired"}
 	}
 

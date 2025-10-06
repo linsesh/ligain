@@ -80,24 +80,6 @@ export default function SignInScreen() {
     }
   };
 
-  // Google sign-in button handler
-  const handleGoogleSignIn = async () => {
-    // You need to implement the logic to get token and email from Google
-    // For now, this is a placeholder
-    // Example:
-    // const { token, email } = await AuthService.signInWithGoogle();
-    // await handleOAuthSignIn('google', token, email);
-  };
-
-  // Apple sign-in button handler
-  const handleAppleSignIn = async () => {
-    // You need to implement the logic to get token and email from Apple
-    // For now, this is a placeholder
-    // Example:
-    // const { token, email } = await AuthService.signInWithApple();
-    // await handleOAuthSignIn('apple', token, email);
-  };
-
   // Guest sign-in handler
   const handleGuestSignIn = async () => {
     setShowGuestPasswordModal(true);
@@ -277,31 +259,6 @@ export default function SignInScreen() {
             />
           )}
         </View>
-        {/* Separation between main sign-in and guest */}
-        {availableProviders.includes('guest') && (
-          <View style={styles.guestSectionWrapper}>
-            <View style={styles.guestDivider} />
-            <View style={styles.guestSection}>
-              <TouchableOpacity
-                style={[styles.button, styles.guestButton]}
-                onPress={handleGuestSignIn}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : (
-                  <>
-                    <Ionicons name="person" size={24} color="#333" />
-                    <Text style={styles.guestButtonText}>{t('auth.continueAsGuest')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <Text style={styles.guestNote}>
-                {t('auth.guestNote')}
-              </Text>
-            </View>
-          </View>
-        )}
         <View style={styles.footer}>
           <TouchableOpacity onPress={() => setShowPrivacyTermsModal(true)}>
             <Text style={[styles.footerText, { color: colors.link }]}>

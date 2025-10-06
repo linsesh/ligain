@@ -26,7 +26,7 @@ func TestBetRepository_Integration(t *testing.T) {
 		t.Run("Save and Get Bet", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create repository with transaction dependency injection
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
@@ -70,7 +70,7 @@ func TestBetRepository_Integration(t *testing.T) {
 		t.Run("Get Bets for Match", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create repository with transaction dependency injection
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
@@ -119,7 +119,7 @@ func TestBetRepository_Integration(t *testing.T) {
 		t.Run("Save Bet with Invalid Match", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create repository with transaction dependency injection
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
@@ -152,7 +152,7 @@ func TestBetRepository_Integration(t *testing.T) {
 		t.Run("Get Bets for Non-existent Player", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create repository with transaction dependency injection
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
@@ -172,7 +172,7 @@ func TestBetRepository_Integration(t *testing.T) {
 		t.Run("Save and Get Score", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create repository with transaction dependency injection
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data using raw SQL with proper UUIDs
 				_, err := tx.Exec(`
@@ -215,7 +215,7 @@ func TestBetRepository_Integration(t *testing.T) {
 
 		t.Run("Get Score Not Found", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data
 				_, err := tx.Exec(`
@@ -254,7 +254,7 @@ func TestBetRepository_Integration(t *testing.T) {
 		t.Run("Get All Scores", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				gameId := "623e4567-e89b-12d3-a456-426614174000"
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data
 				_, err := tx.Exec(`
@@ -312,7 +312,7 @@ func TestBetRepository_Integration(t *testing.T) {
 
 		t.Run("Get Scores By Match And Player", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data
 				_, err := tx.Exec(`
@@ -375,7 +375,7 @@ func TestBetRepository_Integration(t *testing.T) {
 
 		t.Run("Save With ID", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 
 				// Setup test data
 				_, err := tx.Exec(`
@@ -437,7 +437,7 @@ func TestBetRepository_Integration(t *testing.T) {
 
 				// Simulate saving a score for a player who did not bet (no bet row)
 				// Use repository to save a score for a player who did not bet (no bet row)
-				betRepo := NewPostgresBetRepository(tx, nil)
+				betRepo := NewPostgresBetRepository(tx)
 				match := models.NewSeasonMatch("Forgotten", "FC", "2024", "Test League", betTestTime, 0)
 				player := models.NewSimplePlayer("999e4567-e89b-12d3-a456-426614174001", "ForgotPlayer")
 				err = betRepo.SaveScore("999e4567-e89b-12d3-a456-426614174000", match, player, -100)

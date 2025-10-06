@@ -32,6 +32,7 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { handleGameError, translateError } from '../utils/errorMessages';
+import { computeMonthlyAndMatchdayScores, computeTotalScores, AggregatedScore } from '../utils/aggregations';
 
 // Basic game data structure returned from the API
 // Contains core game information without any derived/calculated fields
@@ -53,6 +54,10 @@ export interface GameWithMatchInfo extends Game {
     matchday: number;
     date: Date;
   };
+  // Aggregated statistics prepared for visuals
+  perMonthLeaderboard?: Record<string, { PlayerID: string; PlayerName: string; Points: number }[]>;
+  perMatchdayLeaderboard?: Record<number, { PlayerID: string; PlayerName: string; Points: number }[]>;
+  totalLeaderboard?: AggregatedScore[];
 }
 
 // Context API interface that defines what the GamesContext provides to components
@@ -90,6 +95,53 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   const [bestGameId, setBestGameId] = useState<string | null>(null);
   const router = useRouter();
 
+  // Small helper: handle 401 cases consistently
+  const handle401 = useCallback(async (response: Response) => {
+    let errorMsg = '';
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.error || '';
+    } catch (e) {
+      errorMsg = '';
+    }
+    if (errorMsg === 'API key is required' || errorMsg === 'Invalid API key') {
+      setError(t('common.error'));
+      setLoading(false);
+      return { handled: true, retry: false } as const;
+    }
+    if ((errorMsg === 'Invalid or expired token' || errorMsg.toLowerCase().includes('expired'))) {
+      return { handled: false, retry: true } as const;
+    }
+    if (
+      errorMsg === 'Invalid authorization header format' ||
+      errorMsg === 'Player not found in context'
+    ) {
+      await signOut();
+      router.replace('/signin');
+      setLoading(false);
+      return { handled: true, retry: false } as const;
+    }
+    setError(t('common.ligainNotAvailable'));
+    setLoading(false);
+    return { handled: true, retry: false } as const;
+  }, [router, signOut, t]);
+
+  // Fetch list of games for the player
+  const fetchPlayerGames = useCallback(async (): Promise<Game[]> => {
+    const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`);
+    if (response.status === 401) {
+      const res = await handle401(response);
+      if (res.retry) throw new Error('401-retry');
+      if (res.handled) throw new Error('401-handled');
+    }
+    if (!response.ok) throw new Error(`Failed to fetch games: ${response.status}`);
+    const data = await response.json();
+    return (data.games || []) as Game[];
+  }, [handle401]);
+
+  // enrichGameWithMatches declared after processGameWithMatches to avoid TDZ issues
+  let enrichGameWithMatches: (game: Game) => Promise<GameWithMatchInfo>;
+
   // Main fetch function - gets games and analyzes matches to find the "best" one
   const fetchGames = useCallback(async () => {
     setLoading(true);
@@ -97,61 +149,11 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     let lastError: any = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`);
-        if (response.status === 401) {
-          let errorMsg = '';
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.error || '';
-          } catch (e) {
-            errorMsg = '';
-          }
-          // API key errors
-          if (errorMsg === 'API key is required' || errorMsg === 'Invalid API key') {
-            setError(t('common.error'));
-            setLoading(false);
-            return;
-          }
-          // Token expired: try silent re-auth and retry
-          if ((errorMsg === 'Invalid or expired token' || errorMsg.toLowerCase().includes('expired'))) {
-            if (!didRetry) {
-              await checkAuth();
-              didRetry = true;
-              continue;
-            }
-          }
-          // Malformed/missing header or player not found: force sign-out and redirect
-          if (
-            errorMsg === 'Invalid authorization header format' ||
-            errorMsg === 'Player not found in context'
-          ) {
-            await signOut();
-            router.replace('/signin');
-            setLoading(false);
-            return;
-          }
-          // Fallback: treat as generic error
-          setError(t('common.ligainNotAvailable'));
-          setLoading(false);
-          return;
-        }
-        if (!response.ok) throw new Error(`Failed to fetch games: ${response.status}`);
-        const data = await response.json();
-        const gamesData: Game[] = data.games || [];
+        const gamesData: Game[] = await fetchPlayerGames();
         const gamesWithMatchInfo: GameWithMatchInfo[] = [];
         for (const game of gamesData) {
-          try {
-            const matchesResponse = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`);
-            if (matchesResponse.ok) {
-              const matchesData = await matchesResponse.json();
-              const gameWithInfo = await processGameWithMatches(game, matchesData, player);
-              gamesWithMatchInfo.push(gameWithInfo);
-            } else {
-              gamesWithMatchInfo.push(game);
-            }
-          } catch (err) {
-            gamesWithMatchInfo.push(game);
-          }
+          const enriched = await enrichGameWithMatches(game);
+          gamesWithMatchInfo.push(enriched);
         }
         setGames(gamesWithMatchInfo);
         const bestGame = determineBestGame(gamesWithMatchInfo);
@@ -166,7 +168,13 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('🔍 GamesContext - Error message:', err instanceof Error ? err.message : String(err));
         
         lastError = err;
-        // Only retry on first 401 with expired token, otherwise break
+        // Attempt silent reauth when flagged for retry
+        if (err instanceof Error && err.message === '401-retry' && !didRetry) {
+          await checkAuth();
+          didRetry = true;
+          continue;
+        }
+        // Only retry once; otherwise break
         if (!(err instanceof Error && err.message.includes('401')) || didRetry) {
           break;
         }
@@ -174,7 +182,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setError(translateError(lastError instanceof Error ? lastError.message : 'Failed to fetch games'));
     setLoading(false);
-  }, [player, timeService, checkAuth, signOut, router]);
+  }, [player, timeService, checkAuth, fetchPlayerGames]);
 
   useEffect(() => {
     if (player) {
@@ -190,6 +198,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     let closestUnfinishedMatchday: { matchday: number; date: Date } | undefined = undefined;
 
     const incomingMatches = matchesData.incomingMatches || {};
+    const pastMatches = matchesData.pastMatches || {};
 
     for (const [matchId, matchData] of Object.entries(incomingMatches)) {
       const matchDataTyped = matchData as any;
@@ -215,11 +224,41 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
 
+    const { perMonthLeaderboard, perMatchdayLeaderboard } = computeMonthlyAndMatchdayScores(pastMatches);
+    const totalLeaderboard = computeTotalScores(pastMatches);
+
     return {
       ...game,
       closestUnfinishedMatchday,
+      perMonthLeaderboard,
+      perMatchdayLeaderboard,
+      totalLeaderboard,
     };
   };
+
+  // Now that processGameWithMatches is defined, bind enrichGameWithMatches
+  enrichGameWithMatches = useCallback(async (game: Game): Promise<GameWithMatchInfo> => {
+    try {
+      const matchesResponse = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`);
+      if (!matchesResponse.ok) {
+        return {
+          ...game,
+          perMonthLeaderboard: {},
+          perMatchdayLeaderboard: {},
+          totalLeaderboard: [],
+        } as GameWithMatchInfo;
+      }
+      const matchesData = await matchesResponse.json();
+      return await processGameWithMatches(game, matchesData, player);
+    } catch {
+      return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+    }
+  }, [player]);
 
   // Determines the "best" game to show first based on betting urgency
   const determineBestGame = (games: GameWithMatchInfo[]): GameWithMatchInfo | null => {

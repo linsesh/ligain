@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"ligain/backend/middleware"
 	"ligain/backend/models"
-	"ligain/backend/repositories"
 	"ligain/backend/repositories/postgres"
 	"ligain/backend/routes"
 	"ligain/backend/services"
@@ -46,7 +45,7 @@ func main() {
 		log.Fatal("Failed to create game repository:", err)
 	}
 
-	betRepo := postgres.NewPostgresBetRepository(db, repositories.NewInMemoryBetRepository())
+	betRepo := postgres.NewPostgresBetRepository(db)
 	playerRepo := postgres.NewPostgresPlayerRepository(db)
 	matchRepo := postgres.NewPostgresMatchRepository(db)
 
