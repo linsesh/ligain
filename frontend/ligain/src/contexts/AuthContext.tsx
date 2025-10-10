@@ -52,15 +52,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [authResult, setAuthResult] = useState<any>(null);
   const [selectedProvider, setSelectedProvider] = useState<'google' | 'apple' | 'guest' | null>(null);
+  const [isMounted, setIsMounted] = useState(true);
 
   const AUTH_TOKEN_KEY = 'auth_token';
   const PLAYER_DATA_KEY = 'player_data';
+
+  // Track if component is mounted to prevent state updates after unmount
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
   useEffect(() => {
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
+    if (!isMounted) return;
+    
     try {
       console.log('🔍 AuthContext - Starting checkAuth');
       setIsLoading(true);
@@ -74,6 +83,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = await getItem(AUTH_TOKEN_KEY);
       const playerData = await getItem(PLAYER_DATA_KEY);
       
+      if (!isMounted) return; // Check after async operations
+      
       console.log('🔍 AuthContext - Token exists:', !!token, 'PlayerData exists:', !!playerData);
 
       if (token && playerData) {
@@ -82,19 +93,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/me`);
 
+          if (!isMounted) return; // Check after async operation
+
           console.log('🔍 AuthContext - Backend response status:', response.status);
 
           if (response.ok) {
             const data = await response.json();
+            if (!isMounted) return; // Check before state update
             console.log('✅ AuthContext - Token valid, setting player:', data.player?.name);
             setPlayer(data.player);
           } else {
             console.log('❌ AuthContext - Token invalid, clearing storage');
             // Token is invalid, clear storage
             await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
+            if (!isMounted) return; // Check before state update
             setPlayer(null);
           }
         } catch (fetchError) {
+          if (!isMounted) return; // Check after error
           // Handle network errors (server unreachable, etc.)
           if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
             console.error('🔍 AuthContext - Network error during token validation (server unreachable):', fetchError);
@@ -107,12 +123,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } else {
         console.log('❌ AuthContext - No token or player data found');
+        if (!isMounted) return; // Check before state update
         setPlayer(null);
       }
     } catch (error) {
+      if (!isMounted) return; // Check after error
       console.error('❌ AuthContext - Error checking auth:', error);
       setPlayer(null);
     } finally {
+      if (!isMounted) return; // Check before final state update
       console.log('🔍 AuthContext - Setting isLoading to false');
       setIsLoading(false);
     }

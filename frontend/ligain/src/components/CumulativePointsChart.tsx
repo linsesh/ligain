@@ -36,8 +36,12 @@ const COLOR_PALETTE: { name: string; hex: string }[] = [
 export default function CumulativePointsChart({ matchdays, series, width = 0, height = 160 }: CumulativePointsChartProps) {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const onLayout = useCallback((e: any) => {
-    const w = e?.nativeEvent?.layout?.width || 0;
-    if (w && Math.abs(w - containerWidth) > 1) setContainerWidth(w);
+    try {
+      const w = e?.nativeEvent?.layout?.width || 0;
+      if (w && Math.abs(w - containerWidth) > 1) setContainerWidth(w);
+    } catch (error) {
+      console.warn('CumulativePointsChart onLayout error:', error);
+    }
   }, [containerWidth]);
 
   // Use measured width if not provided
@@ -77,6 +81,15 @@ export default function CumulativePointsChart({ matchdays, series, width = 0, he
     if (bases[bases.length - 1] !== n - 1) bases.push(n - 1);
     return bases;
   }, [matchdays.length]);
+
+  // Add safety checks for data
+  if (!matchdays || matchdays.length === 0 || !series || series.length === 0) {
+    return (
+      <View style={{ height, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#999', fontSize: 14 }}>No data available</Text>
+      </View>
+    );
+  }
 
   return (
     <View onLayout={onLayout} style={{ backgroundColor: 'transparent' }}>

@@ -17,7 +17,15 @@ export default function GamesStackLayout() {
           headerBackVisible: false,
           headerLeft: () => (
             <TouchableOpacity
-              onPress={() => router.replace('/(tabs)/index')}
+              onPress={() => {
+                try {
+                  router.replace('/(tabs)/index');
+                } catch (error) {
+                  console.warn('Navigation error:', error);
+                  // Fallback navigation
+                  router.back();
+                }
+              }}
               style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6 }}
               accessibilityRole="button"
               accessibilityLabel={t('games.back')}

@@ -94,6 +94,13 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [bestGameId, setBestGameId] = useState<string | null>(null);
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(true);
+
+  // Track if component is mounted to prevent state updates after unmount
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
   // Small helper: handle 401 cases consistently
   const handle401 = useCallback(async (response: Response) => {
@@ -144,17 +151,27 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Main fetch function - gets games and analyzes matches to find the "best" one
   const fetchGames = useCallback(async () => {
+    if (!isMounted) return;
+    
     setLoading(true);
     let didRetry = false;
     let lastError: any = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
+        if (!isMounted) return; // Check again before async operations
+        
         const gamesData: Game[] = await fetchPlayerGames();
+        if (!isMounted) return; // Check after async operation
+        
         const gamesWithMatchInfo: GameWithMatchInfo[] = [];
         for (const game of gamesData) {
+          if (!isMounted) return; // Check in loop
           const enriched = await enrichGameWithMatches(game);
           gamesWithMatchInfo.push(enriched);
         }
+        
+        if (!isMounted) return; // Final check before state updates
+        
         setGames(gamesWithMatchInfo);
         const bestGame = determineBestGame(gamesWithMatchInfo);
         setBestGameId(bestGame?.gameId || null);
@@ -163,6 +180,8 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         return;
       } catch (err) {
+        if (!isMounted) return; // Check after error
+        
         console.log('🔍 GamesContext - Caught error:', err);
         console.log('🔍 GamesContext - Error type:', err instanceof Error ? err.constructor.name : typeof err);
         console.log('🔍 GamesContext - Error message:', err instanceof Error ? err.message : String(err));
@@ -180,9 +199,12 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     }
+    
+    if (!isMounted) return; // Check before final state updates
+    
     setError(translateError(lastError instanceof Error ? lastError.message : 'Failed to fetch games'));
     setLoading(false);
-  }, [player, timeService, checkAuth, fetchPlayerGames]);
+  }, [player, timeService, checkAuth, fetchPlayerGames, isMounted]);
 
   useEffect(() => {
     if (player) {
@@ -238,8 +260,24 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Now that processGameWithMatches is defined, bind enrichGameWithMatches
   enrichGameWithMatches = useCallback(async (game: Game): Promise<GameWithMatchInfo> => {
+    if (!isMounted) {
+      return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+    }
+    
     try {
       const matchesResponse = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`);
+      if (!isMounted) return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+      
       if (!matchesResponse.ok) {
         return {
           ...game,
@@ -249,6 +287,13 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         } as GameWithMatchInfo;
       }
       const matchesData = await matchesResponse.json();
+      if (!isMounted) return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+      
       return await processGameWithMatches(game, matchesData, player);
     } catch {
       return {
@@ -258,7 +303,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         totalLeaderboard: [],
       } as GameWithMatchInfo;
     }
-  }, [player]);
+  }, [player, isMounted]);
 
   // Determines the "best" game to show first based on betting urgency
   const determineBestGame = (games: GameWithMatchInfo[]): GameWithMatchInfo | null => {
@@ -282,12 +327,16 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Joins a game by code - handles API call and refreshes games list
   const joinGame = async (code: string) => {
+    if (!isMounted) return;
+    
     try {
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
+      
+      if (!isMounted) return; // Check after async operation
       
       if (!response.ok) {
         let errorMessage = '';
@@ -303,14 +352,18 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(message);
       }
       
+      if (!isMounted) return; // Check before refresh
       await fetchGames(); // Refresh to show new game
     } catch (err) {
+      if (!isMounted) return; // Check before showing alert
       Alert.alert(t('common.error'), err instanceof Error ? err.message : t('errors.failedToJoinGame'));
     }
   };
 
   // Creates a new game - handles API call and refreshes games list
   const createGame = async (name: string) => {
+    if (!isMounted) return;
+    
     try {
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`, {
         method: 'POST',
@@ -322,6 +375,8 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         }),
       });
       
+      if (!isMounted) return; // Check after async operation
+      
       if (!response.ok) {
         let errorMessage = '';
         try {
@@ -336,8 +391,10 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(message);
       }
       
+      if (!isMounted) return; // Check before refresh
       await fetchGames(); // Refresh to show new game
     } catch (err) {
+      if (!isMounted) return; // Check before showing alert
       Alert.alert(t('common.error'), err instanceof Error ? err.message : t('errors.failedToCreateGame'));
     }
   };
