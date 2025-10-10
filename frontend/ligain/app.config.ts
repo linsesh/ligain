@@ -8,7 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
-  newArchEnabled: true,
+  newArchEnabled: false,
   scheme: 'ligain',
   plugins: [
     'expo-router',
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '1',
+    buildNumber: '2',
   },
   android: {
     package: 'com.ligain.app',
