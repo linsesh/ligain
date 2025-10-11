@@ -35,31 +35,12 @@ const COLOR_PALETTE: { name: string; hex: string }[] = [
 
 export default function CumulativePointsChart({ matchdays, series, width = 0, height = 160 }: CumulativePointsChartProps) {
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  
-  // Add logging for debugging
-  useEffect(() => {
-    console.log('📊 CumulativePointsChart mounted with:', {
-      matchdays: matchdays?.length,
-      series: series?.length,
-      width,
-      height
-    });
-    
-    return () => {
-      console.log('📊 CumulativePointsChart unmounting');
-    };
-  }, [matchdays?.length, series?.length, width, height]);
-
   const onLayout = useCallback((e: any) => {
     try {
-      console.log('📊 CumulativePointsChart onLayout called');
       const w = e?.nativeEvent?.layout?.width || 0;
-      if (w && Math.abs(w - containerWidth) > 1) {
-        console.log('📊 CumulativePointsChart updating width:', w);
-        setContainerWidth(w);
-      }
+      if (w && Math.abs(w - containerWidth) > 1) setContainerWidth(w);
     } catch (error) {
-      console.error('📊 CumulativePointsChart onLayout error:', error);
+      console.warn('CumulativePointsChart onLayout error:', error);
     }
   }, [containerWidth]);
 

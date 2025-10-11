@@ -15,7 +15,6 @@ import { translateError } from '../../../../../src/utils/errorMessages';
 import { Picker } from '@react-native-picker/picker';
 import { computeCumulativePointsByMatchday } from '../../../../../src/utils/aggregations';
 import CumulativePointsChart from '../../../../../src/components/CumulativePointsChart';
-import { ErrorBoundary } from '../../../../../src/components/ErrorBoundary';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -28,18 +27,68 @@ export default function GameOverviewScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('general'); // 'general' or 'YYYY-MM'
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
 
-  // Add comprehensive logging for debugging
-  useEffect(() => {
-    console.log('🎮 GameOverviewScreen mounted with gameId:', gameId);
-    console.log('🎮 Available games:', games.length);
-    console.log('🎮 Player:', player?.id);
-    
-    return () => {
-      console.log('🎮 GameOverviewScreen unmounting for gameId:', gameId);
-    };
-  }, [gameId, games.length, player?.id]);
-
   const gameDetails = games.find((g) => g.gameId === gameId);
+
+  // Move ALL hooks to the top before any conditional returns
+  const availableMonths = useMemo(() => {
+    if (!gameDetails) return [];
+    const keys = Object.keys(gameDetails.perMonthLeaderboard || {});
+    return keys.sort((a, b) => (a < b ? 1 : -1)); // Desc by YYYY-MM
+  }, [gameDetails?.perMonthLeaderboard]);
+
+  // Ensure selectedPeriod is valid when data changes
+  useEffect(() => {
+    if (selectedPeriod !== 'general' && !availableMonths.includes(selectedPeriod)) {
+      setSelectedPeriod('general');
+    }
+  }, [availableMonths, selectedPeriod]);
+
+  const sortedPlayers = useMemo(() => {
+    if (!gameDetails) return [];
+    const source = selectedPeriod === 'general'
+      ? (gameDetails.totalLeaderboard || [])
+      : ((gameDetails.perMonthLeaderboard?.[selectedPeriod] as any[]) || []);
+    return source.map((p: any) => ({ id: p.PlayerID, name: p.PlayerName, totalScore: p.Points }));
+  }, [gameDetails?.totalLeaderboard, gameDetails?.perMonthLeaderboard, selectedPeriod]);
+
+  const getCurrentMonthKey = () => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
+
+  const getPreviousMonthKey = () => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const mIndex = now.getUTCMonth();
+    const prevDate = new Date(Date.UTC(y, mIndex - 1, 1));
+    const py = prevDate.getUTCFullYear();
+    const pm = String(prevDate.getUTCMonth() + 1).padStart(2, '0');
+    return `${py}-${pm}`;
+  };
+
+  const formatMonthLabel = (key: string) => {
+    // key is YYYY-MM
+    try {
+      const [y, m] = key.split('-').map(Number);
+      const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
+      const month = d.toLocaleString(undefined, { month: 'long' });
+      return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`;
+    } catch {
+      return key;
+    }
+  };
+
+  const currentMonthKey = getCurrentMonthKey();
+  const lastMonthKey = getPreviousMonthKey();
+  const currentMonthTop = (gameDetails?.perMonthLeaderboard?.[currentMonthKey] || [])[0];
+  const lastMonthTop = (gameDetails?.perMonthLeaderboard?.[lastMonthKey] || [])[0];
+
+  const cumulativeData = useMemo(() => {
+    if (!gameDetails) return { series: [], matchdays: [] };
+    return computeCumulativePointsByMatchday(gameDetails.perMatchdayLeaderboard || {});
+  }, [gameDetails?.perMatchdayLeaderboard]);
 
   const copyToClipboard = async (text: string) => {
     if (copied) return;
@@ -97,66 +146,9 @@ export default function GameOverviewScreen() {
     );
   }
 
-  const availableMonths = useMemo(() => {
-    const keys = Object.keys(gameDetails.perMonthLeaderboard || {});
-    return keys.sort((a, b) => (a < b ? 1 : -1)); // Desc by YYYY-MM
-  }, [gameDetails.perMonthLeaderboard]);
-
-  // Ensure selectedPeriod is valid when data changes
-  useEffect(() => {
-    if (selectedPeriod !== 'general' && !availableMonths.includes(selectedPeriod)) {
-      setSelectedPeriod('general');
-    }
-  }, [availableMonths, selectedPeriod]);
-
-  const sortedPlayers = useMemo(() => {
-    const source = selectedPeriod === 'general'
-      ? (gameDetails.totalLeaderboard || [])
-      : ((gameDetails.perMonthLeaderboard?.[selectedPeriod] as any[]) || []);
-    return source.map((p: any) => ({ id: p.PlayerID, name: p.PlayerName, totalScore: p.Points }));
-  }, [gameDetails.totalLeaderboard, gameDetails.perMonthLeaderboard, selectedPeriod]);
-
-  const getCurrentMonthKey = () => {
-    const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  };
-
-  const getPreviousMonthKey = () => {
-    const now = new Date();
-    const y = now.getUTCFullYear();
-    const mIndex = now.getUTCMonth();
-    const prevDate = new Date(Date.UTC(y, mIndex - 1, 1));
-    const py = prevDate.getUTCFullYear();
-    const pm = String(prevDate.getUTCMonth() + 1).padStart(2, '0');
-    return `${py}-${pm}`;
-  };
-
-  const formatMonthLabel = (key: string) => {
-    // key is YYYY-MM
-    try {
-      const [y, m] = key.split('-').map(Number);
-      const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
-      const month = d.toLocaleString(undefined, { month: 'long' });
-      return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`;
-    } catch {
-      return key;
-    }
-  };
-
-  const currentMonthKey = getCurrentMonthKey();
-  const lastMonthKey = getPreviousMonthKey();
-  const currentMonthTop = (gameDetails.perMonthLeaderboard?.[currentMonthKey] || [])[0];
-  const lastMonthTop = (gameDetails.perMonthLeaderboard?.[lastMonthKey] || [])[0];
-
-  const cumulativeData = useMemo(() => {
-    return computeCumulativePointsByMatchday(gameDetails.perMatchdayLeaderboard || {});
-  }, [gameDetails.perMatchdayLeaderboard]);
 
   return (
-    <ErrorBoundary>
-      <View style={styles.container}>
+    <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}
           refreshControl={
@@ -266,16 +258,14 @@ export default function GameOverviewScreen() {
         {cumulativeData.series.length > 0 && cumulativeData.matchdays.length > 0 && (
           <View style={styles.cardContainer}>
             <Text style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
-            <ErrorBoundary>
-              <CumulativePointsChart
-                matchdays={cumulativeData.matchdays}
-                series={cumulativeData.series.map(s => ({
-                  playerId: s.playerId,
-                  playerName: s.playerName,
-                  values: s.values,
-                }))}
-              />
-            </ErrorBoundary>
+            <CumulativePointsChart
+              matchdays={cumulativeData.matchdays}
+              series={cumulativeData.series.map(s => ({
+                playerId: s.playerId,
+                playerName: s.playerName,
+                values: s.values,
+              }))}
+            />
           </View>
         )}
         <TouchableOpacity
@@ -287,7 +277,6 @@ export default function GameOverviewScreen() {
         </TouchableOpacity>
         </ScrollView>
       </View>
-    </ErrorBoundary>
   );
 }
 
