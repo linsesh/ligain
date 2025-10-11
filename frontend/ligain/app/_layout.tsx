@@ -8,6 +8,25 @@ import i18n from '../src/i18n';
 import { UIEventProvider } from '../src/contexts/UIEventContext';
 import { GamesProvider } from '../src/contexts/GamesContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useEffect } from 'react';
+import { LogBox } from 'react-native';
+
+// Enable logging in production builds
+if (__DEV__) {
+  LogBox.ignoreLogs(['Warning: ...']); // Ignore specific warnings
+} else {
+  // In production, enable console logging to device logs
+  console.log = (...args) => {
+    // This will show up in device logs and crash reports
+    console.info('[LIGAIN]', ...args);
+  };
+  console.warn = (...args) => {
+    console.info('[LIGAIN WARN]', ...args);
+  };
+  console.error = (...args) => {
+    console.info('[LIGAIN ERROR]', ...args);
+  };
+}
 
 export default function Layout() {
   return (

@@ -15,6 +15,7 @@ import { translateError } from '../../../../../src/utils/errorMessages';
 import { Picker } from '@react-native-picker/picker';
 import { computeCumulativePointsByMatchday } from '../../../../../src/utils/aggregations';
 import CumulativePointsChart from '../../../../../src/components/CumulativePointsChart';
+import { ErrorBoundary } from '../../../../../src/components/ErrorBoundary';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +27,17 @@ export default function GameOverviewScreen() {
   const [copied, setCopied] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('general'); // 'general' or 'YYYY-MM'
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+
+  // Add comprehensive logging for debugging
+  useEffect(() => {
+    console.log('🎮 GameOverviewScreen mounted with gameId:', gameId);
+    console.log('🎮 Available games:', games.length);
+    console.log('🎮 Player:', player?.id);
+    
+    return () => {
+      console.log('🎮 GameOverviewScreen unmounting for gameId:', gameId);
+    };
+  }, [gameId, games.length, player?.id]);
 
   const gameDetails = games.find((g) => g.gameId === gameId);
 
@@ -143,19 +155,20 @@ export default function GameOverviewScreen() {
   }, [gameDetails.perMatchdayLeaderboard]);
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-            progressBackgroundColor="#25292e"
-          />
-        }
-      >
+    <ErrorBoundary>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+              progressBackgroundColor="#25292e"
+            />
+          }
+        >
         <View style={styles.gameHeader}>
           <Text style={styles.gameTitle}>{gameDetails.name}</Text>
           <Text style={styles.gameSubtitle}>
@@ -253,14 +266,16 @@ export default function GameOverviewScreen() {
         {cumulativeData.series.length > 0 && cumulativeData.matchdays.length > 0 && (
           <View style={styles.cardContainer}>
             <Text style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
-            <CumulativePointsChart
-              matchdays={cumulativeData.matchdays}
-              series={cumulativeData.series.map(s => ({
-                playerId: s.playerId,
-                playerName: s.playerName,
-                values: s.values,
-              }))}
-            />
+            <ErrorBoundary>
+              <CumulativePointsChart
+                matchdays={cumulativeData.matchdays}
+                series={cumulativeData.series.map(s => ({
+                  playerId: s.playerId,
+                  playerName: s.playerName,
+                  values: s.values,
+                }))}
+              />
+            </ErrorBoundary>
           </View>
         )}
         <TouchableOpacity
@@ -270,8 +285,9 @@ export default function GameOverviewScreen() {
           <Ionicons name="football" size={24} color="#fff" />
           <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </ErrorBoundary>
   );
 }
 
