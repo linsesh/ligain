@@ -20,6 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     'expo-splash-screen',
+    'react-native-svg',
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -29,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '3',
+    buildNumber: '4',
   },
   android: {
     package: 'com.ligain.app',
