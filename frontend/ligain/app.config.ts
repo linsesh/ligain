@@ -4,11 +4,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ligain',
   slug: 'ligain',
-  version: '1.0.0',
+  version: '1.1.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
-  newArchEnabled: true,
+  newArchEnabled: false,
   scheme: 'ligain',
   plugins: [
     'expo-router',
@@ -20,13 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     'expo-splash-screen',
-    [
-      '@react-native-firebase/app',
-      {
-        iosGoogleServicesFile: './ios/GoogleService-Info.plist',
-        androidGoogleServicesFile: './android/app/google-services.json'
-      }
-    ]
+    'react-native-svg',
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -36,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '28',
+    buildNumber: '4',
   },
   android: {
     package: 'com.ligain.app',

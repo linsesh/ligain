@@ -103,7 +103,13 @@
     "closestMatch": "Closest match",
     "noUnbetMatches": "No matches to guess on",
     "leftGame": "You have left the game.",
-    "failedToLeaveGame": "Failed to leave game"
+    "failedToLeaveGame": "Failed to leave game",
+    "leaderboardPeriod": "Leaderboard period",
+    "selectPeriod": "Select Period",
+    "general": "General",
+    "currentMonthLeader": "Current month leader",
+    "lastMonthWinner": "Last month winner",
+    "cumulativePointsByMatchday": "Cumulative points by matchday"
   },
   "profile": {
     "noUserInfo": "No user information available",

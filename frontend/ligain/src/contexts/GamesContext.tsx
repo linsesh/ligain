@@ -32,6 +32,7 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { handleGameError, translateError } from '../utils/errorMessages';
+import { computeMonthlyAndMatchdayScores, computeTotalScores, AggregatedScore } from '../utils/aggregations';
 
 // Basic game data structure returned from the API
 // Contains core game information without any derived/calculated fields
@@ -53,6 +54,10 @@ export interface GameWithMatchInfo extends Game {
     matchday: number;
     date: Date;
   };
+  // Aggregated statistics prepared for visuals
+  perMonthLeaderboard?: Record<string, { PlayerID: string; PlayerName: string; Points: number }[]>;
+  perMatchdayLeaderboard?: Record<number, { PlayerID: string; PlayerName: string; Points: number }[]>;
+  totalLeaderboard?: AggregatedScore[];
 }
 
 // Context API interface that defines what the GamesContext provides to components
@@ -89,70 +94,84 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [bestGameId, setBestGameId] = useState<string | null>(null);
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(true);
+
+  // Track if component is mounted to prevent state updates after unmount
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
+
+  // Small helper: handle 401 cases consistently
+  const handle401 = useCallback(async (response: Response) => {
+    let errorMsg = '';
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.error || '';
+    } catch (e) {
+      errorMsg = '';
+    }
+    if (errorMsg === 'API key is required' || errorMsg === 'Invalid API key') {
+      setError(t('common.error'));
+      setLoading(false);
+      return { handled: true, retry: false } as const;
+    }
+    if ((errorMsg === 'Invalid or expired token' || errorMsg.toLowerCase().includes('expired'))) {
+      return { handled: false, retry: true } as const;
+    }
+    if (
+      errorMsg === 'Invalid authorization header format' ||
+      errorMsg === 'Player not found in context'
+    ) {
+      await signOut();
+      router.replace('/signin');
+      setLoading(false);
+      return { handled: true, retry: false } as const;
+    }
+    setError(t('common.ligainNotAvailable'));
+    setLoading(false);
+    return { handled: true, retry: false } as const;
+  }, [router, signOut, t]);
+
+  // Fetch list of games for the player
+  const fetchPlayerGames = useCallback(async (): Promise<Game[]> => {
+    const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`);
+    if (response.status === 401) {
+      const res = await handle401(response);
+      if (res.retry) throw new Error('401-retry');
+      if (res.handled) throw new Error('401-handled');
+    }
+    if (!response.ok) throw new Error(`Failed to fetch games: ${response.status}`);
+    const data = await response.json();
+    return (data.games || []) as Game[];
+  }, [handle401]);
+
+  // enrichGameWithMatches declared after processGameWithMatches to avoid TDZ issues
+  let enrichGameWithMatches: (game: Game) => Promise<GameWithMatchInfo>;
 
   // Main fetch function - gets games and analyzes matches to find the "best" one
   const fetchGames = useCallback(async () => {
+    if (!isMounted) return;
+    
     setLoading(true);
     let didRetry = false;
     let lastError: any = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`);
-        if (response.status === 401) {
-          let errorMsg = '';
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.error || '';
-          } catch (e) {
-            errorMsg = '';
-          }
-          // API key errors
-          if (errorMsg === 'API key is required' || errorMsg === 'Invalid API key') {
-            setError(t('common.error'));
-            setLoading(false);
-            return;
-          }
-          // Token expired: try silent re-auth and retry
-          if ((errorMsg === 'Invalid or expired token' || errorMsg.toLowerCase().includes('expired'))) {
-            if (!didRetry) {
-              await checkAuth();
-              didRetry = true;
-              continue;
-            }
-          }
-          // Malformed/missing header or player not found: force sign-out and redirect
-          if (
-            errorMsg === 'Invalid authorization header format' ||
-            errorMsg === 'Player not found in context'
-          ) {
-            await signOut();
-            router.replace('/signin');
-            setLoading(false);
-            return;
-          }
-          // Fallback: treat as generic error
-          setError(t('common.ligainNotAvailable'));
-          setLoading(false);
-          return;
-        }
-        if (!response.ok) throw new Error(`Failed to fetch games: ${response.status}`);
-        const data = await response.json();
-        const gamesData: Game[] = data.games || [];
+        if (!isMounted) return; // Check again before async operations
+        
+        const gamesData: Game[] = await fetchPlayerGames();
+        if (!isMounted) return; // Check after async operation
+        
         const gamesWithMatchInfo: GameWithMatchInfo[] = [];
         for (const game of gamesData) {
-          try {
-            const matchesResponse = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`);
-            if (matchesResponse.ok) {
-              const matchesData = await matchesResponse.json();
-              const gameWithInfo = await processGameWithMatches(game, matchesData, player);
-              gamesWithMatchInfo.push(gameWithInfo);
-            } else {
-              gamesWithMatchInfo.push(game);
-            }
-          } catch (err) {
-            gamesWithMatchInfo.push(game);
-          }
+          if (!isMounted) return; // Check in loop
+          const enriched = await enrichGameWithMatches(game);
+          gamesWithMatchInfo.push(enriched);
         }
+        
+        if (!isMounted) return; // Final check before state updates
+        
         setGames(gamesWithMatchInfo);
         const bestGame = determineBestGame(gamesWithMatchInfo);
         setBestGameId(bestGame?.gameId || null);
@@ -161,20 +180,31 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         return;
       } catch (err) {
+        if (!isMounted) return; // Check after error
+        
         console.log('🔍 GamesContext - Caught error:', err);
         console.log('🔍 GamesContext - Error type:', err instanceof Error ? err.constructor.name : typeof err);
         console.log('🔍 GamesContext - Error message:', err instanceof Error ? err.message : String(err));
         
         lastError = err;
-        // Only retry on first 401 with expired token, otherwise break
+        // Attempt silent reauth when flagged for retry
+        if (err instanceof Error && err.message === '401-retry' && !didRetry) {
+          await checkAuth();
+          didRetry = true;
+          continue;
+        }
+        // Only retry once; otherwise break
         if (!(err instanceof Error && err.message.includes('401')) || didRetry) {
           break;
         }
       }
     }
+    
+    if (!isMounted) return; // Check before final state updates
+    
     setError(translateError(lastError instanceof Error ? lastError.message : 'Failed to fetch games'));
     setLoading(false);
-  }, [player, timeService, checkAuth, signOut, router]);
+  }, [player, timeService, checkAuth, fetchPlayerGames, isMounted]);
 
   useEffect(() => {
     if (player) {
@@ -190,6 +220,7 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     let closestUnfinishedMatchday: { matchday: number; date: Date } | undefined = undefined;
 
     const incomingMatches = matchesData.incomingMatches || {};
+    const pastMatches = matchesData.pastMatches || {};
 
     for (const [matchId, matchData] of Object.entries(incomingMatches)) {
       const matchDataTyped = matchData as any;
@@ -215,11 +246,64 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
 
+    const { perMonthLeaderboard, perMatchdayLeaderboard } = computeMonthlyAndMatchdayScores(pastMatches);
+    const totalLeaderboard = computeTotalScores(pastMatches);
+
     return {
       ...game,
       closestUnfinishedMatchday,
+      perMonthLeaderboard,
+      perMatchdayLeaderboard,
+      totalLeaderboard,
     };
   };
+
+  // Now that processGameWithMatches is defined, bind enrichGameWithMatches
+  enrichGameWithMatches = useCallback(async (game: Game): Promise<GameWithMatchInfo> => {
+    if (!isMounted) {
+      return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+    }
+    
+    try {
+      const matchesResponse = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`);
+      if (!isMounted) return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+      
+      if (!matchesResponse.ok) {
+        return {
+          ...game,
+          perMonthLeaderboard: {},
+          perMatchdayLeaderboard: {},
+          totalLeaderboard: [],
+        } as GameWithMatchInfo;
+      }
+      const matchesData = await matchesResponse.json();
+      if (!isMounted) return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+      
+      return await processGameWithMatches(game, matchesData, player);
+    } catch {
+      return {
+        ...game,
+        perMonthLeaderboard: {},
+        perMatchdayLeaderboard: {},
+        totalLeaderboard: [],
+      } as GameWithMatchInfo;
+    }
+  }, [player, isMounted]);
 
   // Determines the "best" game to show first based on betting urgency
   const determineBestGame = (games: GameWithMatchInfo[]): GameWithMatchInfo | null => {
@@ -243,12 +327,16 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Joins a game by code - handles API call and refreshes games list
   const joinGame = async (code: string) => {
+    if (!isMounted) return;
+    
     try {
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
+      
+      if (!isMounted) return; // Check after async operation
       
       if (!response.ok) {
         let errorMessage = '';
@@ -264,14 +352,18 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(message);
       }
       
+      if (!isMounted) return; // Check before refresh
       await fetchGames(); // Refresh to show new game
     } catch (err) {
+      if (!isMounted) return; // Check before showing alert
       Alert.alert(t('common.error'), err instanceof Error ? err.message : t('errors.failedToJoinGame'));
     }
   };
 
   // Creates a new game - handles API call and refreshes games list
   const createGame = async (name: string) => {
+    if (!isMounted) return;
+    
     try {
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games`, {
         method: 'POST',
@@ -283,6 +375,8 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         }),
       });
       
+      if (!isMounted) return; // Check after async operation
+      
       if (!response.ok) {
         let errorMessage = '';
         try {
@@ -297,8 +391,10 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(message);
       }
       
+      if (!isMounted) return; // Check before refresh
       await fetchGames(); // Refresh to show new game
     } catch (err) {
+      if (!isMounted) return; // Check before showing alert
       Alert.alert(t('common.error'), err instanceof Error ? err.message : t('errors.failedToCreateGame'));
     }
   };

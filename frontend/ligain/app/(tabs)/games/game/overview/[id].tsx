@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -12,6 +12,9 @@ import { useGames } from '../../../../../src/contexts/GamesContext';
 import { getTranslatedGameStatus } from '../../../../../src/utils/gameStatusUtils';
 import StatusTag from '../../../../../src/components/StatusTag';
 import { translateError } from '../../../../../src/utils/errorMessages';
+import { Picker } from '@react-native-picker/picker';
+import { computeCumulativePointsByMatchday } from '../../../../../src/utils/aggregations';
+import CumulativePointsChart from '../../../../../src/components/CumulativePointsChart';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -21,8 +24,71 @@ export default function GameOverviewScreen() {
   const { games, loading, error, refresh } = useGames();
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('general'); // 'general' or 'YYYY-MM'
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
 
   const gameDetails = games.find((g) => g.gameId === gameId);
+
+  // Move ALL hooks to the top before any conditional returns
+  const availableMonths = useMemo(() => {
+    if (!gameDetails) return [];
+    const keys = Object.keys(gameDetails.perMonthLeaderboard || {});
+    return keys.sort((a, b) => (a < b ? 1 : -1)); // Desc by YYYY-MM
+  }, [gameDetails?.perMonthLeaderboard]);
+
+  // Ensure selectedPeriod is valid when data changes
+  useEffect(() => {
+    if (selectedPeriod !== 'general' && !availableMonths.includes(selectedPeriod)) {
+      setSelectedPeriod('general');
+    }
+  }, [availableMonths, selectedPeriod]);
+
+  const sortedPlayers = useMemo(() => {
+    if (!gameDetails) return [];
+    const source = selectedPeriod === 'general'
+      ? (gameDetails.totalLeaderboard || [])
+      : ((gameDetails.perMonthLeaderboard?.[selectedPeriod] as any[]) || []);
+    return source.map((p: any) => ({ id: p.PlayerID, name: p.PlayerName, totalScore: p.Points }));
+  }, [gameDetails?.totalLeaderboard, gameDetails?.perMonthLeaderboard, selectedPeriod]);
+
+  const getCurrentMonthKey = () => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
+
+  const getPreviousMonthKey = () => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const mIndex = now.getUTCMonth();
+    const prevDate = new Date(Date.UTC(y, mIndex - 1, 1));
+    const py = prevDate.getUTCFullYear();
+    const pm = String(prevDate.getUTCMonth() + 1).padStart(2, '0');
+    return `${py}-${pm}`;
+  };
+
+  const formatMonthLabel = (key: string) => {
+    // key is YYYY-MM
+    try {
+      const [y, m] = key.split('-').map(Number);
+      const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
+      const month = d.toLocaleString(undefined, { month: 'long' });
+      return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`;
+    } catch {
+      return key;
+    }
+  };
+
+  const currentMonthKey = getCurrentMonthKey();
+  const lastMonthKey = getPreviousMonthKey();
+  const currentMonthTop = (gameDetails?.perMonthLeaderboard?.[currentMonthKey] || [])[0];
+  const lastMonthTop = (gameDetails?.perMonthLeaderboard?.[lastMonthKey] || [])[0];
+
+  const cumulativeData = useMemo(() => {
+    if (!gameDetails) return { series: [], matchdays: [] };
+    return computeCumulativePointsByMatchday(gameDetails.perMatchdayLeaderboard || {});
+  }, [gameDetails?.perMatchdayLeaderboard]);
 
   const copyToClipboard = async (text: string) => {
     if (copied) return;
@@ -80,22 +146,21 @@ export default function GameOverviewScreen() {
     );
   }
 
-  const sortedPlayers = [...(gameDetails.players || [])].sort((a, b) => b.totalScore - a.totalScore);
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-            progressBackgroundColor="#25292e"
-          />
-        }
-      >
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+              progressBackgroundColor="#25292e"
+            />
+          }
+        >
         <View style={styles.gameHeader}>
           <Text style={styles.gameTitle}>{gameDetails.name}</Text>
           <Text style={styles.gameSubtitle}>
@@ -123,11 +188,86 @@ export default function GameOverviewScreen() {
             </View>
           </View>
         )}
+                {/* Period Selector (matches-like selector) */}
+        <View style={styles.periodSelectionContainer}>
+          <TouchableOpacity 
+            style={styles.periodSelector}
+            onPress={() => setShowPeriodPicker(true)}
+          >
+            <Text style={styles.periodSelectorText}>
+              {selectedPeriod === 'general' ? t('games.general') : formatMonthLabel(selectedPeriod)}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        {showPeriodPicker && (
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerContainer}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>{t('games.selectPeriod')}</Text>
+                <TouchableOpacity onPress={() => setShowPeriodPicker(false)}>
+                  <Ionicons name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              <Picker
+                selectedValue={selectedPeriod}
+                onValueChange={(itemValue) => {
+                  setSelectedPeriod(String(itemValue));
+                  setShowPeriodPicker(false);
+                }}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label={t('games.general')} value="general" color="#fff" />
+                {availableMonths.map((k) => (
+                  <Picker.Item 
+                    key={k} 
+                    label={formatMonthLabel(k)} 
+                    value={k}
+                    color="#fff"
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        )}
         <Leaderboard
           players={sortedPlayers}
           currentPlayerId={player?.id}
           t={t}
         />
+        {/* Current Month Leader and Last Month Winner cards */}
+        {(currentMonthTop && currentMonthTop.Points > 0) && (
+          <View style={styles.cardContainer}>
+            <Text style={styles.cardTitle}>{t('games.currentMonthLeader')}</Text>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardPrimary}>{currentMonthTop.PlayerName}</Text>
+              <Text style={styles.cardSecondary}>{currentMonthTop.Points} {t('game.points')}</Text>
+            </View>
+          </View>
+        )}
+        {(lastMonthTop && lastMonthTop.Points > 0) && (
+          <View style={styles.cardContainer}>
+            <Text style={styles.cardTitle}>{t('games.lastMonthWinner')}</Text>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardPrimary}>{lastMonthTop.PlayerName}</Text>
+              <Text style={styles.cardSecondary}>{lastMonthTop.Points} {t('game.points')}</Text>
+            </View>
+          </View>
+        )}
+        {cumulativeData.series.length > 0 && cumulativeData.matchdays.length > 0 && (
+          <View style={styles.cardContainer}>
+            <Text style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
+            <CumulativePointsChart
+              matchdays={cumulativeData.matchdays}
+              series={cumulativeData.series.map(s => ({
+                playerId: s.playerId,
+                playerName: s.playerName,
+                values: s.values,
+              }))}
+            />
+          </View>
+        )}
         <TouchableOpacity
           style={styles.matchesButton}
           onPress={navigateToMatches}
@@ -135,8 +275,8 @@ export default function GameOverviewScreen() {
           <Ionicons name="football" size={24} color="#fff" />
           <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
   );
 }
 
@@ -176,6 +316,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  periodSelectionContainer: {
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  periodSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  periodSelectorText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  periodInfoText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  cardContainer: {
+    backgroundColor: '#333',
+    padding: 20,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 16,
+    color: '#fff',
+    marginBottom: 12,
+    fontWeight: '600',
+    textAlign: 'left',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardPrimary: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  cardSecondary: {
+    fontSize: 16,
+    color: '#999',
+    fontWeight: '500',
+  },
   codeContainer: {
     backgroundColor: '#333',
     padding: 20,
@@ -207,6 +402,48 @@ const styles = StyleSheet.create({
   },
   copyButton: {
     padding: 8,
+  },
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  pickerContainer: {
+    backgroundColor: '#25292e',
+    borderRadius: 10,
+    width: '80%',
+    maxHeight: '60%',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
+  },
+  pickerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  pickerWrapper: {
+    backgroundColor: '#444',
+    borderRadius: 8,
+  },
+  picker: {
+    color: '#fff',
+    width: '100%',
+  },
+  pickerItem: {
+    color: '#fff',
+    fontSize: 16,
   },
   leaderboardContainer: {
     backgroundColor: '#333',
