@@ -207,6 +207,20 @@
     "matchesToSync": "{{count}} matchs à synchroniser :",
     "matchday": "Journée {{matchday}} : {{count}} matchs"
   },
+  "share": {
+    "matchResult": "Partager le résultat",
+    "leaderboard": "Partager le classement",
+    "generatingImage": "Génération de l'image...",
+    "shareFailed": "Échec du partage. Réessaye plus tard.",
+    "shareTitle": "Mon classement sur Ligain",
+    "shareToInstagram": "Partager sur Instagram",
+    "shareToMessages": "Partager sur Messages",
+    "playersResults": "Résultats des joueurs",
+    "predicted": "Prédiction",
+    "points": "pts",
+    "downloadLigain": "Téléchargez Ligain !",
+    "yourBet": "Ma prédiction :"
+  },
   "errors": {
     "authentication": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",
     "forbidden": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",

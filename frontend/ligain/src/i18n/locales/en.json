@@ -207,6 +207,20 @@
     "matchesToSync": "{{count}} matches to sync:",
     "matchday": "Matchday {{matchday}}: {{count}} matches"
   },
+  "share": {
+    "matchResult": "Share result",
+    "leaderboard": "Share leaderboard",
+    "generatingImage": "Generating image...",
+    "shareFailed": "Failed to share. Please try again.",
+    "shareTitle": "My ranking on Ligain",
+    "shareToInstagram": "Share to Instagram",
+    "shareToMessages": "Share to Messages",
+    "playersResults": "Players results",
+    "predicted": "Prediction",
+    "points": "pts",
+    "downloadLigain": "Download Ligain!",
+    "yourBet": "My prediction :"
+  },
   "errors": {
     "authentication": "Authentication went wrong, please refresh the page and retry",
     "forbidden": "Authentication went wrong, please refresh the page and retry",

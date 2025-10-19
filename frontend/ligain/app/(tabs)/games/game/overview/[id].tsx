@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -15,6 +15,9 @@ import { translateError } from '../../../../../src/utils/errorMessages';
 import { Picker } from '@react-native-picker/picker';
 import { computeCumulativePointsByMatchday } from '../../../../../src/utils/aggregations';
 import CumulativePointsChart from '../../../../../src/components/CumulativePointsChart';
+import ShareableLeaderboard from '../../../../../src/components/ShareableLeaderboard';
+import { captureAndShareWithOptions } from '../../../../../src/utils/shareUtils';
+import ViewShot from 'react-native-view-shot';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +29,8 @@ export default function GameOverviewScreen() {
   const [copied, setCopied] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('general'); // 'general' or 'YYYY-MM'
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareableRef = useRef<ViewShot>(null);
 
   const gameDetails = games.find((g) => g.gameId === gameId);
 
@@ -101,6 +106,23 @@ export default function GameOverviewScreen() {
       }, 3000);
     } catch (err) {
       Alert.alert(t('common.error'), t('common.failedToCopyToClipboard'));
+    }
+  };
+
+  const handleShareLeaderboard = async () => {
+    if (isSharing) return;
+    
+    setIsSharing(true);
+    try {
+      await captureAndShareWithOptions(shareableRef, {
+        title: t('share.shareTitle'),
+        message: t('share.shareTitle'),
+      });
+    } catch (error) {
+      console.error('Error sharing leaderboard:', error);
+      Alert.alert(t('share.shareFailed'), t('share.shareFailed'));
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -199,6 +221,17 @@ export default function GameOverviewScreen() {
             </Text>
             <Ionicons name="chevron-down" size={20} color="#fff" />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShareLeaderboard}
+            disabled={isSharing}
+          >
+            <Ionicons 
+              name={isSharing ? "hourglass-outline" : "share-social-outline"} 
+              size={20} 
+              color={isSharing ? colors.textSecondary : colors.primary} 
+            />
+          </TouchableOpacity>
         </View>
         {showPeriodPicker && (
           <View style={styles.pickerOverlay}>
@@ -275,6 +308,21 @@ export default function GameOverviewScreen() {
           <Ionicons name="football" size={24} color="#fff" />
           <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
+        
+        {/* Hidden shareable component for image generation */}
+        <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
+          <ViewShot ref={shareableRef}>
+            <ShareableLeaderboard
+              gameName={gameDetails?.name || 'Ligain Game'}
+              period={selectedPeriod === 'general' ? 'General' : formatMonthLabel(selectedPeriod)}
+              players={sortedPlayers.map((player, index) => ({
+                name: player.name,
+                points: player.totalScore,
+                rank: index + 1
+              }))}
+            />
+          </ViewShot>
+        </View>
         </ScrollView>
       </View>
   );
@@ -320,6 +368,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 8,
     marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   periodSelector: {
     flexDirection: 'row',
@@ -335,6 +386,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  shareButton: {
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginLeft: 12,
   },
   periodInfoText: {
     color: '#999',

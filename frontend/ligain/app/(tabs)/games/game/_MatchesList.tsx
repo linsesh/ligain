@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../../../hooks/useMatches';
 import { useBetSubmission } from '../../../../hooks/useBetSubmission';
 import { useBetSynchronization } from '../../../../hooks/useBetSynchronization';
 import { useAuth } from '../../../../src/contexts/AuthContext';
+import { useGames } from '../../../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 import { colors } from '../../../../src/constants/colors';
 import StatusTag from '../../../../src/components/StatusTag';
 import { BetSyncModal } from '../../../../src/components/BetSyncModal';
+import ShareableMatchResult from '../../../../src/components/ShareableMatchResult';
+import { captureAndShareWithOptions, formatDateForShare } from '../../../../src/utils/shareUtils';
+import ViewShot from 'react-native-view-shot';
 
 interface TempScores {
   [key: string]: {
@@ -48,7 +52,7 @@ function TeamInput({ teamName, value, onChange, canModify, isAway = false, onFoc
   );
 }
 
-function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur, onDone, onRef }: {
+function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur, onDone, onRef, gameId }: {
   matchResult: any;
   tempScores: TempScores;
   expandedMatches: { [key: string]: boolean };
@@ -58,13 +62,38 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   onBlur: () => void;
   onDone?: () => void;
   onRef?: (ref: View | null) => void;
+  gameId: string;
 }) {
   const { player } = useAuth();
+  const { games } = useGames();
   const { t } = useTranslation();
+  const [isSharing, setIsSharing] = useState(false);
+  const shareableRef = useRef<ViewShot>(null);
   const now = new Date();
   const isFuture = !matchResult.match.isFinished() && !matchResult.match.isInProgress();
   const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
   const canModify = isFuture && (userBet?.isModifiable(now) !== false);
+  
+  // Get game name from context
+  const game = games.find(g => g.gameId === gameId);
+  const gameName = game?.name || 'Ligain Game';
+
+  const handleShareMatch = async () => {
+    if (!matchResult.match.isFinished() || isSharing) return;
+    
+    setIsSharing(true);
+    try {
+      await captureAndShareWithOptions(shareableRef, {
+        title: t('share.shareTitle'),
+        message: t('share.shareTitle'),
+      });
+    } catch (error) {
+      console.error('Error sharing match:', error);
+      Alert.alert(t('share.shareFailed'), t('share.shareFailed'));
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   // Tag logic
   let tagText: string | null = null;
@@ -111,10 +140,27 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
       style={cardStyle}
       ref={onRef}
     >
-      {/* Status Tag */}
-      {tagText && typeof tagVariant === 'string' && (
-        <StatusTag text={tagText} variant={tagVariant} style={styles.statusTag} />
+      {/* Status Tag and Share Button */}
+      {matchResult.match.isFinished() && (
+        <View style={styles.topLeftContainer}>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShareMatch}
+            disabled={isSharing}
+          >
+            <Ionicons 
+              name={isSharing ? "hourglass-outline" : "share-social-outline"} 
+              size={20} 
+              color={isSharing ? colors.textSecondary : colors.primary} 
+            />
+          </TouchableOpacity>
+        </View>
       )}
+      <View style={styles.topRightContainer}>
+        {tagText && typeof tagVariant === 'string' && (
+          <StatusTag text={tagText} variant={tagVariant} style={styles.statusTag} />
+        )}
+      </View>
       <View style={styles.bettingContainer}>
         {/* Only show the current user's bet for future matches */}
         {isFuture ? (
@@ -296,6 +342,31 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             </View>
           )}
         </>
+      )}
+      
+      {/* Hidden shareable component for image generation */}
+      {matchResult.match.isFinished() && (
+        <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
+          <ViewShot ref={shareableRef}>
+            <ShareableMatchResult
+              homeTeam={matchResult.match.getHomeTeam()}
+              awayTeam={matchResult.match.getAwayTeam()}
+              homeScore={matchResult.match.getHomeGoals()}
+              awayScore={matchResult.match.getAwayGoals()}
+              myHomeScore={player ? matchResult.bets?.[player.id]?.predictedHomeGoals : undefined}
+              myAwayScore={player ? matchResult.bets?.[player.id]?.predictedAwayGoals : undefined}
+              date={formatDateForShare(matchResult.match.getDate())}
+              players={Object.entries(matchResult.scores || {}).map(([playerId, scoreData]: [string, any]) => ({
+                name: scoreData.playerName,
+                points: scoreData.points,
+                bet: matchResult.bets?.[playerId] ? 
+                  `${matchResult.bets[playerId].predictedHomeGoals}-${matchResult.bets[playerId].predictedAwayGoals}` : 
+                  undefined
+              }))}
+              gameName={gameName}
+            />
+          </ViewShot>
+        </View>
       )}
     </View>
   );
@@ -715,6 +786,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
                     onRef={(ref) => {
                       matchCardRefs.current[matchResult.match.id()] = ref;
                     }}
+                    gameId={gameId}
                   />
                 ))}
               </View>
@@ -891,14 +963,31 @@ const styles = StyleSheet.create({
     color: '#333',
     marginHorizontal: 8,
   },
-  statusTag: {
+  topRightContainer: {
     position: 'absolute',
     top: 8,
     right: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
     zIndex: 1,
+  },
+  topLeftContainer: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  statusTag: {
+    marginRight: 8,
+  },
+  shareButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   statusTagText: {
     color: '#fff',
