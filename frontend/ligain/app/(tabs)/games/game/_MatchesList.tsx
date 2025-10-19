@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, Touchab
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../../../hooks/useMatches';
 import { useBetSubmission } from '../../../../hooks/useBetSubmission';
+import { useBetSynchronization } from '../../../../hooks/useBetSynchronization';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 import { colors } from '../../../../src/constants/colors';
 import StatusTag from '../../../../src/components/StatusTag';
+import { BetSyncModal } from '../../../../src/components/BetSyncModal';
 
 interface TempScores {
   [key: string]: {
@@ -317,6 +319,12 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const matchCardRefs = React.useRef<{ [key: string]: View | null }>({});
 
+  // Bet synchronization state
+  const { syncOpportunity, loading: syncLoading, refetch: refetchSync } = useBetSynchronization(gameId);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncModalShownForGame, setSyncModalShownForGame] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
 
@@ -443,6 +451,21 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     }
   }, [submitError, t]);
 
+  // Show sync modal when opportunity exists and not shown for this game
+  useEffect(() => {
+    if (syncOpportunity && syncModalShownForGame !== gameId) {
+      setShowSyncModal(true);
+      setSyncModalShownForGame(gameId);
+    }
+  }, [syncOpportunity, gameId, syncModalShownForGame]);
+
+  // Reset sync modal state when game changes
+  useEffect(() => {
+    setSyncModalShownForGame(null);
+    setShowSyncModal(false);
+    setIsSyncing(false);
+  }, [gameId]);
+
   const toggleBetSection = (matchId: string) => {
     setExpandedMatches(prev => ({
       ...prev,
@@ -497,6 +520,41 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const handleDone = () => {
     setEditingMatchId(null);
     Keyboard.dismiss();
+  };
+
+  // Sync handlers
+  const handleSyncSynchronize = async () => {
+    if (!syncOpportunity) return;
+    
+    setIsSyncing(true);
+    try {
+      // Submit bets for each match to sync
+      for (const matchToSync of syncOpportunity.matchesToSync) {
+        await submitBet(
+          matchToSync.matchId,
+          matchToSync.predictedHomeGoals,
+          matchToSync.predictedAwayGoals
+        );
+      }
+      
+      // Refresh matches to show updated data
+      await refresh();
+      
+      // Close modal
+      setShowSyncModal(false);
+    } catch (error) {
+      console.error('Error during sync:', error);
+      Alert.alert(
+        t('common.error'),
+        'Failed to synchronize bets. Please try again.'
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSyncNotNow = () => {
+    setShowSyncModal(false);
   };
 
   const navigateMatchday = (direction: 'prev' | 'next') => {
@@ -688,6 +746,15 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         {/* Add padding at the bottom to ensure last match is visible above keyboard */}
         <View style={{ height: 100 }} />
       </ScrollView>
+      
+      {/* Bet Synchronization Modal */}
+      <BetSyncModal
+        visible={showSyncModal}
+        syncOpportunity={syncOpportunity}
+        onSynchronize={handleSyncSynchronize}
+        onNotNow={handleSyncNotNow}
+        loading={isSyncing}
+      />
     </KeyboardAvoidingView>
   );
 }

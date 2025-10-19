@@ -112,7 +112,11 @@ export default function MatchesTabScreen() {
       {/* Old MatchesList UI for the selected game */}
       {selectedGameId && (
         <View style={{ flex: 1 }}>
-          <MatchesList gameId={selectedGameId} initialMatchday={initialMatchday} />
+          <MatchesList 
+            key={selectedGameId} 
+            gameId={selectedGameId} 
+            initialMatchday={initialMatchday} 
+          />
         </View>
       )}
     </View>

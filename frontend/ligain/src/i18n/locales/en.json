@@ -198,6 +198,15 @@
     "score": "Score",
     "points": "points"
   },
+  "betSync": {
+    "title": "Synchronize Bets?",
+    "message": "We noticed you placed bets on {{count}} future matches in '{{gameName}}'. Would you like to apply the same bets to this game?",
+    "onlyUnbetted": "Only matches where you haven't bet yet will be synchronized.",
+    "synchronize": "Synchronize",
+    "notNow": "Not now",
+    "matchesToSync": "{{count}} matches to sync:",
+    "matchday": "Matchday {{matchday}}: {{count}} matches"
+  },
   "errors": {
     "authentication": "Authentication went wrong, please refresh the page and retry",
     "forbidden": "Authentication went wrong, please refresh the page and retry",
