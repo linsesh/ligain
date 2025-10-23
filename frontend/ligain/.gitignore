@@ -43,7 +43,8 @@ yarn-error.*
 ios/Pods/
 ios/build/
 ios/*.xcworkspace/xcshareddata/
-ios/*.xcodeproj/xcshareddata/
+# Allow shared schemes for CI/CD
+# ios/*.xcodeproj/xcshareddata/
 ios/*.xcodeproj/project.xcworkspace/xcshareddata/
 ios/*.xcodeproj/xcuserdata/
 ios/*.xcworkspace/xcuserdata/
