@@ -213,7 +213,7 @@ export default function GameOverviewScreen() {
         )}
                 {/* Period Selector (matches-like selector) */}
         <View style={styles.periodSelectionContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.periodSelector}
             onPress={() => setShowPeriodPicker(true)}
           >
@@ -221,17 +221,6 @@ export default function GameOverviewScreen() {
               {selectedPeriod === 'general' ? t('games.general') : formatMonthLabel(selectedPeriod)}
             </Text>
             <Ionicons name="chevron-down" size={20} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={sharedStyles.shareButton}
-            onPress={handleShareLeaderboard}
-            disabled={isSharing}
-          >
-            <Ionicons 
-              name={isSharing ? "hourglass-outline" : "share-outline"} 
-              size={20}
-              color={isSharing ? colors.textSecondary : "#000000"} 
-            />
           </TouchableOpacity>
         </View>
         {showPeriodPicker && (
@@ -269,6 +258,8 @@ export default function GameOverviewScreen() {
           players={sortedPlayers}
           currentPlayerId={player?.id}
           t={t}
+          onShare={handleShareLeaderboard}
+          isSharing={isSharing}
         />
         {/* Current Month Leader and Last Month Winner cards */}
         {(currentMonthTop && currentMonthTop.Points > 0) && (
@@ -366,12 +357,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   periodSelectionContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginTop: 8,
     marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   periodSelector: {
     flexDirection: 'row',

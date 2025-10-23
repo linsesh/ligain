@@ -975,7 +975,7 @@ const styles = StyleSheet.create({
   topLeftContainer: {
     position: 'absolute',
     top: 8,
-    left: 8,
+    left: 14,
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 1,
