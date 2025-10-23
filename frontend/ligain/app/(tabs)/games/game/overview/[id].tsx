@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../../../../src/contexts/AuthContext';
 import { colors } from '../../../../../src/constants/colors';
+import { sharedStyles } from '../../../../../src/constants/sharedStyles';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../../../../src/components/Leaderboard';
 import { useGames } from '../../../../../src/contexts/GamesContext';
@@ -222,14 +223,14 @@ export default function GameOverviewScreen() {
             <Ionicons name="chevron-down" size={20} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.shareButton}
+            style={sharedStyles.shareButton}
             onPress={handleShareLeaderboard}
             disabled={isSharing}
           >
             <Ionicons 
-              name={isSharing ? "hourglass-outline" : "share-social-outline"} 
-              size={20} 
-              color={isSharing ? colors.textSecondary : colors.primary} 
+              name={isSharing ? "hourglass-outline" : "share-outline"} 
+              size={20}
+              color={isSharing ? colors.textSecondary : "#000000"} 
             />
           </TouchableOpacity>
         </View>
@@ -386,14 +387,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  shareButton: {
-    padding: 12,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginLeft: 12,
   },
   periodInfoText: {
     color: '#999',

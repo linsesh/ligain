@@ -9,6 +9,7 @@ import { useGames } from '../../../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 import { colors } from '../../../../src/constants/colors';
+import { sharedStyles } from '../../../../src/constants/sharedStyles';
 import StatusTag from '../../../../src/components/StatusTag';
 import { BetSyncModal } from '../../../../src/components/BetSyncModal';
 import ShareableMatchResult from '../../../../src/components/ShareableMatchResult';
@@ -144,14 +145,14 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
       {matchResult.match.isFinished() && (
         <View style={styles.topLeftContainer}>
           <TouchableOpacity
-            style={styles.shareButton}
+            style={sharedStyles.shareButton}
             onPress={handleShareMatch}
             disabled={isSharing}
           >
             <Ionicons 
-              name={isSharing ? "hourglass-outline" : "share-social-outline"} 
+              name={isSharing ? "hourglass-outline" : "share-outline"} 
               size={20} 
-              color={isSharing ? colors.textSecondary : colors.primary} 
+              color={isSharing ? colors.textSecondary : "#000000"} 
             />
           </TouchableOpacity>
         </View>
@@ -981,13 +982,6 @@ const styles = StyleSheet.create({
   },
   statusTag: {
     marginRight: 8,
-  },
-  shareButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   statusTagText: {
     color: '#fff',

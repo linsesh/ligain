@@ -38,7 +38,7 @@ const getRankColor = (rank: number) => {
     case 3:
       return colors.bronze;
     default:
-      return colors.text;
+      return '#cccccc'; // Light gray for better readability on dark background
   }
 };
 
@@ -64,7 +64,7 @@ export default function ShareableLeaderboard({
       {/* Game name and period */}
       <View style={styles.titleContainer}>
         <Text style={styles.gameName}>{gameName}</Text>
-        <Text style={styles.period}>{period} {t('share.leaderboard')}</Text>
+        <Text style={styles.period}>{period}</Text>
       </View>
 
       {/* Leaderboard */}
