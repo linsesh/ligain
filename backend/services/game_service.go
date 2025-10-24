@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"ligain/backend/models"
 	"ligain/backend/repositories"
 	"time"
@@ -23,28 +24,31 @@ type GameService interface {
 
 // GameService is used to really run a game
 type GameServiceImpl struct {
-	gameId   string
-	gameRepo repositories.GameRepository
-	betRepo  repositories.BetRepository
-	timeFunc func() time.Time // Function to get current time (for testing)
+	gameId         string
+	gameRepo       repositories.GameRepository
+	betRepo        repositories.BetRepository
+	gamePlayerRepo repositories.GamePlayerRepository
+	timeFunc       func() time.Time // Function to get current time (for testing)
 }
 
-func NewGameService(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository) *GameServiceImpl {
+func NewGameService(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, gamePlayerRepo repositories.GamePlayerRepository) *GameServiceImpl {
 	return &GameServiceImpl{
-		gameId:   gameId,
-		gameRepo: gameRepo,
-		betRepo:  betRepo,
-		timeFunc: time.Now, // Default to real time
+		gameId:         gameId,
+		gameRepo:       gameRepo,
+		betRepo:        betRepo,
+		gamePlayerRepo: gamePlayerRepo,
+		timeFunc:       time.Now, // Default to real time
 	}
 }
 
 // NewGameServiceWithTime creates a GameService with a custom time function (for testing)
-func NewGameServiceWithTime(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, timeFunc func() time.Time) *GameServiceImpl {
+func NewGameServiceWithTime(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, gamePlayerRepo repositories.GamePlayerRepository, timeFunc func() time.Time) *GameServiceImpl {
 	return &GameServiceImpl{
-		gameId:   gameId,
-		gameRepo: gameRepo,
-		betRepo:  betRepo,
-		timeFunc: timeFunc,
+		gameId:         gameId,
+		gameRepo:       gameRepo,
+		betRepo:        betRepo,
+		gamePlayerRepo: gamePlayerRepo,
+		timeFunc:       timeFunc,
 	}
 }
 
@@ -203,12 +207,14 @@ func (g *GameServiceImpl) GetPlayerBets(player models.Player) ([]*models.Bet, er
 }
 
 func (g *GameServiceImpl) GetPlayers() []models.Player {
-	game, err := g.getGame()
+	// Fetch players directly from the repository to ensure we get the latest data
+	// This is important because player names can be updated, and we don't want to return stale cached data
+	players, err := g.gamePlayerRepo.GetPlayersInGame(context.Background(), g.gameId)
 	if err != nil {
-		log.Errorf("Error getting game: %v", err)
+		log.Errorf("Error getting players for game %s: %v", g.gameId, err)
 		return []models.Player{}
 	}
-	return game.GetPlayers()
+	return players
 }
 
 func (g *GameServiceImpl) AddPlayer(player models.Player) error {

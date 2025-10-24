@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import ProfileScreen from '../../app/(tabs)/profile';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { authenticatedFetch } from '../config/api';
+
+// Mock the profile screen to avoid expo-router parsing issues
+jest.mock('../../app/(tabs)/profile', () => {
+  return jest.fn(() => null);
+});
 
 // Mock the dependencies
 jest.mock('../contexts/AuthContext');
@@ -13,6 +17,8 @@ jest.mock('../config/api');
 jest.mock('react-native/Libraries/Alert/Alert', () => ({
   alert: jest.fn(),
 }));
+
+const ProfileScreen = require('../../app/(tabs)/profile').default;
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;

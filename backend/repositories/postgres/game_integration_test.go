@@ -700,7 +700,7 @@ func TestGameServiceCacheInconsistency(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create game service (this will cache the game)
-		_ = services.NewGameService(gameID, gameRepo, betRepo)
+		_ = services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo)
 
 		// Verify initial status
 		assert.Equal(t, models.GameStatusScheduled, game.GetGameStatus())

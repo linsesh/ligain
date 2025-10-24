@@ -16,29 +16,17 @@ interface ShareableLeaderboardProps {
   }>;
 }
 
-const getRankIcon = (rank: number) => {
+// Helper function to get rank-based background colors (same as Leaderboard.tsx)
+const getRankBackgroundColor = (rank: number) => {
   switch (rank) {
-    case 1:
-      return '🥇';
-    case 2:
-      return '🥈';
-    case 3:
-      return '🥉';
-    default:
-      return `${rank}.`;
-  }
-};
-
-const getRankColor = (rank: number) => {
-  switch (rank) {
-    case 1:
-      return colors.primary; // Gold
-    case 2:
-      return colors.silver;
-    case 3:
-      return colors.bronze;
-    default:
-      return '#cccccc'; // Light gray for better readability on dark background
+    case 1: // 1st place
+      return colors.primary; // Gold/Yellow
+    case 2: // 2nd place
+      return colors.silver; // Silver
+    case 3: // 3rd place
+      return colors.bronze; // Bronze
+    default: // 4th place onwards
+      return '#666666'; // Neutral grey
   }
 };
 
@@ -71,18 +59,21 @@ export default function ShareableLeaderboard({
       <View style={styles.leaderboardContainer}>
         {players.map((player, index) => (
           <View key={index} style={styles.playerRow}>
-            <View style={styles.rankContainer}>
-              <Text style={styles.rankIcon}>{getRankIcon(player.rank)}</Text>
+            <View style={[
+              styles.rankBadge,
+              { backgroundColor: getRankBackgroundColor(player.rank) }
+            ]}>
+              <Text style={styles.rankText}>{player.rank}</Text>
             </View>
-            
+
             <View style={styles.playerInfo}>
               <Text style={styles.playerName}>{player.name}</Text>
             </View>
-            
+
             <View style={styles.pointsContainer}>
               <Text style={[
                 styles.points,
-                { color: getRankColor(player.rank) }
+                { color: getRankBackgroundColor(player.rank) }
               ]}>
                 {player.points}
               </Text>
@@ -154,14 +145,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: colors.border,
   },
-  rankContainer: {
+  rankBadge: {
     width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 30,
   },
-  rankIcon: {
-    fontSize: 48,
+  rankText: {
+    fontSize: 36,
     fontWeight: 'bold',
+    color: colors.background,
   },
   playerInfo: {
     flex: 1,

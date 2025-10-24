@@ -287,12 +287,19 @@ describe('useBetSynchronization', () => {
         json: async () => ({
           incomingMatches: {
             'match-2': {
-              match: { 
-                id: () => 'match-2', 
-                getHomeTeam: () => 'Team A', 
-                getAwayTeam: () => 'Team B', 
-                getMatchday: () => 1, 
-                getDate: () => new Date('2024-01-20T15:00:00Z') 
+              match: {
+                homeTeam: 'Team A',
+                awayTeam: 'Team B',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-20T15:00:00Z',
+                matchday: 1
               },
               bets: { 'player-1': { playerId: 'player-1', predictedHomeGoals: 2, predictedAwayGoals: 1 } }
             }
@@ -305,12 +312,19 @@ describe('useBetSynchronization', () => {
         json: async () => ({
           incomingMatches: {
             'match-3': {
-              match: { 
-                id: () => 'match-3', 
-                getHomeTeam: () => 'Team C', 
-                getAwayTeam: () => 'Team D', 
-                getMatchday: () => 2, 
-                getDate: () => new Date('2024-01-21T15:00:00Z') 
+              match: {
+                homeTeam: 'Team C',
+                awayTeam: 'Team D',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-21T15:00:00Z',
+                matchday: 2
               },
               bets: { 'player-1': { playerId: 'player-1', predictedHomeGoals: 1, predictedAwayGoals: 0 } }
             }
@@ -376,12 +390,19 @@ describe('useBetSynchronization', () => {
         json: async () => ({
           incomingMatches: {
             'match-1': {
-              match: { 
-                id: () => 'match-1', 
-                getHomeTeam: () => 'Team A', 
-                getAwayTeam: () => 'Team B', 
-                getMatchday: () => 1, 
-                getDate: () => new Date('2024-01-20T15:00:00Z') 
+              match: {
+                homeTeam: 'Team A',
+                awayTeam: 'Team B',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-20T15:00:00Z',
+                matchday: 1
               },
               bets: {}
             }
@@ -394,12 +415,19 @@ describe('useBetSynchronization', () => {
         json: async () => ({
           incomingMatches: {
             'match-2': {
-              match: { 
-                id: () => 'match-2', 
-                getHomeTeam: () => 'Team A', 
-                getAwayTeam: () => 'Team B', 
-                getMatchday: () => 1, 
-                getDate: () => new Date('2024-01-20T15:00:00Z') 
+              match: {
+                homeTeam: 'Team A',
+                awayTeam: 'Team B',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-20T15:00:00Z',
+                matchday: 1
               },
               bets: { 'player-1': { playerId: 'player-1', predictedHomeGoals: 2, predictedAwayGoals: 1 } }
             }
@@ -412,12 +440,19 @@ describe('useBetSynchronization', () => {
         json: async () => ({
           incomingMatches: {
             'match-3': {
-              match: { 
-                id: () => 'match-3', 
-                getHomeTeam: () => 'Team A', 
-                getAwayTeam: () => 'Team B', 
-                getMatchday: () => 1, 
-                getDate: () => new Date('2024-01-20T15:00:00Z') 
+              match: {
+                homeTeam: 'Team A',
+                awayTeam: 'Team B',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-20T15:00:00Z',
+                matchday: 1
               },
               bets: { 'player-1': { playerId: 'player-1', predictedHomeGoals: 1, predictedAwayGoals: 0 } }
             }
@@ -481,22 +516,36 @@ describe('useBetSynchronization', () => {
         json: async () => ({
           incomingMatches: {
             'match-3': {
-              match: { 
-                id: () => 'match-3', 
-                getHomeTeam: () => 'Team A', 
-                getAwayTeam: () => 'Team B', 
-                getMatchday: () => 1, 
-                getDate: () => new Date('2024-01-20T15:00:00Z') 
+              match: {
+                homeTeam: 'Team A',
+                awayTeam: 'Team B',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-20T15:00:00Z',
+                matchday: 1
               },
               bets: { 'player-1': { playerId: 'player-1', predictedHomeGoals: 2, predictedAwayGoals: 1 } }
             },
             'match-4': {
-              match: { 
-                id: () => 'match-4', 
-                getHomeTeam: () => 'Team C', 
-                getAwayTeam: () => 'Team D', 
-                getMatchday: () => 2, 
-                getDate: () => new Date('2024-01-21T15:00:00Z') 
+              match: {
+                homeTeam: 'Team C',
+                awayTeam: 'Team D',
+                homeGoals: null,
+                awayGoals: null,
+                homeTeamOdds: null,
+                awayTeamOdds: null,
+                drawOdds: null,
+                status: 'scheduled',
+                seasonCode: '2024/2025',
+                competitionCode: 'Ligue 1',
+                date: '2024-01-21T15:00:00Z',
+                matchday: 2
               },
               bets: { 'player-1': { playerId: 'player-1', predictedHomeGoals: 1, predictedAwayGoals: 0 } }
             }

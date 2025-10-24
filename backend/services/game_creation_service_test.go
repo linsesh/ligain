@@ -995,6 +995,9 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	// Mock IsPlayerInGame to return true for player2 after joining (for GetGameService call)
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "test-game-id", "player2").Return(true, nil)
 
+	// Mock GetPlayersInGame to return the players (needed by GetPlayers() which now fetches from repository)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "test-game-id").Return([]models.Player{player, secondPlayer}, nil)
+
 	// Now try to get the game service directly (this should use the cached version)
 	gameService, err := service.GetGameService("test-game-id", secondPlayer)
 	require.NoError(t, err)
@@ -1767,7 +1770,7 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, matches, &rules.ScorerOriginal{})
 
 	// Create a game service to interact with the game
-	gameService := NewGameService(gameID, mockGameRepo, mockBetRepo)
+	gameService := NewGameService(gameID, mockGameRepo, mockBetRepo, &MockGamePlayerRepository{})
 
 	// Set up mock to return the real game when GetGame is called
 	mockGameRepo.On("GetGame", gameID).Return(realGame, nil)
