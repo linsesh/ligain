@@ -1,0 +1,22 @@
+name: http_request_duration
+description: HTTP request duration by route (ms)
+filter: jsonPayload.metric_type="http_request"
+metricDescriptor:
+  metricKind: DELTA
+  valueType: DISTRIBUTION
+  unit: ms
+  labels:
+    - key: route
+      description: HTTP route
+    - key: method
+      description: HTTP method
+    - key: status
+      description: HTTP status code
+valueExtractor: EXTRACT(jsonPayload.duration_ms)
+labelExtractors:
+  route: EXTRACT(jsonPayload.route)
+  method: EXTRACT(jsonPayload.method)
+  status: EXTRACT(jsonPayload.status)
+bucketOptions:
+  explicitBuckets:
+    bounds: [0, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]

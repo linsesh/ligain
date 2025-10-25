@@ -58,11 +58,10 @@ func (h *MatchHandler) getAuthenticatedPlayer(c *gin.Context) (models.Player, er
 }
 
 // convertMatchResultToJSON converts a MatchResult to a JSON-friendly structure
-func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult, gameService services.GameService) map[string]any {
+func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult, playerIDToName map[string]string) map[string]any {
 	result := map[string]any{
 		"match": matchResult.Match,
 	}
-	playerIDToName := h.getPlayerIDToName(gameService)
 	if matchResult.Bets != nil {
 		simplifiedBets := h.simplifyBets(matchResult.Bets, playerIDToName)
 		result["bets"] = simplifiedBets
@@ -77,14 +76,6 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult,
 	}
 
 	return result
-}
-
-func (h *MatchHandler) getPlayerIDToName(gameService services.GameService) map[string]string {
-	playerIDToName := make(map[string]string)
-	for _, player := range gameService.GetPlayers() {
-		playerIDToName[player.GetID()] = player.GetName()
-	}
-	return playerIDToName
 }
 
 func (h *MatchHandler) simplifyBets(bets map[string]*models.Bet, playerIDToName map[string]string) map[string]SimplifiedBet {
@@ -144,18 +135,24 @@ func (h *MatchHandler) getMatches(c *gin.Context) {
 		return
 	}
 
+	// Fetch players once and build the ID-to-name mapping
+	playerIDToName := make(map[string]string)
+	for _, p := range gameService.GetPlayers() {
+		playerIDToName[p.GetID()] = p.GetName()
+	}
+
 	incomingMatches := gameService.GetIncomingMatches(player) // Get matches filtered for this player
 	pastMatches := gameService.GetMatchResults()
 
 	// Convert MatchResults to JSON-friendly format
 	jsonIncomingMatches := make(map[string]any)
 	for id, matchResult := range incomingMatches {
-		jsonIncomingMatches[id] = h.convertMatchResultToJSON(matchResult, gameService)
+		jsonIncomingMatches[id] = h.convertMatchResultToJSON(matchResult, playerIDToName)
 	}
 
 	jsonPastMatches := make(map[string]any)
 	for id, matchResult := range pastMatches {
-		jsonPastMatches[id] = h.convertMatchResultToJSON(matchResult, gameService)
+		jsonPastMatches[id] = h.convertMatchResultToJSON(matchResult, playerIDToName)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
