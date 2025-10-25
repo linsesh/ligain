@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useGames } from '../src/contexts/GamesContext';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
@@ -218,9 +218,21 @@ export const useBetSynchronization = (currentGameId: string) => {
     }
   }, [currentGameId, games, player, timeService, currentIncomingMatches, currentPastMatches]);
 
+  // Use a ref to track if we've already run the sync check for the current game
+  const hasRunSyncCheck = useRef(false);
+  const lastGameId = useRef<string | null>(null);
+
   useEffect(() => {
-    findSyncOpportunity();
-  }, [findSyncOpportunity]);
+    // Only run sync check when:
+    // 1. Game ID changes (new game selected)
+    // 2. We haven't run the check yet for this game
+    // 3. Essential dependencies change (games, player, timeService)
+    if (currentGameId !== lastGameId.current || !hasRunSyncCheck.current) {
+      lastGameId.current = currentGameId;
+      hasRunSyncCheck.current = true;
+      findSyncOpportunity();
+    }
+  }, [currentGameId, games, player, timeService, findSyncOpportunity]);
 
   return {
     syncOpportunity,
