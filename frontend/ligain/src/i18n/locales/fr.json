@@ -205,7 +205,20 @@
     "synchronize": "Synchroniser",
     "notNow": "Pas maintenant",
     "matchesToSync": "{{count}} matchs à synchroniser :",
-    "matchday": "Journée {{matchday}} : {{count}} matchs"
+    "matchday": "Journée {{matchday}} : {{count}} matchs",
+    "partialSuccess": {
+      "title": "Synchronisation Partielle",
+      "message": "{{successful}} pronos sur {{total}} ont été synchronisés avec succès.",
+      "successfulMatches": "Synchronisés avec succès :",
+      "failedMatches": "Échec de la synchronisation :",
+      "retryFailed": "Échec de la synchronisation",
+      "close": "Fermer"
+    },
+    "failure": {
+      "title": "Échec de Synchronisation",
+      "message": "Impossible de synchroniser les pronos. Veuillez réessayer.",
+      "close": "Fermer"
+    }
   },
   "share": {
     "matchResult": "Partager le résultat",

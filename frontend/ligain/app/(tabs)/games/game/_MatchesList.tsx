@@ -11,7 +11,7 @@ import { formatTime, formatDate } from '../../../../src/utils/dateUtils';
 import { colors } from '../../../../src/constants/colors';
 import { sharedStyles } from '../../../../src/constants/sharedStyles';
 import StatusTag from '../../../../src/components/StatusTag';
-import { BetSyncModal } from '../../../../src/components/BetSyncModal';
+import { BetSyncModal, SyncResult } from '../../../../src/components/BetSyncModal';
 import ShareableMatchResult from '../../../../src/components/ShareableMatchResult';
 import { captureAndShareWithOptions, formatDateForShare } from '../../../../src/utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
@@ -396,6 +396,9 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncModalShownForGame, setSyncModalShownForGame] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [syncModalMode, setSyncModalMode] = useState<'initial' | 'success' | 'partialSuccess' | 'failure'>('initial');
+  const [failedBetsToRetry, setFailedBetsToRetry] = useState<SyncResult['failed']>([]);
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
@@ -536,6 +539,9 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     setSyncModalShownForGame(null);
     setShowSyncModal(false);
     setIsSyncing(false);
+    setSyncResult(null);
+    setSyncModalMode('initial');
+    setFailedBetsToRetry([]);
   }, [gameId]);
 
   const toggleBetSection = (matchId: string) => {
@@ -599,27 +605,49 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     if (!syncOpportunity) return;
     
     setIsSyncing(true);
+    const results: SyncResult = { successful: [], failed: [] };
+    
     try {
-      // Submit bets for each match to sync
+      // Submit bets for each match to sync individually
       for (const matchToSync of syncOpportunity.matchesToSync) {
-        await submitBet(
-          matchToSync.matchId,
-          matchToSync.predictedHomeGoals,
-          matchToSync.predictedAwayGoals
-        );
+        try {
+          await submitBet(
+            matchToSync.matchId,
+            matchToSync.predictedHomeGoals,
+            matchToSync.predictedAwayGoals
+          );
+          results.successful.push(matchToSync);
+        } catch (error) {
+          console.error(`Failed to sync bet for match ${matchToSync.matchId}:`, error);
+          results.failed.push({ match: matchToSync, error });
+        }
       }
       
-      // Refresh matches to show updated data
+      // Always refresh to show current state
       await refresh();
       
-      // Close modal
-      setShowSyncModal(false);
+      // Set the results and determine modal mode
+      setSyncResult(results);
+      
+      if (results.failed.length === 0) {
+        // All successful - close modal immediately (current behavior)
+        setShowSyncModal(false);
+        setSyncResult(null);
+        setSyncModalMode('initial');
+        setFailedBetsToRetry([]);
+        return;
+      } else if (results.successful.length > 0) {
+        // Partial success
+        setSyncModalMode('partialSuccess');
+        setFailedBetsToRetry(results.failed);
+      } else {
+        // All failed
+        setSyncModalMode('failure');
+      }
     } catch (error) {
-      console.error('Error during sync:', error);
-      Alert.alert(
-        t('common.error'),
-        'Failed to synchronize bets. Please try again.'
-      );
+      console.error('Error during sync process:', error);
+      setSyncModalMode('failure');
+      setSyncResult({ successful: [], failed: [] });
     } finally {
       setIsSyncing(false);
     }
@@ -627,6 +655,60 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
 
   const handleSyncNotNow = () => {
     setShowSyncModal(false);
+    setSyncResult(null);
+    setSyncModalMode('initial');
+    setFailedBetsToRetry([]);
+  };
+
+  const handleRetryFailed = async () => {
+    if (failedBetsToRetry.length === 0) return;
+    
+    setIsSyncing(true);
+    const retryResults: SyncResult = { successful: [], failed: [] };
+    
+    try {
+      // Retry only the failed bets
+      for (const failedBet of failedBetsToRetry) {
+        try {
+          await submitBet(
+            failedBet.match.matchId,
+            failedBet.match.predictedHomeGoals,
+            failedBet.match.predictedAwayGoals
+          );
+          retryResults.successful.push(failedBet.match);
+        } catch (error) {
+          console.error(`Retry failed for match ${failedBet.match.matchId}:`, error);
+          retryResults.failed.push(failedBet);
+        }
+      }
+      
+      // Refresh to show updated state
+      await refresh();
+      
+      // Update results with retry results
+      const updatedResults: SyncResult = {
+        successful: [...(syncResult?.successful || []), ...retryResults.successful],
+        failed: retryResults.failed
+      };
+      
+      setSyncResult(updatedResults);
+      
+      if (retryResults.failed.length === 0) {
+        setShowSyncModal(false);
+        setSyncResult(null);
+        setSyncModalMode('initial');
+        setFailedBetsToRetry([]);
+        return;
+      } else {
+        setSyncModalMode('partialSuccess');
+        setFailedBetsToRetry(retryResults.failed);
+      }
+    } catch (error) {
+      console.error('Error during retry:', error);
+      setSyncModalMode('failure');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const navigateMatchday = (direction: 'prev' | 'next') => {
@@ -826,7 +908,10 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         syncOpportunity={syncOpportunity}
         onSynchronize={handleSyncSynchronize}
         onNotNow={handleSyncNotNow}
+        onRetryFailed={handleRetryFailed}
         loading={isSyncing}
+        syncResult={syncResult}
+        mode={syncModalMode}
       />
     </KeyboardAvoidingView>
   );

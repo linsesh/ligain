@@ -205,7 +205,20 @@
     "synchronize": "Synchronize",
     "notNow": "Not now",
     "matchesToSync": "{{count}} matches to sync:",
-    "matchday": "Matchday {{matchday}}: {{count}} matches"
+    "matchday": "Matchday {{matchday}}: {{count}} matches",
+    "partialSuccess": {
+      "title": "Partial Synchronization",
+      "message": "{{successful}} out of {{total}} bets were synchronized successfully.",
+      "successfulMatches": "Successfully synchronized:",
+      "failedMatches": "Failed to synchronize:",
+      "retryFailed": "Retry Failed",
+      "close": "Close"
+    },
+    "failure": {
+      "title": "Synchronization Failed",
+      "message": "Failed to synchronize any bets. Please try again.",
+      "close": "Close"
+    }
   },
   "share": {
     "matchResult": "Share result",
