@@ -29,6 +29,7 @@ export const useBetSynchronization = (currentGameId: string) => {
 
   // Get current game's matches using the existing useMatches hook
   const { incomingMatches: currentIncomingMatches, pastMatches: currentPastMatches } = useMatches(currentGameId);
+  
 
   const getFutureMatches = (incomingMatches: any, pastMatches: any) => {
     const allMatches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
@@ -223,16 +224,27 @@ export const useBetSynchronization = (currentGameId: string) => {
   const lastGameId = useRef<string | null>(null);
 
   useEffect(() => {
-    // Only run sync check when:
-    // 1. Game ID changes (new game selected)
-    // 2. We haven't run the check yet for this game
-    // 3. Essential dependencies change (games, player, timeService)
-    if (currentGameId !== lastGameId.current || !hasRunSyncCheck.current) {
+    // Reset sync check flag when game changes
+    if (currentGameId !== lastGameId.current) {
       lastGameId.current = currentGameId;
+      hasRunSyncCheck.current = false;
+    }
+    
+    // Also reset when matches data becomes available (after initial load)
+    const hasMatchesData = Object.keys(currentIncomingMatches).length > 0 || Object.keys(currentPastMatches).length > 0;
+    if (hasMatchesData && hasRunSyncCheck.current) {
+      hasRunSyncCheck.current = false;
+    }
+    
+    // Run sync check when:
+    // 1. We haven't run the check yet for this game
+    // 2. Essential dependencies change (games, player, timeService)
+    // 3. Matches data changes (when matches are loaded)
+    if (!hasRunSyncCheck.current && currentGameId && games.length > 0 && player) {
       hasRunSyncCheck.current = true;
       findSyncOpportunity();
     }
-  }, [currentGameId, games, player, timeService, findSyncOpportunity]);
+  }, [currentGameId, games, player, timeService, currentIncomingMatches, currentPastMatches, findSyncOpportunity]);
 
   return {
     syncOpportunity,

@@ -191,7 +191,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
             
             {onRetryFailed && syncResult && syncResult.failed.length > 0 && (
               <TouchableOpacity
-                style={[styles.button, styles.synchronizeButton, { backgroundColor: colors.primary }]}
+                style={[styles.button, styles.synchronizeButton, { backgroundColor: colors.secondary }]}
                 onPress={onRetryFailed}
               >
                 <Text style={styles.synchronizeButtonText}>
@@ -228,7 +228,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.button, styles.synchronizeButton, { backgroundColor: colors.primary }]}
+              style={[styles.button, styles.synchronizeButton, { backgroundColor: colors.secondary }]}
               onPress={onSynchronize}
               disabled={loading}
             >

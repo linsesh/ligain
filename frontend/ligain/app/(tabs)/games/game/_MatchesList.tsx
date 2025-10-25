@@ -660,6 +660,9 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     setFailedBetsToRetry([]);
   };
 
+
+
+
   const handleRetryFailed = async () => {
     if (failedBetsToRetry.length === 0) return;
     
@@ -898,6 +901,8 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             </View>
           </View>
         )}
+        
+        
         {/* Add padding at the bottom to ensure last match is visible above keyboard */}
         <View style={{ height: 100 }} />
       </ScrollView>
