@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
 
 interface PlayerGameInfo {
@@ -16,6 +17,8 @@ interface LeaderboardProps {
   align?: 'left' | 'center';
   showCurrentPlayerTag?: boolean;
   containerStyle?: ViewStyle;
+  onShare?: () => void;
+  isSharing?: boolean;
 }
 
 // Helper function to get rank-based background colors
@@ -32,7 +35,7 @@ const getRankBackgroundColor = (index: number) => {
   }
 };
 
-export default function Leaderboard({ players, currentPlayerId, t, showTitle = true, align = 'center', showCurrentPlayerTag = true, containerStyle }: LeaderboardProps) {
+export default function Leaderboard({ players, currentPlayerId, t, showTitle = true, align = 'center', showCurrentPlayerTag = true, containerStyle, onShare, isSharing }: LeaderboardProps) {
   return (
     <View style={[
       styles.leaderboardContainer,
@@ -40,7 +43,22 @@ export default function Leaderboard({ players, currentPlayerId, t, showTitle = t
       containerStyle,
     ]}>
       {showTitle && (
-        <Text style={styles.leaderboardTitle}>{t('games.playerLeaderboard')}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.leaderboardTitle}>{t('games.playerLeaderboard')}</Text>
+          {onShare && (
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={onShare}
+              disabled={isSharing}
+            >
+              <Ionicons
+                name={isSharing ? "hourglass-outline" : "share-outline"}
+                size={20}
+                color={isSharing ? colors.textSecondary : colors.primary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
       {players.map((playerInfo, index) => (
         <View key={playerInfo.id} style={styles.playerRow}>
@@ -71,12 +89,27 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 16,
+  },
   leaderboardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 16,
-    textAlign: 'center',
+    textAlign: 'left',
+  },
+  shareButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 40,
+    height: 32,
   },
   playerRow: {
     flexDirection: 'row',

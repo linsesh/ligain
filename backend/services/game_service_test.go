@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"ligain/backend/models"
 	"ligain/backend/repositories"
@@ -106,7 +107,24 @@ func setupTestGameService() (*GameServiceImpl, models.Match, []models.Player) {
 	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
 	betRepo := repositories.NewInMemoryBetRepository()
 
-	service := NewGameService("test-game", gameRepo, betRepo)
+	// Create player repository and add players to it
+	playerRepo := repositories.NewInMemoryPlayerRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(playerRepo)
+
+	// Add players to the repositories - convert testPlayer to PlayerData
+	// Note: We need to set the ID first, then use CreatePlayer which will override it,
+	// so instead we'll directly add to the repository
+	for _, player := range players {
+		playerData := &models.PlayerData{
+			ID:   player.GetID(),
+			Name: player.GetName(),
+		}
+		// Directly save to avoid UUID generation in CreatePlayer
+		playerRepo.UpdatePlayer(context.Background(), playerData)
+		gamePlayerRepo.AddPlayerToGame(context.Background(), "test-game", player.GetID())
+	}
+
+	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo)
 	return service, match, players
 }
 
@@ -206,7 +224,7 @@ func TestGameService_HandleMatchUpdates(t *testing.T) {
 		gameRepo.On("GetGame", "test-game").Return(game, nil)
 		gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
 
-		service := NewGameService("test-game", gameRepo, betRepo)
+		service := NewGameService("test-game", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
 
 		// Add bet for second match
 		bet2 := models.NewBet(match2, 1, 0)
@@ -448,7 +466,7 @@ func TestGameService_HandleMatchUpdates_AdjustOdds(t *testing.T) {
 	timeFunc := func() time.Time { return baseTime }
 
 	// Create service with custom time function
-	service := NewGameServiceWithTime("test-game", gameRepo, betRepo, timeFunc)
+	service := NewGameServiceWithTime("test-game", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), timeFunc)
 
 	// Create an update with different odds
 	updatedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
@@ -500,7 +518,7 @@ func TestGameService_HandleMatchUpdates_AdjustOdds(t *testing.T) {
 		game := rules.NewFreshGame("2024", "Premier League", "Test Game 2", players, matches, &scorerMock{})
 		gameRepo.On("GetGame", "test-game-2").Return(game, nil)
 
-		service := NewGameServiceWithTime("test-game-2", gameRepo, betRepo, timeFunc)
+		service := NewGameServiceWithTime("test-game-2", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), timeFunc)
 
 		// Create an update with different odds
 		updatedMatch7Min := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime7Min, 2)
@@ -548,7 +566,22 @@ func TestGameService_PlayerChangesDisplayNameMidGame(t *testing.T) {
 	gameRepo.On("GetGame", "test-game").Return(game, nil)
 	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
 	betRepo := repositories.NewInMemoryBetRepository()
-	service := NewGameService("test-game", gameRepo, betRepo)
+
+	// Create player repository and add players to it
+	playerRepo := repositories.NewInMemoryPlayerRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(playerRepo)
+
+	// Add players to the repositories
+	for _, player := range players {
+		playerData := &models.PlayerData{
+			ID:   player.GetID(),
+			Name: player.GetName(),
+		}
+		playerRepo.UpdatePlayer(context.Background(), playerData)
+		gamePlayerRepo.AddPlayerToGame(context.Background(), "test-game", player.GetID())
+	}
+
+	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo)
 
 	// Phase 1: Player places initial bet with original name
 	t.Run("Player places bet with original name", func(t *testing.T) {
@@ -580,6 +613,13 @@ func TestGameService_PlayerChangesDisplayNameMidGame(t *testing.T) {
 	t.Run("Player changes display name mid-game", func(t *testing.T) {
 		// Simulate display name change
 		player1.SetName("NewDisplayName")
+
+		// Update the player name in the repository (simulating what would happen in real app)
+		playerData := &models.PlayerData{
+			ID:   player1.GetID(),
+			Name: player1.GetName(),
+		}
+		playerRepo.UpdatePlayer(context.Background(), playerData)
 
 		// Verify the player can still be found by ID and now has new name
 		gamePlayers := service.GetPlayers()
@@ -720,7 +760,7 @@ func TestGameService_HandleMatchUpdates_SavesFinishedGameToDatabase(t *testing.T
 	mockGameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
 
 	// Create service
-	service := NewGameService("test-game", mockGameRepo, betRepo)
+	service := NewGameService("test-game", mockGameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
 
 	// Add bets for both players
 	bet1 := models.NewBet(match, 2, 1)
@@ -772,7 +812,7 @@ func TestGameService_HandleMatchUpdates_SaveFinishedGameError(t *testing.T) {
 	mockGameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
 
 	// Create service
-	service := NewGameService("test-game", mockGameRepo, betRepo)
+	service := NewGameService("test-game", mockGameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
 
 	// Add bets for both players
 	bet1 := models.NewBet(match, 2, 1)

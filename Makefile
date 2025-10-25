@@ -1,4 +1,4 @@
-.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down docker-build db-start db-stop db-create db-drop db-init docker-push docker-build-push docker-deploy deploy deploy-prd build-prd push-prd build-push-prd help
+.PHONY: test test-integration test-all build clean format mobile test-frontend docker-up docker-down docker-build db-start db-stop db-create db-drop db-init docker-push docker-build-push docker-deploy deploy deploy-prd build-prd push-prd build-push-prd setup-metrics help
 
 # Default target
 all: help
@@ -37,6 +37,9 @@ help:
 	@echo "  make db-init           - Initialize database with schema and test data"
 	@echo "  make migrate-up        - Run migrations"
 	@echo "  make migrate-down      - Rollback migrations"
+	@echo ""
+	@echo "Monitoring commands:"
+	@echo "  make setup-metrics     - Setup Cloud Monitoring metrics (auto-run on deploy)"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  ENV=prd               - Use production environment (default: dev)"
@@ -86,6 +89,8 @@ docker-build-push:
 # Deploy to GCP (requires image to be pushed first)
 docker-deploy:
 	cd infrastructure && pulumi stack select linsesh/$(ENV) && pulumi up --yes
+	@echo "Setting up Cloud Monitoring metrics..."
+	@./scripts/setup-metrics.sh $(ENV)
 
 # Complete deployment workflow
 deploy: docker-build-push docker-deploy
@@ -193,4 +198,8 @@ migrate-down:
 # Initialize database with schema and test data
 db-init: install-migrate db-create
 	@echo "Initializing database..."
-	@go run scripts/init_db.go 
+	@go run scripts/init_db.go
+
+# Setup Cloud Monitoring metrics
+setup-metrics:
+	@./scripts/setup-metrics.sh $(ENV) 

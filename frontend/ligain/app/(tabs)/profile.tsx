@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useGames } from '../../src/contexts/GamesContext';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
@@ -23,6 +24,7 @@ import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch 
 
 export default function ProfileScreen() {
   const { player, signOut, setPlayer } = useAuth();
+  const { refresh: refreshGames } = useGames();
   const { t, isFrench } = useTranslation();
   const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
@@ -77,10 +79,14 @@ export default function ProfileScreen() {
         throw new Error(data.error || 'Failed to update display name');
       }
 
+
       // Update the auth context with the new player data
       if (setPlayer) {
         setPlayer(data.player);
       }
+
+      // Refresh games data to update player names in leaderboards and match lists
+      refreshGames();
 
       setShowDisplayNameModal(false);
       setNewDisplayName('');

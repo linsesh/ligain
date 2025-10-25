@@ -18,6 +18,10 @@ import (
 )
 
 func main() {
+	// Configure structured logging for Cloud Run
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+
 	// Set Gin to release mode in production
 	if os.Getenv("ENV") == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -111,6 +115,9 @@ func main() {
 		}
 		c.Next()
 	})
+
+	// Apply metrics middleware (should be before auth to capture all requests)
+	router.Use(middleware.MetricsMiddleware())
 
 	// Apply API key authentication middleware
 	router.Use(middleware.APIKeyAuth())

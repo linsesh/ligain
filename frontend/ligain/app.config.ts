@@ -4,7 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ligain',
   slug: 'ligain',
-  version: '1.1.0',
+  version: '1.2.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
@@ -20,7 +20,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     'expo-splash-screen',
-    'react-native-svg',
   ],
   splash: {
     image: './assets/images/splash-icon.png',

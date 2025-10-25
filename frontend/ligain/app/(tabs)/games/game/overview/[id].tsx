@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../../../../src/contexts/AuthContext';
 import { colors } from '../../../../../src/constants/colors';
+import { sharedStyles } from '../../../../../src/constants/sharedStyles';
 import { useTranslation } from 'react-i18next';
 import Leaderboard from '../../../../../src/components/Leaderboard';
 import { useGames } from '../../../../../src/contexts/GamesContext';
@@ -15,6 +16,9 @@ import { translateError } from '../../../../../src/utils/errorMessages';
 import { Picker } from '@react-native-picker/picker';
 import { computeCumulativePointsByMatchday } from '../../../../../src/utils/aggregations';
 import CumulativePointsChart from '../../../../../src/components/CumulativePointsChart';
+import ShareableLeaderboard from '../../../../../src/components/ShareableLeaderboard';
+import { captureAndShareWithOptions } from '../../../../../src/utils/shareUtils';
+import ViewShot from 'react-native-view-shot';
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +30,8 @@ export default function GameOverviewScreen() {
   const [copied, setCopied] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('general'); // 'general' or 'YYYY-MM'
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareableRef = useRef<ViewShot>(null);
 
   const gameDetails = games.find((g) => g.gameId === gameId);
 
@@ -101,6 +107,23 @@ export default function GameOverviewScreen() {
       }, 3000);
     } catch (err) {
       Alert.alert(t('common.error'), t('common.failedToCopyToClipboard'));
+    }
+  };
+
+  const handleShareLeaderboard = async () => {
+    if (isSharing) return;
+    
+    setIsSharing(true);
+    try {
+      await captureAndShareWithOptions(shareableRef, {
+        title: t('share.shareTitle'),
+        message: t('share.shareTitle'),
+      });
+    } catch (error) {
+      console.error('Error sharing leaderboard:', error);
+      Alert.alert(t('share.shareFailed'), t('share.shareFailed'));
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -190,7 +213,7 @@ export default function GameOverviewScreen() {
         )}
                 {/* Period Selector (matches-like selector) */}
         <View style={styles.periodSelectionContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.periodSelector}
             onPress={() => setShowPeriodPicker(true)}
           >
@@ -235,6 +258,8 @@ export default function GameOverviewScreen() {
           players={sortedPlayers}
           currentPlayerId={player?.id}
           t={t}
+          onShare={handleShareLeaderboard}
+          isSharing={isSharing}
         />
         {/* Current Month Leader and Last Month Winner cards */}
         {(currentMonthTop && currentMonthTop.Points > 0) && (
@@ -275,6 +300,21 @@ export default function GameOverviewScreen() {
           <Ionicons name="football" size={24} color="#fff" />
           <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
+        
+        {/* Hidden shareable component for image generation */}
+        <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
+          <ViewShot ref={shareableRef}>
+            <ShareableLeaderboard
+              gameName={gameDetails?.name || 'Ligain Game'}
+              period={selectedPeriod === 'general' ? 'General' : formatMonthLabel(selectedPeriod)}
+              players={sortedPlayers.map((player, index) => ({
+                name: player.name,
+                points: player.totalScore,
+                rank: index + 1
+              }))}
+            />
+          </ViewShot>
+        </View>
         </ScrollView>
       </View>
   );
@@ -317,7 +357,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   periodSelectionContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginTop: 8,
     marginBottom: 8,
   },

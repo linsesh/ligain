@@ -81,7 +81,7 @@ func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.Game
 
 	// Create GameService instances for each game
 	for gameID := range games {
-		gameService := NewGameService(gameID, gameRepo, betRepo)
+		gameService := NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo)
 		service.gameServices[gameID] = gameService
 
 		// Subscribe to the watcher if available
@@ -110,7 +110,7 @@ func (s *GameCreationService) GetGameService(gameID string, player models.Player
 	gameService, exists := s.gameServices[gameID]
 	if !exists {
 		// Create a new game service
-		gameService = NewGameService(gameID, s.gameRepo, s.betRepo)
+		gameService = NewGameService(gameID, s.gameRepo, s.betRepo, s.gamePlayerRepo)
 		s.gameServices[gameID] = gameService
 
 		// Subscribe to the watcher if available
@@ -222,7 +222,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	}
 
 	// Create and store the game service
-	gameService := NewGameService(gameID, s.gameRepo, s.betRepo)
+	gameService := NewGameService(gameID, s.gameRepo, s.betRepo, s.gamePlayerRepo)
 	s.gameServices[gameID] = gameService
 
 	// Subscribe the new game to the watcher
@@ -376,7 +376,6 @@ func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame
 
 	var playerGames []PlayerGame
 	for _, gameID := range gameIDs {
-		// Always get fresh data from the database, not from cache
 		game, err := s.gameRepo.GetGame(gameID)
 		if err != nil {
 			log.Errorf("error getting game %s: %v", gameID, err)

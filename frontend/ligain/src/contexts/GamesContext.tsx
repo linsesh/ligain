@@ -152,14 +152,14 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   // Main fetch function - gets games and analyzes matches to find the "best" one
   const fetchGames = useCallback(async () => {
     if (!isMounted) return;
-    
+
     setLoading(true);
     let didRetry = false;
     let lastError: any = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         if (!isMounted) return; // Check again before async operations
-        
+
         const gamesData: Game[] = await fetchPlayerGames();
         if (!isMounted) return; // Check after async operation
         

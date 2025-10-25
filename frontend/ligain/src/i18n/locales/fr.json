@@ -198,6 +198,42 @@
     "score": "Score",
     "points": "points"
   },
+  "betSync": {
+    "title": "Synchroniser les Pronos ?",
+    "message": "Nous avons remarqué que tu as placé des pronos sur {{count}} prochainsmatchs dans '{{gameName}}'. Veux-tu appliquer les mêmes pronos à cette partie ?",
+    "onlyUnbetted": "Seuls les matchs sur lesquels tu n'as pas encore pronostiqué seront synchronisés.",
+    "synchronize": "Synchroniser",
+    "notNow": "Pas maintenant",
+    "matchesToSync": "{{count}} matchs à synchroniser :",
+    "matchday": "Journée {{matchday}} : {{count}} matchs",
+    "partialSuccess": {
+      "title": "Synchronisation Partielle",
+      "message": "{{successful}} pronos sur {{total}} ont été synchronisés avec succès.",
+      "successfulMatches": "Synchronisés avec succès :",
+      "failedMatches": "Échec de la synchronisation :",
+      "retryFailed": "Échec de la synchronisation",
+      "close": "Fermer"
+    },
+    "failure": {
+      "title": "Échec de Synchronisation",
+      "message": "Impossible de synchroniser les pronos. Veuillez réessayer.",
+      "close": "Fermer"
+    }
+  },
+  "share": {
+    "matchResult": "Partager le résultat",
+    "leaderboard": "Partager le classement",
+    "generatingImage": "Génération de l'image...",
+    "shareFailed": "Échec du partage. Réessaye plus tard.",
+    "shareTitle": "Mon classement sur Ligain",
+    "shareToInstagram": "Partager sur Instagram",
+    "shareToMessages": "Partager sur Messages",
+    "playersResults": "Résultats des joueurs",
+    "predicted": "Prédiction",
+    "points": "pts",
+    "downloadLigain": "Téléchargez Ligain !",
+    "yourBet": "Ma prédiction :"
+  },
   "errors": {
     "authentication": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",
     "forbidden": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",

@@ -25,7 +25,8 @@ export const useMatches = (gameId: string) => {
       }
       
       const data = await response.json();
-      
+
+
       // Convert the matches to SeasonMatch objects and bets to BetImpl objects
       const processMatches = (matches: any) => {
         const processed: { [key: string]: MatchResult } = {};
@@ -45,7 +46,12 @@ export const useMatches = (gameId: string) => {
             };
             return acc;
           }, {}) : null;
-          
+
+          // Log first bet to see player names
+          if (bets && Object.keys(bets).length > 0) {
+            const firstBet = Object.values(bets)[0];
+          }
+
           // Process scores with new structure - use playerId as key
           const scores = value.scores ? Object.entries(value.scores).reduce((acc: { [key: string]: any }, [playerName, scoreData]: [string, any]) => {
             acc[scoreData.playerId] = {
@@ -55,6 +61,11 @@ export const useMatches = (gameId: string) => {
             };
             return acc;
           }, {}) : null;
+
+          // Log first score to see player names
+          if (scores && Object.keys(scores).length > 0) {
+            const firstScore = Object.values(scores)[0];
+          }
           
           processed[key] = {
             match,
