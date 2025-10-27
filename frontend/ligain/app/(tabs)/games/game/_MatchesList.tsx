@@ -15,6 +15,7 @@ import { BetSyncModal, SyncResult } from '../../../../src/components/BetSyncModa
 import ShareableMatchResult from '../../../../src/components/ShareableMatchResult';
 import { captureAndShareWithOptions, formatDateForShare } from '../../../../src/utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
+import { getTeamLogo } from '../../../../src/utils/teamLogos';
 
 interface TempScores {
   [key: string]: {
@@ -33,22 +34,32 @@ function TeamInput({ teamName, value, onChange, canModify, isAway = false, onFoc
   onBlur?: () => void;
   isFavorite?: boolean;
 }) {
+  const teamLogo = getTeamLogo(teamName);
+  const TeamLogo = teamLogo;
+  
   return (
     <View style={[styles.teamContainer, isAway && styles.awayTeamContainer]}>
-      <Text style={[styles.teamName, isAway && styles.awayTeamName]}>
-        {teamName}
-        {isFavorite && <Text style={{ color: colors.primary }}>⭐</Text>}
-      </Text>
-      <TextInput
-        style={[styles.betInput, !canModify && styles.disabledInput]}
-        value={value}
-        onChangeText={onChange}
-        editable={canModify}
-        keyboardType="numeric"
-        onFocus={onFocus}
-        onBlur={onBlur}
-        maxLength={2}
-      />
+      <View style={[styles.logoAndNameContainer, isAway && styles.awayLogoAndNameContainer]}>
+        {TeamLogo && (
+          <TeamLogo width={40} height={40} />
+        )}
+        <Text style={[styles.teamName, isAway && styles.awayTeamName]}>
+          {teamName}
+          {isFavorite && <Text style={{ color: colors.primary }}>⭐</Text>}
+        </Text>
+      </View>
+      <View style={[styles.inputContainer, isAway && styles.awayInputContainer]}>
+        <TextInput
+          style={[styles.betInput, !canModify && styles.disabledInput]}
+          value={value}
+          onChangeText={onChange}
+          editable={canModify}
+          keyboardType="numeric"
+          onFocus={onFocus}
+          onBlur={onBlur}
+          maxLength={2}
+        />
+      </View>
     </View>
   );
 }
@@ -998,30 +1009,65 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 8,
   },
   teamContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
     justifyContent: 'space-between',
+    gap: 8,
   },
   awayTeamContainer: {
     flexDirection: 'row-reverse',
   },
+  inputContainer: {
+    position: 'absolute',
+    right: 0,
+    width: 40,
+    marginTop: 25,
+  },
+  awayInputContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 'auto',
+  },
+  logoAndNameContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    position: 'absolute',
+    left: 0,
+    right: 50, // Leave space for the input (40px width + 10px margin)
+    justifyContent: 'center',
+    height: '100%',
+    marginTop: 25,
+  },
+  awayLogoAndNameContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    position: 'absolute',
+    left: 50, // Leave space for the input (40px width + 10px margin)
+    right: 0,
+    justifyContent: 'center',
+    height: '100%',
+  },
+  // teamLogo style removed as we're using SVG components now
   teamName: {
     fontSize: 14,
     color: '#333',
-    flex: 1,
-    textAlign: 'left',
+    textAlign: 'center',
+    minWidth: 60,
   },
   awayTeamName: {
-    textAlign: 'right',
+    textAlign: 'center',
   },
   vsText: {
     fontSize: 14,
     color: '#666',
     marginHorizontal: 8,
+    marginTop: 25,
   },
   betInput: {
     borderWidth: 1,
@@ -1183,7 +1229,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   oddsContainer: {
-    marginTop: 10,
+    marginTop: 40,
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: '#e0e0e0',
