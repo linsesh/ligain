@@ -2,6 +2,20 @@ import { Bet } from './bet';
 
 export type MatchStatus = 'scheduled' | 'in-progress' | 'finished';
 
+// Team name mapping for display purposes
+const TEAM_NAME_MAPPING: { [key: string]: string } = {
+    'Paris': 'Paris FC',
+    'Paris Saint Germain': 'PSG',
+    'Olympique Marseille': 'Marseille',
+    'Olympique Lyonnais': 'Lyon',
+    'LOSC Lille': 'Lille',
+    'Angers SCO': 'Angers',
+};
+
+function getDisplayTeamName(teamName: string): string {
+    return TEAM_NAME_MAPPING[teamName] || teamName;
+}
+
 export class SeasonMatch {
     private homeTeam: string;
     private awayTeam: string;
@@ -49,11 +63,19 @@ export class SeasonMatch {
     }
 
     getHomeTeam(): string {
-        return this.homeTeam === 'Paris' ? 'Paris FC' : this.homeTeam;
+        return getDisplayTeamName(this.homeTeam);
     }
 
     getAwayTeam(): string {
-        return this.awayTeam === 'Paris' ? 'Paris FC' : this.awayTeam;
+        return getDisplayTeamName(this.awayTeam);
+    }
+
+    getHomeTeamForLogo(): string {
+        return this.homeTeam;
+    }
+
+    getAwayTeamForLogo(): string {
+        return this.awayTeam;
     }
 
     getHomeGoals(): number {
