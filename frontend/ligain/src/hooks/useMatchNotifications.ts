@@ -123,10 +123,17 @@ export const useMatchNotifications = (gameId: string) => {
       return;
     }
 
-    Object.entries(incomingMatches).forEach(async ([matchId, matchResult]) => {
-      await cleanupPastMatchNotification(matchId, matchResult);
-      await cancelNotificationIfNeeded(matchId, matchResult);
-      await scheduleNotificationIfNeeded(matchId, matchResult);
+    // Process all matches in parallel, but wait for all operations to complete
+    // Using Promise.all ensures we wait for all async operations before the effect completes
+    Promise.all(
+      Object.entries(incomingMatches).map(async ([matchId, matchResult]) => {
+        await cleanupPastMatchNotification(matchId, matchResult);
+        await cancelNotificationIfNeeded(matchId, matchResult);
+        await scheduleNotificationIfNeeded(matchId, matchResult);
+      })
+    ).catch((error) => {
+      // Handle errors gracefully - don't let notification errors break the app
+      console.error('Error processing match notifications:', error);
     });
   }, [incomingMatches, preferences.enabled, preferences.permissionGranted, player]);
 

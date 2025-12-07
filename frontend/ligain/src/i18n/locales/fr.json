@@ -140,7 +140,9 @@
     "permissionDeniedMessage": "Les notifications sont désactivées. Active les si tu veux recevoir des rappels de match.",
     "permissionWarning": "Les notifications sont désactivées dans les paramètres système. Active les si tu veux recevoir des rappels de match.",
     "toggleFailed": "Échec de la mise à jour des paramètres de notifications",
-    "openSettings": "Ouvrir les paramètres"
+    "openSettings": "Ouvrir les paramètres",
+    "reminderTitle": "N'oublie pas ton prono !",
+    "reminderBody": "{{homeTeam}} vs {{awayTeam}} commence dans 1 heure !"
   },
   "about": {
     "whatIsLigain": "Qu'est-ce que Ligain ?",
@@ -148,8 +150,8 @@
     "alphaNote": "C'est pour le moment uniquement disponible pour les matchs de Ligue 1.",
     "contactInfo": "Si tu as des commentaires, des demandes ou des suggestions, contacte-moi via l'email suivant :",
     "supportSection": "Soutenir le Projet",
-    "supportDescription": "Je travaille seul sur ce projet et cela me coûte plusieurs centaines d'euros par an pour le maintenir. Si tu apprécies utiliser Ligain, considère m'offrir un café pour soutenir le développement !",
-    "buyMeACoffee": "M'offrir un café"
+    "supportDescription": "Je travaille seul sur ce projet et cela me coûte plusieurs centaines d'euros par an pour le maintenir.\nSi tu apprécies utiliser Ligain, tu peux aller sur mon site web !",
+    "buyMeACoffee": "Soutenir Ligain"
   },
   "rules": {
     "philosophy": "Philosophie derrière les règles",

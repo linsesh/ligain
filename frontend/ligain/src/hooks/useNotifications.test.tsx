@@ -7,6 +7,23 @@ import { getItem, setItem } from '../utils/storage';
 // Mock dependencies
 jest.mock('expo-notifications');
 jest.mock('../utils/storage');
+jest.mock('./useTranslation', () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: any) => {
+      const translations: { [key: string]: string } = {
+        'notifications.reminderTitle': 'Match Reminder',
+        'notifications.reminderBody': '{{homeTeam}} vs {{awayTeam}} starts in 1 hour! Don\'t forget to place your bet.',
+      };
+      let translation = translations[key] || key;
+      if (params) {
+        Object.keys(params).forEach(param => {
+          translation = translation.replace(new RegExp(`{{${param}}}`, 'g'), params[param]);
+        });
+      }
+      return translation;
+    },
+  }),
+}));
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
   return {
@@ -392,6 +409,72 @@ describe('useNotifications', () => {
       });
 
       expect(mockNotifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('should not create duplicate notification if already scheduled for same match', async () => {
+      mockGetItem.mockResolvedValueOnce('true'); // notifications enabled
+      mockNotifications.getPermissionsAsync.mockResolvedValueOnce({ 
+        status: 'granted' as Notifications.PermissionStatus,
+        granted: true,
+        expires: 'never' as const,
+        canAskAgain: false,
+      });
+
+      const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
+      const matchId = 'match-123';
+      
+      // First call: no existing notification
+      mockNotifications.getAllScheduledNotificationsAsync.mockResolvedValueOnce([]);
+      mockNotifications.scheduleNotificationAsync.mockResolvedValueOnce('notification-id-1');
+
+      const { result } = renderHook(() => useNotifications());
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // First call - should schedule
+      await act(async () => {
+        const notificationId = await result.current.scheduleMatchNotification(
+          matchId,
+          futureDate,
+          'Team A',
+          'Team B'
+        );
+        expect(notificationId).toBe('notification-id-1');
+      });
+
+      expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+
+      // Second call for same match: existing notification found
+      const existingNotification: Notifications.NotificationRequest = {
+        identifier: 'notification-id-1',
+        content: {
+          title: 'Match Reminder',
+          subtitle: null,
+          body: 'Team A vs Team B starts in 1 hour! Don\'t forget to place your bet.',
+          data: { matchId, type: 'match_reminder' },
+          categoryIdentifier: null,
+          sound: null,
+        },
+        trigger: null, // Trigger type doesn't matter for this test - we only check matchId in data
+      } as Notifications.NotificationRequest;
+      mockNotifications.getAllScheduledNotificationsAsync.mockResolvedValueOnce([existingNotification]);
+
+      // Second call - should return existing notification, not create new one
+      await act(async () => {
+        const notificationId = await result.current.scheduleMatchNotification(
+          matchId,
+          futureDate,
+          'Team A',
+          'Team B'
+        );
+        expect(notificationId).toBe('notification-id-1');
+      });
+
+      // Should still only have been called once (no new notification created)
+      expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+      expect(mockNotifications.getAllScheduledNotificationsAsync).toHaveBeenCalledTimes(2);
     });
 
     it('should not schedule if match starts in less than 1 hour', async () => {

@@ -483,5 +483,240 @@ describe('useMatchNotifications', () => {
       expect(mockScheduleNotification).toHaveBeenCalled();
     });
   });
+
+  describe('Multiple games with same match', () => {
+    it('should schedule notification if user forgot to bet in at least one game', async () => {
+      const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
+      const matchId = 'match-same-id';
+      
+      const mockScheduleNotification = jest.fn().mockResolvedValue('notification-id-1');
+      const mockCancelNotification = jest.fn().mockResolvedValue(undefined);
+
+      // Game 1: User has bet
+      const matchWithBet = createMockMatch(matchId, futureDate, true);
+      
+      // Game 2: User has no bet
+      const matchWithoutBet = createMockMatch(matchId, futureDate, false);
+
+      mockUseMatches.mockReturnValue({
+        incomingMatches: { [matchId]: matchWithBet },
+        pastMatches: {},
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      mockUseAuth.mockReturnValue({
+        player: mockPlayer,
+        signOut: jest.fn(),
+        setPlayer: jest.fn(),
+        checkAuth: jest.fn(),
+        isLoading: false,
+      } as any);
+
+      const mockUseNotificationsReturn = {
+        preferences: { enabled: true, permissionGranted: true },
+        isLoading: false,
+        requestPermissions: jest.fn(),
+        setNotificationEnabled: jest.fn(),
+        scheduleMatchNotification: mockScheduleNotification,
+        cancelMatchNotification: mockCancelNotification,
+        cancelAllNotifications: jest.fn(),
+        checkPermissionStatus: jest.fn(),
+      };
+
+      mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
+
+      // Test Game 1 (with bet) - should NOT schedule
+      const { rerender } = renderHook((props) => useMatchNotifications(props.gameId), {
+        initialProps: { gameId: 'game-1' },
+      });
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Should not schedule because user has bet
+      expect(mockScheduleNotification).not.toHaveBeenCalled();
+
+      // Now test Game 2 (without bet) - should schedule
+      mockUseMatches.mockReturnValue({
+        incomingMatches: { [matchId]: matchWithoutBet },
+        pastMatches: {},
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      rerender({ gameId: 'game-2' });
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Should schedule because user has no bet in this game
+      expect(mockScheduleNotification).toHaveBeenCalledWith(
+        matchId,
+        futureDate,
+        'Team A',
+        'Team B'
+      );
+      expect(mockScheduleNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call scheduleMatchNotification for each game, but only one notification is created per match', async () => {
+      const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
+      const matchId = 'match-same-id';
+      
+      // Mock scheduleMatchNotification to simulate the deduplication logic
+      // First call creates notification, subsequent calls return existing one
+      let callCount = 0;
+      const mockScheduleNotification = jest.fn().mockImplementation(async () => {
+        callCount++;
+        // First call returns new notification ID
+        // Subsequent calls would return existing ID (simulated by scheduleMatchNotification's internal check)
+        return `notification-id-${callCount === 1 ? '1' : '1'}`; // Always returns same ID
+      });
+      const mockCancelNotification = jest.fn().mockResolvedValue(undefined);
+
+      // Both games: User has no bet
+      const matchWithoutBet = createMockMatch(matchId, futureDate, false);
+
+      mockUseAuth.mockReturnValue({
+        player: mockPlayer,
+        signOut: jest.fn(),
+        setPlayer: jest.fn(),
+        checkAuth: jest.fn(),
+        isLoading: false,
+      } as any);
+
+      const mockUseNotificationsReturn = {
+        preferences: { enabled: true, permissionGranted: true },
+        isLoading: false,
+        requestPermissions: jest.fn(),
+        setNotificationEnabled: jest.fn(),
+        scheduleMatchNotification: mockScheduleNotification,
+        cancelMatchNotification: mockCancelNotification,
+        cancelAllNotifications: jest.fn(),
+        checkPermissionStatus: jest.fn(),
+      };
+
+      mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
+
+      // Test Game 1 (no bet) - should call scheduleMatchNotification
+      mockUseMatches.mockReturnValue({
+        incomingMatches: { [matchId]: matchWithoutBet },
+        pastMatches: {},
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      const { rerender } = renderHook((props) => useMatchNotifications(props.gameId), {
+        initialProps: { gameId: 'game-1' },
+      });
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Should call scheduleMatchNotification for first game
+      expect(mockScheduleNotification).toHaveBeenCalledWith(
+        matchId,
+        futureDate,
+        'Team A',
+        'Team B'
+      );
+      expect(mockScheduleNotification).toHaveBeenCalledTimes(1);
+
+      // Now test Game 2 (also no bet) - should also call scheduleMatchNotification
+      // The actual deduplication happens inside scheduleMatchNotification (tested in useNotifications.test.tsx)
+      mockUseMatches.mockReturnValue({
+        incomingMatches: { [matchId]: matchWithoutBet },
+        pastMatches: {},
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      rerender({ gameId: 'game-2' });
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Should be called again for second game
+      // Note: The actual deduplication (only one notification created) is tested in useNotifications.test.tsx
+      expect(mockScheduleNotification).toHaveBeenCalledTimes(2);
+      expect(mockScheduleNotification).toHaveBeenCalledWith(
+        matchId,
+        futureDate,
+        'Team A',
+        'Team B'
+      );
+    });
+
+    it('should not schedule notification if user has bet in all games', async () => {
+      const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
+      const matchId = 'match-same-id';
+      
+      const mockScheduleNotification = jest.fn().mockResolvedValue('notification-id-1');
+      const mockCancelNotification = jest.fn().mockResolvedValue(undefined);
+
+      // Both games: User has bet
+      const matchWithBet = createMockMatch(matchId, futureDate, true);
+
+      mockUseMatches.mockReturnValue({
+        incomingMatches: { [matchId]: matchWithBet },
+        pastMatches: {},
+        loading: false,
+        error: null,
+        refresh: jest.fn(),
+      });
+
+      mockUseAuth.mockReturnValue({
+        player: mockPlayer,
+        signOut: jest.fn(),
+        setPlayer: jest.fn(),
+        checkAuth: jest.fn(),
+        isLoading: false,
+      } as any);
+
+      const mockUseNotificationsReturn = {
+        preferences: { enabled: true, permissionGranted: true },
+        isLoading: false,
+        requestPermissions: jest.fn(),
+        setNotificationEnabled: jest.fn(),
+        scheduleMatchNotification: mockScheduleNotification,
+        cancelMatchNotification: mockCancelNotification,
+        cancelAllNotifications: jest.fn(),
+        checkPermissionStatus: jest.fn(),
+      };
+
+      mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
+
+      // Test Game 1 (with bet)
+      const { rerender } = renderHook((props) => useMatchNotifications(props.gameId), {
+        initialProps: { gameId: 'game-1' },
+      });
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Should not schedule
+      expect(mockScheduleNotification).not.toHaveBeenCalled();
+
+      // Test Game 2 (also with bet)
+      rerender({ gameId: 'game-2' });
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Should still not schedule because user has bet in all games
+      expect(mockScheduleNotification).not.toHaveBeenCalled();
+    });
+  });
 });
 

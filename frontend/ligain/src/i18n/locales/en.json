@@ -140,7 +140,9 @@
     "permissionDeniedMessage": "Notifications are disabled. Please enable them in your device settings to receive match reminders.",
     "permissionWarning": "Notifications are disabled in system settings. Enable them to receive reminders.",
     "toggleFailed": "Failed to update notification settings",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "reminderTitle": "Don't forget to place your bet!",
+    "reminderBody": "{{homeTeam}} vs {{awayTeam}} starts in 1 hour!"
   },
   "about": {
     "whatIsLigain": "What is Ligain?",
@@ -148,8 +150,8 @@
     "alphaNote": "It's currently only available for Ligue 1 matches.",
     "contactInfo": "If you have any feedback, requests or suggestions, please contact me at",
     "supportSection": "Support the Project",
-    "supportDescription": "I'm working alone on this project and it costs me hundreds of euros per year to keep it running. If you enjoy using Ligain, consider tipping me to help support the development!",
-    "buyMeACoffee": "Buy me a coffee"
+    "supportDescription": "I'm working alone on this project and it costs me hundreds of euros per year to keep it running.\nIf you enjoy using Ligain, you can go to my website!",
+    "buyMeACoffee": "Support Ligain"
   },
   "rules": {
     "philosophy": "Philosophy behind the rules",

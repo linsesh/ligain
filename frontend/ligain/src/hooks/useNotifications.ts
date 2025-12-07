@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform, Alert } from 'react-native';
 import { getItem, setItem } from '../utils/storage';
+import { useTranslation } from './useTranslation';
 
 /**
  * Storage keys for notification preferences.
@@ -68,6 +69,7 @@ export interface NotificationPreferences {
  * ```
  */
 export const useNotifications = () => {
+  const { t } = useTranslation();
   const [preferences, setPreferences] = useState<NotificationPreferences>({
     enabled: false,
     permissionGranted: false,
@@ -219,7 +221,7 @@ export const useNotifications = () => {
    * 
    * This function:
    * 1. Saves preference to local storage (persists across app restarts)
-   * 2. If enabling: Requests permissions first (required for notifications to work)
+   * 2. If enabling: Checks permissions (queries system directly, not state)
    * 3. If disabling: Just saves preference (doesn't cancel existing notifications)
    * 
    * Why we don't cancel on disable:
@@ -243,19 +245,35 @@ export const useNotifications = () => {
    */
   const setNotificationEnabled = async (enabled: boolean) => {
     try {
-      // Save preference to storage first
+      // Save preference to storage
       await setItem(NOTIFICATION_PREFERENCE_KEY, enabled.toString());
-      setPreferences(prev => ({ ...prev, enabled }));
+      
+      // If enabling, check if permissions are granted by querying system directly
+      // This avoids race conditions with async state updates
+      if (enabled) {
+        const { status } = await Notifications.getPermissionsAsync();
+        const isGranted = status === 'granted';
 
-      // If enabling, we need permissions first
-      if (enabled && !preferences.permissionGranted) {
-        const granted = await requestPermissions();
-        if (!granted) {
-          // Permission denied, revert preference
-          await setItem(NOTIFICATION_PREFERENCE_KEY, 'false');
-          setPreferences(prev => ({ ...prev, enabled: false }));
-          return false;
+        // Update state with both enabled and permission status
+        setPreferences(prev => ({
+          ...prev,
+          enabled,
+          permissionGranted: isGranted,
+        }));
+
+        // If permissions not granted, request them
+        if (!isGranted) {
+          const granted = await requestPermissions();
+          if (!granted) {
+            // Permission denied, revert preference
+            await setItem(NOTIFICATION_PREFERENCE_KEY, 'false');
+            setPreferences(prev => ({ ...prev, enabled: false }));
+            return false;
+          }
         }
+      } else {
+        // Just update enabled state when disabling
+        setPreferences(prev => ({ ...prev, enabled }));
       }
       return true;
     } catch (error) {
@@ -316,6 +334,18 @@ export const useNotifications = () => {
     }
 
     try {
+      // Check if notification already exists for this match (across all games)
+      // This ensures only one notification per match, even if it appears in multiple games
+      const allNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      const existingNotification = allNotifications.find(
+        notif => notif.content.data?.matchId === matchId
+      );
+
+      if (existingNotification) {
+        // Notification already scheduled for this match, return existing identifier
+        return existingNotification.identifier;
+      }
+
       // Calculate notification time: 1 hour before match
       const notificationTime = new Date(matchDate.getTime() - 60 * 60 * 1000);
       const now = new Date();
@@ -331,8 +361,8 @@ export const useNotifications = () => {
       // Pass Date directly - expo-notifications accepts Date objects for scheduling
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Match Reminder',
-          body: `${homeTeam} vs ${awayTeam} starts in 1 hour! Don't forget to place your bet.`,
+          title: t('notifications.reminderTitle'),
+          body: t('notifications.reminderBody', { homeTeam, awayTeam }),
           data: { matchId, type: 'match_reminder' },
         },
         trigger: notificationTime as any, // Date is accepted but TypeScript types are strict

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../../../hooks/useMatches';
 import { useBetSubmission } from '../../../../hooks/useBetSubmission';
 import { useBetSynchronization } from '../../../../hooks/useBetSynchronization';
+import { useMatchNotifications } from '../../../../src/hooks/useMatchNotifications';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useGames } from '../../../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
@@ -391,6 +392,8 @@ interface MatchesListProps {
 
 export default function MatchesList({ gameId, initialMatchday }: MatchesListProps) {
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches(gameId);
+  // Automatically manage match notifications (schedule/cancel based on bets)
+  useMatchNotifications(gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
