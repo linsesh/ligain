@@ -133,6 +133,15 @@
     "deleteAccountTestAccount": "Les comptes de test ne peuvent pas être supprimés",
     "deleteAccountTestAccountMessage": "Ceci est un compte de test et ne peut pas être supprimé. Utilise un compte normal pour tester la fonctionnalité de suppression."
   },
+  "notifications": {
+    "title": "Notifications",
+    "enableNotifications": "Activer les rappels de match",
+    "permissionDenied": "Permission refusée",
+    "permissionDeniedMessage": "Les notifications sont désactivées. Active les si tu veux recevoir des rappels de match.",
+    "permissionWarning": "Les notifications sont désactivées dans les paramètres système. Active les si tu veux recevoir des rappels de match.",
+    "toggleFailed": "Échec de la mise à jour des paramètres de notifications",
+    "openSettings": "Ouvrir les paramètres"
+  },
   "about": {
     "whatIsLigain": "Qu'est-ce que Ligain ?",
     "description": "Ligain est une plateforme pour faire des pronos sur les matchs de football entre amis.",

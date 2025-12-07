@@ -133,6 +133,15 @@
     "deleteAccountTestAccount": "Test accounts cannot be deleted",
     "deleteAccountTestAccountMessage": "This is a test account and cannot be deleted. Please use a regular account to test the deletion feature."
   },
+  "notifications": {
+    "title": "Notifications",
+    "enableNotifications": "Enable Match Reminders",
+    "permissionDenied": "Permission Denied",
+    "permissionDeniedMessage": "Notifications are disabled. Please enable them in your device settings to receive match reminders.",
+    "permissionWarning": "Notifications are disabled in system settings. Enable them to receive reminders.",
+    "toggleFailed": "Failed to update notification settings",
+    "openSettings": "Open Settings"
+  },
   "about": {
     "whatIsLigain": "What is Ligain?",
     "description": "Ligain is a platform for guessing on football matches between friends.",
