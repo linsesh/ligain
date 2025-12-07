@@ -46,6 +46,49 @@ jest.mock('expo-localization', () => ({
   getGroupingSeparator: () => ',',
 }));
 
+// Mock expo-notifications
+// Store scheduled notifications in memory for testing
+const mockScheduledNotifications = new Map();
+let mockPermissionStatus = 'undetermined';
+
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn((handler) => {
+    // Store handler for testing if needed
+  }),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: mockPermissionStatus })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: mockPermissionStatus })),
+  scheduleNotificationAsync: jest.fn((notificationConfig) => {
+    const identifier = `notification-${Date.now()}-${Math.random()}`;
+    mockScheduledNotifications.set(identifier, {
+      identifier,
+      content: notificationConfig.content,
+      trigger: notificationConfig.trigger,
+    });
+    return Promise.resolve(identifier);
+  }),
+  cancelScheduledNotificationAsync: jest.fn((identifier) => {
+    mockScheduledNotifications.delete(identifier);
+    return Promise.resolve();
+  }),
+  getAllScheduledNotificationsAsync: jest.fn(() => {
+    return Promise.resolve(Array.from(mockScheduledNotifications.values()));
+  }),
+  cancelAllScheduledNotificationsAsync: jest.fn(() => {
+    mockScheduledNotifications.clear();
+    return Promise.resolve();
+  }),
+  // Helper functions for tests to control mock state
+  __setPermissionStatus: (status) => {
+    mockPermissionStatus = status;
+  },
+  __clearScheduledNotifications: () => {
+    mockScheduledNotifications.clear();
+  },
+  __getScheduledNotifications: () => {
+    return Array.from(mockScheduledNotifications.values());
+  },
+}));
+
 // Mock react-native
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');

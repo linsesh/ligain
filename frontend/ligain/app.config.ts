@@ -20,6 +20,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     'expo-splash-screen',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/images/icon.png',
+        color: '#25292e',
+        sounds: [],
+      }
+    ],
   ],
   splash: {
     image: './assets/images/splash-icon.png',
