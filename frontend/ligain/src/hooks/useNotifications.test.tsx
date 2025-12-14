@@ -156,28 +156,6 @@ describe('useNotifications', () => {
       expect(mockNotifications.requestPermissionsAsync).not.toHaveBeenCalled();
     });
 
-    it('should show alert when permission denied on iOS', async () => {
-      mockNotifications.requestPermissionsAsync.mockResolvedValueOnce({ 
-        status: 'denied' as Notifications.PermissionStatus,
-        granted: false,
-        expires: 'never' as const,
-        canAskAgain: false,
-      });
-
-      const { result } = renderHook(() => useNotifications());
-
-      await act(async () => {
-        await result.current.requestPermissions();
-      });
-
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Permission Required',
-        'Please enable notifications in Settings to receive match reminders.',
-        [{ text: 'OK' }]
-      );
-      expect(result.current.preferences.permissionGranted).toBe(false);
-    });
-
     it('should handle permission request errors', async () => {
       mockNotifications.requestPermissionsAsync.mockRejectedValueOnce(new Error('Permission error'));
 

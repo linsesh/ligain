@@ -135,7 +135,7 @@ export const useMatchNotifications = (gameId: string) => {
       // Handle errors gracefully - don't let notification errors break the app
       console.error('Error processing match notifications:', error);
     });
-  }, [incomingMatches, preferences.enabled, preferences.permissionGranted, player]);
+  }, [incomingMatches, preferences.enabled, preferences.permissionGranted, player, scheduleMatchNotification, cancelMatchNotification]);
 
   /**
    * Resets scheduled match IDs when game changes.

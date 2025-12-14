@@ -217,6 +217,11 @@
     "notNow": "Not now",
     "matchesToSync": "{{count}} matches to sync:",
     "matchday": "Matchday {{matchday}}: {{count}} matches",
+    "success": {
+      "title": "Synchronization Complete",
+      "message": "All {{count}} bets have been successfully synchronized.",
+      "close": "Close"
+    },
     "partialSuccess": {
       "title": "Partial Synchronization",
       "message": "{{successful}} out of {{total}} bets were synchronized successfully.",

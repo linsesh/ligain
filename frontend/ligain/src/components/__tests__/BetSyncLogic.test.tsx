@@ -168,8 +168,9 @@ describe('BetSyncModal', () => {
     expect(screen.getByText('1 out of 2 bets were synchronized successfully.')).toBeTruthy();
     expect(screen.getByText('Successfully synchronized:')).toBeTruthy();
     expect(screen.getByText('Failed to synchronize:')).toBeTruthy();
-    expect(screen.getByText('Team A vs Team B')).toBeTruthy();
-    expect(screen.getByText('Team C vs Team D')).toBeTruthy();
+    // Match text is rendered as a single Text element with interpolated values
+    expect(screen.getByText(/Team A.*vs.*Team B/)).toBeTruthy();
+    expect(screen.getByText(/Team C.*vs.*Team D/)).toBeTruthy();
     expect(screen.getByText('Retry Failed')).toBeTruthy();
     expect(screen.getByText('Close')).toBeTruthy();
   });
@@ -267,8 +268,9 @@ describe('BetSyncModal', () => {
       />
     );
 
+    // When loading, the button text changes to "Loading..." and Synchronize button is not shown
     expect(screen.getByText('Loading...')).toBeTruthy();
-    expect(screen.getByText('Synchronize')).toBeDisabled();
+    expect(screen.queryByText('Synchronize')).toBeNull();
   });
 
   it('should not render when visible is false', () => {

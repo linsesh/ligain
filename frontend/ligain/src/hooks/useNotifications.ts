@@ -77,6 +77,35 @@ export const useNotifications = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   /**
+   * Checks the current system permission status for notifications.
+   * 
+   * This queries the device's notification permission state without requesting.
+   * Used to sync UI state with actual system permissions.
+   * 
+   * Permission states:
+   * - 'granted': User has allowed notifications
+   * - 'denied': User has explicitly denied notifications
+   * - 'undetermined': User hasn't been asked yet
+   * 
+   * Why we check: System permissions can change outside our app (e.g., in Settings).
+   * 
+   * @private
+   * @returns Promise that resolves when permission status is checked
+   */
+  const checkPermissionStatus = useCallback(async () => {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      setPreferences(prev => ({
+        ...prev,
+        permissionGranted: status === 'granted',
+      }));
+    } catch (error) {
+      console.error('Error checking notification permissions:', error);
+      // On error, assume not granted to be safe
+    }
+  }, []);
+
+  /**
    * Load user preferences from local storage on mount.
    * This runs once when the hook initializes to restore user's previous choice.
    * 
@@ -86,7 +115,7 @@ export const useNotifications = () => {
   useEffect(() => {
     loadPreferences();
     checkPermissionStatus();
-  }, []);
+  }, [checkPermissionStatus]);
 
   /**
    * Loads notification preference from local storage.
@@ -111,35 +140,6 @@ export const useNotifications = () => {
       // On error, default to disabled rather than crashing
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  /**
-   * Checks the current system permission status for notifications.
-   * 
-   * This queries the device's notification permission state without requesting.
-   * Used to sync UI state with actual system permissions.
-   * 
-   * Permission states:
-   * - 'granted': User has allowed notifications
-   * - 'denied': User has explicitly denied notifications
-   * - 'undetermined': User hasn't been asked yet
-   * 
-   * Why we check: System permissions can change outside our app (e.g., in Settings).
-   * 
-   * @private
-   * @returns Promise that resolves when permission status is checked
-   */
-  const checkPermissionStatus = async () => {
-    try {
-      const { status } = await Notifications.getPermissionsAsync();
-      setPreferences(prev => ({
-        ...prev,
-        permissionGranted: status === 'granted',
-      }));
-    } catch (error) {
-      console.error('Error checking notification permissions:', error);
-      // On error, assume not granted to be safe
     }
   };
 
@@ -169,7 +169,7 @@ export const useNotifications = () => {
    * }
    * ```
    */
-  const requestPermissions = async (): Promise<boolean> => {
+  const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
       // Check current status first to avoid unnecessary prompts
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -192,29 +192,12 @@ export const useNotifications = () => {
       // Mark that we've requested permission (prevents auto-requesting on every app start)
       await setItem(NOTIFICATION_PERMISSION_KEY, 'true');
 
-      // Show helpful message if denied
-      if (!granted) {
-        if (Platform.OS === 'ios') {
-          Alert.alert(
-            'Permission Required',
-            'Please enable notifications in Settings to receive match reminders.',
-            [{ text: 'OK' }]
-          );
-        } else {
-          Alert.alert(
-            'Permission Required',
-            'Please enable notifications in your device settings to receive match reminders.',
-            [{ text: 'OK' }]
-          );
-        }
-      }
-
       return granted;
     } catch (error) {
       console.error('Error requesting notification permissions:', error);
       return false;
     }
-  };
+  }, []);
 
   /**
    * Enables or disables notification preferences.
@@ -243,7 +226,7 @@ export const useNotifications = () => {
    * }
    * ```
    */
-  const setNotificationEnabled = async (enabled: boolean) => {
+  const setNotificationEnabled = useCallback(async (enabled: boolean) => {
     try {
       // Save preference to storage
       await setItem(NOTIFICATION_PREFERENCE_KEY, enabled.toString());
@@ -280,7 +263,7 @@ export const useNotifications = () => {
       console.error('Error setting notification preference:', error);
       return false;
     }
-  };
+  }, [requestPermissions]);
 
   /**
    * Schedules a local notification for a match 1 hour before it starts.
@@ -322,7 +305,7 @@ export const useNotifications = () => {
    * }
    * ```
    */
-  const scheduleMatchNotification = async (
+  const scheduleMatchNotification = useCallback(async (
     matchId: string,
     matchDate: Date,
     homeTeam: string,
@@ -373,7 +356,7 @@ export const useNotifications = () => {
       console.error('Error scheduling notification:', error);
       return null;
     }
-  };
+  }, [preferences.enabled, preferences.permissionGranted, t]);
 
   /**
    * Cancels a scheduled notification for a specific match.
@@ -402,7 +385,7 @@ export const useNotifications = () => {
    * await cancelMatchNotification('match-123');
    * ```
    */
-  const cancelMatchNotification = async (matchId: string) => {
+  const cancelMatchNotification = useCallback(async (matchId: string) => {
     try {
       // Get all scheduled notifications
       const allNotifications = await Notifications.getAllScheduledNotificationsAsync();
@@ -418,7 +401,7 @@ export const useNotifications = () => {
     } catch (error) {
       console.error('Error canceling notification:', error);
     }
-  };
+  }, []);
 
   /**
    * Cancels all scheduled notifications.
@@ -433,13 +416,13 @@ export const useNotifications = () => {
    * 
    * @returns Promise that resolves when all notifications are cancelled
    */
-  const cancelAllNotifications = async () => {
+  const cancelAllNotifications = useCallback(async () => {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
     } catch (error) {
       console.error('Error canceling all notifications:', error);
     }
-  };
+  }, []);
 
   return {
     preferences,
