@@ -13,6 +13,8 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Switch,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -21,11 +23,15 @@ import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
 import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
+import { useNotifications } from '../../src/hooks/useNotifications';
 
 export default function ProfileScreen() {
   const { player, signOut, setPlayer } = useAuth();
   const { refresh: refreshGames } = useGames();
   const { t, isFrench } = useTranslation();
+  // Notification preferences management
+  // This hook provides permission status and toggle functionality
+  const { preferences, setNotificationEnabled, requestPermissions } = useNotifications();
   const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -33,6 +39,7 @@ export default function ProfileScreen() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isTogglingNotifications, setIsTogglingNotifications] = useState(false);
   const nameInputRef = React.useRef<TextInput>(null);
   const deleteInputRef = React.useRef<TextInput>(null);
 
@@ -215,6 +222,40 @@ export default function ProfileScreen() {
     }, 50);
   };
 
+  const handleNotificationToggle = async (value: boolean) => {
+    setIsTogglingNotifications(true);
+    try {
+      if (value) {
+        const granted = await requestPermissions();
+        if (granted) {
+          await setNotificationEnabled(true);
+        } else {
+          // Permission denied: Show alert with option to open settings
+          Alert.alert(
+            t('notifications.permissionDenied'),
+            t('notifications.permissionDeniedMessage'),
+            [
+              { text: t('common.cancel'), style: 'cancel' },
+              {
+                text: t('notifications.openSettings'),
+                onPress: () => {
+                  Linking.openSettings();
+                },
+              },
+            ]
+          );
+        }
+      } else {
+        await setNotificationEnabled(false);
+      }
+    } catch (error) {
+      console.error('Error toggling notifications:', error);
+      Alert.alert(t('errors.error'), t('notifications.toggleFailed'));
+    } finally {
+      setIsTogglingNotifications(false);
+    }
+  };
+
   if (!player) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -283,6 +324,36 @@ export default function ProfileScreen() {
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.memberSince')}</Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>
                   {formatShortDate(new Date(player.created_at))}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t('notifications.title')}
+            </Text>
+            
+            <View style={styles.infoRow}>
+              <Ionicons name="notifications-outline" size={20} color={colors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                {t('notifications.enableNotifications')}:
+              </Text>
+              <View style={{ flex: 0.7 }} />
+              <Switch
+                value={preferences.enabled}
+                onValueChange={handleNotificationToggle}
+                disabled={isTogglingNotifications}
+                trackColor={{ false: colors.border, true: colors.secondary }}
+                thumbColor={preferences.enabled ? colors.primary : colors.textSecondary}
+              />
+            </View>
+
+            {!preferences.permissionGranted && preferences.enabled && (
+              <View style={styles.permissionWarning}>
+                <Ionicons name="warning-outline" size={16} color={colors.warning} />
+                <Text style={[styles.permissionWarningText, { color: colors.textSecondary }]}>
+                  {t('notifications.permissionWarning')}
                 </Text>
               </View>
             )}
@@ -648,5 +719,16 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  permissionWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingLeft: 32,
+  },
+  permissionWarningText: {
+    fontSize: 12,
+    marginLeft: 8,
+    flex: 1,
   },
 }); 

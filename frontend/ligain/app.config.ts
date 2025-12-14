@@ -4,7 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ligain',
   slug: 'ligain',
-  version: '1.2.0',
+  version: '1.3.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
@@ -20,6 +20,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-apple-authentication',
     'expo-splash-screen',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/images/icon.png',
+        color: '#25292e',
+        sounds: [],
+      }
+    ],
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -29,7 +37,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '4',
+    buildNumber: '3',
   },
   android: {
     package: 'com.ligain.app',

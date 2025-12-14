@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../../../hooks/useMatches';
 import { useBetSubmission } from '../../../../hooks/useBetSubmission';
 import { useBetSynchronization } from '../../../../hooks/useBetSynchronization';
+import { useMatchNotifications } from '../../../../src/hooks/useMatchNotifications';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useGames } from '../../../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,7 @@ import { BetSyncModal, SyncResult } from '../../../../src/components/BetSyncModa
 import ShareableMatchResult from '../../../../src/components/ShareableMatchResult';
 import { captureAndShareWithOptions, formatDateForShare } from '../../../../src/utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
-import { getTeamLogo } from '../../../../src/utils/teamLogos';
+import { getTeamLogo, isPngLogo } from '../../../../src/utils/teamLogos';
 
 interface TempScores {
   [key: string]: {
@@ -41,7 +42,15 @@ function TeamInput({ teamName, value, onChange, canModify, isAway = false, onFoc
     <View style={[styles.teamContainer, isAway && styles.awayTeamContainer]}>
       <View style={[styles.logoAndNameContainer, isAway && styles.awayLogoAndNameContainer]}>
         {TeamLogo && (
-          <TeamLogo width={40} height={40} />
+          isPngLogo(TeamLogo) ? (
+            <Image 
+              source={TeamLogo} 
+              style={{ width: 40, height: 40, backgroundColor: 'transparent' }}
+              resizeMode="contain"
+            />
+          ) : (
+            <TeamLogo width={40} height={40} />
+          )
         )}
         <Text style={[styles.teamName, isAway && styles.awayTeamName]}>
           {teamName}
@@ -118,7 +127,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   } else if (matchResult.match.isFinished() && player) {
     if (matchResult.scores && matchResult.scores[player.id]) {
       const points = matchResult.scores[player.id].points;
-      if (typeof points === 'number' && points > 0 && points < 1000) {
+      if (typeof points === 'number' && points > 0) {
         tagText = `+${points} points`;
         tagVariant = 'success';
         hasTag = true;
@@ -391,6 +400,8 @@ interface MatchesListProps {
 
 export default function MatchesList({ gameId, initialMatchday }: MatchesListProps) {
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches(gameId);
+  // Automatically manage match notifications (schedule/cancel based on bets)
+  useMatchNotifications(incomingMatches, gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -545,14 +556,18 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     }
   }, [syncOpportunity, gameId, syncModalShownForGame]);
 
-  // Reset sync modal state when game changes
+  // Reset sync modal state when game changes (but not on initial mount)
+  const prevGameIdRef = useRef<string | null>(null);
   useEffect(() => {
-    setSyncModalShownForGame(null);
-    setShowSyncModal(false);
-    setIsSyncing(false);
-    setSyncResult(null);
-    setSyncModalMode('initial');
-    setFailedBetsToRetry([]);
+    if (prevGameIdRef.current !== null && prevGameIdRef.current !== gameId) {
+      setSyncModalShownForGame(null);
+      setShowSyncModal(false);
+      setIsSyncing(false);
+      setSyncResult(null);
+      setSyncModalMode('initial');
+      setFailedBetsToRetry([]);
+    }
+    prevGameIdRef.current = gameId;
   }, [gameId]);
 
   const toggleBetSection = (matchId: string) => {

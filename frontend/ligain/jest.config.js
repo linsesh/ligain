@@ -24,7 +24,10 @@ module.exports = {
     '**/hooks/**/*.test.(ts|tsx)'
   ],
   moduleNameMapper: {
+    // SVG mock must come before other asset mappings
+    '\\.svg$': '<rootDir>/src/__mocks__/svgMock.js',
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@assets/(.*)$': '<rootDir>/assets/$1',
     '^react-native$': 'react-native-web',
     '^expo-localization$': '<rootDir>/src/__mocks__/expo-localization.js',
   },

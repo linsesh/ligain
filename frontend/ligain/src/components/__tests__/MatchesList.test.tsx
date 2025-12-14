@@ -5,14 +5,53 @@ import { useBetSynchronization } from '../../../hooks/useBetSynchronization';
 import { useBetSubmission } from '../../../hooks/useBetSubmission';
 import { useMatches } from '../../../hooks/useMatches';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTranslation } from 'react-i18next';
 
 // Mock the hooks
 jest.mock('../../../hooks/useBetSynchronization');
 jest.mock('../../../hooks/useBetSubmission');
 jest.mock('../../../hooks/useMatches');
 jest.mock('../../contexts/AuthContext');
-jest.mock('react-i18next');
+jest.mock('react-i18next', () => ({
+  useTranslation: jest.fn(() => ({
+    t: (key: string) => key,
+    i18n: { language: 'en' },
+  })),
+  initReactI18next: {
+    type: '3rdParty',
+    init: jest.fn(),
+  },
+}));
+jest.mock('../../hooks/useMatchNotifications', () => ({
+  useMatchNotifications: jest.fn(() => ({
+    scheduleNotifications: jest.fn(),
+    cancelNotifications: jest.fn(),
+  })),
+}));
+jest.mock('../../components/BetSyncModal', () => {
+  const React = require('react');
+  return {
+    BetSyncModal: ({ visible, syncOpportunity, onSynchronize, onNotNow, onRetryFailed, loading, mode = 'initial', syncResult }: any) => {
+      console.log('[MOCK] BetSyncModal rendered:', { visible, hasOpportunity: !!syncOpportunity, mode });
+      if (!syncOpportunity || !visible) {
+        console.log('[MOCK] BetSyncModal returning null:', { syncOpportunity: !!syncOpportunity, visible });
+        return null;
+      }
+      return React.createElement('div', { 'data-testid': 'bet-sync-modal', 'data-mode': mode },
+        React.createElement('div', { 'data-testid': `${mode}-message` }, 'Modal Content'),
+        React.createElement('button', {
+          'data-testid': 'synchronize-button',
+          onClick: onSynchronize,
+          disabled: loading
+        }, loading ? 'Loading...' : 'Synchronize'),
+        React.createElement('button', { 'data-testid': 'not-now-button', onClick: onNotNow }, 'Not now'),
+        mode === 'partialSuccess' && onRetryFailed && React.createElement('button', {
+          'data-testid': 'retry-failed-button',
+          onClick: onRetryFailed
+        }, 'Retry Failed')
+      );
+    },
+  };
+});
 
 // Mock expo-router
 jest.mock('expo-router', () => ({
@@ -21,6 +60,11 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
     back: jest.fn(),
   })),
+}));
+
+// Mock expo vector icons
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
 }));
 
 // Mock react-native components that might not be available in test environment
@@ -44,8 +88,18 @@ jest.mock('../../contexts/TimeServiceContext', () => ({
 }));
 
 // Mock other components and utilities
-jest.mock('../../components/StatusTag', () => 'StatusTag');
-jest.mock('../../components/ShareableMatchResult', () => 'ShareableMatchResult');
+jest.mock('../../components/StatusTag', () => ({
+  __esModule: true,
+  default: function MockStatusTag() {
+    return null;
+  },
+}));
+jest.mock('../../components/ShareableMatchResult', () => ({
+  __esModule: true,
+  default: function MockShareableMatchResult() {
+    return null;
+  },
+}));
 jest.mock('../../utils/shareUtils', () => ({
   captureAndShareWithOptions: jest.fn(),
   formatDateForShare: jest.fn(),
@@ -54,127 +108,50 @@ jest.mock('../../utils/dateUtils', () => ({
   formatTime: jest.fn(),
   formatDate: jest.fn(),
 }));
+jest.mock('../../utils/teamLogos', () => ({
+  getTeamLogo: jest.fn(() => {
+    // Return a mock React component
+    return function MockTeamLogo() {
+      return null;
+    };
+  }),
+}));
 jest.mock('../../constants/colors', () => ({
-  primary: '#007AFF',
-  secondary: '#34C759',
-  text: '#000000',
-  textSecondary: '#666666',
-  background: '#FFFFFF',
-  card: '#F2F2F7',
-  border: '#C6C6C8',
-  disabled: '#E5E5EA',
-  success: '#34C759',
-  error: '#FF3B30',
-  warning: '#FF9500',
-  loadingBackground: '#F2F2F7',
+  colors: {
+    primary: '#007AFF',
+    secondary: '#34C759',
+    text: '#000000',
+    textSecondary: '#666666',
+    background: '#FFFFFF',
+    card: '#F2F2F7',
+    border: '#C6C6C8',
+    disabled: '#E5E5EA',
+    success: '#34C759',
+    error: '#FF3B30',
+    warning: '#FF9500',
+    loadingBackground: '#F2F2F7',
+  }
 }));
 jest.mock('../../constants/sharedStyles', () => ({
-  shareButton: {
-    backgroundColor: '#007AFF',
-    padding: 8,
-    borderRadius: 4,
+  sharedStyles: {
+    shareButton: {
+      backgroundColor: '#007AFF',
+      padding: 8,
+      borderRadius: 4,
+    },
   },
 }));
-jest.mock('react-native-view-shot', () => 'ViewShot');
+jest.mock('react-native-view-shot', () => ({
+  __esModule: true,
+  default: function MockViewShot({ children }: any) {
+    return children;
+  },
+}));
 
 const mockUseBetSynchronization = useBetSynchronization as jest.MockedFunction<typeof useBetSynchronization>;
 const mockUseBetSubmission = useBetSubmission as jest.MockedFunction<typeof useBetSubmission>;
 const mockUseMatches = useMatches as jest.MockedFunction<typeof useMatches>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
-
-// Mock the BetSyncModal component
-jest.mock('../../components/BetSyncModal', () => {
-  return function MockBetSyncModal({ 
-    visible, 
-    onSynchronize, 
-    onNotNow, 
-    onRetryFailed,
-    loading, 
-    mode = 'initial',
-    syncResult 
-  }: any) {
-    if (!visible) return null;
-    
-    const getModalContent = () => {
-      switch (mode) {
-        case 'success':
-          return <div data-testid="success-message">All bets synchronized successfully</div>;
-        case 'partialSuccess':
-          return (
-            <div>
-              <div data-testid="partial-success-message">Some bets synchronized</div>
-              {syncResult?.successful?.length > 0 && (
-                <div data-testid="successful-bets">
-                  {syncResult.successful.map((bet: any, index: number) => (
-                    <div key={index} data-testid={`successful-bet-${index}`}>
-                      {bet.homeTeam} vs {bet.awayTeam}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {syncResult?.failed?.length > 0 && (
-                <div data-testid="failed-bets">
-                  {syncResult.failed.map((failedBet: any, index: number) => (
-                    <div key={index} data-testid={`failed-bet-${index}`}>
-                      {failedBet.match.homeTeam} vs {failedBet.match.awayTeam}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        case 'failure':
-          return <div data-testid="failure-message">All bets failed to synchronize</div>;
-        default:
-          return <div data-testid="initial-message">Synchronize bets?</div>;
-      }
-    };
-
-    const getButtons = () => {
-      switch (mode) {
-        case 'success':
-        case 'failure':
-          return (
-            <button data-testid="close-button" onClick={onNotNow}>
-              Close
-            </button>
-          );
-        case 'partialSuccess':
-          return (
-            <div>
-              <button data-testid="close-button" onClick={onNotNow}>
-                Close
-              </button>
-              {onRetryFailed && syncResult?.failed?.length > 0 && (
-                <button data-testid="retry-failed-button" onClick={onRetryFailed}>
-                  Retry Failed
-                </button>
-              )}
-            </div>
-          );
-        default:
-          return (
-            <div>
-              <button data-testid="synchronize-button" onClick={onSynchronize} disabled={loading}>
-                {loading ? 'Loading...' : 'Synchronize'}
-              </button>
-              <button data-testid="not-now-button" onClick={onNotNow}>
-                Not now
-              </button>
-            </div>
-          );
-      }
-    };
-
-    return (
-      <div data-testid="bet-sync-modal" data-mode={mode}>
-        {getModalContent()}
-        {getButtons()}
-      </div>
-    );
-  };
-});
 
 describe('MatchesList with Bet Synchronization', () => {
   const mockPlayer = { id: 'player-1', name: 'Test Player' };
@@ -183,9 +160,8 @@ describe('MatchesList with Bet Synchronization', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockUseAuth.mockReturnValue({ player: mockPlayer } as any);
-    mockUseTranslation.mockReturnValue({ t: (key: string) => key } as any);
     
     mockUseMatches.mockReturnValue({
       incomingMatches: {},
@@ -215,7 +191,7 @@ describe('MatchesList with Bet Synchronization', () => {
     expect(screen.queryByTestId('bet-sync-modal')).toBeNull();
   });
 
-  it('should show modal when sync opportunity exists', () => {
+  it('should show modal when sync opportunity exists', async () => {
     const syncOpportunity = {
       sourceGameId: 'game-2',
       sourceGameName: 'Game 2',
@@ -239,8 +215,11 @@ describe('MatchesList with Bet Synchronization', () => {
     } as any);
 
     render(<MatchesList gameId="game-1" />);
-    
-    expect(screen.getByTestId('bet-sync-modal')).toBeTruthy();
+
+    // Wait for the modal to appear (due to useEffect state updates)
+    await waitFor(() => {
+      expect(screen.getByTestId('bet-sync-modal')).toBeTruthy();
+    });
   });
 
   it('should not show modal if already shown for this game', () => {

@@ -16,6 +16,21 @@ jest.mock('../src/config/api', () => ({
   }),
 }));
 
+// Mock useNotifications hook
+const mockCancelMatchNotification = jest.fn().mockResolvedValue(undefined);
+jest.mock('../src/hooks/useNotifications', () => ({
+  useNotifications: jest.fn(() => ({
+    preferences: { enabled: true, permissionGranted: true },
+    isLoading: false,
+    requestPermissions: jest.fn(),
+    setNotificationEnabled: jest.fn(),
+    scheduleMatchNotification: jest.fn(),
+    cancelMatchNotification: mockCancelMatchNotification,
+    cancelAllNotifications: jest.fn(),
+    checkPermissionStatus: jest.fn(),
+  })),
+}));
+
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -29,6 +44,7 @@ describe('useBetSubmission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockCancelMatchNotification.mockClear();
   });
 
   afterEach(() => {
@@ -79,6 +95,9 @@ describe('useBetSubmission', () => {
         }),
       }
     );
+    
+    // Notification integration: Should cancel notification on successful bet submission
+    expect(mockCancelMatchNotification).toHaveBeenCalledWith('match-1');
   });
 
   it('should handle API errors', async () => {
@@ -209,5 +228,97 @@ describe('useBetSubmission', () => {
     
     // The error should be cleared when starting a new submission
     expect(result.current.error).toBe(null);
+  });
+
+  describe('Notification Integration', () => {
+    it('should cancel notification when bet is successfully submitted', async () => {
+      const mockResponse = {
+        message: 'Bet saved successfully',
+        bet: {
+          matchId: 'match-123',
+          predictedHomeGoals: 2,
+          predictedAwayGoals: 1,
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-123', 2, 1);
+      });
+
+      // Should cancel notification for the match
+      expect(mockCancelMatchNotification).toHaveBeenCalledWith('match-123');
+      expect(mockCancelMatchNotification).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not cancel notification on failed bet submission', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-123', 2, 1);
+      });
+
+      // Should not cancel notification if bet submission failed
+      expect(mockCancelMatchNotification).not.toHaveBeenCalled();
+    });
+
+    it('should not cancel notification on API error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({ error: 'Invalid data' }),
+      } as Response);
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-123', 2, 1);
+      });
+
+      // Should not cancel notification if bet submission failed
+      expect(mockCancelMatchNotification).not.toHaveBeenCalled();
+    });
+
+    it('should handle notification cancellation errors gracefully', async () => {
+      const mockResponse = {
+        message: 'Bet saved successfully',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      } as Response);
+
+      // Make notification cancellation fail
+      mockCancelMatchNotification.mockRejectedValueOnce(new Error('Cancellation error'));
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-123', 2, 1);
+      });
+
+      // Bet submission should still succeed even if notification cancellation fails
+      expect(result.current.isSubmitting).toBe(false);
+      expect(result.current.error).toBe(null);
+      expect(mockCancelMatchNotification).toHaveBeenCalledWith('match-123');
+    });
   });
 }); 
