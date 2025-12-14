@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useMatches } from '../../hooks/useMatches';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from './useNotifications';
 import { MatchResult } from '../types/match';
@@ -9,10 +8,13 @@ import { MatchResult } from '../types/match';
  * Schedules notifications for matches without bets (1 hour before start),
  * cancels when bets are placed, and cleans up past matches.
  * 
- * @param gameId - The game ID to monitor matches for
+ * @param incomingMatches - The incoming matches object from useMatches hook
+ * @param gameId - The game ID (used for cleanup when game changes)
  */
-export const useMatchNotifications = (gameId: string) => {
-  const { incomingMatches } = useMatches(gameId);
+export const useMatchNotifications = (
+  incomingMatches: { [key: string]: MatchResult },
+  gameId: string
+) => {
   const { player } = useAuth();
   const {
     preferences,

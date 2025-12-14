@@ -1,16 +1,13 @@
 import { renderHook, act } from '@testing-library/react';
 import { useMatchNotifications } from './useMatchNotifications';
-import { useMatches } from '../../hooks/useMatches';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from './useNotifications';
 import { SeasonMatch } from '../types/match';
 
 // Mock dependencies
-jest.mock('../../hooks/useMatches');
 jest.mock('../contexts/AuthContext');
 jest.mock('./useNotifications');
 
-const mockUseMatches = useMatches as jest.MockedFunction<typeof useMatches>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUseNotifications = useNotifications as jest.MockedFunction<typeof useNotifications>;
 
@@ -83,28 +80,12 @@ describe('useMatchNotifications', () => {
       cancelAllNotifications: jest.fn().mockResolvedValue(undefined),
       checkPermissionStatus: jest.fn().mockResolvedValue(undefined),
     } as any);
-
-    mockUseMatches.mockReturnValue({
-      incomingMatches: {},
-      pastMatches: {},
-      loading: false,
-      error: null,
-      refresh: jest.fn(),
-    });
   });
 
   describe('Match Monitoring', () => {
     it('should schedule notification for match without bet', async () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
       const mockMatchResult = createMockMatch('match-1', futureDate, false);
-
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
 
       const mockScheduleNotification = jest.fn().mockResolvedValue('notif-id');
       mockUseNotifications.mockReturnValue({
@@ -118,7 +99,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -136,14 +117,6 @@ describe('useMatchNotifications', () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
       const mockMatchResult = createMockMatch('match-1', futureDate, true); // has bet
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       const mockScheduleNotification = jest.fn();
       mockUseNotifications.mockReturnValue({
         preferences: { enabled: true, permissionGranted: true },
@@ -156,7 +129,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -168,14 +141,6 @@ describe('useMatchNotifications', () => {
     it('should not schedule if notifications disabled', async () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
       const mockMatchResult = createMockMatch('match-1', futureDate, false);
-
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
 
       const mockScheduleNotification = jest.fn();
       mockUseNotifications.mockReturnValue({
@@ -189,7 +154,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -204,14 +169,6 @@ describe('useMatchNotifications', () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
       const mockMatchResult = createMockMatch('match-1', futureDate, true);
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       const mockCancelNotification = jest.fn();
       mockUseNotifications.mockReturnValue({
         preferences: { enabled: true, permissionGranted: true },
@@ -224,7 +181,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -256,14 +213,6 @@ describe('useMatchNotifications', () => {
         scores: null,
       };
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       const mockScheduleNotification = jest.fn().mockResolvedValue('notif-id');
       mockUseNotifications.mockReturnValue({
         preferences: { enabled: true, permissionGranted: true },
@@ -276,7 +225,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -292,14 +241,6 @@ describe('useMatchNotifications', () => {
       const pastDate = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
       const mockMatchResult = createMockMatch('match-1', pastDate, false);
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       const mockCancelNotification = jest.fn();
       mockUseNotifications.mockReturnValue({
         preferences: { enabled: true, permissionGranted: true },
@@ -312,7 +253,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -324,7 +265,7 @@ describe('useMatchNotifications', () => {
 
     it('should reset scheduled matches when game changes', () => {
       const { rerender } = renderHook(
-        ({ gameId }) => useMatchNotifications(gameId),
+        ({ gameId }) => useMatchNotifications({}, gameId),
         { initialProps: { gameId: 'game-1' } }
       );
 
@@ -332,7 +273,7 @@ describe('useMatchNotifications', () => {
       rerender({ gameId: 'game-2' });
 
       // The ref should be cleared (we can't directly test this, but the hook should handle it)
-      expect(mockUseMatches).toHaveBeenCalledWith('game-2');
+      // This test verifies the hook handles game changes without errors
     });
   });
 
@@ -342,17 +283,6 @@ describe('useMatchNotifications', () => {
       const futureDate2 = new Date(Date.now() + 3 * 60 * 60 * 1000);
       const match1 = createMockMatch('match-1', futureDate1, false);
       const match2 = createMockMatch('match-2', futureDate2, true); // has bet
-
-      mockUseMatches.mockReturnValue({
-        incomingMatches: {
-          'match-1': match1,
-          'match-2': match2,
-        },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
 
       const mockScheduleNotification = jest.fn().mockResolvedValue('notif-id');
       const mockCancelNotification = jest.fn();
@@ -367,7 +297,10 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({
+        'match-1': match1,
+        'match-2': match2,
+      }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -404,14 +337,6 @@ describe('useMatchNotifications', () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
       const mockMatchResult = createMockMatch('match-1', futureDate, false);
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       const mockScheduleNotification = jest.fn();
       mockUseNotifications.mockReturnValue({
         preferences: { enabled: true, permissionGranted: true },
@@ -424,7 +349,7 @@ describe('useMatchNotifications', () => {
         checkPermissionStatus: jest.fn(),
       } as any);
 
-      renderHook(() => useMatchNotifications('game-1'));
+      renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -437,14 +362,6 @@ describe('useMatchNotifications', () => {
     it('should handle preference changes', async () => {
       const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000);
       const mockMatchResult = createMockMatch('match-1', futureDate, false);
-
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { 'match-1': mockMatchResult },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
 
       const mockScheduleNotification = jest.fn().mockResolvedValue('notif-id');
       const mockUseNotificationsReturn = {
@@ -460,7 +377,7 @@ describe('useMatchNotifications', () => {
 
       mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
 
-      const { rerender } = renderHook(() => useMatchNotifications('game-1'));
+      const { rerender } = renderHook(() => useMatchNotifications({ 'match-1': mockMatchResult }, 'game-1'));
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -498,14 +415,6 @@ describe('useMatchNotifications', () => {
       // Game 2: User has no bet
       const matchWithoutBet = createMockMatch(matchId, futureDate, false);
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { [matchId]: matchWithBet },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       mockUseAuth.mockReturnValue({
         player: mockPlayer,
         signOut: jest.fn(),
@@ -528,8 +437,8 @@ describe('useMatchNotifications', () => {
       mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
 
       // Test Game 1 (with bet) - should NOT schedule
-      const { rerender } = renderHook((props) => useMatchNotifications(props.gameId), {
-        initialProps: { gameId: 'game-1' },
+      const { rerender } = renderHook((props) => useMatchNotifications(props.incomingMatches, props.gameId), {
+        initialProps: { incomingMatches: { [matchId]: matchWithBet }, gameId: 'game-1' },
       });
 
       await act(async () => {
@@ -540,15 +449,7 @@ describe('useMatchNotifications', () => {
       expect(mockScheduleNotification).not.toHaveBeenCalled();
 
       // Now test Game 2 (without bet) - should schedule
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { [matchId]: matchWithoutBet },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
-      rerender({ gameId: 'game-2' });
+      rerender({ incomingMatches: { [matchId]: matchWithoutBet }, gameId: 'game-2' });
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -604,16 +505,8 @@ describe('useMatchNotifications', () => {
       mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
 
       // Test Game 1 (no bet) - should call scheduleMatchNotification
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { [matchId]: matchWithoutBet },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
-      const { rerender } = renderHook((props) => useMatchNotifications(props.gameId), {
-        initialProps: { gameId: 'game-1' },
+      const { rerender } = renderHook((props) => useMatchNotifications(props.incomingMatches, props.gameId), {
+        initialProps: { incomingMatches: { [matchId]: matchWithoutBet }, gameId: 'game-1' },
       });
 
       await act(async () => {
@@ -631,15 +524,7 @@ describe('useMatchNotifications', () => {
 
       // Now test Game 2 (also no bet) - should also call scheduleMatchNotification
       // The actual deduplication happens inside scheduleMatchNotification (tested in useNotifications.test.tsx)
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { [matchId]: matchWithoutBet },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
-      rerender({ gameId: 'game-2' });
+      rerender({ incomingMatches: { [matchId]: matchWithoutBet }, gameId: 'game-2' });
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -666,14 +551,6 @@ describe('useMatchNotifications', () => {
       // Both games: User has bet
       const matchWithBet = createMockMatch(matchId, futureDate, true);
 
-      mockUseMatches.mockReturnValue({
-        incomingMatches: { [matchId]: matchWithBet },
-        pastMatches: {},
-        loading: false,
-        error: null,
-        refresh: jest.fn(),
-      });
-
       mockUseAuth.mockReturnValue({
         player: mockPlayer,
         signOut: jest.fn(),
@@ -696,8 +573,8 @@ describe('useMatchNotifications', () => {
       mockUseNotifications.mockReturnValue(mockUseNotificationsReturn as any);
 
       // Test Game 1 (with bet)
-      const { rerender } = renderHook((props) => useMatchNotifications(props.gameId), {
-        initialProps: { gameId: 'game-1' },
+      const { rerender } = renderHook((props) => useMatchNotifications(props.incomingMatches, props.gameId), {
+        initialProps: { incomingMatches: { [matchId]: matchWithBet }, gameId: 'game-1' },
       });
 
       await act(async () => {
@@ -708,7 +585,7 @@ describe('useMatchNotifications', () => {
       expect(mockScheduleNotification).not.toHaveBeenCalled();
 
       // Test Game 2 (also with bet)
-      rerender({ gameId: 'game-2' });
+      rerender({ incomingMatches: { [matchId]: matchWithBet }, gameId: 'game-2' });
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));

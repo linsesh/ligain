@@ -401,7 +401,7 @@ interface MatchesListProps {
 export default function MatchesList({ gameId, initialMatchday }: MatchesListProps) {
   const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches(gameId);
   // Automatically manage match notifications (schedule/cancel based on bets)
-  useMatchNotifications(gameId);
+  useMatchNotifications(incomingMatches, gameId);
   const [tempScores, setTempScores] = useState<TempScores>({});
   const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
