@@ -8,6 +8,7 @@
 import {
   AuthApi,
   GamesApi,
+  ProfileApi,
   AuthCheckResponse,
   AuthSignInResponse,
   GamesResponse,
@@ -83,10 +84,16 @@ export class MockAuthApi implements AuthApi {
     await simulateDelay(200);
     console.log('[MockAuthApi] signOut');
   }
+}
 
+/**
+ * Mock Profile API implementation
+ * Simulates profile operations with mock data
+ */
+export class MockProfileApi implements ProfileApi {
   async uploadAvatar(imageUri: string): Promise<UploadAvatarResponse> {
     await simulateDelay(800); // Simulate upload time
-    console.log('[MockAuthApi] uploadAvatar:', imageUri);
+    console.log('[MockProfileApi] uploadAvatar:', imageUri);
 
     // Check for mock error
     if (mockUploadError) {
@@ -103,7 +110,7 @@ export class MockAuthApi implements AuthApi {
 
   async deleteAvatar(): Promise<void> {
     await simulateDelay(300);
-    console.log('[MockAuthApi] deleteAvatar');
+    console.log('[MockProfileApi] deleteAvatar');
 
     // Clear mock player's avatar
     MOCK_CURRENT_PLAYER.avatarUrl = null;

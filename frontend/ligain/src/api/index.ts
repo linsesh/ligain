@@ -10,6 +10,7 @@ export type {
   Api,
   AuthApi,
   GamesApi,
+  ProfileApi,
   AuthCheckResponse,
   AuthSignInResponse,
   SignInResult,
@@ -22,10 +23,10 @@ export type {
 } from './types';
 
 // Provider and hooks
-export { ApiProvider, useApi, useAuthApi, useGamesApi } from './ApiProvider';
+export { ApiProvider, useApi, useAuthApi, useGamesApi, useProfileApi } from './ApiProvider';
 
 // Real implementations (for direct use if needed)
-export { RealAuthApi, RealGamesApi } from './realApi';
+export { RealAuthApi, RealGamesApi, RealProfileApi } from './realApi';
 
 // Mock implementations (for testing)
-export { MockAuthApi, MockGamesApi } from './mockApi';
+export { MockAuthApi, MockGamesApi, MockProfileApi } from './mockApi';

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getItem, setItem, multiRemove, isUsingMemoryFallback } from '../utils/storage';
-import { useAuthApi } from '../api';
+import { useAuthApi, useProfileApi } from '../api';
 
 export interface Player {
   id: string;
@@ -48,6 +48,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const authApi = useAuthApi();
+  const profileApi = useProfileApi();
   const [player, setPlayer] = useState<Player | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -198,7 +199,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const uploadAvatar = async (imageUri: string) => {
     console.log('AuthContext - Starting uploadAvatar');
     try {
-      const response = await authApi.uploadAvatar(imageUri);
+      const response = await profileApi.uploadAvatar(imageUri);
       console.log('AuthContext - Avatar uploaded successfully:', response.avatarUrl);
 
       // Update local player state with new avatar URL
@@ -216,7 +217,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const deleteAvatar = async () => {
     console.log('AuthContext - Starting deleteAvatar');
     try {
-      await authApi.deleteAvatar();
+      await profileApi.deleteAvatar();
       console.log('AuthContext - Avatar deleted successfully');
 
       // Update local player state to remove avatar URL
