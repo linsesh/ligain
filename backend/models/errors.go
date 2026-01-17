@@ -61,3 +61,12 @@ type NeedDisplayNameError struct {
 func (e *NeedDisplayNameError) Error() string {
 	return e.Reason
 }
+
+// StorageError is returned when a storage operation fails
+type StorageError struct {
+	Reason string
+}
+
+func (e *StorageError) Error() string {
+	return fmt.Sprintf("storage error: %s", e.Reason)
+}
