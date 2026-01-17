@@ -101,6 +101,21 @@ func (m *MockPlayerRepositoryForDelete) DeleteExpiredTokens(ctx context.Context)
 	return args.Error(0)
 }
 
+func (m *MockPlayerRepositoryForDelete) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	args := m.Called(ctx, playerID, objectKey, signedURL, expiresAt)
+	return args.Error(0)
+}
+
+func (m *MockPlayerRepositoryForDelete) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	args := m.Called(ctx, playerID, signedURL, expiresAt)
+	return args.Error(0)
+}
+
+func (m *MockPlayerRepositoryForDelete) ClearAvatar(ctx context.Context, playerID string) error {
+	args := m.Called(ctx, playerID)
+	return args.Error(0)
+}
+
 func TestAuthService_DeleteAccount_Success(t *testing.T) {
 	// Setup
 	mockRepo := new(MockPlayerRepositoryForDelete)
