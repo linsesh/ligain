@@ -182,12 +182,11 @@ func (s *ProfileServiceImpl) refreshSignedURL(ctx context.Context, player *model
 	}
 	expiresAt := time.Now().Add(DefaultSignedURLTTL)
 
-	// Update in database (fire-and-forget for performance)
-	go func() {
-		if err := s.playerRepository.UpdateAvatarSignedURL(context.Background(), player.ID, url, expiresAt); err != nil {
-			log.Warnf("refreshSignedURL - Failed to update signed URL in DB for player %s: %v", player.ID, err)
-		}
-	}()
+	// Update in database synchronously to avoid regeneration loops on DB failures
+	if err := s.playerRepository.UpdateAvatarSignedURL(ctx, player.ID, url, expiresAt); err != nil {
+		log.Warnf("refreshSignedURL - Failed to update signed URL in DB for player %s: %v", player.ID, err)
+		return "", time.Time{}, err
+	}
 
 	return url, expiresAt, nil
 }
