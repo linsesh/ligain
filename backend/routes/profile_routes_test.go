@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"io"
 	"ligain/backend/middleware"
 	"ligain/backend/models"
+	"ligain/backend/services"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -21,179 +23,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockStorageService implements services.StorageService for testing
-type MockStorageService struct {
-	UploadError      error
-	SignedURLError   error
-	DeleteError      error
-	UploadedData     []byte
-	LastObjectKey    string
-	LastUserID       string
-	GeneratedURL     string
-	GeneratedExpiry  time.Time
+// MockProfileService implements services.ProfileService for testing
+type MockProfileService struct {
+	uploadAvatarResult *services.AvatarResult
+	uploadAvatarError  error
+	deleteAvatarError  error
+	getPlayerResult    *models.PlayerData
+	getPlayerError     error
+
+	// Track calls
+	lastUploadPlayerID    string
+	lastUploadOldKey      *string
+	lastUploadImageData   []byte
+	lastDeletePlayerID    string
+	lastDeleteObjectKey   *string
+	lastGetPlayerPlayerID string
 }
 
-func NewMockStorageService() *MockStorageService {
-	return &MockStorageService{
-		GeneratedURL:    "https://storage.example.com/signed-url",
-		GeneratedExpiry: time.Now().Add(7 * 24 * time.Hour),
+func NewMockProfileService() *MockProfileService {
+	return &MockProfileService{
+		uploadAvatarResult: &services.AvatarResult{
+			SignedURL: "https://storage.example.com/signed-url",
+			ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		},
 	}
 }
 
-func (m *MockStorageService) UploadAvatar(ctx context.Context, userID string, imageData []byte) (string, error) {
-	if m.UploadError != nil {
-		return "", m.UploadError
+func (m *MockProfileService) UploadAvatar(ctx context.Context, playerID string, oldObjectKey *string, imageData []byte) (*services.AvatarResult, error) {
+	m.lastUploadPlayerID = playerID
+	m.lastUploadOldKey = oldObjectKey
+	m.lastUploadImageData = imageData
+	if m.uploadAvatarError != nil {
+		return nil, m.uploadAvatarError
 	}
-	m.LastUserID = userID
-	m.UploadedData = imageData
-	m.LastObjectKey = "avatars/" + userID + "/test-uuid.webp"
-	return m.LastObjectKey, nil
+	return m.uploadAvatarResult, nil
 }
 
-func (m *MockStorageService) GenerateSignedURL(ctx context.Context, objectKey string, ttl time.Duration) (string, error) {
-	if m.SignedURLError != nil {
-		return "", m.SignedURLError
+func (m *MockProfileService) DeleteAvatar(ctx context.Context, playerID string, objectKey *string) error {
+	m.lastDeletePlayerID = playerID
+	m.lastDeleteObjectKey = objectKey
+	return m.deleteAvatarError
+}
+
+func (m *MockProfileService) GetPlayerProfile(ctx context.Context, playerID string) (*models.PlayerData, error) {
+	m.lastGetPlayerPlayerID = playerID
+	if m.getPlayerError != nil {
+		return nil, m.getPlayerError
 	}
-	return m.GeneratedURL, nil
-}
-
-func (m *MockStorageService) DeleteAvatar(ctx context.Context, objectKey string) error {
-	if m.DeleteError != nil {
-		return m.DeleteError
-	}
-	return nil
-}
-
-// MockImageProcessor implements services.ImageProcessor for testing
-type MockImageProcessor struct {
-	ProcessError   error
-	ProcessedData  []byte
-	LastInputData  []byte
-}
-
-func NewMockImageProcessor() *MockImageProcessor {
-	return &MockImageProcessor{
-		// WebP magic bytes: RIFF....WEBP
-		ProcessedData: []byte("RIFF\x00\x00\x00\x00WEBP"),
-	}
-}
-
-func (m *MockImageProcessor) ProcessAvatar(imageData []byte) ([]byte, error) {
-	m.LastInputData = imageData
-	if m.ProcessError != nil {
-		return nil, m.ProcessError
-	}
-	return m.ProcessedData, nil
-}
-
-// MockPlayerRepositoryForProfile is a mock player repository for profile tests
-type MockPlayerRepositoryForProfile struct {
-	players         map[string]*models.PlayerData
-	updateAvatarErr error
-	clearAvatarErr  error
-}
-
-func NewMockPlayerRepositoryForProfile() *MockPlayerRepositoryForProfile {
-	return &MockPlayerRepositoryForProfile{
-		players: make(map[string]*models.PlayerData),
-	}
-}
-
-func (m *MockPlayerRepositoryForProfile) GetPlayer(playerId string) (models.Player, error) {
-	if player, exists := m.players[playerId]; exists {
-		return player, nil
-	}
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) GetPlayers(gameId string) ([]models.Player, error) {
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) CreatePlayer(ctx context.Context, player *models.PlayerData) error {
-	m.players[player.ID] = player
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) GetPlayerByID(ctx context.Context, id string) (*models.PlayerData, error) {
-	if player, exists := m.players[id]; exists {
-		return player, nil
-	}
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) GetPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error) {
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) UpdatePlayer(ctx context.Context, player *models.PlayerData) error {
-	m.players[player.ID] = player
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) CreateAuthToken(ctx context.Context, token *models.AuthToken) error {
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) GetAuthToken(ctx context.Context, token string) (*models.AuthToken, error) {
-	return nil, nil
-}
-
-func (m *MockPlayerRepositoryForProfile) UpdateAuthToken(ctx context.Context, token *models.AuthToken) error {
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) DeleteAuthToken(ctx context.Context, token string) error {
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) DeleteExpiredTokens(ctx context.Context) error {
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) DeletePlayer(ctx context.Context, playerID string) error {
-	delete(m.players, playerID)
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
-	if m.updateAvatarErr != nil {
-		return m.updateAvatarErr
-	}
-	if player, exists := m.players[playerID]; exists {
-		player.AvatarObjectKey = &objectKey
-		player.AvatarSignedURL = &signedURL
-		player.AvatarSignedURLExpiresAt = &expiresAt
-	}
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
-	if player, exists := m.players[playerID]; exists {
-		player.AvatarSignedURL = &signedURL
-		player.AvatarSignedURLExpiresAt = &expiresAt
-	}
-	return nil
-}
-
-func (m *MockPlayerRepositoryForProfile) ClearAvatar(ctx context.Context, playerID string) error {
-	if m.clearAvatarErr != nil {
-		return m.clearAvatarErr
-	}
-	if player, exists := m.players[playerID]; exists {
-		player.AvatarObjectKey = nil
-		player.AvatarSignedURL = nil
-		player.AvatarSignedURLExpiresAt = nil
-	}
-	return nil
+	return m.getPlayerResult, nil
 }
 
 // Helper to create a test JPEG image for upload tests
@@ -230,24 +107,16 @@ func createMultipartForm(t *testing.T, fieldName string, fileName string, data [
 func TestGetPlayer_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	avatarURL := "https://storage.example.com/signed"
+	profileService := NewMockProfileService()
+	profileService.getPlayerResult = &models.PlayerData{
+		ID:              "player-1",
+		Name:            "Test Player",
+		AvatarSignedURL: &avatarURL,
+	}
 	authService := &MockAuthService{player: &models.PlayerData{ID: "player-1", Name: "Test Player"}}
 
-	// Create player with avatar
-	avatarKey := "avatars/player-1/test.webp"
-	avatarURL := "https://storage.example.com/signed"
-	expiresAt := time.Now().Add(48 * time.Hour)
-	playerRepo.players["player-1"] = &models.PlayerData{
-		ID:                       "player-1",
-		Name:                     "Test Player",
-		AvatarObjectKey:          &avatarKey,
-		AvatarSignedURL:          &avatarURL,
-		AvatarSignedURLExpiresAt: &expiresAt,
-	}
-
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.GET("/players/:id", middleware.PlayerAuth(authService), handler.GetPlayer)
 
@@ -271,12 +140,11 @@ func TestGetPlayer_Success(t *testing.T) {
 func TestGetPlayer_NotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
+	profileService.getPlayerError = &services.ProfileError{Code: "PLAYER_NOT_FOUND", Reason: "player not found"}
 	authService := &MockAuthService{player: &models.PlayerData{ID: "player-1", Name: "Test Player"}}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.GET("/players/:id", middleware.PlayerAuth(authService), handler.GetPlayer)
 
@@ -292,18 +160,14 @@ func TestGetPlayer_NotFound(t *testing.T) {
 func TestGetPlayer_NoAvatar(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
-	authService := &MockAuthService{player: &models.PlayerData{ID: "player-1", Name: "Test Player"}}
-
-	// Create player without avatar
-	playerRepo.players["player-1"] = &models.PlayerData{
+	profileService := NewMockProfileService()
+	profileService.getPlayerResult = &models.PlayerData{
 		ID:   "player-1",
 		Name: "Test Player",
 	}
+	authService := &MockAuthService{player: &models.PlayerData{ID: "player-1", Name: "Test Player"}}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.GET("/players/:id", middleware.PlayerAuth(authService), handler.GetPlayer)
 
@@ -326,25 +190,17 @@ func TestGetPlayer_NoAvatar(t *testing.T) {
 func TestGetPlayer_RefreshesExpiredURL(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	storageService.GeneratedURL = "https://storage.example.com/new-signed-url"
-	imageProcessor := NewMockImageProcessor()
+	// The service handles URL refresh internally, we just verify we get the refreshed URL
+	newURL := "https://storage.example.com/new-signed-url"
+	profileService := NewMockProfileService()
+	profileService.getPlayerResult = &models.PlayerData{
+		ID:              "player-1",
+		Name:            "Test Player",
+		AvatarSignedURL: &newURL,
+	}
 	authService := &MockAuthService{player: &models.PlayerData{ID: "player-1", Name: "Test Player"}}
 
-	// Create player with expired URL (expires in 12 hours, should refresh since < 24h)
-	avatarKey := "avatars/player-1/test.webp"
-	oldURL := "https://storage.example.com/old-signed-url"
-	expiresAt := time.Now().Add(12 * time.Hour) // Within 24h refresh window
-	playerRepo.players["player-1"] = &models.PlayerData{
-		ID:                       "player-1",
-		Name:                     "Test Player",
-		AvatarObjectKey:          &avatarKey,
-		AvatarSignedURL:          &oldURL,
-		AvatarSignedURLExpiresAt: &expiresAt,
-	}
-
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.GET("/players/:id", middleware.PlayerAuth(authService), handler.GetPlayer)
 
@@ -367,15 +223,11 @@ func TestGetPlayer_RefreshesExpiredURL(t *testing.T) {
 func TestUploadAvatar_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
-
+	profileService := NewMockProfileService()
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -395,20 +247,20 @@ func TestUploadAvatar_Success(t *testing.T) {
 	var response map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &response)
 	assert.Equal(t, "https://storage.example.com/signed-url", response["avatar_url"])
+
+	// Verify service was called with correct params
+	assert.Equal(t, "player-1", profileService.lastUploadPlayerID)
+	assert.Nil(t, profileService.lastUploadOldKey)
 }
 
 func TestUploadAvatar_NoFile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
-
+	profileService := NewMockProfileService()
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -428,16 +280,13 @@ func TestUploadAvatar_NoFile(t *testing.T) {
 func TestUploadAvatar_InvalidImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
-	imageProcessor.ProcessError = &models.ImageProcessingError{Code: "INVALID_IMAGE", Reason: "cannot decode"}
+	profileService := NewMockProfileService()
+	profileService.uploadAvatarError = &models.ImageProcessingError{Code: "INVALID_IMAGE", Reason: "cannot decode"}
 
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -461,16 +310,13 @@ func TestUploadAvatar_InvalidImage(t *testing.T) {
 func TestUploadAvatar_ImageTooSmall(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
-	imageProcessor.ProcessError = &models.ImageProcessingError{Code: "IMAGE_TOO_SMALL", Reason: "below 100x100"}
+	profileService := NewMockProfileService()
+	profileService.uploadAvatarError = &models.ImageProcessingError{Code: "IMAGE_TOO_SMALL", Reason: "below 100x100"}
 
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -495,16 +341,13 @@ func TestUploadAvatar_ImageTooSmall(t *testing.T) {
 func TestUploadAvatar_StorageError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	storageService.UploadError = &models.StorageError{Reason: "GCS failure"}
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
+	profileService.uploadAvatarError = errors.New("storage error")
 
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -528,12 +371,10 @@ func TestUploadAvatar_StorageError(t *testing.T) {
 func TestUploadAvatar_Unauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 	authService := &MockAuthService{shouldFail: true}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -553,9 +394,7 @@ func TestUploadAvatar_Unauthorized(t *testing.T) {
 func TestUploadAvatar_ReplacesExistingAvatar(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 
 	// Create player with existing avatar
 	oldAvatarKey := "avatars/player-1/old.webp"
@@ -564,10 +403,9 @@ func TestUploadAvatar_ReplacesExistingAvatar(t *testing.T) {
 		Name:            "Test Player",
 		AvatarObjectKey: &oldAvatarKey,
 	}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
 
@@ -582,16 +420,16 @@ func TestUploadAvatar_ReplacesExistingAvatar(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	// The old avatar deletion happens (fire and forget), new avatar is set
+
+	// Verify old key was passed to service
+	assert.Equal(t, &oldAvatarKey, profileService.lastUploadOldKey)
 }
 
 // Test DeleteAvatar endpoint
 func TestDeleteAvatar_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 
 	avatarKey := "avatars/player-1/test.webp"
 	player := &models.PlayerData{
@@ -599,10 +437,9 @@ func TestDeleteAvatar_Success(t *testing.T) {
 		Name:            "Test Player",
 		AvatarObjectKey: &avatarKey,
 	}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.DELETE("/players/me/avatar", middleware.PlayerAuth(authService), handler.DeleteAvatar)
 
@@ -614,25 +451,23 @@ func TestDeleteAvatar_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Verify avatar was cleared
-	assert.Nil(t, playerRepo.players["player-1"].AvatarObjectKey)
+	// Verify service was called with correct params
+	assert.Equal(t, "player-1", profileService.lastDeletePlayerID)
+	assert.Equal(t, &avatarKey, profileService.lastDeleteObjectKey)
 }
 
 func TestDeleteAvatar_NoAvatar(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 
 	player := &models.PlayerData{
 		ID:   "player-1",
 		Name: "Test Player",
 	}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.DELETE("/players/me/avatar", middleware.PlayerAuth(authService), handler.DeleteAvatar)
 
@@ -644,17 +479,18 @@ func TestDeleteAvatar_NoAvatar(t *testing.T) {
 
 	// Should succeed even if no avatar exists
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Service should not have been called (handler returns early)
+	assert.Empty(t, profileService.lastDeletePlayerID)
 }
 
 func TestDeleteAvatar_Unauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 	authService := &MockAuthService{shouldFail: true}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.DELETE("/players/me/avatar", middleware.PlayerAuth(authService), handler.DeleteAvatar)
 
@@ -671,17 +507,12 @@ func TestDeleteAvatar_Unauthorized(t *testing.T) {
 func TestUpdateDisplayName_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
-
-	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
+	profileService := NewMockProfileService()
 	authService := &MockAuthService{
 		player: &models.PlayerData{ID: "player-1", Name: "Updated Name"},
 	}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
 
@@ -706,15 +537,12 @@ func TestUpdateDisplayName_Success(t *testing.T) {
 func TestUpdateDisplayName_InvalidRequestBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
 
@@ -735,15 +563,12 @@ func TestUpdateDisplayName_InvalidRequestBody(t *testing.T) {
 func TestUpdateDisplayName_AuthServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 
 	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
-	playerRepo.players["player-1"] = player
 	authService := &MockAuthService{player: player, shouldFail: true}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
 
@@ -772,12 +597,10 @@ func TestUpdateDisplayName_AuthServiceError(t *testing.T) {
 func TestUpdateDisplayName_Unauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	playerRepo := NewMockPlayerRepositoryForProfile()
-	storageService := NewMockStorageService()
-	imageProcessor := NewMockImageProcessor()
+	profileService := NewMockProfileService()
 	authService := &MockAuthService{shouldFail: true}
 
-	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	handler := NewProfileHandler(profileService, authService)
 	router := gin.New()
 	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
 

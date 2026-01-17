@@ -145,7 +145,8 @@ func main() {
 
 		storageService := services.NewStorageService(gcsStorage)
 		imageProcessor := services.NewImageProcessor()
-		profileHandler := routes.NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+		profileService := services.NewProfileService(storageService, imageProcessor, playerRepo)
+		profileHandler := routes.NewProfileHandler(profileService, authService)
 		profileHandler.SetupRoutes(router)
 		log.Infof("Profile routes enabled with GCS bucket: %s", bucketName)
 	} else {
