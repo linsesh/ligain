@@ -8,6 +8,7 @@ import (
 	"ligain/backend/repositories/postgres"
 	"ligain/backend/routes"
 	"ligain/backend/services"
+	"ligain/backend/storage"
 	"os"
 	"strings"
 
@@ -133,6 +134,23 @@ func main() {
 	// Setup game creation routes
 	gameHandler := routes.NewGameHandler(gameCreationService, authService)
 	gameHandler.SetupRoutes(router)
+
+	// Setup profile routes (with avatar upload support if GCS is configured)
+	if bucketName := os.Getenv("GCS_BUCKET_NAME"); bucketName != "" {
+		gcsStorage, err := storage.NewGCSBlobStorage(ctx, bucketName)
+		if err != nil {
+			log.Fatalf("Failed to create GCS storage: %v", err)
+		}
+		defer gcsStorage.Close()
+
+		storageService := services.NewStorageService(gcsStorage)
+		imageProcessor := services.NewImageProcessor()
+		profileHandler := routes.NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+		profileHandler.SetupRoutes(router)
+		log.Infof("Profile routes enabled with GCS bucket: %s", bucketName)
+	} else {
+		log.Warn("GCS_BUCKET_NAME not set, avatar upload disabled")
+	}
 
 	// Start server
 	port := os.Getenv("PORT")

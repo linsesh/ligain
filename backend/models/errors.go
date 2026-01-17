@@ -70,3 +70,14 @@ type StorageError struct {
 func (e *StorageError) Error() string {
 	return fmt.Sprintf("storage error: %s", e.Reason)
 }
+
+// ImageProcessingError is returned when image processing fails
+// Code can be: INVALID_IMAGE, IMAGE_TOO_SMALL, FILE_TOO_LARGE
+type ImageProcessingError struct {
+	Code   string
+	Reason string
+}
+
+func (e *ImageProcessingError) Error() string {
+	return fmt.Sprintf("image processing error [%s]: %s", e.Code, e.Reason)
+}
