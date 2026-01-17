@@ -182,6 +182,13 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		err = gameRepo.SaveWithId(gameId, game)
 		require.NoError(t, err)
 
+		// Add players to the game_player table (required for SQL query filtering)
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameId, player1.GetID())
+		require.NoError(t, err)
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameId, player2.GetID())
+		require.NoError(t, err)
+
 		// Create matches
 		matchRepo := NewPostgresMatchRepository(testDB.db)
 
@@ -238,8 +245,12 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 		t.Run("Restore Game State", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Create a fresh game repository to bypass cache and test actual database loading
+				freshGameRepo, err := NewPostgresGameRepository(testDB.db)
+				require.NoError(t, err)
+
 				// Get the game
-				restoredGame, err := gameRepo.GetGame(gameId)
+				restoredGame, err := freshGameRepo.GetGame(gameId)
 				require.NoError(t, err)
 				require.NotNil(t, restoredGame)
 
@@ -400,8 +411,12 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 
 		t.Run("Load All Players Including Non-Betting Players", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
+				// Create a fresh game repository to bypass cache and test actual database loading
+				freshGameRepo, err := NewPostgresGameRepository(testDB.db)
+				require.NoError(t, err)
+
 				// Get the game
-				restoredGame, err := gameRepo.GetGame(gameId)
+				restoredGame, err := freshGameRepo.GetGame(gameId)
 				require.NoError(t, err)
 				require.NotNil(t, restoredGame)
 
