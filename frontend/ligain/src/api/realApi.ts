@@ -16,6 +16,7 @@ import {
   CreateGameResponse,
   JoinGameResponse,
   BetResponse,
+  UploadAvatarResponse,
 } from './types';
 
 /**
@@ -90,6 +91,16 @@ export class RealAuthApi implements AuthApi {
       }
     }
   }
+
+  async uploadAvatar(_imageUri: string): Promise<UploadAvatarResponse> {
+    // TODO: Implement when backend endpoint is ready
+    throw new Error('Avatar upload not implemented yet');
+  }
+
+  async deleteAvatar(): Promise<void> {
+    // TODO: Implement when backend endpoint is ready
+    throw new Error('Avatar deletion not implemented yet');
+  }
 }
 
 /**
@@ -156,11 +167,16 @@ export class RealGamesApi implements GamesApi {
     return { game: data.game };
   }
 
-  async placeBet(gameId: string, matchId: string, prediction: string): Promise<BetResponse> {
+  async placeBet(
+    gameId: string,
+    matchId: string,
+    predictedHomeGoals: number,
+    predictedAwayGoals: number
+  ): Promise<BetResponse> {
     const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/bet`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, prediction }),
+      body: JSON.stringify({ matchId, predictedHomeGoals, predictedAwayGoals }),
     });
 
     if (!response.ok) {

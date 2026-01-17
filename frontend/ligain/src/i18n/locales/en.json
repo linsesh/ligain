@@ -133,6 +133,22 @@
     "deleteAccountTestAccount": "Test accounts cannot be deleted",
     "deleteAccountTestAccountMessage": "This is a test account and cannot be deleted. Please use a regular account to test the deletion feature."
   },
+  "avatar": {
+    "editAvatar": "Edit Profile Picture",
+    "takePhoto": "Take Photo",
+    "chooseFromLibrary": "Choose from Library",
+    "removeAvatar": "Remove Picture",
+    "save": "Save",
+    "uploading": "Uploading...",
+    "removeConfirmTitle": "Remove Profile Picture",
+    "removeConfirmMessage": "Are you sure you want to remove your profile picture?",
+    "error": {
+      "invalidImage": "The selected file is not a valid image",
+      "tooSmall": "Image must be at least 100x100 pixels",
+      "tooLarge": "Image must be less than 10MB",
+      "uploadFailed": "Failed to upload image. Please try again."
+    }
+  },
   "notifications": {
     "title": "Notifications",
     "enableNotifications": "Enable Match Reminders",

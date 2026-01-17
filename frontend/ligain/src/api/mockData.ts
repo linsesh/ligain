@@ -52,6 +52,7 @@ export const MOCK_CURRENT_PLAYER: Player = {
   provider_id: 'mock-1',
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
+  avatarUrl: null,
 };
 
 export const MOCK_PLAYERS: Player[] = [
@@ -62,6 +63,7 @@ export const MOCK_PLAYERS: Player[] = [
     email: 'marie@example.com',
     provider: 'google',
     provider_id: 'google-2',
+    avatarUrl: null,
   },
   {
     id: 'mock-player-3',
@@ -69,6 +71,7 @@ export const MOCK_PLAYERS: Player[] = [
     email: 'lucas@example.com',
     provider: 'apple',
     provider_id: 'apple-3',
+    avatarUrl: null,
   },
   {
     id: 'mock-player-4',
@@ -76,6 +79,7 @@ export const MOCK_PLAYERS: Player[] = [
     email: 'sophie@example.com',
     provider: 'google',
     provider_id: 'google-4',
+    avatarUrl: null,
   },
 ];
 
@@ -131,9 +135,9 @@ const createIncomingMatch = (
     date: date.toISOString(),
     homeTeam,
     awayTeam,
-    homeOdds: odds[0],
+    homeTeamOdds: odds[0],
     drawOdds: odds[1],
-    awayOdds: odds[2],
+    awayTeamOdds: odds[2],
     matchday,
     status: 'scheduled',
   },
@@ -164,8 +168,8 @@ const createPastMatch = (
       awayTeam,
       matchday,
       status: 'finished',
-      homeScore: score[0],
-      awayScore: score[1],
+      homeGoals: score[0],
+      awayGoals: score[1],
     },
     allBets: betsWithPoints,
   };

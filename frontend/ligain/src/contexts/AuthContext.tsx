@@ -10,6 +10,7 @@ export interface Player {
   provider_id?: string;
   created_at?: string;
   updated_at?: string;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -19,6 +20,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setPlayer: (player: Player | null) => void;
+  // Avatar methods
+  uploadAvatar: (imageUri: string) => Promise<void>;
+  deleteAvatar: () => Promise<void>;
   // Modal state management
   showNameModal: boolean;
   setShowNameModal: (show: boolean) => void;
@@ -78,37 +82,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.warn('Using memory storage fallback - data will be lost on app restart');
       }
 
-      const token = await getItem(AUTH_TOKEN_KEY);
-      const playerData = await getItem(PLAYER_DATA_KEY);
+      // Always delegate to the API implementation
+      // AuthContext has no knowledge of mock vs real - just uses the injected API
+      // - RealAuthApi.checkAuth() internally checks stored token, returns null if invalid
+      // - MockAuthApi.checkAuth() always returns mock player - it's self-contained
+      try {
+        const result = await authApi.checkAuth();
 
-      if (!isMounted) return;
+        if (!isMounted) return;
 
-      console.log('AuthContext - Token exists:', !!token, 'PlayerData exists:', !!playerData);
-
-      if (token && playerData) {
-        console.log('AuthContext - Validating token with backend');
-        try {
-          const result = await authApi.checkAuth();
-
+        if (result) {
+          console.log('AuthContext - Auth valid, setting player:', result.player?.name);
+          setPlayer(result.player);
+        } else {
+          console.log('AuthContext - Auth invalid, clearing storage');
+          await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
           if (!isMounted) return;
-
-          if (result) {
-            console.log('AuthContext - Token valid, setting player:', result.player?.name);
-            setPlayer(result.player);
-          } else {
-            console.log('AuthContext - Token invalid, clearing storage');
-            await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
-            if (!isMounted) return;
-            setPlayer(null);
-          }
-        } catch (fetchError) {
-          if (!isMounted) return;
-          console.error('AuthContext - Error during token validation:', fetchError);
           setPlayer(null);
         }
-      } else {
-        console.log('AuthContext - No token or player data found');
+      } catch (fetchError) {
         if (!isMounted) return;
+        console.error('AuthContext - Error during auth check:', fetchError);
         setPlayer(null);
       }
     } catch (error) {
@@ -201,6 +195,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const uploadAvatar = async (imageUri: string) => {
+    console.log('AuthContext - Starting uploadAvatar');
+    try {
+      const response = await authApi.uploadAvatar(imageUri);
+      console.log('AuthContext - Avatar uploaded successfully:', response.avatarUrl);
+
+      // Update local player state with new avatar URL
+      if (player) {
+        const updatedPlayer = { ...player, avatarUrl: response.avatarUrl };
+        setPlayer(updatedPlayer);
+        await setItem(PLAYER_DATA_KEY, JSON.stringify(updatedPlayer));
+      }
+    } catch (error) {
+      console.error('AuthContext - Upload avatar error:', error);
+      throw error;
+    }
+  };
+
+  const deleteAvatar = async () => {
+    console.log('AuthContext - Starting deleteAvatar');
+    try {
+      await authApi.deleteAvatar();
+      console.log('AuthContext - Avatar deleted successfully');
+
+      // Update local player state to remove avatar URL
+      if (player) {
+        const updatedPlayer = { ...player, avatarUrl: null };
+        setPlayer(updatedPlayer);
+        await setItem(PLAYER_DATA_KEY, JSON.stringify(updatedPlayer));
+      }
+    } catch (error) {
+      console.error('AuthContext - Delete avatar error:', error);
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     player,
     isLoading,
@@ -208,6 +238,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     checkAuth,
     setPlayer,
+    // Avatar methods
+    uploadAvatar,
+    deleteAvatar,
     // Modal state management
     showNameModal,
     setShowNameModal,
