@@ -8,24 +8,27 @@ import i18n from '../src/i18n';
 import { UIEventProvider } from '../src/contexts/UIEventContext';
 import { GamesProvider } from '../src/contexts/GamesContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ApiProvider } from '../src/api';
 
 export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <I18nextProvider i18n={i18n}>
         <UIEventProvider>
-          <AuthProvider>
-            <TimeServiceProvider service={new RealTimeService()}>
-              <GamesProvider>
-                <AuthGuard>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="signin" />
-                    <Stack.Screen name="(tabs)" />
-                  </Stack>
-                </AuthGuard>
-              </GamesProvider>
-            </TimeServiceProvider>
-          </AuthProvider>
+          <ApiProvider>
+            <AuthProvider>
+              <TimeServiceProvider service={new RealTimeService()}>
+                <GamesProvider>
+                  <AuthGuard>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="signin" />
+                      <Stack.Screen name="(tabs)" />
+                    </Stack>
+                  </AuthGuard>
+                </GamesProvider>
+              </TimeServiceProvider>
+            </AuthProvider>
+          </ApiProvider>
         </UIEventProvider>
       </I18nextProvider>
     </GestureHandlerRootView>
