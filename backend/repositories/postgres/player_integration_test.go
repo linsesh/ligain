@@ -142,6 +142,116 @@ func TestPlayerRepository_Integration(t *testing.T) {
 			require.Equal(t, "test_token_123", retrieved.Token)
 		})
 
+		t.Run("UpdateAvatar sets all avatar fields", func(t *testing.T) {
+			// Create player
+			player := &models.PlayerData{
+				Name:       "AvatarTestPlayer",
+				Email:      stringPtr("avatartest@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_avatar_123"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			// Call UpdateAvatar with object key, signed URL, and expiration
+			objectKey := "avatars/player123/avatar.jpg"
+			signedURL := "https://storage.googleapis.com/bucket/avatars/player123/avatar.jpg?signature=abc"
+			expiresAt := time.Now().Add(1 * time.Hour).Truncate(time.Microsecond)
+
+			err = playerRepo.UpdateAvatar(context.Background(), player.ID, objectKey, signedURL, expiresAt)
+			require.NoError(t, err)
+
+			// Retrieve player and verify all 3 avatar fields are set correctly
+			retrieved, err := playerRepo.GetPlayerByID(context.Background(), player.ID)
+			require.NoError(t, err)
+			require.NotNil(t, retrieved.AvatarObjectKey)
+			require.NotNil(t, retrieved.AvatarSignedURL)
+			require.NotNil(t, retrieved.AvatarSignedURLExpiresAt)
+			require.Equal(t, objectKey, *retrieved.AvatarObjectKey)
+			require.Equal(t, signedURL, *retrieved.AvatarSignedURL)
+			require.WithinDuration(t, expiresAt, *retrieved.AvatarSignedURLExpiresAt, time.Second)
+		})
+
+		t.Run("UpdateAvatarSignedURL refreshes signed URL only", func(t *testing.T) {
+			// Create player with avatar via UpdateAvatar
+			player := &models.PlayerData{
+				Name:       "AvatarRefreshTestPlayer",
+				Email:      stringPtr("avatarrefresh@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_avatar_refresh_123"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			objectKey := "avatars/refresh/avatar.jpg"
+			originalSignedURL := "https://storage.googleapis.com/bucket/avatars/refresh/avatar.jpg?signature=original"
+			originalExpiresAt := time.Now().Add(1 * time.Hour).Truncate(time.Microsecond)
+
+			err = playerRepo.UpdateAvatar(context.Background(), player.ID, objectKey, originalSignedURL, originalExpiresAt)
+			require.NoError(t, err)
+
+			// Call UpdateAvatarSignedURL with new URL and expiration
+			newSignedURL := "https://storage.googleapis.com/bucket/avatars/refresh/avatar.jpg?signature=new"
+			newExpiresAt := time.Now().Add(2 * time.Hour).Truncate(time.Microsecond)
+
+			err = playerRepo.UpdateAvatarSignedURL(context.Background(), player.ID, newSignedURL, newExpiresAt)
+			require.NoError(t, err)
+
+			// Retrieve player and verify object_key unchanged, signed URL updated
+			retrieved, err := playerRepo.GetPlayerByID(context.Background(), player.ID)
+			require.NoError(t, err)
+			require.NotNil(t, retrieved.AvatarObjectKey)
+			require.NotNil(t, retrieved.AvatarSignedURL)
+			require.NotNil(t, retrieved.AvatarSignedURLExpiresAt)
+			require.Equal(t, objectKey, *retrieved.AvatarObjectKey) // Object key unchanged
+			require.Equal(t, newSignedURL, *retrieved.AvatarSignedURL)
+			require.WithinDuration(t, newExpiresAt, *retrieved.AvatarSignedURLExpiresAt, time.Second)
+		})
+
+		t.Run("ClearAvatar removes all avatar fields", func(t *testing.T) {
+			// Create player with all avatar fields set via UpdateAvatar
+			player := &models.PlayerData{
+				Name:       "AvatarClearTestPlayer",
+				Email:      stringPtr("avatarclear@example.com"),
+				Provider:   stringPtr("google"),
+				ProviderID: stringPtr("google_avatar_clear_123"),
+			}
+
+			err := playerRepo.CreatePlayer(context.Background(), player)
+			require.NoError(t, err)
+
+			objectKey := "avatars/clear/avatar.jpg"
+			signedURL := "https://storage.googleapis.com/bucket/avatars/clear/avatar.jpg?signature=abc"
+			expiresAt := time.Now().Add(1 * time.Hour).Truncate(time.Microsecond)
+
+			err = playerRepo.UpdateAvatar(context.Background(), player.ID, objectKey, signedURL, expiresAt)
+			require.NoError(t, err)
+
+			// Call ClearAvatar
+			err = playerRepo.ClearAvatar(context.Background(), player.ID)
+			require.NoError(t, err)
+
+			// Retrieve player and verify all avatar fields are NULL
+			retrieved, err := playerRepo.GetPlayerByID(context.Background(), player.ID)
+			require.NoError(t, err)
+			require.Nil(t, retrieved.AvatarObjectKey)
+			require.Nil(t, retrieved.AvatarSignedURL)
+			require.Nil(t, retrieved.AvatarSignedURLExpiresAt)
+		})
+
+		t.Run("UpdateAvatar for non-existent player returns error", func(t *testing.T) {
+			// Call UpdateAvatar with non-existent player ID
+			nonExistentID := "00000000-0000-0000-0000-000000000000"
+			objectKey := "avatars/nonexistent/avatar.jpg"
+			signedURL := "https://storage.googleapis.com/bucket/avatars/nonexistent/avatar.jpg?signature=abc"
+			expiresAt := time.Now().Add(1 * time.Hour)
+
+			err := playerRepo.UpdateAvatar(context.Background(), nonExistentID, objectKey, signedURL, expiresAt)
+			require.Error(t, err)
+		})
+
 		t.Run("Get Players by Game", func(t *testing.T) {
 			// Setup test data
 			_, err := testDB.db.Exec(`

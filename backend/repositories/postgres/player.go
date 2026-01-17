@@ -66,12 +66,14 @@ func (r *PostgresPlayerRepository) CreatePlayer(ctx context.Context, player *mod
 func (r *PostgresPlayerRepository) GetPlayerByID(ctx context.Context, id string) (*models.PlayerData, error) {
 	var player models.PlayerData
 	query := `
-		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		SELECT id, name, email, provider, provider_id, created_at, updated_at,
+			avatar_object_key, avatar_signed_url, avatar_signed_url_expires_at
 		FROM player WHERE id = $1
 	`
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
-		&player.CreatedAt, &player.UpdatedAt)
+		&player.CreatedAt, &player.UpdatedAt,
+		&player.AvatarObjectKey, &player.AvatarSignedURL, &player.AvatarSignedURLExpiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -81,12 +83,14 @@ func (r *PostgresPlayerRepository) GetPlayerByID(ctx context.Context, id string)
 func (r *PostgresPlayerRepository) GetPlayerByEmail(ctx context.Context, email string) (*models.PlayerData, error) {
 	var player models.PlayerData
 	query := `
-		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		SELECT id, name, email, provider, provider_id, created_at, updated_at,
+			avatar_object_key, avatar_signed_url, avatar_signed_url_expires_at
 		FROM player WHERE email = $1
 	`
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
-		&player.CreatedAt, &player.UpdatedAt)
+		&player.CreatedAt, &player.UpdatedAt,
+		&player.AvatarObjectKey, &player.AvatarSignedURL, &player.AvatarSignedURLExpiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -99,12 +103,14 @@ func (r *PostgresPlayerRepository) GetPlayerByEmail(ctx context.Context, email s
 func (r *PostgresPlayerRepository) GetPlayerByProvider(ctx context.Context, provider, providerID string) (*models.PlayerData, error) {
 	var player models.PlayerData
 	query := `
-		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		SELECT id, name, email, provider, provider_id, created_at, updated_at,
+			avatar_object_key, avatar_signed_url, avatar_signed_url_expires_at
 		FROM player WHERE provider = $1 AND provider_id = $2
 	`
 	err := r.db.QueryRowContext(ctx, query, provider, providerID).Scan(
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
-		&player.CreatedAt, &player.UpdatedAt)
+		&player.CreatedAt, &player.UpdatedAt,
+		&player.AvatarObjectKey, &player.AvatarSignedURL, &player.AvatarSignedURLExpiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -117,12 +123,14 @@ func (r *PostgresPlayerRepository) GetPlayerByProvider(ctx context.Context, prov
 func (r *PostgresPlayerRepository) GetPlayerByName(ctx context.Context, name string) (*models.PlayerData, error) {
 	var player models.PlayerData
 	query := `
-		SELECT id, name, email, provider, provider_id, created_at, updated_at
+		SELECT id, name, email, provider, provider_id, created_at, updated_at,
+			avatar_object_key, avatar_signed_url, avatar_signed_url_expires_at
 		FROM player WHERE name = $1
 	`
 	err := r.db.QueryRowContext(ctx, query, name).Scan(
 		&player.ID, &player.Name, &player.Email, &player.Provider, &player.ProviderID,
-		&player.CreatedAt, &player.UpdatedAt)
+		&player.CreatedAt, &player.UpdatedAt,
+		&player.AvatarObjectKey, &player.AvatarSignedURL, &player.AvatarSignedURLExpiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -236,5 +244,73 @@ func (r *PostgresPlayerRepository) DeletePlayer(ctx context.Context, playerID st
 		return sql.ErrNoRows
 	}
 
+	return nil
+}
+
+func (r *PostgresPlayerRepository) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	query := `
+		UPDATE player
+		SET avatar_object_key = $2,
+			avatar_signed_url = $3,
+			avatar_signed_url_expires_at = $4,
+			updated_at = NOW()
+		WHERE id = $1
+	`
+	result, err := r.db.ExecContext(ctx, query, playerID, objectKey, signedURL, expiresAt)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *PostgresPlayerRepository) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	query := `
+		UPDATE player
+		SET avatar_signed_url = $2,
+			avatar_signed_url_expires_at = $3,
+			updated_at = NOW()
+		WHERE id = $1
+	`
+	result, err := r.db.ExecContext(ctx, query, playerID, signedURL, expiresAt)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *PostgresPlayerRepository) ClearAvatar(ctx context.Context, playerID string) error {
+	query := `
+		UPDATE player
+		SET avatar_object_key = NULL,
+			avatar_signed_url = NULL,
+			avatar_signed_url_expires_at = NULL,
+			updated_at = NOW()
+		WHERE id = $1
+	`
+	result, err := r.db.ExecContext(ctx, query, playerID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
 	return nil
 }

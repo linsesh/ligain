@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ligain/backend/models"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -28,6 +29,14 @@ type PlayerRepository interface {
 	UpdateAuthToken(ctx context.Context, token *models.AuthToken) error
 	DeleteAuthToken(ctx context.Context, token string) error
 	DeleteExpiredTokens(ctx context.Context) error
+
+	// Avatar methods
+	// UpdateAvatar sets all avatar fields in a single DB call (object key + signed URL + expiration)
+	UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error
+	// UpdateAvatarSignedURL refreshes only the cached signed URL (for URL expiration refresh)
+	UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error
+	// ClearAvatar removes all avatar fields
+	ClearAvatar(ctx context.Context, playerID string) error
 }
 
 // InMemoryPlayerRepository is a simple in-memory implementation of PlayerRepository
@@ -155,6 +164,44 @@ func (r *InMemoryPlayerRepository) DeletePlayer(ctx context.Context, playerID st
 		if authToken.PlayerID == playerID {
 			delete(r.tokens, token)
 		}
+	}
+	return nil
+}
+
+func (r *InMemoryPlayerRepository) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	player, exists := r.players[playerID]
+	if !exists {
+		return fmt.Errorf("player not found")
+	}
+	if playerData, ok := player.(*models.PlayerData); ok {
+		playerData.AvatarObjectKey = &objectKey
+		playerData.AvatarSignedURL = &signedURL
+		playerData.AvatarSignedURLExpiresAt = &expiresAt
+	}
+	return nil
+}
+
+func (r *InMemoryPlayerRepository) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	player, exists := r.players[playerID]
+	if !exists {
+		return fmt.Errorf("player not found")
+	}
+	if playerData, ok := player.(*models.PlayerData); ok {
+		playerData.AvatarSignedURL = &signedURL
+		playerData.AvatarSignedURLExpiresAt = &expiresAt
+	}
+	return nil
+}
+
+func (r *InMemoryPlayerRepository) ClearAvatar(ctx context.Context, playerID string) error {
+	player, exists := r.players[playerID]
+	if !exists {
+		return fmt.Errorf("player not found")
+	}
+	if playerData, ok := player.(*models.PlayerData); ok {
+		playerData.AvatarObjectKey = nil
+		playerData.AvatarSignedURL = nil
+		playerData.AvatarSignedURLExpiresAt = nil
 	}
 	return nil
 }

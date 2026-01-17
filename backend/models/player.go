@@ -34,6 +34,10 @@ type PlayerData struct {
 	ProviderID *string    `json:"provider_id,omitempty" db:"provider_id"`
 	CreatedAt  *time.Time `json:"created_at,omitempty" db:"created_at"`
 	UpdatedAt  *time.Time `json:"updated_at,omitempty" db:"updated_at"`
+	// Avatar fields for profile pictures stored in GCS
+	AvatarObjectKey          *string    `json:"avatar_object_key,omitempty" db:"avatar_object_key"`
+	AvatarSignedURL          *string    `json:"avatar_signed_url,omitempty" db:"avatar_signed_url"`
+	AvatarSignedURLExpiresAt *time.Time `json:"avatar_signed_url_expires_at,omitempty" db:"avatar_signed_url_expires_at"`
 }
 
 // Implement Player interface for SimplePlayer

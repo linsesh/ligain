@@ -136,6 +136,18 @@ func (m *MockPlayerRepository) DeletePlayer(ctx context.Context, playerID string
 	return nil
 }
 
+func (m *MockPlayerRepository) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	return nil
+}
+
+func (m *MockPlayerRepository) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	return nil
+}
+
+func (m *MockPlayerRepository) ClearAvatar(ctx context.Context, playerID string) error {
+	return nil
+}
+
 func TestAuthService_Authenticate_NewUser(t *testing.T) {
 	mockRepo := NewMockPlayerRepository()
 	authService := NewAuthServiceWithTimeFunc(mockRepo, NewMockOAuthVerifier(), func() time.Time { return frozenTime })
@@ -759,6 +771,18 @@ func (m *MockPlayerRepositoryWithErrors) DeleteExpiredTokens(ctx context.Context
 }
 
 func (m *MockPlayerRepositoryWithErrors) DeletePlayer(ctx context.Context, playerID string) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) ClearAvatar(ctx context.Context, playerID string) error {
 	return fmt.Errorf("mock error")
 }
 

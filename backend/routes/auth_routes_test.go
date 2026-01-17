@@ -131,6 +131,23 @@ func (m *MockPlayerRepository) DeleteExpiredTokens(ctx context.Context) error {
 	return nil
 }
 
+func (m *MockPlayerRepository) DeletePlayer(ctx context.Context, playerID string) error {
+	delete(m.players, playerID)
+	return nil
+}
+
+func (m *MockPlayerRepository) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	return nil
+}
+
+func (m *MockPlayerRepository) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	return nil
+}
+
+func (m *MockPlayerRepository) ClearAvatar(ctx context.Context, playerID string) error {
+	return nil
+}
+
 // MockPlayerRepositoryWithErrors is a mock that returns errors for testing error scenarios
 type MockPlayerRepositoryWithErrors struct{}
 
@@ -183,6 +200,22 @@ func (m *MockPlayerRepositoryWithErrors) DeleteAuthToken(ctx context.Context, to
 }
 
 func (m *MockPlayerRepositoryWithErrors) DeleteExpiredTokens(ctx context.Context) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) DeletePlayer(ctx context.Context, playerID string) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdateAvatar(ctx context.Context, playerID string, objectKey string, signedURL string, expiresAt time.Time) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) UpdateAvatarSignedURL(ctx context.Context, playerID string, signedURL string, expiresAt time.Time) error {
+	return fmt.Errorf("mock error")
+}
+
+func (m *MockPlayerRepositoryWithErrors) ClearAvatar(ctx context.Context, playerID string) error {
 	return fmt.Errorf("mock error")
 }
 
