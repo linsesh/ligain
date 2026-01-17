@@ -234,7 +234,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>1</Text>
             <Text style={styles.oddsValue}>
-              {matchResult.match.getHomeTeamOdds() === 0 ? '-' : matchResult.match.getHomeTeamOdds().toFixed(2)}
+              {matchResult.match.getHomeTeamOdds() ? matchResult.match.getHomeTeamOdds().toFixed(2) : '-'}
             </Text>
             {matchResult.match.hasClearFavorite() && (
               matchResult.match.getFavoriteTeam() === matchResult.match.getHomeTeam()
@@ -245,7 +245,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>N</Text>
             <Text style={styles.oddsValue}>
-              {matchResult.match.getDrawOdds() === 0 ? '-' : matchResult.match.getDrawOdds().toFixed(2)}
+              {matchResult.match.getDrawOdds() ? matchResult.match.getDrawOdds().toFixed(2) : '-'}
             </Text>
             {matchResult.match.hasClearFavorite() && (
               <Text style={styles.outsiderMark}>×1.5</Text>
@@ -254,7 +254,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>2</Text>
             <Text style={styles.oddsValue}>
-              {matchResult.match.getAwayTeamOdds() === 0 ? '-' : matchResult.match.getAwayTeamOdds().toFixed(2)}
+              {matchResult.match.getAwayTeamOdds() ? matchResult.match.getAwayTeamOdds().toFixed(2) : '-'}
             </Text>
             {matchResult.match.hasClearFavorite() && (
               matchResult.match.getFavoriteTeam() === matchResult.match.getAwayTeam()

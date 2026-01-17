@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { SeasonMatch, MatchResult } from '../src/types/match';
-import { BetImpl } from '../src/types/bet';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
-import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
+import { useGamesApi } from '../src/api';
 import { translateError } from '../src/utils/errorMessages';
 
 export const useMatches = (gameId: string) => {
+  const gamesApi = useGamesApi();
   const timeService = useTimeService();
   const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
   const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
@@ -14,17 +14,7 @@ export const useMatches = (gameId: string) => {
 
   const fetchMatches = async () => {
     try {
-      const headers = await getAuthenticatedHeaders();
-      
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
-        headers,
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`${response.status}: ${errorData.error || 'Unknown error'}`);
-      }
-      
-      const data = await response.json();
+      const data = await gamesApi.getGameMatches(gameId);
 
 
       // Convert the matches to SeasonMatch objects and bets to BetImpl objects

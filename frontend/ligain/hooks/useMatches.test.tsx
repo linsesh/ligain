@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useMatches } from './useMatches';
 import { MockTimeService } from '../src/test-utils';
 import { TimeServiceProvider } from '../src/contexts/TimeServiceContext';
@@ -6,9 +6,13 @@ import { AuthProvider } from '../src/contexts/AuthContext';
 import { ApiProvider } from '../src/api';
 import { ReactNode } from 'react';
 
+// Mock getGameMatches function - defined before the mock
+const mockGetGameMatches = jest.fn();
+
 // Mock the API module to provide mock implementations
 jest.mock('../src/api/ApiProvider', () => {
   const React = require('react');
+
   const mockAuthApi = {
     checkAuth: jest.fn().mockResolvedValue(null),
     signIn: jest.fn(),
@@ -18,7 +22,7 @@ jest.mock('../src/api/ApiProvider', () => {
 
   const mockGamesApi = {
     getGames: jest.fn(),
-    getGameMatches: jest.fn(),
+    getGameMatches: (...args: any[]) => mockGetGameMatches(...args),
     createGame: jest.fn(),
     joinGame: jest.fn(),
     placeBet: jest.fn(),
@@ -28,12 +32,15 @@ jest.mock('../src/api/ApiProvider', () => {
   const ApiContext = React.createContext({ auth: mockAuthApi, games: mockGamesApi });
 
   return {
-    ApiProvider: ({ children }: { children: React.ReactNode }) => (
-      React.createElement(ApiContext.Provider, { value: { auth: mockAuthApi, games: mockGamesApi } }, children)
-    ),
+    ApiProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(
+        ApiContext.Provider,
+        { value: { auth: mockAuthApi, games: mockGamesApi } },
+        children
+      ),
     useApi: () => React.useContext(ApiContext),
-    useAuthApi: () => React.useContext(ApiContext).auth,
-    useGamesApi: () => React.useContext(ApiContext).games,
+    useAuthApi: () => mockAuthApi,
+    useGamesApi: () => mockGamesApi,
   };
 });
 
@@ -46,21 +53,15 @@ jest.mock('../src/config/api', () => ({
   },
   getAuthenticatedHeaders: jest.fn().mockResolvedValue({
     'X-API-Key': 'test-api-key',
-    'Authorization': 'Bearer test-token',
+    Authorization: 'Bearer test-token',
   }),
 }));
-
-// Mock fetch globally
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
 
 // Wrapper component for testing hooks with providers
 const wrapper = ({ children }: { children: ReactNode }) => (
   <ApiProvider>
     <AuthProvider>
-      <TimeServiceProvider service={new MockTimeService()}>
-        {children}
-      </TimeServiceProvider>
+      <TimeServiceProvider service={new MockTimeService()}>{children}</TimeServiceProvider>
     </AuthProvider>
   </ApiProvider>
 );
@@ -68,6 +69,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('useMatches', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetGameMatches.mockReset();
   });
 
   it('should fetch matches successfully', async () => {
@@ -102,10 +104,7 @@ describe('useMatches', () => {
       pastMatches: {},
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    } as Response);
+    mockGetGameMatches.mockResolvedValueOnce(mockResponse);
 
     const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
@@ -114,9 +113,10 @@ describe('useMatches', () => {
     expect(result.current.error).toBe(null);
 
     // Wait for the fetch to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
-    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBe(null);
     expect(result.current.incomingMatches).toHaveProperty('match-1');
     expect(result.current.pastMatches).toEqual({});
@@ -133,35 +133,35 @@ describe('useMatches', () => {
     expect(matchResult.match.getHomeTeamOdds()).toBe(1.5);
     expect(matchResult.match.getAwayTeamOdds()).toBe(2.5);
     expect(matchResult.match.getDrawOdds()).toBe(3.0);
+
+    // Verify the API was called correctly
+    expect(mockGetGameMatches).toHaveBeenCalledWith('test-game-id');
   });
 
   it('should handle API errors', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      json: async () => ({ error: 'Server error' }),
-    } as Response);
+    mockGetGameMatches.mockRejectedValueOnce(new Error('Server error'));
 
     const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
-    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toBe('Server error. Please try again later');
+    expect(result.current.error?.message).toBe('Something went wrong. Please try again later');
     expect(result.current.incomingMatches).toEqual({});
     expect(result.current.pastMatches).toEqual({});
   });
 
   it('should handle network errors', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    mockGetGameMatches.mockRejectedValueOnce(new Error('Network error'));
 
     const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
-    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
     expect(result.current.error?.message).toBe('Something went wrong. Please try again later');
   });
@@ -204,14 +204,13 @@ describe('useMatches', () => {
       },
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    } as Response);
+    mockGetGameMatches.mockResolvedValueOnce(mockResponse);
 
     const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
     const matchResult = result.current.pastMatches['match-1'];
     expect(matchResult.scores).toHaveProperty('player-1');
@@ -225,14 +224,13 @@ describe('useMatches', () => {
       pastMatches: {},
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    } as Response);
+    mockGetGameMatches.mockResolvedValueOnce(mockResponse);
 
     const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
     expect(result.current.incomingMatches).toEqual({});
     expect(result.current.pastMatches).toEqual({});
@@ -245,19 +243,20 @@ describe('useMatches', () => {
       pastMatches: {},
     };
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => mockResponse,
-    } as Response);
+    mockGetGameMatches.mockResolvedValue(mockResponse);
 
     const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
     // Call refresh
-    await result.current.refresh();
+    await act(async () => {
+      await result.current.refresh();
+    });
 
-    // Should have called fetch twice (initial + refresh)
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Should have called getGameMatches twice (initial + refresh)
+    expect(mockGetGameMatches).toHaveBeenCalledTimes(2);
   });
 });

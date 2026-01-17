@@ -3,7 +3,7 @@ import { useGames } from '../src/contexts/GamesContext';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 import { useMatches } from './useMatches';
-import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
+import { useGamesApi } from '../src/api';
 import { SeasonMatch } from '../src/types/match';
 
 export interface SyncOpportunity {
@@ -20,6 +20,7 @@ export interface SyncOpportunity {
 }
 
 export const useBetSynchronization = (currentGameId: string) => {
+  const gamesApi = useGamesApi();
   const { games } = useGames();
   const { player } = useAuth();
   const timeService = useTimeService();
@@ -73,16 +74,7 @@ export const useBetSynchronization = (currentGameId: string) => {
   };
 
   const fetchOtherGameMatches = async (gameId: string) => {
-    const headers = await getAuthenticatedHeaders();
-    const response = await fetch(`${API_CONFIG.BASE_URL}/api/game/${gameId}/matches`, {
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch matches for game ${gameId}: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await gamesApi.getGameMatches(gameId);
     const allMatches = [...Object.values(data.incomingMatches || {}), ...Object.values(data.pastMatches || {})];
     
     return allMatches.map((matchData: any) => {
@@ -217,7 +209,7 @@ export const useBetSynchronization = (currentGameId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [currentGameId, games, player, timeService, currentIncomingMatches, currentPastMatches]);
+  }, [currentGameId, games, player, timeService, currentIncomingMatches, currentPastMatches, gamesApi]);
 
   // Use a ref to track if we've already run the sync check for the current game
   const hasRunSyncCheck = useRef(false);
