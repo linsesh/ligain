@@ -8,9 +8,9 @@
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import Constants from 'expo-constants';
-import { Api, AuthApi, GamesApi } from './types';
-import { RealAuthApi, RealGamesApi } from './realApi';
-import { MockAuthApi, MockGamesApi } from './mockApi';
+import { Api, AuthApi, GamesApi, ProfileApi } from './types';
+import { RealAuthApi, RealGamesApi, RealProfileApi } from './realApi';
+import { MockAuthApi, MockGamesApi, MockProfileApi } from './mockApi';
 
 // Context for API injection
 const ApiContext = createContext<Api | null>(null);
@@ -34,6 +34,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
       return {
         auth: new MockAuthApi(),
         games: new MockGamesApi(),
+        profile: new MockProfileApi(),
       };
     }
 
@@ -41,6 +42,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     return {
       auth: new RealAuthApi(),
       games: new RealGamesApi(),
+      profile: new RealProfileApi(),
     };
   }, [isMockMode]);
 
@@ -79,4 +81,14 @@ export const useAuthApi = (): AuthApi => {
 export const useGamesApi = (): GamesApi => {
   const { games } = useApi();
   return games;
+};
+
+/**
+ * useProfileApi hook
+ *
+ * Convenience hook for accessing just the Profile API
+ */
+export const useProfileApi = (): ProfileApi => {
+  const { profile } = useApi();
+  return profile;
 };

@@ -26,18 +26,24 @@ jest.mock('../src/api/ApiProvider', () => {
     leaveGame: jest.fn(),
   };
 
-  const ApiContext = React.createContext({ auth: mockAuthApi, games: mockGamesApi });
+  const mockProfileApi = {
+    uploadAvatar: jest.fn(),
+    deleteAvatar: jest.fn(),
+  };
+
+  const ApiContext = React.createContext({ auth: mockAuthApi, games: mockGamesApi, profile: mockProfileApi });
 
   return {
     ApiProvider: ({ children }: { children: React.ReactNode }) =>
       React.createElement(
         ApiContext.Provider,
-        { value: { auth: mockAuthApi, games: mockGamesApi } },
+        { value: { auth: mockAuthApi, games: mockGamesApi, profile: mockProfileApi } },
         children
       ),
     useApi: () => React.useContext(ApiContext),
     useAuthApi: () => mockAuthApi,
     useGamesApi: () => mockGamesApi,
+    useProfileApi: () => mockProfileApi,
   };
 });
 

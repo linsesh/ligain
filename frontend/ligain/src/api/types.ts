@@ -136,7 +136,15 @@ export interface AuthApi {
    * Sign out the current user
    */
   signOut(): Promise<void>;
+}
 
+/**
+ * Profile API Interface
+ *
+ * Handles user profile operations including:
+ * - Avatar upload and deletion
+ */
+export interface ProfileApi {
   /**
    * Upload a new avatar image
    * @param imageUri - The local URI of the image to upload
@@ -212,4 +220,5 @@ export interface GamesApi {
 export interface Api {
   auth: AuthApi;
   games: GamesApi;
+  profile: ProfileApi;
 }

@@ -9,6 +9,7 @@ import { API_CONFIG, getApiHeaders, authenticatedFetch } from '../config/api';
 import {
   AuthApi,
   GamesApi,
+  ProfileApi,
   AuthCheckResponse,
   AuthSignInResponse,
   GamesResponse,
@@ -91,7 +92,13 @@ export class RealAuthApi implements AuthApi {
       }
     }
   }
+}
 
+/**
+ * Real Profile API implementation
+ * Makes HTTP calls to the backend for profile operations
+ */
+export class RealProfileApi implements ProfileApi {
   async uploadAvatar(_imageUri: string): Promise<UploadAvatarResponse> {
     // TODO: Implement when backend endpoint is ready
     throw new Error('Avatar upload not implemented yet');
