@@ -133,6 +133,22 @@
     "deleteAccountTestAccount": "Les comptes de test ne peuvent pas être supprimés",
     "deleteAccountTestAccountMessage": "Ceci est un compte de test et ne peut pas être supprimé. Utilise un compte normal pour tester la fonctionnalité de suppression."
   },
+  "avatar": {
+    "editAvatar": "Modifier la photo de profil",
+    "takePhoto": "Prendre une photo",
+    "chooseFromLibrary": "Choisir depuis la galerie",
+    "removeAvatar": "Supprimer la photo",
+    "save": "Enregistrer",
+    "uploading": "Envoi en cours...",
+    "removeConfirmTitle": "Supprimer la photo de profil",
+    "removeConfirmMessage": "Êtes-vous sûr de vouloir supprimer votre photo de profil ?",
+    "error": {
+      "invalidImage": "Le fichier sélectionné n'est pas une image valide",
+      "tooSmall": "L'image doit faire au moins 100x100 pixels",
+      "tooLarge": "L'image doit faire moins de 10 Mo",
+      "uploadFailed": "Échec de l'envoi de l'image. Veuillez réessayer."
+    }
+  },
   "notifications": {
     "title": "Notifications",
     "enableNotifications": "Activer les rappels de match",

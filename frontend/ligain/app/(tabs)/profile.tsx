@@ -24,9 +24,11 @@ import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
 import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
 import { useNotifications } from '../../src/hooks/useNotifications';
+import { PlayerAvatar } from '../../src/components/PlayerAvatar';
+import { AvatarEditor } from '../../src/components/AvatarEditor';
 
 export default function ProfileScreen() {
-  const { player, signOut, setPlayer } = useAuth();
+  const { player, signOut, setPlayer, uploadAvatar, deleteAvatar } = useAuth();
   const { refresh: refreshGames } = useGames();
   const { t, isFrench } = useTranslation();
   // Notification preferences management
@@ -40,6 +42,7 @@ export default function ProfileScreen() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTogglingNotifications, setIsTogglingNotifications] = useState(false);
+  const [showAvatarEditor, setShowAvatarEditor] = useState(false);
   const nameInputRef = React.useRef<TextInput>(null);
   const deleteInputRef = React.useRef<TextInput>(null);
 
@@ -282,9 +285,19 @@ export default function ProfileScreen() {
 
           {/* Profile Header */}
           <View style={styles.profileHeader}>
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={40} color={colors.text} />
-            </View>
+            <TouchableOpacity
+              onPress={() => setShowAvatarEditor(true)}
+              style={styles.avatarContainer}
+              activeOpacity={0.7}
+            >
+              <PlayerAvatar
+                player={player}
+                displaySize="large"
+              />
+              <View style={styles.editBadge}>
+                <Ionicons name="pencil" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <Text style={[styles.name, { color: colors.text }]}>{player.name}</Text>
             {player.email && (
               <Text style={[styles.email, { color: colors.textSecondary }]}>
@@ -547,6 +560,15 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Avatar Editor Modal */}
+      <AvatarEditor
+        currentAvatarUrl={player?.avatarUrl || null}
+        onSave={uploadAvatar}
+        onDelete={deleteAvatar}
+        visible={showAvatarEditor}
+        onClose={() => setShowAvatarEditor(false)}
+      />
     </>
   );
 }
@@ -563,15 +585,22 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingTop: 20,
   },
-
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: colors.card,
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.background,
   },
   name: {
     fontSize: 24,

@@ -15,6 +15,9 @@ import {
   CreateGameResponse,
   JoinGameResponse,
   BetResponse,
+  UploadAvatarResponse,
+  AvatarError,
+  AvatarErrorCode,
 } from './types';
 import {
   MOCK_CURRENT_PLAYER,
@@ -27,6 +30,16 @@ import { Game } from '../contexts/GamesContext';
 // Simulates network delay for realistic UX
 const simulateDelay = (ms: number = 300): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+// For testing error scenarios
+let mockUploadError: AvatarErrorCode | null = null;
+
+/**
+ * Set a mock error for the next avatar upload (for testing)
+ */
+export function setMockUploadError(error: AvatarErrorCode | null): void {
+  mockUploadError = error;
+}
 
 /**
  * Mock Auth API implementation
@@ -70,6 +83,31 @@ export class MockAuthApi implements AuthApi {
     await simulateDelay(200);
     console.log('[MockAuthApi] signOut');
   }
+
+  async uploadAvatar(imageUri: string): Promise<UploadAvatarResponse> {
+    await simulateDelay(800); // Simulate upload time
+    console.log('[MockAuthApi] uploadAvatar:', imageUri);
+
+    // Check for mock error
+    if (mockUploadError) {
+      const error = mockUploadError;
+      mockUploadError = null; // Reset after use
+      throw new AvatarError(error, `Mock error: ${error}`);
+    }
+
+    // Update mock player's avatar
+    MOCK_CURRENT_PLAYER.avatarUrl = imageUri;
+
+    return { avatarUrl: imageUri };
+  }
+
+  async deleteAvatar(): Promise<void> {
+    await simulateDelay(300);
+    console.log('[MockAuthApi] deleteAvatar');
+
+    // Clear mock player's avatar
+    MOCK_CURRENT_PLAYER.avatarUrl = null;
+  }
 }
 
 /**
@@ -79,7 +117,8 @@ export class MockAuthApi implements AuthApi {
 export class MockGamesApi implements GamesApi {
   // In-memory state for session persistence
   private games: Game[] = [...MOCK_GAMES];
-  private bets: Map<string, Map<string, string>> = new Map(); // gameId -> (matchId -> prediction)
+  private bets: Map<string, Map<string, { predictedHomeGoals: number; predictedAwayGoals: number }>> =
+    new Map(); // gameId -> (matchId -> bet)
   private nextGameIndex: number = MOCK_GAMES.length + 1;
 
   async getGames(): Promise<GamesResponse> {
@@ -98,11 +137,13 @@ export class MockGamesApi implements GamesApi {
     // If we have session bets, merge them into the matches
     if (gameBets && gameBets.size > 0) {
       const updatedIncoming = { ...baseMatches.incomingMatches };
-      for (const [matchId, prediction] of gameBets) {
+      for (const [matchId, bet] of gameBets) {
         if (updatedIncoming[matchId]) {
           updatedIncoming[matchId] = {
             ...updatedIncoming[matchId],
-            bet: { prediction },
+            bet: {
+              prediction: `${bet.predictedHomeGoals}-${bet.predictedAwayGoals}`,
+            },
           };
         }
       }
@@ -152,18 +193,23 @@ export class MockGamesApi implements GamesApi {
     return { game };
   }
 
-  async placeBet(gameId: string, matchId: string, prediction: string): Promise<BetResponse> {
+  async placeBet(
+    gameId: string,
+    matchId: string,
+    predictedHomeGoals: number,
+    predictedAwayGoals: number
+  ): Promise<BetResponse> {
     await simulateDelay(200);
-    console.log('[MockGamesApi] placeBet:', { gameId, matchId, prediction });
+    console.log('[MockGamesApi] placeBet:', { gameId, matchId, predictedHomeGoals, predictedAwayGoals });
 
     // Store bet in memory
     if (!this.bets.has(gameId)) {
       this.bets.set(gameId, new Map());
     }
-    this.bets.get(gameId)!.set(matchId, prediction);
+    this.bets.get(gameId)!.set(matchId, { predictedHomeGoals, predictedAwayGoals });
 
     return {
-      bet: { matchId, prediction },
+      bet: { matchId, predictedHomeGoals, predictedAwayGoals },
     };
   }
 

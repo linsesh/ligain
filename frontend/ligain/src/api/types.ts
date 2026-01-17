@@ -15,6 +15,23 @@ export interface AuthCheckResponse {
   player: Player;
 }
 
+// Avatar API Types
+export interface UploadAvatarResponse {
+  avatarUrl: string;
+}
+
+export type AvatarErrorCode = 'INVALID_IMAGE' | 'FILE_TOO_LARGE' | 'IMAGE_TOO_SMALL' | 'UPLOAD_FAILED';
+
+export class AvatarError extends Error {
+  code: AvatarErrorCode;
+
+  constructor(code: AvatarErrorCode, message: string) {
+    super(message);
+    this.code = code;
+    this.name = 'AvatarError';
+  }
+}
+
 export interface AuthSignInResponse {
   token: string;
   player: Player;
@@ -36,13 +53,13 @@ export interface MatchData {
     date: string;
     homeTeam: string;
     awayTeam: string;
-    homeOdds?: number;
+    homeTeamOdds?: number;
     drawOdds?: number;
-    awayOdds?: number;
+    awayTeamOdds?: number;
     matchday: number;
     status: string;
-    homeScore?: number;
-    awayScore?: number;
+    homeGoals?: number;
+    awayGoals?: number;
   };
   bet?: {
     prediction: string;
@@ -75,7 +92,8 @@ export interface JoinGameResponse {
 export interface BetResponse {
   bet: {
     matchId: string;
-    prediction: string;
+    predictedHomeGoals: number;
+    predictedAwayGoals: number;
   };
 }
 
@@ -118,6 +136,19 @@ export interface AuthApi {
    * Sign out the current user
    */
   signOut(): Promise<void>;
+
+  /**
+   * Upload a new avatar image
+   * @param imageUri - The local URI of the image to upload
+   * @returns The uploaded avatar URL
+   * @throws AvatarError if validation or upload fails
+   */
+  uploadAvatar(imageUri: string): Promise<UploadAvatarResponse>;
+
+  /**
+   * Delete the current user's avatar
+   */
+  deleteAvatar(): Promise<void>;
 }
 
 /**
@@ -158,9 +189,15 @@ export interface GamesApi {
    * Place a bet on a match
    * @param gameId - The game the match belongs to
    * @param matchId - The match to bet on
-   * @param prediction - The prediction (home, draw, away)
+   * @param predictedHomeGoals - The predicted home team goals
+   * @param predictedAwayGoals - The predicted away team goals
    */
-  placeBet(gameId: string, matchId: string, prediction: string): Promise<BetResponse>;
+  placeBet(
+    gameId: string,
+    matchId: string,
+    predictedHomeGoals: number,
+    predictedAwayGoals: number
+  ): Promise<BetResponse>;
 
   /**
    * Leave a game
