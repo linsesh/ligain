@@ -8,6 +8,9 @@
  * These tests verify the component can be imported and basic props are typed correctly.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 // Mock expo-image-picker
 jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(),
@@ -73,5 +76,39 @@ describe('AvatarEditor', () => {
     expect(typeof props.onDelete).toBe('function');
     expect(props.visible).toBe(true);
     expect(typeof props.onClose).toBe('function');
+  });
+
+  describe('permission error translations', () => {
+    it('uses correct translation key for camera permission error', () => {
+      // Read the source file to verify translation key is used
+      const sourcePath = path.join(__dirname, '../AvatarEditor.tsx');
+      const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
+
+      expect(sourceCode).toContain("t('avatar.error.cameraPermission')");
+    });
+
+    it('uses correct translation key for library permission error', () => {
+      // Read the source file to verify translation key is used
+      const sourcePath = path.join(__dirname, '../AvatarEditor.tsx');
+      const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
+
+      expect(sourceCode).toContain("t('avatar.error.libraryPermission')");
+    });
+
+    it('translation keys exist in English locale', () => {
+      const localePath = path.join(__dirname, '../../i18n/locales/en.json');
+      const localeData = JSON.parse(fs.readFileSync(localePath, 'utf-8'));
+
+      expect(localeData.avatar.error.cameraPermission).toBeDefined();
+      expect(localeData.avatar.error.libraryPermission).toBeDefined();
+    });
+
+    it('translation keys exist in French locale', () => {
+      const localePath = path.join(__dirname, '../../i18n/locales/fr.json');
+      const localeData = JSON.parse(fs.readFileSync(localePath, 'utf-8'));
+
+      expect(localeData.avatar.error.cameraPermission).toBeDefined();
+      expect(localeData.avatar.error.libraryPermission).toBeDefined();
+    });
   });
 });

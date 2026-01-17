@@ -146,7 +146,9 @@
       "invalidImage": "Le fichier sélectionné n'est pas une image valide",
       "tooSmall": "L'image doit faire au moins 100x100 pixels",
       "tooLarge": "L'image doit faire moins de 10 Mo",
-      "uploadFailed": "Échec de l'envoi de l'image. Veuillez réessayer."
+      "uploadFailed": "Échec de l'envoi de l'image. Veuillez réessayer.",
+      "cameraPermission": "L'autorisation d'accès à l'appareil photo est requise pour prendre des photos",
+      "libraryPermission": "L'autorisation d'accès à la galerie est requise pour choisir des images"
     }
   },
   "notifications": {
