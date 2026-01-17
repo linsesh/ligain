@@ -188,7 +188,7 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -232,7 +232,7 @@ func TestGameCreationService_CreateGame_GameCreationFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -267,7 +267,7 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -306,7 +306,7 @@ func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -345,7 +345,7 @@ func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -385,7 +385,7 @@ func TestGameCreationService_CleanupExpiredCodes(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	// Mock expectations
 	mockGameCodeRepo.On("DeleteExpiredCodes").Return(nil)
@@ -408,7 +408,7 @@ func TestGameCreationService_CleanupExpiredCodes_Fails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	// Mock expectations
 	mockGameCodeRepo.On("DeleteExpiredCodes").Return(errors.New("database error"))
@@ -432,7 +432,7 @@ func TestGameCreationService_CreateGame_InvalidCompetition(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -452,7 +452,7 @@ func TestGameCreationService_CreateGame_InvalidSeasonYear(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2024/2025",
@@ -473,7 +473,7 @@ func TestGameCreationService_CreateGame_MatchLoadingFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -507,7 +507,7 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -635,7 +635,7 @@ func TestGameCreationService_JoinGame_InvalidCode(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	code := "INVALID"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -696,7 +696,7 @@ func TestGameCreationService_JoinGame_GameNotFound(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -731,7 +731,7 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1", "game2"}
@@ -792,7 +792,7 @@ func TestGameCreationService_GetPlayerGames_EmptyList(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -818,7 +818,7 @@ func TestGameCreationService_GetPlayerGames_RepositoryError(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -844,7 +844,7 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockMatchRepo := new(MockMatchRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	player2 := &models.PlayerData{ID: "player2", Name: "Other Player"}
@@ -943,7 +943,7 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	// Create a game first
 	request := &CreateGameRequest{
@@ -1034,7 +1034,7 @@ func TestGameCreationService_LeaveGame_Success(t *testing.T) {
 		matchRepo:      mockMatchRepo,
 		watcher:        nil,
 		gameServices:   make(map[string]GameService),
-		timeFunc:       time.Now,
+		timeFunc:       func() time.Time { return testTime },
 	}
 
 	gameID := "game1"
@@ -1061,7 +1061,7 @@ func TestGameCreationService_LeaveGame_NotInGame(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1081,7 +1081,7 @@ func TestGameCreationService_LeaveGame_RepoError(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1113,7 +1113,7 @@ func TestGameCreationService_LeaveGame_LastPlayerFinishesGame(t *testing.T) {
 		matchRepo:      mockMatchRepo,
 		watcher:        mockWatcher,
 		gameServices:   make(map[string]GameService),
-		timeFunc:       time.Now,
+		timeFunc:       func() time.Time { return testTime },
 	}
 
 	gameID := "game1"
@@ -1153,7 +1153,7 @@ func TestGameCreationService_JoinGame_FinishedGame(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1275,7 +1275,7 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 		matchRepo:      mockMatchRepo,
 		watcher:        mockWatcher,
 		gameServices:   make(map[string]GameService),
-		timeFunc:       time.Now,
+		timeFunc:       func() time.Time { return testTime },
 	}
 
 	// Step 1: Create game and join as player1
@@ -1572,7 +1572,7 @@ func TestGameCreationService_CreateGame_PlayerGameLimitReached(t *testing.T) {
 	mockMatchRepo := &MockMatchRepository{}
 	mockWatcher := &MockWatcher{}
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	// Test data
 	req := &CreateGameRequest{
@@ -1605,7 +1605,7 @@ func TestGameCreationService_CreateGame_PlayerGameLimitCheckFails(t *testing.T) 
 	mockMatchRepo := &MockMatchRepository{}
 	mockWatcher := &MockWatcher{}
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	// Test data
 	req := &CreateGameRequest{
@@ -1638,7 +1638,7 @@ func TestGameCreationService_JoinGame_PlayerGameLimitReached(t *testing.T) {
 	mockMatchRepo := &MockMatchRepository{}
 	mockWatcher := &MockWatcher{}
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	// Test data
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1676,7 +1676,7 @@ func TestGameCreationService_JoinGame_PlayerGameLimitCheckFails(t *testing.T) {
 	mockMatchRepo := &MockMatchRepository{}
 	mockWatcher := &MockWatcher{}
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	// Test data
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1714,7 +1714,7 @@ func TestGameCreationService_CreateGame_PlayerCanCreateFifthGame(t *testing.T) {
 	mockMatchRepo := &MockMatchRepository{}
 	mockWatcher := &MockWatcher{}
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher, func() time.Time { return testTime })
 
 	// Test data
 	req := &CreateGameRequest{
@@ -1755,7 +1755,7 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameCreationService(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service := NewGameCreationServiceWithTimeFunc(mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil, func() time.Time { return testTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameID := "game1"

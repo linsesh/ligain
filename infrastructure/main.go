@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/cloudrun"
+	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
@@ -32,6 +33,32 @@ func main() {
 		appleTeamID := ligainCfg.Get("apple_team_id")
 		appleKeyID := ligainCfg.Get("apple_key_id")
 		applePrivateKeyPath := ligainCfg.Get("apple_private_key_path")
+
+		// Create GCS bucket for avatar storage
+		avatarBucketName := fmt.Sprintf("ligain-avatars-%s", stack)
+		avatarBucket, err := storage.NewBucket(ctx, "avatars-bucket", &storage.BucketArgs{
+			Name:                     pulumi.String(avatarBucketName),
+			Location:                 pulumi.String(region),
+			UniformBucketLevelAccess: pulumi.Bool(true),
+			ForceDestroy:             pulumi.Bool(stack != "prd"), // Allow deletion in non-prod environments
+		})
+		if err != nil {
+			return err
+		}
+
+		// Create test bucket for integration tests (only in dev)
+		if stack == "dev" {
+			testBucket, err := storage.NewBucket(ctx, "avatars-bucket-test", &storage.BucketArgs{
+				Name:                     pulumi.String("ligain-avatars-test"),
+				Location:                 pulumi.String(region),
+				UniformBucketLevelAccess: pulumi.Bool(true),
+				ForceDestroy:             pulumi.Bool(true), // Always allow deletion for test bucket
+			})
+			if err != nil {
+				return err
+			}
+			ctx.Export("testBucketName", testBucket.Name)
+		}
 
 		// Create a Cloud Run service
 		service, err := cloudrun.NewService(ctx, serviceName, &cloudrun.ServiceArgs{
@@ -100,6 +127,10 @@ func main() {
 									Name:  pulumi.String("APPLE_PRIVATE_KEY_PATH"),
 									Value: pulumi.String(applePrivateKeyPath),
 								},
+								&cloudrun.ServiceTemplateSpecContainerEnvArgs{
+									Name:  pulumi.String("GCS_BUCKET_NAME"),
+									Value: avatarBucket.Name,
+								},
 							},
 						},
 					},
@@ -134,6 +165,9 @@ func main() {
 			}
 			return *statuses[0].Url, nil
 		}))
+
+		// Export the avatar bucket name
+		ctx.Export("avatarBucketName", avatarBucket.Name)
 
 		return nil
 	})

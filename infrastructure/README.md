@@ -136,6 +136,65 @@ pulumi up --stack dev
 pulumi up --stack prod
 ```
 
+## GCS Avatar Storage Setup
+
+The avatar storage feature requires a GCS bucket and proper IAM permissions for signed URL generation.
+
+### Resources Created by Pulumi
+
+- `ligain-avatars-{stack}` - Avatar storage bucket (e.g., `ligain-avatars-dev`, `ligain-avatars-prd`)
+- `ligain-avatars-test` - Test bucket for integration tests (dev stack only)
+
+### Required GCP APIs
+
+Enable these APIs in your project:
+
+```bash
+# Required for signed URL generation
+gcloud services enable iamcredentials.googleapis.com --project=YOUR_PROJECT_ID
+```
+
+### IAM Permissions for Signed URLs
+
+Signed URL generation requires the service account to sign blobs. The default Compute Engine service account needs these permissions:
+
+```bash
+# Get your project number (used in service account email)
+gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"
+
+# The default compute service account is: PROJECT_NUMBER-compute@developer.gserviceaccount.com
+
+# Grant the service account permission to sign its own blobs
+gcloud iam service-accounts add-iam-policy-binding PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+    --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountTokenCreator" \
+    --project=YOUR_PROJECT_ID
+```
+
+### Local Development with Impersonation
+
+To run integration tests locally with signed URL support, impersonate the service account:
+
+```bash
+# 1. Grant yourself permission to impersonate the service account
+gcloud iam service-accounts add-iam-policy-binding PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+    --member="user:YOUR_EMAIL@gmail.com" \
+    --role="roles/iam.serviceAccountTokenCreator" \
+    --project=YOUR_PROJECT_ID
+
+# 2. Authenticate with impersonation
+gcloud auth application-default login --impersonate-service-account=PROJECT_NUMBER-compute@developer.gserviceaccount.com
+
+# 3. Run integration tests
+INTEGRATION_TESTS=true GCS_TEST_BUCKET=ligain-avatars-test go test ./backend/storage/... -v -run Integration
+```
+
+**Note:** IAM permission changes can take 1-2 minutes to propagate. If you get permission errors after granting roles, wait and retry.
+
+### Without Impersonation (Limited)
+
+With regular user credentials (`gcloud auth application-default login`), Upload and Delete operations work, but signed URL generation will fail. This is acceptable for local development since signed URLs work automatically in Cloud Run.
+
 ### Troubleshooting
 
 1. **Check environment variables in Cloud Run**:
