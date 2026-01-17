@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_CONFIG, getAuthenticatedHeaders } from '../src/config/api';
-import { useMatches } from './useMatches';
+import { useGamesApi } from '../src/api';
 import { useTimeService } from '../src/contexts/TimeServiceContext';
 import { useAuth } from '../src/contexts/AuthContext';
 import { translateError } from '../src/utils/errorMessages';
@@ -26,6 +25,7 @@ interface GameWithMatchInfo extends Game {
 }
 
 export const useGamesForMatches = () => {
+  const gamesApi = useGamesApi();
   const timeService = useTimeService();
   const { player } = useAuth();
   const [games, setGames] = useState<GameWithMatchInfo[]>([]);
@@ -36,36 +36,18 @@ export const useGamesForMatches = () => {
 
   const fetchGames = async () => {
     try {
-      const headers = await getAuthenticatedHeaders();
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/games`, {
-        headers,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch games: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await gamesApi.getGames();
       const gamesData: Game[] = data.games || [];
-      
+
       // Process each game to find the best one
       const gamesWithMatchInfo: GameWithMatchInfo[] = [];
-      
+
       for (const game of gamesData) {
         try {
           // Fetch matches for this game
-          const matchesResponse = await fetch(`${API_CONFIG.BASE_URL}/api/game/${game.gameId}/matches`, {
-            headers,
-          });
-          
-          if (matchesResponse.ok) {
-            const matchesData = await matchesResponse.json();
-            const gameWithInfo = await processGameWithMatches(game, matchesData, player);
-            gamesWithMatchInfo.push(gameWithInfo);
-          } else {
-            // If we can't fetch matches, just add the game without match info
-            gamesWithMatchInfo.push(game);
-          }
+          const matchesData = await gamesApi.getGameMatches(game.gameId);
+          const gameWithInfo = await processGameWithMatches(game, matchesData, player);
+          gamesWithMatchInfo.push(gameWithInfo);
         } catch (err) {
           console.warn(`Failed to fetch matches for game ${game.gameId}:`, err);
           gamesWithMatchInfo.push(game);

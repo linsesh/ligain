@@ -3,9 +3,13 @@ import { useBetSubmission } from './useBetSubmission';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { ApiProvider } from '../src/api';
 
+// Mock placeBet function - defined before the mock
+const mockPlaceBet = jest.fn();
+
 // Mock the API module to provide mock implementations
 jest.mock('../src/api/ApiProvider', () => {
   const React = require('react');
+
   const mockAuthApi = {
     checkAuth: jest.fn().mockResolvedValue(null),
     signIn: jest.fn(),
@@ -18,19 +22,22 @@ jest.mock('../src/api/ApiProvider', () => {
     getGameMatches: jest.fn(),
     createGame: jest.fn(),
     joinGame: jest.fn(),
-    placeBet: jest.fn(),
+    placeBet: (...args: any[]) => mockPlaceBet(...args),
     leaveGame: jest.fn(),
   };
 
   const ApiContext = React.createContext({ auth: mockAuthApi, games: mockGamesApi });
 
   return {
-    ApiProvider: ({ children }: { children: React.ReactNode }) => (
-      React.createElement(ApiContext.Provider, { value: { auth: mockAuthApi, games: mockGamesApi } }, children)
-    ),
+    ApiProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(
+        ApiContext.Provider,
+        { value: { auth: mockAuthApi, games: mockGamesApi } },
+        children
+      ),
     useApi: () => React.useContext(ApiContext),
-    useAuthApi: () => React.useContext(ApiContext).auth,
-    useGamesApi: () => React.useContext(ApiContext).games,
+    useAuthApi: () => mockAuthApi,
+    useGamesApi: () => mockGamesApi,
   };
 });
 
@@ -43,7 +50,7 @@ jest.mock('../src/config/api', () => ({
   },
   getAuthenticatedHeaders: jest.fn().mockResolvedValue({
     'X-API-Key': 'test-api-key',
-    'Authorization': 'Bearer test-token',
+    Authorization: 'Bearer test-token',
     'Content-Type': 'application/json',
   }),
 }));
@@ -63,10 +70,6 @@ jest.mock('../src/hooks/useNotifications', () => ({
   })),
 }));
 
-// Mock fetch globally
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
-
 // Test wrapper component
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -79,17 +82,12 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 describe('useBetSubmission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
     mockCancelMatchNotification.mockClear();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
+    mockPlaceBet.mockReset();
   });
 
   it('should submit bet successfully', async () => {
     const mockResponse = {
-      message: 'Bet saved successfully',
       bet: {
         matchId: 'match-1',
         predictedHomeGoals: 2,
@@ -97,10 +95,7 @@ describe('useBetSubmission', () => {
       },
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockResponse,
-    } as Response);
+    mockPlaceBet.mockResolvedValueOnce(mockResponse);
 
     const { result } = renderHook(() => useBetSubmission('test-game-id'), {
       wrapper: TestWrapper,
@@ -115,34 +110,14 @@ describe('useBetSubmission', () => {
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBe(null);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://test-api.example.com/api/game/test-game-id/bet',
-      {
-        method: 'POST',
-        headers: {
-          'X-API-Key': 'test-api-key',
-          'Authorization': 'Bearer test-token',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          matchId: 'match-1',
-          predictedHomeGoals: 2,
-          predictedAwayGoals: 1,
-        }),
-      }
-    );
+    expect(mockPlaceBet).toHaveBeenCalledWith('test-game-id', 'match-1', 2, 1);
 
     // Notification integration: Should cancel notification on successful bet submission
     expect(mockCancelMatchNotification).toHaveBeenCalledWith('match-1');
   });
 
   it('should handle API errors', async () => {
-    const mockResponse = {
-      ok: false,
-      status: 400,
-      statusText: 'Bad Request',
-    };
-    mockFetch.mockResolvedValueOnce(mockResponse);
+    mockPlaceBet.mockRejectedValueOnce(new Error('Bad Request'));
 
     const { result } = renderHook(() => useBetSubmission('test-game-id'), {
       wrapper: TestWrapper,
@@ -154,12 +129,12 @@ describe('useBetSubmission', () => {
 
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.error).toBeInstanceOf(Error);
+    // "Bad Request" gets translated to this specific message
     expect(result.current.error?.message).toBe('Invalid information provided. Please check your details');
   });
 
   it('should handle network errors', async () => {
-    // Mock network error (no retry for network errors)
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    mockPlaceBet.mockRejectedValueOnce(new Error('Network error'));
 
     const { result } = renderHook(() => useBetSubmission('test-game-id'), {
       wrapper: TestWrapper,
@@ -174,76 +149,12 @@ describe('useBetSubmission', () => {
     expect(result.current.error?.message).toBe('Something went wrong. Please try again later');
   });
 
-  it('should retry on 401 errors', async () => {
-    // First call returns 401, second call succeeds
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-      json: async () => ({ error: 'Invalid or expired token' }),
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ message: 'Success' }),
-    });
-
-    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
-      wrapper: TestWrapper,
-    });
-
-    await act(async () => {
-      await result.current.submitBet('match-1', 2, 1);
-    });
-
-    // Fast-forward through the retry delay
-    await act(async () => {
-      jest.advanceTimersByTime(2000);
-    });
-
-    expect(result.current.isSubmitting).toBe(false);
-    expect(result.current.error).toBe(null);
-  });
-
-  it('should stop retrying after max attempts on 401', async () => {
-    // Both calls return 401
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-      json: async () => ({ error: 'Invalid or expired token' }),
-    });
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-      json: async () => ({ error: 'Invalid or expired token' }),
-    });
-
-    const { result } = renderHook(() => useBetSubmission('test-game-id'), {
-      wrapper: TestWrapper,
-    });
-
-    await act(async () => {
-      await result.current.submitBet('match-1', 2, 1);
-    });
-
-    // Fast-forward through the retry delay
-    await act(async () => {
-      jest.advanceTimersByTime(2000);
-    });
-
-    expect(result.current.isSubmitting).toBe(false);
-    expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toBe('Authentication went wrong, please refresh the page and retry');
-  });
-
   it('should clear error on new submission', async () => {
     // First submission fails
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    mockPlaceBet.mockRejectedValueOnce(new Error('Network error'));
     // Second submission succeeds
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ message: 'Success' }),
+    mockPlaceBet.mockResolvedValueOnce({
+      bet: { matchId: 'match-1', predictedHomeGoals: 1, predictedAwayGoals: 1 },
     });
 
     const { result } = renderHook(() => useBetSubmission('test-game-id'), {
@@ -266,10 +177,25 @@ describe('useBetSubmission', () => {
     expect(result.current.error).toBe(null);
   });
 
+  it('should set lastFailedMatchId on error', async () => {
+    const mockOnFail = jest.fn();
+    mockPlaceBet.mockRejectedValueOnce(new Error('Failed'));
+
+    const { result } = renderHook(() => useBetSubmission('test-game-id', mockOnFail), {
+      wrapper: TestWrapper,
+    });
+
+    await act(async () => {
+      await result.current.submitBet('match-123', 2, 1);
+    });
+
+    expect(result.current.lastFailedMatchId).toBe('match-123');
+    expect(mockOnFail).toHaveBeenCalledWith('match-123');
+  });
+
   describe('Notification Integration', () => {
     it('should cancel notification when bet is successfully submitted', async () => {
       const mockResponse = {
-        message: 'Bet saved successfully',
         bet: {
           matchId: 'match-123',
           predictedHomeGoals: 2,
@@ -277,10 +203,7 @@ describe('useBetSubmission', () => {
         },
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response);
+      mockPlaceBet.mockResolvedValueOnce(mockResponse);
 
       const { result } = renderHook(() => useBetSubmission('test-game-id'), {
         wrapper: TestWrapper,
@@ -296,7 +219,7 @@ describe('useBetSubmission', () => {
     });
 
     it('should not cancel notification on failed bet submission', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      mockPlaceBet.mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() => useBetSubmission('test-game-id'), {
         wrapper: TestWrapper,
@@ -311,12 +234,7 @@ describe('useBetSubmission', () => {
     });
 
     it('should not cancel notification on API error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        statusText: 'Bad Request',
-        json: async () => ({ error: 'Invalid data' }),
-      } as Response);
+      mockPlaceBet.mockRejectedValueOnce(new Error('Invalid data'));
 
       const { result } = renderHook(() => useBetSubmission('test-game-id'), {
         wrapper: TestWrapper,
@@ -332,13 +250,14 @@ describe('useBetSubmission', () => {
 
     it('should handle notification cancellation errors gracefully', async () => {
       const mockResponse = {
-        message: 'Bet saved successfully',
+        bet: {
+          matchId: 'match-123',
+          predictedHomeGoals: 2,
+          predictedAwayGoals: 1,
+        },
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response);
+      mockPlaceBet.mockResolvedValueOnce(mockResponse);
 
       // Make notification cancellation fail
       mockCancelMatchNotification.mockRejectedValueOnce(new Error('Cancellation error'));

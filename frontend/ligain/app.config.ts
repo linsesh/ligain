@@ -28,6 +28,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         sounds: [],
       }
     ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Allow Ligain to access your photos to set your profile picture.',
+        cameraPermission: 'Allow Ligain to access your camera to take a profile picture.'
+      }
+    ],
   ],
   splash: {
     image: './assets/images/splash-icon.png',
@@ -38,6 +45,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
     buildNumber: '3',
+    infoPlist: {
+      CFBundleLocalizations: ['en', 'fr'],
+      CFBundleDevelopmentRegion: 'en',
+    },
+  },
+  locales: {
+    fr: './src/i18n/locales/ios-fr.json',
   },
   android: {
     package: 'com.ligain.app',
