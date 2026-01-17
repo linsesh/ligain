@@ -1,0 +1,2 @@
+NSCameraUsageDescription = "Autorise Ligain à accéder à ton appareil photo pour prendre une photo de profil.";
+NSPhotoLibraryUsageDescription = "Autorise Ligain à accéder à tes photos pour définir ta photo de profil.";
