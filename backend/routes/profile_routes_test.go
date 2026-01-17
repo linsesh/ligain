@@ -666,3 +666,130 @@ func TestDeleteAvatar_Unauthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+// Test UpdateDisplayName endpoint
+func TestUpdateDisplayName_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	playerRepo := NewMockPlayerRepositoryForProfile()
+	storageService := NewMockStorageService()
+	imageProcessor := NewMockImageProcessor()
+
+	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
+	playerRepo.players["player-1"] = player
+	authService := &MockAuthService{
+		player: &models.PlayerData{ID: "player-1", Name: "Updated Name"},
+	}
+
+	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	requestBody := map[string]string{"displayName": "Updated Name"}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	playerResp := response["player"].(map[string]interface{})
+	assert.Equal(t, "Updated Name", playerResp["name"])
+}
+
+func TestUpdateDisplayName_InvalidRequestBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	playerRepo := NewMockPlayerRepositoryForProfile()
+	storageService := NewMockStorageService()
+	imageProcessor := NewMockImageProcessor()
+
+	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
+	playerRepo.players["player-1"] = player
+	authService := &MockAuthService{player: player}
+
+	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer([]byte("invalid json")))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	assert.Equal(t, "Invalid request body", response["error"])
+}
+
+func TestUpdateDisplayName_AuthServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	playerRepo := NewMockPlayerRepositoryForProfile()
+	storageService := NewMockStorageService()
+	imageProcessor := NewMockImageProcessor()
+
+	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
+	playerRepo.players["player-1"] = player
+	authService := &MockAuthService{player: player, shouldFail: true}
+
+	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	requestBody := map[string]string{"displayName": "Invalid Name"}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	// Need to manually set context since the middleware validates but we want to test handler error
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+	c.Set("player", player)
+
+	handler.UpdateDisplayName(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	assert.Contains(t, response["error"].(string), "mock update display name failed")
+}
+
+func TestUpdateDisplayName_Unauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	playerRepo := NewMockPlayerRepositoryForProfile()
+	storageService := NewMockStorageService()
+	imageProcessor := NewMockImageProcessor()
+	authService := &MockAuthService{shouldFail: true}
+
+	handler := NewProfileHandler(storageService, imageProcessor, playerRepo, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	requestBody := map[string]string{"displayName": "New Name"}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer bad-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
