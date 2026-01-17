@@ -3,13 +3,11 @@ package storage
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 )
 
 // MockBlobStorage is an in-memory implementation of BlobStorage for testing.
 type MockBlobStorage struct {
-	mu      sync.RWMutex
 	objects map[string][]byte
 
 	// Error injection for testing error paths
@@ -31,14 +29,7 @@ func (m *MockBlobStorage) Upload(ctx context.Context, objectPath string, data []
 		return m.UploadError
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Store a copy of the data
-	dataCopy := make([]byte, len(data))
-	copy(dataCopy, data)
-	m.objects[objectPath] = dataCopy
-
+	m.objects[objectPath] = data
 	return nil
 }
 
@@ -48,10 +39,6 @@ func (m *MockBlobStorage) GenerateSignedURL(ctx context.Context, objectPath stri
 		return "", m.SignedURLError
 	}
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	// Return a predictable URL format for testing
 	return fmt.Sprintf("https://mock-storage.example.com/%s?expires=%.0f", objectPath, ttl.Seconds()), nil
 }
 
@@ -61,41 +48,22 @@ func (m *MockBlobStorage) Delete(ctx context.Context, objectPath string) error {
 		return m.DeleteError
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	delete(m.objects, objectPath)
 	return nil
 }
 
 // GetObject retrieves stored data for testing verification.
 func (m *MockBlobStorage) GetObject(path string) ([]byte, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	data, exists := m.objects[path]
-	if !exists {
-		return nil, false
-	}
-
-	// Return a copy
-	dataCopy := make([]byte, len(data))
-	copy(dataCopy, data)
-	return dataCopy, true
+	return data, exists
 }
 
 // ObjectCount returns the number of stored objects.
 func (m *MockBlobStorage) ObjectCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	return len(m.objects)
 }
 
 // Clear removes all stored objects.
 func (m *MockBlobStorage) Clear() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	m.objects = make(map[string][]byte)
 }
