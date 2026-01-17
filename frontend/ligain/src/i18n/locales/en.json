@@ -146,7 +146,9 @@
       "invalidImage": "The selected file is not a valid image",
       "tooSmall": "Image must be at least 100x100 pixels",
       "tooLarge": "Image must be less than 10MB",
-      "uploadFailed": "Failed to upload image. Please try again."
+      "uploadFailed": "Failed to upload image. Please try again.",
+      "cameraPermission": "Camera permission is required to take photos",
+      "libraryPermission": "Photo library permission is required to choose images"
     }
   },
   "notifications": {

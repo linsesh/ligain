@@ -56,13 +56,13 @@ export function AvatarEditor({
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert(t('errors.error'), 'Camera permission is required');
+          Alert.alert(t('errors.error'), t('avatar.error.cameraPermission'));
           return;
         }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert(t('errors.error'), 'Photo library permission is required');
+          Alert.alert(t('errors.error'), t('avatar.error.libraryPermission'));
           return;
         }
       }
