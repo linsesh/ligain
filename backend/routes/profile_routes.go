@@ -51,6 +51,9 @@ func (h *ProfileHandler) SetupRoutes(router *gin.Engine) {
 		// Get player by ID (requires auth to access)
 		players.GET("/:id", middleware.PlayerAuth(h.authService), h.GetPlayer)
 
+		// Profile operations for current user
+		players.PUT("/me/display-name", middleware.PlayerAuth(h.authService), h.UpdateDisplayName)
+
 		// Avatar operations for current user
 		players.POST("/me/avatar", middleware.PlayerAuth(h.authService), h.UploadAvatar)
 		players.DELETE("/me/avatar", middleware.PlayerAuth(h.authService), h.DeleteAvatar)
@@ -282,6 +285,43 @@ func (h *ProfileHandler) refreshSignedURL(ctx interface{}, player *models.Player
 	}()
 
 	return url, expiresAt, nil
+}
+
+// UpdateDisplayName updates the current user's display name
+func (h *ProfileHandler) UpdateDisplayName(c *gin.Context) {
+	// Get player from context (set by middleware)
+	playerInterface, exists := c.Get("player")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
+		return
+	}
+
+	player, ok := playerInterface.(*models.PlayerData)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid player data"})
+		return
+	}
+
+	var req struct {
+		DisplayName string `json:"displayName" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Errorf("UpdateDisplayName - JSON binding error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	log.Infof("UpdateDisplayName - Updating display name for player %s to %s", player.ID, req.DisplayName)
+
+	updatedPlayer, err := h.authService.UpdateDisplayName(c.Request.Context(), player.ID, req.DisplayName)
+	if err != nil {
+		log.Errorf("UpdateDisplayName - Error updating display name: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Infof("UpdateDisplayName - Display name updated successfully for user: %s", updatedPlayer.Name)
+	c.JSON(http.StatusOK, gin.H{"player": updatedPlayer})
 }
 
 // toPlayerResponse converts a PlayerData to the API response format

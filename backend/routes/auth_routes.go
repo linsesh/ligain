@@ -30,7 +30,6 @@ func (h *AuthHandler) SetupRoutes(router *gin.Engine) {
 		auth.POST("/signin/guest", h.SignInGuest)
 		auth.POST("/signout", middleware.PlayerAuth(h.authService), h.SignOut)
 		auth.GET("/me", middleware.PlayerAuthWithRefresh(h.authService), h.GetCurrentPlayer)
-		auth.PUT("/profile/display-name", middleware.PlayerAuth(h.authService), h.UpdateDisplayName)
 		auth.DELETE("/account", middleware.PlayerAuth(h.authService), h.DeleteAccount)
 	}
 }
@@ -174,45 +173,6 @@ func (h *AuthHandler) GetCurrentPlayer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"player": playerData})
-}
-
-// UpdateDisplayName updates the current user's display name
-func (h *AuthHandler) UpdateDisplayName(c *gin.Context) {
-	log.Infof("🔐 UpdateDisplayName - Request received from %s", c.ClientIP())
-
-	// Get player from context (set by middleware)
-	player, exists := c.Get("player")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
-		return
-	}
-
-	playerData, ok := player.(*models.PlayerData)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid player data"})
-		return
-	}
-
-	var req struct {
-		DisplayName string `json:"displayName" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Errorf("❌ UpdateDisplayName - JSON binding error: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	log.Infof("🔐 UpdateDisplayName - Updating display name for player %s to %s", playerData.ID, req.DisplayName)
-
-	updatedPlayer, err := h.authService.UpdateDisplayName(c.Request.Context(), playerData.ID, req.DisplayName)
-	if err != nil {
-		log.Errorf("❌ UpdateDisplayName - Error updating display name: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	log.Infof("✅ UpdateDisplayName - Display name updated successfully for user: %s", updatedPlayer.Name)
-	c.JSON(http.StatusOK, gin.H{"player": updatedPlayer})
 }
 
 // DeleteAccount handles permanent account deletion
