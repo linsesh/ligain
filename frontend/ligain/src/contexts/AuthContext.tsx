@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Platform } from 'react-native';
-import { API_CONFIG, getApiHeaders, authenticatedFetch } from '../config/api';
 import { getItem, setItem, multiRemove, isUsingMemoryFallback } from '../utils/storage';
-import { getHumanReadableError, handleApiError } from '../utils/errorMessages';
+import { useAuthApi } from '../api';
 
 export interface Player {
   id: string;
@@ -45,9 +43,10 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const authApi = useAuthApi();
   const [player, setPlayer] = useState<Player | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Modal state management
   const [showNameModal, setShowNameModal] = useState(false);
   const [authResult, setAuthResult] = useState<any>(null);
@@ -69,255 +68,128 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuth = async () => {
     if (!isMounted) return;
-    
+
     try {
-      console.log('🔍 AuthContext - Starting checkAuth');
+      console.log('AuthContext - Starting checkAuth');
       setIsLoading(true);
-      
+
       // Check if we're using memory fallback (AsyncStorage not available)
       if (isUsingMemoryFallback()) {
-        console.warn('⚠️ Using memory storage fallback - data will be lost on app restart');
+        console.warn('Using memory storage fallback - data will be lost on app restart');
       }
-      
-      console.log('🔍 AuthContext - Storage keys being checked:', { AUTH_TOKEN_KEY, PLAYER_DATA_KEY });
+
       const token = await getItem(AUTH_TOKEN_KEY);
       const playerData = await getItem(PLAYER_DATA_KEY);
-      
-      if (!isMounted) return; // Check after async operations
-      
-      console.log('🔍 AuthContext - Token exists:', !!token, 'PlayerData exists:', !!playerData);
+
+      if (!isMounted) return;
+
+      console.log('AuthContext - Token exists:', !!token, 'PlayerData exists:', !!playerData);
 
       if (token && playerData) {
-        console.log('🔍 AuthContext - Validating token with backend');
-        // Validate token with backend
+        console.log('AuthContext - Validating token with backend');
         try {
-          const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/me`);
+          const result = await authApi.checkAuth();
 
-          if (!isMounted) return; // Check after async operation
+          if (!isMounted) return;
 
-          console.log('🔍 AuthContext - Backend response status:', response.status);
-
-          if (response.ok) {
-            const data = await response.json();
-            if (!isMounted) return; // Check before state update
-            console.log('✅ AuthContext - Token valid, setting player:', data.player?.name);
-            setPlayer(data.player);
+          if (result) {
+            console.log('AuthContext - Token valid, setting player:', result.player?.name);
+            setPlayer(result.player);
           } else {
-            console.log('❌ AuthContext - Token invalid, clearing storage');
-            // Token is invalid, clear storage
+            console.log('AuthContext - Token invalid, clearing storage');
             await multiRemove([AUTH_TOKEN_KEY, PLAYER_DATA_KEY]);
-            if (!isMounted) return; // Check before state update
+            if (!isMounted) return;
             setPlayer(null);
           }
         } catch (fetchError) {
-          if (!isMounted) return; // Check after error
-          // Handle network errors (server unreachable, etc.)
-          if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
-            console.error('🔍 AuthContext - Network error during token validation (server unreachable):', fetchError);
-            // Don't clear storage on network errors, just set player to null temporarily
-            setPlayer(null);
-            return;
-          }
-          // Re-throw other errors
-          throw fetchError;
+          if (!isMounted) return;
+          console.error('AuthContext - Error during token validation:', fetchError);
+          setPlayer(null);
         }
       } else {
-        console.log('❌ AuthContext - No token or player data found');
-        if (!isMounted) return; // Check before state update
+        console.log('AuthContext - No token or player data found');
+        if (!isMounted) return;
         setPlayer(null);
       }
     } catch (error) {
-      if (!isMounted) return; // Check after error
-      console.error('❌ AuthContext - Error checking auth:', error);
+      if (!isMounted) return;
+      console.error('AuthContext - Error checking auth:', error);
       setPlayer(null);
     } finally {
-      if (!isMounted) return; // Check before final state update
-      console.log('🔍 AuthContext - Setting isLoading to false');
+      if (!isMounted) return;
+      console.log('AuthContext - Setting isLoading to false');
       setIsLoading(false);
     }
   };
 
   const signIn = async (provider: 'google' | 'apple' | 'guest', token: string, email: string, name: string) => {
-    console.log('🔐 AuthContext - Starting signIn method');
-    console.log('🔐 AuthContext - Parameters:', {
-      provider,
-      email,
-      name,
-      token: token ? '***token***' : 'NO_TOKEN'
-    });
-    
+    console.log('AuthContext - Starting signIn method');
+    console.log('AuthContext - Parameters:', { provider, email, name, token: token ? '***token***' : 'NO_TOKEN' });
+
     try {
       setIsLoading(true);
-      
-      console.log('🔐 AuthContext - API_CONFIG:', {
-        BASE_URL: API_CONFIG.BASE_URL,
-        API_KEY: API_CONFIG.API_KEY ? 'configured' : 'NOT_CONFIGURED'
-      });
-
-      // Test API headers configuration
-      try {
-        const headers = getApiHeaders();
-        console.log('🔐 AuthContext - API headers configured successfully:', {
-          hasApiKey: !!headers['X-API-Key'],
-          hasContentType: 'Content-Type' in headers
-        });
-      } catch (headerError) {
-        console.error('🔐 AuthContext - Failed to get API headers:', headerError);
-        throw new Error(`API configuration error: ${headerError instanceof Error ? headerError.message : 'Unknown error'}`);
-      }
 
       let response;
-      
+
       try {
         if (provider === 'guest') {
-          // Guest authentication uses a different endpoint
-          const requestBody = { name };
-          
-          console.log('🔐 AuthContext - Making guest request to:', `${API_CONFIG.BASE_URL}/api/auth/signin/guest`);
-          console.log('🔐 AuthContext - Guest request body:', requestBody);
-
-          response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin/guest`, {
-            method: 'POST',
-            headers: {
-              ...getApiHeaders(),
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          });
+          response = await authApi.signInGuest(name);
         } else {
-          // OAuth authentication
-          const requestBody = {
-            provider,
-            token,
-            email,
-            name,
-          };
-          
-          console.log('🔐 AuthContext - Making OAuth request to:', `${API_CONFIG.BASE_URL}/api/auth/signin`);
-          console.log('🔐 AuthContext - OAuth request body:', {
-            ...requestBody,
-            token: token ? '***token***' : 'NO_TOKEN'
-          });
-
-          response = await fetch(`${API_CONFIG.BASE_URL}/api/auth/signin`, {
-            method: 'POST',
-            headers: {
-              ...getApiHeaders(),
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          });
+          response = await authApi.signIn(provider, token, email, name);
         }
 
-        console.log('🔐 AuthContext - Response received:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: Object.fromEntries(response.headers.entries())
+        console.log('AuthContext - Success response:', {
+          hasToken: !!response.token,
+          player: response.player ? { id: response.player.id, name: response.player.name } : 'NO_PLAYER_DATA',
+          status: response.status
         });
 
-        if (!response.ok) {
-          // For OAuth authentication, we need to preserve specific error messages
-          // that the frontend needs to handle specially (like display name requirements)
-          if (provider !== 'guest') {
-            let errorData;
-            try {
-              errorData = await response.json();
-            } catch (parseError) {
-              errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
-            }
-            
-            // Preserve specific authentication errors that the frontend needs to handle
-            if (errorData.error === 'display name is required for new users' || 
-                errorData.error === 'display name is already taken') {
-              throw new Error(errorData.error);
-            }
-          }
-          
-          // Use the existing handleApiError utility for other errors
-          await handleApiError(response);
-        }
-
-        const data = await response.json();
-        console.log('🔐 AuthContext - Success response data:', {
-          hasToken: !!data.token,
-          player: data.player ? {
-            id: data.player.id,
-            name: data.player.name,
-            email: data.player.email,
-            provider: data.player.provider
-          } : 'NO_PLAYER_DATA',
-          status: data.status
-        });
-        
         // Check if backend is requesting display name (two-step flow)
-        if (data.status === 'need_display_name') {
-          console.log('🔐 AuthContext - Backend requesting display name');
-          // Return special response instead of throwing error
+        if (response.status === 'need_display_name') {
+          console.log('AuthContext - Backend requesting display name');
           return {
             needDisplayName: true,
-            suggestedName: data.suggestedName || '',
-            error: data.error
+            suggestedName: response.suggestedName || '',
+            error: response.error
           };
         }
-        
+
         // Store token and player data
-        console.log('🔐 AuthContext - Storing token and player data');
-        console.log('🔐 AuthContext - Token to store:', data.token ? `${data.token.substring(0, 10)}...` : 'null');
-        console.log('🔐 AuthContext - Player data to store:', JSON.stringify(data.player));
-        await setItem(AUTH_TOKEN_KEY, data.token);
-        await setItem(PLAYER_DATA_KEY, JSON.stringify(data.player));
-        
-        // Verify storage
-        const storedToken = await getItem(AUTH_TOKEN_KEY);
-        const storedPlayerData = await getItem(PLAYER_DATA_KEY);
-        console.log('🔐 AuthContext - Verification - Stored token exists:', !!storedToken);
-        console.log('🔐 AuthContext - Verification - Stored player data exists:', !!storedPlayerData);
-        
-        setPlayer(data.player);
-        console.log('🔐 AuthContext - Sign in completed successfully');
+        console.log('AuthContext - Storing token and player data');
+        await setItem(AUTH_TOKEN_KEY, response.token);
+        await setItem(PLAYER_DATA_KEY, JSON.stringify(response.player));
+
+        setPlayer(response.player);
+        console.log('AuthContext - Sign in completed successfully');
       } catch (fetchError) {
         // Handle network errors (server unreachable, etc.)
         if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
-          console.error('🔐 AuthContext - Network error (server unreachable):', fetchError);
+          console.error('AuthContext - Network error (server unreachable):', fetchError);
           throw new Error('Ligain servers are not available for now. Please try again later.');
         }
-        
-        // Re-throw other errors (including API errors from handleApiError)
+
+        // Re-throw other errors
         throw fetchError;
       }
     } catch (error) {
-      console.error('🔐 AuthContext - Sign in error:', error);
-      console.error('🔐 AuthContext - Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      });
+      console.error('AuthContext - Sign in error:', error);
       throw error;
     } finally {
       setIsLoading(false);
-      console.log('🔐 AuthContext - Sign in method completed');
+      console.log('AuthContext - Sign in method completed');
     }
   };
 
   const signOut = async () => {
     try {
       const token = await getItem(AUTH_TOKEN_KEY);
-      
+
       if (token) {
-        // Call backend to invalidate token
         try {
-                  await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/signout`, {
-          method: 'POST',
-        });
+          await authApi.signOut();
         } catch (fetchError) {
-          // Handle network errors (server unreachable, etc.)
-          if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
-            console.warn('🔐 AuthContext - Network error during signout (server unreachable), continuing with local cleanup');
-          } else {
-            // Re-throw other errors
-            throw fetchError;
-          }
+          // Ignore errors during signout, continue with local cleanup
+          console.warn('AuthContext - Error during signout, continuing with local cleanup');
         }
       }
     } catch (error) {
@@ -350,4 +222,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

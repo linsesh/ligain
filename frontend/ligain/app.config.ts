@@ -65,6 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiKey: process.env.API_KEY, // Required - no default value
     environment: process.env.NODE_ENV || 'development',
     appleClientId: process.env.EXPO_PUBLIC_APPLE_CLIENT_ID, // Apple Sign-In client ID
+    mockMode: process.env.MOCK_MODE === 'true', // Enable mock API mode for UI development
     eas: {
       projectId: '55e40a95-c826-4c19-9d13-dfe6b906019b'
     }

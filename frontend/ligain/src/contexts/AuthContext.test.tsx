@@ -1,19 +1,41 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
-import { API_CONFIG, getApiHeaders } from '../config/api';
+import { ApiProvider } from '../api';
 import { getItem, setItem, multiRemove } from '../utils/storage';
 
-// Mock dependencies
-jest.mock('../config/api', () => ({
-  API_CONFIG: {
-    BASE_URL: 'https://test-api.example.com',
-    API_KEY: 'test-api-key',
-  },
-  getApiHeaders: jest.fn(() => ({
-    'X-API-Key': 'test-api-key',
-  })),
-}));
+// Mock the API module to provide mock implementations
+jest.mock('../api/ApiProvider', () => {
+  const React = require('react');
+  const mockAuthApi = {
+    checkAuth: jest.fn(),
+    signIn: jest.fn(),
+    signInGuest: jest.fn(),
+    signOut: jest.fn(),
+  };
+
+  const mockGamesApi = {
+    getGames: jest.fn(),
+    getGameMatches: jest.fn(),
+    createGame: jest.fn(),
+    joinGame: jest.fn(),
+    placeBet: jest.fn(),
+    leaveGame: jest.fn(),
+  };
+
+  const ApiContext = React.createContext({ auth: mockAuthApi, games: mockGamesApi });
+
+  return {
+    ApiProvider: ({ children }: { children: React.ReactNode }) => (
+      React.createElement(ApiContext.Provider, { value: { auth: mockAuthApi, games: mockGamesApi } }, children)
+    ),
+    useApi: () => React.useContext(ApiContext),
+    useAuthApi: () => React.useContext(ApiContext).auth,
+    useGamesApi: () => React.useContext(ApiContext).games,
+    __mockAuthApi: mockAuthApi,
+    __mockGamesApi: mockGamesApi,
+  };
+});
 
 jest.mock('../utils/storage', () => ({
   getItem: jest.fn(),
@@ -22,33 +44,15 @@ jest.mock('../utils/storage', () => ({
   isUsingMemoryFallback: jest.fn(() => false),
 }));
 
-jest.mock('../utils/errorMessages', () => ({
-  getHumanReadableError: jest.fn((status: number, error?: string) => {
-    switch (status) {
-      case 401:
-        return 'Authentication went wrong, please refresh the page and retry';
-      case 500:
-        return 'Server error. Please try again later';
-      default:
-        return error || `Something went wrong (${status})`;
-    }
-  }),
-  handleApiError: jest.fn(async (response: Response) => {
-    const errorData = await response.json();
-    const humanReadableError = require('../utils/errorMessages').getHumanReadableError(
-      response.status,
-      errorData.error
-    );
-    throw new Error(humanReadableError);
-  }),
-}));
-
-// Mock fetch globally
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+// Get the mocked auth API for test assertions
+const getMockAuthApi = () => {
+  return require('../api/ApiProvider').__mockAuthApi;
+};
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <AuthProvider>{children}</AuthProvider>
+  <ApiProvider>
+    <AuthProvider>{children}</AuthProvider>
+  </ApiProvider>
 );
 
 describe('AuthContext', () => {
@@ -57,12 +61,20 @@ describe('AuthContext', () => {
     (getItem as jest.Mock).mockResolvedValue(null);
     (setItem as jest.Mock).mockResolvedValue(undefined);
     (multiRemove as jest.Mock).mockResolvedValue(undefined);
+
+    // Reset mock API defaults
+    const mockAuthApi = getMockAuthApi();
+    mockAuthApi.checkAuth.mockResolvedValue(null);
+    mockAuthApi.signIn.mockResolvedValue({ token: 'test-token', player: { id: '1', name: 'Test' } });
+    mockAuthApi.signInGuest.mockResolvedValue({ token: 'test-token', player: { id: '1', name: 'Test' } });
+    mockAuthApi.signOut.mockResolvedValue(undefined);
   });
 
   describe('signIn', () => {
     it('should handle network errors and show appropriate message', async () => {
+      const mockAuthApi = getMockAuthApi();
       // Mock a network error (server unreachable)
-      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+      mockAuthApi.signInGuest.mockRejectedValueOnce(new TypeError('fetch failed'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -88,13 +100,9 @@ describe('AuthContext', () => {
     }, 10000);
 
     it('should handle API errors properly', async () => {
+      const mockAuthApi = getMockAuthApi();
       // Mock an API error response
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        json: async () => ({ error: 'Invalid credentials' }),
-      });
+      mockAuthApi.signInGuest.mockRejectedValueOnce(new Error('Invalid credentials'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -116,6 +124,7 @@ describe('AuthContext', () => {
     });
 
     it('should handle successful sign in', async () => {
+      const mockAuthApi = getMockAuthApi();
       // Mock a successful response
       const mockResponse = {
         token: 'test-token',
@@ -127,16 +136,7 @@ describe('AuthContext', () => {
         },
       };
 
-      const mockResponseObj = {
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        headers: {
-          entries: () => [],
-        },
-        json: async () => mockResponse,
-      };
-      mockFetch.mockResolvedValueOnce(mockResponseObj);
+      mockAuthApi.signInGuest.mockResolvedValueOnce(mockResponse);
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -159,13 +159,14 @@ describe('AuthContext', () => {
 
   describe('checkAuth', () => {
     it('should handle network errors during token validation gracefully', async () => {
+      const mockAuthApi = getMockAuthApi();
       // Mock stored token and player data
       (getItem as jest.Mock)
         .mockResolvedValueOnce('stored-token')
         .mockResolvedValueOnce(JSON.stringify({ id: 'test-id', name: 'Test User' }));
 
       // Mock a network error during token validation
-      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+      mockAuthApi.checkAuth.mockRejectedValueOnce(new TypeError('fetch failed'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -183,11 +184,12 @@ describe('AuthContext', () => {
 
   describe('signOut', () => {
     it('should handle network errors during signout gracefully', async () => {
+      const mockAuthApi = getMockAuthApi();
       // Mock stored token
       (getItem as jest.Mock).mockResolvedValueOnce('stored-token');
 
       // Mock a network error during signout
-      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+      mockAuthApi.signOut.mockRejectedValueOnce(new TypeError('fetch failed'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -206,4 +208,4 @@ describe('AuthContext', () => {
       expect(multiRemove).toHaveBeenCalledWith(['auth_token', 'player_data']);
     });
   });
-}); 
+});

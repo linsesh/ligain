@@ -3,7 +3,39 @@ import { useMatches } from './useMatches';
 import { MockTimeService } from '../src/test-utils';
 import { TimeServiceProvider } from '../src/contexts/TimeServiceContext';
 import { AuthProvider } from '../src/contexts/AuthContext';
+import { ApiProvider } from '../src/api';
 import { ReactNode } from 'react';
+
+// Mock the API module to provide mock implementations
+jest.mock('../src/api/ApiProvider', () => {
+  const React = require('react');
+  const mockAuthApi = {
+    checkAuth: jest.fn().mockResolvedValue(null),
+    signIn: jest.fn(),
+    signInGuest: jest.fn(),
+    signOut: jest.fn(),
+  };
+
+  const mockGamesApi = {
+    getGames: jest.fn(),
+    getGameMatches: jest.fn(),
+    createGame: jest.fn(),
+    joinGame: jest.fn(),
+    placeBet: jest.fn(),
+    leaveGame: jest.fn(),
+  };
+
+  const ApiContext = React.createContext({ auth: mockAuthApi, games: mockGamesApi });
+
+  return {
+    ApiProvider: ({ children }: { children: React.ReactNode }) => (
+      React.createElement(ApiContext.Provider, { value: { auth: mockAuthApi, games: mockGamesApi } }, children)
+    ),
+    useApi: () => React.useContext(ApiContext),
+    useAuthApi: () => React.useContext(ApiContext).auth,
+    useGamesApi: () => React.useContext(ApiContext).games,
+  };
+});
 
 // Mock the API config
 jest.mock('../src/config/api', () => ({
@@ -24,11 +56,13 @@ global.fetch = mockFetch;
 
 // Wrapper component for testing hooks with providers
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <AuthProvider>
-    <TimeServiceProvider service={new MockTimeService()}>
-      {children}
-    </TimeServiceProvider>
-  </AuthProvider>
+  <ApiProvider>
+    <AuthProvider>
+      <TimeServiceProvider service={new MockTimeService()}>
+        {children}
+      </TimeServiceProvider>
+    </AuthProvider>
+  </ApiProvider>
 );
 
 describe('useMatches', () => {
@@ -94,7 +128,7 @@ describe('useMatches', () => {
     expect(matchResult.bets).toHaveProperty('player-1');
     expect(matchResult.bets!['player-1'].playerName).toBe('John Doe');
     expect(matchResult.bets!['player-1'].predictedHomeGoals).toBe(2);
-    
+
     // Verify odds are processed correctly
     expect(matchResult.match.getHomeTeamOdds()).toBe(1.5);
     expect(matchResult.match.getAwayTeamOdds()).toBe(2.5);
@@ -226,4 +260,4 @@ describe('useMatches', () => {
     // Should have called fetch twice (initial + refresh)
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
-}); 
+});
