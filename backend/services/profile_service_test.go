@@ -499,10 +499,7 @@ func TestProfileService_GetPlayerProfile_RefreshesExpiredURL(t *testing.T) {
 	// Should have refreshed URL
 	assert.Equal(t, "https://storage.example.com/new-signed-url", *player.AvatarSignedURL)
 
-	// Wait for fire-and-forget DB update goroutine to complete
-	time.Sleep(10 * time.Millisecond)
-
-	// Should have updated database (fire-and-forget)
+	// Should have updated database synchronously
 	assert.Equal(t, "https://storage.example.com/new-signed-url", playerRepo.lastUpdatedSignedURL)
 }
 
@@ -557,6 +554,35 @@ func TestProfileService_GetPlayerProfile_URLRefreshErrorDoesNotFail(t *testing.T
 	player, err := service.GetPlayerProfile(ctx, "player-1")
 
 	// Should still succeed, just with old URL
+	require.NoError(t, err)
+	require.NotNil(t, player)
+	assert.Equal(t, oldURL, *player.AvatarSignedURL)
+}
+
+func TestProfileService_GetPlayerProfile_DBUpdateFailureFallsBackToOldURL(t *testing.T) {
+	storageService := NewMockStorageServiceForProfile()
+	storageService.GeneratedURL = "https://storage.example.com/new-signed-url"
+	imageProcessor := NewMockImageProcessorForProfile()
+	playerRepo := NewMockPlayerRepoForProfile()
+	playerRepo.updateSignedURLErr = errors.New("database error")
+
+	avatarKey := "avatars/player-1/test.webp"
+	oldURL := "https://storage.example.com/old-signed-url"
+	expiresAt := time.Now().Add(12 * time.Hour) // Within refresh window
+	playerRepo.players["player-1"] = &models.PlayerData{
+		ID:                       "player-1",
+		Name:                     "Test Player",
+		AvatarObjectKey:          &avatarKey,
+		AvatarSignedURL:          &oldURL,
+		AvatarSignedURLExpiresAt: &expiresAt,
+	}
+
+	service := NewProfileService(storageService, imageProcessor, playerRepo)
+
+	ctx := context.Background()
+	player, err := service.GetPlayerProfile(ctx, "player-1")
+
+	// Should still succeed with old URL when DB update fails
 	require.NoError(t, err)
 	require.NotNil(t, player)
 	assert.Equal(t, oldURL, *player.AvatarSignedURL)
