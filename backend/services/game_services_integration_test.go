@@ -214,11 +214,13 @@ func TestLeaveGame_QueryServiceNoLongerShowsGame(t *testing.T) {
 // GameService reflects that a player has left
 func TestLeaveGame_RegistryGameServiceNoLongerShowsPlayer(t *testing.T) {
 	_, _, _, membershipService, registry,
-		_, mockGamePlayerRepo, _, _, _, mockWatcher := setupIntegrationTest()
-	// Other unused variables from setupIntegrationTest are intentionally ignored
+		mockGameRepo, mockGamePlayerRepo, _, _, _, mockWatcher := setupIntegrationTest()
 
 	playerA := &models.PlayerData{ID: "playerA", Name: "Player A"}
 	playerB := &models.PlayerData{ID: "playerB", Name: "Player B"}
+
+	// Create a real game with both players for the cached game service
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{playerA, playerB}, []models.Match{}, &rules.ScorerOriginal{})
 
 	// First, get or create game service (simulating it was already cached)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -229,12 +231,15 @@ func TestLeaveGame_RegistryGameServiceNoLongerShowsPlayer(t *testing.T) {
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "playerA").Return(true, nil)
 	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, "game1", "playerA").Return(nil)
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{playerB}, nil)
+	// GetGame and SaveWithId are called when removing player from cached game service
+	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
+	mockGameRepo.On("SaveWithId", "game1", realGame).Return(nil)
 
 	// Player A leaves
 	err = membershipService.LeaveGame("game1", playerA)
 	require.NoError(t, err)
 
-	// GameService.GetPlayers should only show player B
+	// GameService.GetPlayers should only show player B (fetches from repo)
 	gs, exists := registry.Get("game1")
 	require.True(t, exists)
 	players := gs.GetPlayers()

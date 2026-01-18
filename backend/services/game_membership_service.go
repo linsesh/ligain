@@ -70,7 +70,7 @@ func (s *GameMembershipService) AddPlayerToGame(gameID string, player models.Pla
 	}
 
 	// Update cached game service if it exists
-	s.updateCachedGameService(gameID, player, true)
+	s.addPlayerToGameService(gameID, player)
 
 	return nil
 }
@@ -94,6 +94,9 @@ func (s *GameMembershipService) RemovePlayerFromGame(gameID string, player model
 	if err != nil {
 		return fmt.Errorf("error removing player from game: %v", err)
 	}
+
+	// Update cached game service if it exists
+	s.removePlayerFromGameService(gameID, player)
 
 	// Check if any players are left
 	players, err := s.gamePlayerRepo.GetPlayersInGame(ctx, gameID)
@@ -156,13 +159,16 @@ func (s *GameMembershipService) deleteGame(gameID string) error {
 	return nil
 }
 
-// updateCachedGameService updates the cached game service when a player is added or removed
-func (s *GameMembershipService) updateCachedGameService(gameID string, player models.Player, adding bool) {
+// addPlayerToGameService updates the cached game service when a player is added
+func (s *GameMembershipService) addPlayerToGameService(gameID string, player models.Player) {
 	if gs, exists := s.registry.Get(gameID); exists {
-		if adding {
-			_ = gs.AddPlayer(player)
-		} else {
-			_ = gs.RemovePlayer(player)
-		}
+		_ = gs.AddPlayer(player)
+	}
+}
+
+// removePlayerFromGameService updates the cached game service when a player is removed
+func (s *GameMembershipService) removePlayerFromGameService(gameID string, player models.Player) {
+	if gs, exists := s.registry.Get(gameID); exists {
+		_ = gs.RemovePlayer(player)
 	}
 }

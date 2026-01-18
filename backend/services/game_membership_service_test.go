@@ -353,7 +353,7 @@ func TestGameMembershipService_LeaveGame_UnregistersFromRegistry(t *testing.T) {
 	mockGameCodeRepo.AssertExpectations(t)
 }
 
-func TestGameMembershipService_UpdateCachedGameService(t *testing.T) {
+func TestGameMembershipService_AddPlayerToGame_UpdatesCachedGameService(t *testing.T) {
 	// Setup
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockGameRepo := new(MockGameRepository)
@@ -385,5 +385,62 @@ func TestGameMembershipService_UpdateCachedGameService(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
+	mockGamePlayerRepo.AssertExpectations(t)
+}
+
+func TestGameMembershipService_RemovePlayerFromGame_UpdatesCachedGameService(t *testing.T) {
+	// Setup
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockGameRepo := new(MockGameRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockBetRepo := new(MockBetRepository)
+	mockWatcher := new(MockWatcher)
+
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
+
+	player1 := &models.PlayerData{ID: "player1", Name: "Player 1"}
+	player2 := &models.PlayerData{ID: "player2", Name: "Player 2"}
+
+	// Create a real game with both players
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+
+	// First register a game service with the game
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
+	mockGameRepo.On("SaveWithId", "game1", realGame).Return(nil)
+	_, err := registry.Create("game1")
+	require.NoError(t, err)
+
+	// Verify the underlying game object has both players initially
+	// This is what scoring uses (game.GetPlayers(), not GameService.GetPlayers())
+	assert.Len(t, realGame.GetPlayers(), 2)
+
+	// Mock RemovePlayer expectations
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(true, nil)
+	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, "game1", "player1").Return(nil)
+	// Other player remains
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{player2}, nil)
+
+	// Execute - remove player1
+	err = service.RemovePlayerFromGame("game1", player1)
+
+	// Assert
+	assert.NoError(t, err)
+
+	// BUG: The cached game service's underlying game object still has player1
+	// This means scoring (handleScoreUpdate) would still attribute points to player1
+	// because it calls game.GetPlayers(), not gamePlayerRepo.GetPlayersInGame()
+	cachedGs, exists := registry.Get("game1")
+	require.True(t, exists)
+	_ = cachedGs // We need to check the underlying game object
+
+	// The underlying game object should only have player2 now
+	// If this fails, removed players continue to get points attributed
+	assert.Len(t, realGame.GetPlayers(), 1, "Underlying game object should have player removed - otherwise scoring continues for departed players")
+	if len(realGame.GetPlayers()) > 0 {
+		assert.Equal(t, "player2", realGame.GetPlayers()[0].GetID())
+	}
+
 	mockGamePlayerRepo.AssertExpectations(t)
 }

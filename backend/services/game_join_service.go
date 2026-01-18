@@ -83,15 +83,10 @@ func (s *GameJoinService) JoinGame(code string, player models.Player) (*JoinGame
 		return nil, ErrPlayerGameLimit
 	}
 
-	// Add the player to the game
+	// Add the player to the game (also updates cached game service)
 	err = s.membershipService.AddPlayerToGame(gameCode.GameID, player)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add player to game: %v", err)
-	}
-
-	// Update the cached game service if it exists
-	if gs, exists := s.registry.Get(gameCode.GameID); exists {
-		_ = gs.AddPlayer(player)
 	}
 
 	return &JoinGameResponse{
