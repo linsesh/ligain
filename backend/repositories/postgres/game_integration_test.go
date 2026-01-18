@@ -779,9 +779,17 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
 		require.NoError(t, err)
 
-		// Create game creation service (this will load and cache the game)
-		gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, nil)
+		// Create game creation service with all dependencies
+		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
+		membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, time.Now)
+		gameCreationService := services.NewGameCreationServiceWithServices(
+			gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
+			registry, membershipService, queryService, joinService,
+			time.Now,
+		)
 
 		// Get the game service from cache
 		gameService, err := gameCreationService.GetGameService(gameID, player)
@@ -861,9 +869,17 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
 		require.NoError(t, err)
 
-		// Create game creation service (this will load and cache the game)
-		gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, nil)
+		// Create game creation service with all dependencies
+		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
+		membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, time.Now)
+		gameCreationService := services.NewGameCreationServiceWithServices(
+			gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
+			registry, membershipService, queryService, joinService,
+			time.Now,
+		)
 
 		// Get the game service from cache
 		gameService, err := gameCreationService.GetGameService(gameID, player)
@@ -943,9 +959,17 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
 		require.NoError(t, err)
 
-		// Create game creation service
-		gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, nil)
+		// Create game creation service with all dependencies
+		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
+		membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, time.Now)
+		gameCreationService := services.NewGameCreationServiceWithServices(
+			gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
+			registry, membershipService, queryService, joinService,
+			time.Now,
+		)
 
 		// Get player games - should show "not started"
 		playerGames, err := gameCreationService.GetPlayerGames(player)
