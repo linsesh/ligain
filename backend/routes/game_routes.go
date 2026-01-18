@@ -15,15 +15,36 @@ import (
 
 // GameHandler handles all game-related routes
 type GameHandler struct {
-	gameCreationService services.GameCreationServiceInterface
-	authService         services.AuthServiceInterface
+	creationService   services.GameCreationServiceInterface
+	joinService       services.GameJoinServiceInterface
+	queryService      services.GameQueryServiceInterface
+	membershipService services.GameMembershipServiceInterface
+	authService       services.AuthServiceInterface
 }
 
-// NewGameHandler creates a new GameHandler instance
-func NewGameHandler(gameCreationService services.GameCreationServiceInterface, authService services.AuthServiceInterface) *GameHandler {
+// NewGameHandler creates a new GameHandler instance with all specialized services
+func NewGameHandler(
+	creationService services.GameCreationServiceInterface,
+	joinService services.GameJoinServiceInterface,
+	queryService services.GameQueryServiceInterface,
+	membershipService services.GameMembershipServiceInterface,
+	authService services.AuthServiceInterface,
+) *GameHandler {
 	return &GameHandler{
-		gameCreationService: gameCreationService,
-		authService:         authService,
+		creationService:   creationService,
+		joinService:       joinService,
+		queryService:      queryService,
+		membershipService: membershipService,
+		authService:       authService,
+	}
+}
+
+// NewGameHandlerLegacy creates a GameHandler with just GameCreationService for backward compatibility
+// DEPRECATED: Use NewGameHandler with individual services instead
+func NewGameHandlerLegacy(gameCreationService services.GameCreationServiceInterface, authService services.AuthServiceInterface) *GameHandler {
+	return &GameHandler{
+		creationService: gameCreationService,
+		authService:     authService,
 	}
 }
 
@@ -73,7 +94,7 @@ func (h *GameHandler) createGame(c *gin.Context) {
 	}
 
 	// Create the game
-	response, err := h.gameCreationService.CreateGame(&request, player.(models.Player))
+	response, err := h.creationService.CreateGame(&request, player.(models.Player))
 	if err != nil {
 		if err == services.ErrInvalidCompetition || err == services.ErrInvalidSeasonYear || err == services.ErrPlayerGameLimit {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -110,8 +131,15 @@ func (h *GameHandler) joinGame(c *gin.Context) {
 		return
 	}
 
-	// Call service to join game by code
-	response, err := h.gameCreationService.JoinGame(req.Code, player.(models.Player))
+	// Use joinService if available, otherwise fall back to creationService
+	var response *services.JoinGameResponse
+	var err error
+	if h.joinService != nil {
+		response, err = h.joinService.JoinGame(req.Code, player.(models.Player))
+	} else {
+		response, err = h.creationService.JoinGame(req.Code, player.(models.Player))
+	}
+
 	if err != nil {
 		if strings.Contains(err.Error(), "invalid game code") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -149,8 +177,15 @@ func (h *GameHandler) getPlayerGames(c *gin.Context) {
 		return
 	}
 
-	// Call service to get games for player
-	games, err := h.gameCreationService.GetPlayerGames(player.(models.Player))
+	// Use queryService if available, otherwise fall back to creationService
+	var games []services.PlayerGame
+	var err error
+	if h.queryService != nil {
+		games, err = h.queryService.GetPlayerGames(player.(models.Player))
+	} else {
+		games, err = h.creationService.GetPlayerGames(player.(models.Player))
+	}
+
 	if err != nil {
 		log.WithError(err).Error("Failed to get player games")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get player games"})
@@ -165,7 +200,7 @@ func (h *GameHandler) getPlayerGames(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"games": games})
 }
 
-// Add leaveGame handler
+// leaveGame handles a player leaving a game
 func (h *GameHandler) leaveGame(c *gin.Context) {
 	gameID := c.Param("gameId")
 	player, exists := c.Get("player")
@@ -173,9 +208,17 @@ func (h *GameHandler) leaveGame(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Player not found in context"})
 		return
 	}
-	err := h.gameCreationService.LeaveGame(gameID, player.(models.Player))
+
+	// Use membershipService if available, otherwise fall back to creationService
+	var err error
+	if h.membershipService != nil {
+		err = h.membershipService.LeaveGame(gameID, player.(models.Player))
+	} else {
+		err = h.creationService.LeaveGame(gameID, player.(models.Player))
+	}
+
 	if err != nil {
-		if err.Error() == "player is not in the game" {
+		if err == services.ErrPlayerNotInGame || err.Error() == "player is not in the game" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}

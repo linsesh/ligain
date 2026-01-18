@@ -1,0 +1,133 @@
+package services
+
+import (
+	"fmt"
+	"ligain/backend/repositories"
+	"sync"
+
+	log "github.com/sirupsen/logrus"
+)
+
+// GameServiceRegistryInterface defines the interface for the game service registry
+type GameServiceRegistryInterface interface {
+	// GetOrCreate returns an existing GameService or creates a new one
+	GetOrCreate(gameID string) (GameService, error)
+	// Get returns an existing GameService without creating one
+	Get(gameID string) (GameService, bool)
+	// Register explicitly adds a GameService to the registry
+	Register(gameID string, gs GameService)
+	// Unregister removes a GameService from the registry
+	Unregister(gameID string)
+	// LoadAll loads all existing games from the repository
+	LoadAll() error
+}
+
+// GameServiceRegistry manages GameService instances
+type GameServiceRegistry struct {
+	gameRepo       repositories.GameRepository
+	betRepo        repositories.BetRepository
+	gamePlayerRepo repositories.GamePlayerRepository
+	watcher        MatchWatcherService
+	gameServices   map[string]GameService
+	mu             sync.RWMutex
+}
+
+// NewGameServiceRegistry creates a new GameServiceRegistry instance
+func NewGameServiceRegistry(
+	gameRepo repositories.GameRepository,
+	betRepo repositories.BetRepository,
+	gamePlayerRepo repositories.GamePlayerRepository,
+	watcher MatchWatcherService,
+) *GameServiceRegistry {
+	return &GameServiceRegistry{
+		gameRepo:       gameRepo,
+		betRepo:        betRepo,
+		gamePlayerRepo: gamePlayerRepo,
+		watcher:        watcher,
+		gameServices:   make(map[string]GameService),
+	}
+}
+
+// GetOrCreate returns an existing GameService or creates a new one
+func (r *GameServiceRegistry) GetOrCreate(gameID string) (GameService, error) {
+	// First try read lock
+	r.mu.RLock()
+	if gs, exists := r.gameServices[gameID]; exists {
+		r.mu.RUnlock()
+		return gs, nil
+	}
+	r.mu.RUnlock()
+
+	// Need write lock to create
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	if gs, exists := r.gameServices[gameID]; exists {
+		return gs, nil
+	}
+
+	// Create new GameService
+	gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo)
+
+	// Subscribe to watcher if available
+	if r.watcher != nil {
+		if err := r.watcher.Subscribe(gameService); err != nil {
+			return nil, fmt.Errorf("failed to subscribe game to watcher: %v", err)
+		}
+	}
+
+	r.gameServices[gameID] = gameService
+	return gameService, nil
+}
+
+// Get returns an existing GameService without creating one
+func (r *GameServiceRegistry) Get(gameID string) (GameService, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	gs, exists := r.gameServices[gameID]
+	return gs, exists
+}
+
+// Register explicitly adds a GameService to the registry
+func (r *GameServiceRegistry) Register(gameID string, gs GameService) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.gameServices[gameID] = gs
+}
+
+// Unregister removes a GameService from the registry
+func (r *GameServiceRegistry) Unregister(gameID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.gameServices, gameID)
+}
+
+// LoadAll loads all existing games from the repository
+func (r *GameServiceRegistry) LoadAll() error {
+	games, err := r.gameRepo.GetAllGames()
+	if err != nil {
+		return fmt.Errorf("failed to load games from repository: %v", err)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for gameID := range games {
+		gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo)
+		r.gameServices[gameID] = gameService
+
+		// Subscribe to watcher if available
+		if r.watcher != nil {
+			if err := r.watcher.Subscribe(gameService); err != nil {
+				log.WithError(err).Warnf("Failed to subscribe game %s to watcher", gameID)
+			}
+		}
+	}
+
+	log.WithField("gameCount", len(games)).Info("Loaded games from repository")
+	return nil
+}

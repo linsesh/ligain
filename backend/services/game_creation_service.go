@@ -10,8 +10,6 @@ import (
 	"ligain/backend/rules"
 	"math/big"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // GameCreationServiceInterface defines the interface for game creation services
@@ -25,103 +23,17 @@ type GameCreationServiceInterface interface {
 }
 
 // GameCreationService handles game creation with unique codes
+// This is now a facade that delegates to specialized services
 type GameCreationService struct {
-	gameRepo       repositories.GameRepository
-	gameCodeRepo   repositories.GameCodeRepository
-	gamePlayerRepo repositories.GamePlayerRepository
-	betRepo        repositories.BetRepository
-	matchRepo      repositories.MatchRepository
-	watcher        MatchWatcherService
-	gameServices   map[string]GameService
-	timeFunc       func() time.Time
-}
-
-// NewGameCreationService creates a new GameCreationService instance
-func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) GameCreationServiceInterface {
-	return NewGameCreationServiceWithTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
-}
-
-// NewGameCreationServiceWithTimeFunc creates a new GameCreationService instance with a custom time function
-func NewGameCreationServiceWithTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) GameCreationServiceInterface {
-	return &GameCreationService{
-		gameRepo:       gameRepo,
-		gameCodeRepo:   gameCodeRepo,
-		gamePlayerRepo: gamePlayerRepo,
-		betRepo:        betRepo,
-		matchRepo:      matchRepo,
-		watcher:        watcher,
-		gameServices:   make(map[string]GameService),
-		timeFunc:       timeFunc,
-	}
-}
-
-// NewGameCreationServiceWithLoadedGames creates a new GameCreationService instance and loads all existing games from the repository
-func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
-	return NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
-}
-
-// NewGameCreationServiceWithLoadedGamesAndTimeFunc creates a new GameCreationService instance with a custom time function and loads all existing games from the repository
-func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) (GameCreationServiceInterface, error) {
-	service := &GameCreationService{
-		gameRepo:       gameRepo,
-		gameCodeRepo:   gameCodeRepo,
-		gamePlayerRepo: gamePlayerRepo,
-		betRepo:        betRepo,
-		matchRepo:      matchRepo,
-		watcher:        watcher,
-		gameServices:   make(map[string]GameService),
-		timeFunc:       timeFunc,
-	}
-
-	// Load all games from the repository
-	games, err := gameRepo.GetAllGames()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load games from repository: %v", err)
-	}
-
-	// Create GameService instances for each game
-	for gameID := range games {
-		gameService := NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo)
-		service.gameServices[gameID] = gameService
-
-		// Subscribe to the watcher if available
-		if watcher != nil {
-			if err := watcher.Subscribe(gameService); err != nil {
-				log.WithError(err).Warnf("Failed to subscribe game %s to watcher", gameID)
-			}
-		}
-	}
-
-	log.WithField("gameCount", len(games)).Info("Loaded games from repository")
-	return service, nil
-}
-
-// GetGameService returns a GameService by ID, but only if the player has access to it
-func (s *GameCreationService) GetGameService(gameID string, player models.Player) (GameService, error) {
-	// Check if player is in the game first
-	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, player.GetID())
-	if err != nil {
-		return nil, fmt.Errorf("error checking game access: %v", err)
-	}
-	if !isInGame {
-		return nil, ErrPlayerNotInGame
-	}
-
-	gameService, exists := s.gameServices[gameID]
-	if !exists {
-		// Create a new game service
-		gameService = NewGameService(gameID, s.gameRepo, s.betRepo, s.gamePlayerRepo)
-		s.gameServices[gameID] = gameService
-
-		// Subscribe to the watcher if available
-		if s.watcher != nil {
-			if err := s.watcher.Subscribe(gameService); err != nil {
-				return nil, fmt.Errorf("failed to subscribe game to watcher: %v", err)
-			}
-		}
-	}
-
-	return gameService, nil
+	gameRepo          repositories.GameRepository
+	gameCodeRepo      repositories.GameCodeRepository
+	gamePlayerRepo    repositories.GamePlayerRepository
+	matchRepo         repositories.MatchRepository
+	registry          GameServiceRegistryInterface
+	membershipService GameMembershipServiceInterface
+	queryService      GameQueryServiceInterface
+	joinService       GameJoinServiceInterface
+	timeFunc          func() time.Time
 }
 
 // CreateGameRequest represents the request to create a new game
@@ -168,6 +80,102 @@ var (
 	ErrPlayerNotInGame    = errors.New("player is not in the game")
 	ErrPlayerGameLimit    = errors.New("player has reached the maximum limit of 5 games")
 )
+
+// NewGameCreationService creates a new GameCreationService instance (legacy constructor for compatibility)
+func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) GameCreationServiceInterface {
+	return NewGameCreationServiceWithTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
+}
+
+// NewGameCreationServiceWithTimeFunc creates a new GameCreationService instance with a custom time function (legacy constructor for compatibility)
+func NewGameCreationServiceWithTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) GameCreationServiceInterface {
+	// Create the underlying services
+	registry := NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
+	membershipService := NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	queryService := NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+	joinService := NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, timeFunc)
+
+	return &GameCreationService{
+		gameRepo:          gameRepo,
+		gameCodeRepo:      gameCodeRepo,
+		gamePlayerRepo:    gamePlayerRepo,
+		matchRepo:         matchRepo,
+		registry:          registry,
+		membershipService: membershipService,
+		queryService:      queryService,
+		joinService:       joinService,
+		timeFunc:          timeFunc,
+	}
+}
+
+// NewGameCreationServiceWithLoadedGames creates a new GameCreationService instance and loads all existing games from the repository
+func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
+	return NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
+}
+
+// NewGameCreationServiceWithLoadedGamesAndTimeFunc creates a new GameCreationService instance with a custom time function and loads all existing games from the repository
+func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) (GameCreationServiceInterface, error) {
+	// Create the underlying services
+	registry := NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
+	membershipService := NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	queryService := NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+	joinService := NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, timeFunc)
+
+	// Load all games via registry
+	if err := registry.LoadAll(); err != nil {
+		return nil, err
+	}
+
+	return &GameCreationService{
+		gameRepo:          gameRepo,
+		gameCodeRepo:      gameCodeRepo,
+		gamePlayerRepo:    gamePlayerRepo,
+		matchRepo:         matchRepo,
+		registry:          registry,
+		membershipService: membershipService,
+		queryService:      queryService,
+		joinService:       joinService,
+		timeFunc:          timeFunc,
+	}, nil
+}
+
+// NewGameCreationServiceWithServices creates a GameCreationService with explicit service dependencies (preferred for new code)
+func NewGameCreationServiceWithServices(
+	gameRepo repositories.GameRepository,
+	gameCodeRepo repositories.GameCodeRepository,
+	gamePlayerRepo repositories.GamePlayerRepository,
+	matchRepo repositories.MatchRepository,
+	registry GameServiceRegistryInterface,
+	membershipService GameMembershipServiceInterface,
+	queryService GameQueryServiceInterface,
+	joinService GameJoinServiceInterface,
+	timeFunc func() time.Time,
+) *GameCreationService {
+	return &GameCreationService{
+		gameRepo:          gameRepo,
+		gameCodeRepo:      gameCodeRepo,
+		gamePlayerRepo:    gamePlayerRepo,
+		matchRepo:         matchRepo,
+		registry:          registry,
+		membershipService: membershipService,
+		queryService:      queryService,
+		joinService:       joinService,
+		timeFunc:          timeFunc,
+	}
+}
+
+// GetGameService returns a GameService by ID, but only if the player has access to it
+func (s *GameCreationService) GetGameService(gameID string, player models.Player) (GameService, error) {
+	// Check if player is in the game first
+	isInGame, err := s.membershipService.IsPlayerInGame(gameID, player.GetID())
+	if err != nil {
+		return nil, fmt.Errorf("error checking game access: %v", err)
+	}
+	if !isInGame {
+		return nil, ErrPlayerNotInGame
+	}
+
+	return s.registry.GetOrCreate(gameID)
+}
 
 // CreateGame creates a new game with a unique 4-character code
 func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.Player) (*CreateGameResponse, error) {
@@ -221,16 +229,10 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		return nil, fmt.Errorf("failed to add creator to game: %v", err)
 	}
 
-	// Create and store the game service
-	gameService := NewGameService(gameID, s.gameRepo, s.betRepo, s.gamePlayerRepo)
-	s.gameServices[gameID] = gameService
-
-	// Subscribe the new game to the watcher
-	if s.watcher != nil {
-		err := s.watcher.Subscribe(gameService)
-		if err != nil {
-			return nil, fmt.Errorf("failed to subscribe game to watcher: %v", err)
-		}
+	// Register the game service in the registry
+	_, err = s.registry.GetOrCreate(gameID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create game service: %v", err)
 	}
 
 	// Generate a unique code for the game
@@ -254,76 +256,24 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	}, nil
 }
 
-// JoinGame joins a player to a game using a 4-character code
+// JoinGame delegates to GameJoinService
 func (s *GameCreationService) JoinGame(code string, player models.Player) (*JoinGameResponse, error) {
-	// Get the game code from the database
-	gameCode, err := s.gameCodeRepo.GetGameCodeByCode(code)
-	if err != nil {
-		return nil, fmt.Errorf("invalid game code: %v", err)
-	}
-
-	// Check if the code is expired
-	if gameCode.ExpiresAt.Before(s.timeFunc()) {
-		return nil, fmt.Errorf("game code has expired")
-	}
-
-	// Get the game from the database
-	game, err := s.gameRepo.GetGame(gameCode.GameID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get game: %v", err)
-	}
-	// Prevent joining if finished
-	if game.GetGameStatus() == models.GameStatusFinished {
-		return nil, fmt.Errorf("cannot join a finished game")
-	}
-
-	// Check if player has reached the game limit (5 games)
-	playerGames, err := s.gamePlayerRepo.GetPlayerGames(context.Background(), player.GetID())
-	if err != nil {
-		return nil, fmt.Errorf("failed to check player games: %v", err)
-	}
-	if len(playerGames) >= 5 {
-		return nil, ErrPlayerGameLimit
-	}
-
-	// Add the player to the game
-	err = s.addPlayerToGame(gameCode.GameID, player)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add player to game: %v", err)
-	}
-
-	// Update the cached game service if it exists
-	if gs, ok := s.gameServices[gameCode.GameID]; ok {
-		_ = gs.AddPlayer(player)
-	}
-
-	return &JoinGameResponse{
-		GameID:          gameCode.GameID,
-		SeasonYear:      game.GetSeasonYear(),
-		CompetitionName: game.GetCompetitionName(),
-		Message:         "Successfully joined the game",
-	}, nil
+	return s.joinService.JoinGame(code, player)
 }
 
-// addPlayerToGame adds a player to a game if they're not already in it
-func (s *GameCreationService) addPlayerToGame(gameID string, player models.Player) error {
-	// Check if player is already in the game
-	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, player.GetID())
-	if err != nil {
-		return fmt.Errorf("error checking if player is in game: %v", err)
-	}
+// GetPlayerGames delegates to GameQueryService
+func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame, error) {
+	return s.queryService.GetPlayerGames(player)
+}
 
-	if isInGame {
-		return nil // Player is already in the game
-	}
+// LeaveGame delegates to GameMembershipService
+func (s *GameCreationService) LeaveGame(gameID string, player models.Player) error {
+	return s.membershipService.LeaveGame(gameID, player)
+}
 
-	// Add player to the game
-	err = s.gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.GetID())
-	if err != nil {
-		return fmt.Errorf("error adding player to game: %v", err)
-	}
-
-	return nil
+// CleanupExpiredCodes removes all expired game codes
+func (s *GameCreationService) CleanupExpiredCodes() error {
+	return s.gameCodeRepo.DeleteExpiredCodes()
 }
 
 // generateUniqueCode generates a unique 4-character alphanumeric code
@@ -360,140 +310,4 @@ func (s *GameCreationService) generateRandomCode(length int, charset string) str
 	}
 
 	return string(code)
-}
-
-// CleanupExpiredCodes removes all expired game codes
-func (s *GameCreationService) CleanupExpiredCodes() error {
-	return s.gameCodeRepo.DeleteExpiredCodes()
-}
-
-// GetPlayerGames returns all games that a player is part of
-func (s *GameCreationService) GetPlayerGames(player models.Player) ([]PlayerGame, error) {
-	gameIDs, err := s.gamePlayerRepo.GetPlayerGames(context.Background(), player.GetID())
-	if err != nil {
-		return nil, fmt.Errorf("error getting player games: %v", err)
-	}
-
-	var playerGames []PlayerGame
-	for _, gameID := range gameIDs {
-		game, err := s.gameRepo.GetGame(gameID)
-		if err != nil {
-			log.Errorf("error getting game %s: %v", gameID, err)
-			continue
-		}
-
-		// Fetch all players in the game
-		players, err := s.gamePlayerRepo.GetPlayersInGame(context.Background(), gameID)
-		if err != nil {
-			log.Errorf("error getting players for game %s: %v", gameID, err)
-			continue
-		}
-
-		// Fetch all scores for the game (by match and player)
-		playerScoresByMatch, err := s.betRepo.GetScoresByMatchAndPlayer(gameID)
-		if err != nil {
-			log.Errorf("error getting scores for game %s: %v", gameID, err)
-			continue
-		}
-
-		// Build player info
-		var playerInfos []PlayerGameInfo
-		for _, p := range players {
-			total := 0
-			scoresByMatch := make(map[string]int)
-			for matchID, playerScores := range playerScoresByMatch {
-				if score, ok := playerScores[p.GetID()]; ok {
-					total += score
-					scoresByMatch[matchID] = score
-				}
-			}
-			playerInfos = append(playerInfos, PlayerGameInfo{
-				ID:            p.GetID(),
-				Name:          p.GetName(),
-				TotalScore:    total,
-				ScoresByMatch: scoresByMatch,
-			})
-		}
-
-		// Get the game code
-		gameCode, err := s.gameCodeRepo.GetGameCodeByGameID(gameID)
-		code := ""
-		if err == nil && gameCode != nil {
-			code = gameCode.Code
-		}
-
-		gameStatus := string(game.GetGameStatus())
-		playerGame := PlayerGame{
-			GameID:          gameID,
-			SeasonYear:      game.GetSeasonYear(),
-			CompetitionName: game.GetCompetitionName(),
-			Name:            game.GetName(), // Add game name here
-			Status:          gameStatus,
-			Players:         playerInfos,
-			Code:            code,
-		}
-
-		playerGames = append(playerGames, playerGame)
-	}
-
-	return playerGames, nil
-}
-
-// Add LeaveGame implementation
-func (s *GameCreationService) LeaveGame(gameID string, player models.Player) error {
-	ctx := context.Background()
-	// Check if player is in the game
-	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(ctx, gameID, player.GetID())
-	if err != nil {
-		return fmt.Errorf("error checking if player is in game: %v", err)
-	}
-	if !isInGame {
-		return ErrPlayerNotInGame
-	}
-	// Remove player from game
-	err = s.gamePlayerRepo.RemovePlayerFromGame(ctx, gameID, player.GetID())
-	if err != nil {
-		return fmt.Errorf("error removing player from game: %v", err)
-	}
-	err = s.gameServices[gameID].RemovePlayer(player)
-	if err != nil {
-		return fmt.Errorf("failed to remove player from game: %v", err)
-	}
-	// Check if any players are left
-	players, err := s.gamePlayerRepo.GetPlayersInGame(ctx, gameID)
-	if err != nil {
-		return fmt.Errorf("error checking remaining players: %v", err)
-	}
-	if len(players) == 0 {
-		if err := s.deleteGame(gameID); err != nil {
-			return err
-		}
-	}
-	// Remove from cache if present
-	delete(s.gameServices, gameID)
-	return nil
-}
-
-// deleteGame marks a game as finished, persists it, unsubscribes from the watcher, and deletes the join code
-func (s *GameCreationService) deleteGame(gameID string) error {
-	game, err := s.gameRepo.GetGame(gameID)
-	if err != nil {
-		return fmt.Errorf("error loading game to finish: %v", err)
-	}
-	game.Finish()
-	err = s.gameRepo.SaveWithId(gameID, game)
-	if err != nil {
-		return fmt.Errorf("error saving finished game: %v", err)
-	}
-	// Always unsubscribe from watcher if present
-	if s.watcher != nil {
-		err := s.watcher.Unsubscribe(gameID)
-		if err != nil {
-			log.WithError(err).Warnf("Failed to unsubscribe game %s from watcher", gameID)
-		}
-	}
-	if s.gameCodeRepo != nil {
-		_ = s.gameCodeRepo.DeleteGameCodeByGameID(gameID)
-	}
-	return nil
 }

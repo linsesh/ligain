@@ -159,7 +159,8 @@ func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuth
 	mockGameCreationService := new(MockGameCreationService)
 	mockAuthService := new(MockGameAuthService)
 
-	handler := NewGameHandler(mockGameCreationService, mockAuthService)
+	// Pass nil for specialized services to test backward compatibility (falls back to creationService)
+	handler := NewGameHandler(mockGameCreationService, nil, nil, nil, mockAuthService)
 
 	// Add middleware to routes manually for testing
 	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
@@ -175,7 +176,8 @@ func setupGameTestRouterWithLeave() (*gin.Engine, *MockGameCreationService, *Moc
 	mockGameCreationService := new(MockGameCreationService)
 	mockAuthService := new(MockGameAuthService)
 
-	handler := NewGameHandler(mockGameCreationService, mockAuthService)
+	// Pass nil for specialized services to test backward compatibility (falls back to creationService)
+	handler := NewGameHandler(mockGameCreationService, nil, nil, nil, mockAuthService)
 
 	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
 	router.GET("/api/games", middleware.PlayerAuth(mockAuthService), handler.getPlayerGames)

@@ -11,6 +11,7 @@ import (
 	"ligain/backend/storage"
 	"os"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -80,14 +81,25 @@ func main() {
 	// Initialize authentication service
 	authService := services.NewAuthService(playerRepo)
 
-	// Initialize game creation service
+	// Initialize game repositories
 	gameCodeRepo := postgres.NewPostgresGameCodeRepository(db)
 	gamePlayerRepo := postgres.NewPostgresGamePlayerRepository(db)
-	gameCreationService, err := services.NewGameCreationServiceWithLoadedGames(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher)
-	if err != nil {
-		log.Fatal("Failed to create game creation service:", err)
+
+	// Initialize specialized game services
+	registry := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
+	if err := registry.LoadAll(); err != nil {
+		log.Fatal("Failed to load games from repository:", err)
 		os.Exit(1)
 	}
+
+	membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+	joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, time.Now)
+	creationService := services.NewGameCreationServiceWithServices(
+		gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
+		registry, membershipService, queryService, joinService,
+		time.Now,
+	)
 
 	router := gin.Default()
 
@@ -124,15 +136,15 @@ func main() {
 	router.Use(middleware.APIKeyAuth())
 
 	// Setup routes
-	matchHandler := routes.NewMatchHandler(gameCreationService, authService)
+	matchHandler := routes.NewMatchHandler(creationService, authService)
 	matchHandler.SetupRoutes(router)
 
 	// Setup authentication routes
 	authHandler := routes.NewAuthHandler(authService)
 	authHandler.SetupRoutes(router)
 
-	// Setup game creation routes
-	gameHandler := routes.NewGameHandler(gameCreationService, authService)
+	// Setup game routes with all specialized services
+	gameHandler := routes.NewGameHandler(creationService, joinService, queryService, membershipService, authService)
 	gameHandler.SetupRoutes(router)
 
 	// Setup profile routes (with avatar upload support if GCS is configured)
