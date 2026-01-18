@@ -11,6 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// setupMembershipTestRegistry creates a registry for membership tests
+func setupMembershipTestRegistry(t *testing.T, mockGameRepo *MockGameRepository, mockBetRepo *MockBetRepository, mockGamePlayerRepo *MockGamePlayerRepository, watcher MatchWatcherService) *GameServiceRegistry {
+	// Constructor calls loadAll, so we need to mock GetAllGames
+	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
+
+	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, watcher)
+	require.NoError(t, err)
+	return registry
+}
+
 func TestGameMembershipService_AddPlayerToGame_Success(t *testing.T) {
 	// Setup
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
@@ -19,7 +29,7 @@ func TestGameMembershipService_AddPlayerToGame_Success(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -43,7 +53,7 @@ func TestGameMembershipService_AddPlayerToGame_AlreadyInGame(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -68,7 +78,7 @@ func TestGameMembershipService_AddPlayerToGame_RepositoryError(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -93,7 +103,7 @@ func TestGameMembershipService_RemovePlayerFromGame_Success(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -120,7 +130,7 @@ func TestGameMembershipService_RemovePlayerFromGame_NotInGame(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -145,7 +155,7 @@ func TestGameMembershipService_RemovePlayerFromGame_LastPlayerDeletesGame(t *tes
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -183,7 +193,7 @@ func TestGameMembershipService_IsPlayerInGame_True(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	// Mock expectations
@@ -205,7 +215,7 @@ func TestGameMembershipService_IsPlayerInGame_False(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	// Mock expectations
@@ -227,7 +237,7 @@ func TestGameMembershipService_GetPlayersInGame_Success(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	player1 := &models.PlayerData{ID: "player1", Name: "Player 1"}
@@ -253,7 +263,7 @@ func TestGameMembershipService_GetPlayersInGame_RepositoryError(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 
 	// Mock expectations
@@ -276,7 +286,7 @@ func TestGameMembershipService_LeaveGame_Success(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -304,7 +314,7 @@ func TestGameMembershipService_LeaveGame_UnregistersFromRegistry(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -351,7 +361,7 @@ func TestGameMembershipService_UpdateCachedGameService(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	service := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}

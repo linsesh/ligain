@@ -82,48 +82,22 @@ var (
 )
 
 // NewGameCreationService creates a new GameCreationService instance (legacy constructor for compatibility)
-func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) GameCreationServiceInterface {
+// DEPRECATED: Use NewGameCreationServiceWithServices for new code
+func NewGameCreationService(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
 	return NewGameCreationServiceWithTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
 }
 
 // NewGameCreationServiceWithTimeFunc creates a new GameCreationService instance with a custom time function (legacy constructor for compatibility)
-func NewGameCreationServiceWithTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) GameCreationServiceInterface {
+// DEPRECATED: Use NewGameCreationServiceWithServices for new code
+func NewGameCreationServiceWithTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) (GameCreationServiceInterface, error) {
 	// Create the underlying services
-	registry := NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
-	membershipService := NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
-	queryService := NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
-	joinService := NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, timeFunc)
-
-	return &GameCreationService{
-		gameRepo:          gameRepo,
-		gameCodeRepo:      gameCodeRepo,
-		gamePlayerRepo:    gamePlayerRepo,
-		matchRepo:         matchRepo,
-		registry:          registry,
-		membershipService: membershipService,
-		queryService:      queryService,
-		joinService:       joinService,
-		timeFunc:          timeFunc,
-	}
-}
-
-// NewGameCreationServiceWithLoadedGames creates a new GameCreationService instance and loads all existing games from the repository
-func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
-	return NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
-}
-
-// NewGameCreationServiceWithLoadedGamesAndTimeFunc creates a new GameCreationService instance with a custom time function and loads all existing games from the repository
-func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) (GameCreationServiceInterface, error) {
-	// Create the underlying services
-	registry := NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
-	membershipService := NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
-	queryService := NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
-	joinService := NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, timeFunc)
-
-	// Load all games via registry
-	if err := registry.LoadAll(); err != nil {
+	registry, err := NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
+	if err != nil {
 		return nil, err
 	}
+	membershipService := NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	queryService := NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+	joinService := NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, timeFunc)
 
 	return &GameCreationService{
 		gameRepo:          gameRepo,
@@ -136,6 +110,18 @@ func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.Game
 		joinService:       joinService,
 		timeFunc:          timeFunc,
 	}, nil
+}
+
+// NewGameCreationServiceWithLoadedGames creates a new GameCreationService instance and loads all existing games from the repository
+// DEPRECATED: Games are now loaded in constructor, use NewGameCreationServiceWithTimeFunc instead
+func NewGameCreationServiceWithLoadedGames(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, error) {
+	return NewGameCreationServiceWithTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, time.Now)
+}
+
+// NewGameCreationServiceWithLoadedGamesAndTimeFunc creates a new GameCreationService instance with a custom time function and loads all existing games from the repository
+// DEPRECATED: Games are now loaded in constructor, use NewGameCreationServiceWithTimeFunc instead
+func NewGameCreationServiceWithLoadedGamesAndTimeFunc(gameRepo repositories.GameRepository, gameCodeRepo repositories.GameCodeRepository, gamePlayerRepo repositories.GamePlayerRepository, betRepo repositories.BetRepository, matchRepo repositories.MatchRepository, watcher MatchWatcherService, timeFunc func() time.Time) (GameCreationServiceInterface, error) {
+	return NewGameCreationServiceWithTimeFunc(gameRepo, gameCodeRepo, gamePlayerRepo, betRepo, matchRepo, watcher, timeFunc)
 }
 
 // NewGameCreationServiceWithServices creates a GameCreationService with explicit service dependencies (preferred for new code)

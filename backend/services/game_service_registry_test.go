@@ -11,14 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGameServiceRegistry_GetOrCreate_NewGame(t *testing.T) {
-	// Setup
+// setupEmptyRegistry creates a registry with no pre-loaded games
+func setupEmptyRegistry(t *testing.T, watcher MatchWatcherService) (*GameServiceRegistry, *MockGameRepository, *MockBetRepository, *MockGamePlayerRepository) {
 	mockGameRepo := new(MockGameRepository)
 	mockBetRepo := new(MockBetRepository)
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
-	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	// Constructor calls loadAll, so we need to mock GetAllGames
+	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
+
+	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, watcher)
+	require.NoError(t, err)
+
+	return registry, mockGameRepo, mockBetRepo, mockGamePlayerRepo
+}
+
+func TestGameServiceRegistry_GetOrCreate_NewGame(t *testing.T) {
+	mockWatcher := new(MockWatcher)
+	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
 	// Mock expectations for watcher subscription
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -36,13 +46,8 @@ func TestGameServiceRegistry_GetOrCreate_NewGame(t *testing.T) {
 }
 
 func TestGameServiceRegistry_GetOrCreate_CachedGame(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockWatcher := new(MockWatcher)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
 	// Mock expectations - Subscribe should only be called once (first GetOrCreate)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil).Once()
@@ -64,13 +69,8 @@ func TestGameServiceRegistry_GetOrCreate_CachedGame(t *testing.T) {
 }
 
 func TestGameServiceRegistry_GetOrCreate_SubscriptionFails(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockWatcher := new(MockWatcher)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
 	// Mock expectations - subscription fails
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(errors.New("subscription error"))
@@ -89,11 +89,7 @@ func TestGameServiceRegistry_GetOrCreate_SubscriptionFails(t *testing.T) {
 
 func TestGameServiceRegistry_GetOrCreate_NoWatcher(t *testing.T) {
 	// Setup - no watcher
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry, _, _, _ := setupEmptyRegistry(t, nil)
 
 	// Execute
 	gameService, err := registry.GetOrCreate("game1")
@@ -105,12 +101,7 @@ func TestGameServiceRegistry_GetOrCreate_NoWatcher(t *testing.T) {
 }
 
 func TestGameServiceRegistry_Register(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry, mockGameRepo, mockBetRepo, mockGamePlayerRepo := setupEmptyRegistry(t, nil)
 
 	// Create a game service to register
 	gameService := NewGameService("game1", mockGameRepo, mockBetRepo, mockGamePlayerRepo)
@@ -125,13 +116,8 @@ func TestGameServiceRegistry_Register(t *testing.T) {
 }
 
 func TestGameServiceRegistry_Unregister(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockWatcher := new(MockWatcher)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
 	// First create a game
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -154,8 +140,7 @@ func TestGameServiceRegistry_Unregister(t *testing.T) {
 	mockWatcher.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_LoadAll(t *testing.T) {
-	// Setup
+func TestGameServiceRegistry_LoadsGamesOnConstruction(t *testing.T) {
 	mockGameRepo := new(MockGameRepository)
 	mockBetRepo := new(MockBetRepository)
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
@@ -174,22 +159,20 @@ func TestGameServiceRegistry_LoadAll(t *testing.T) {
 	mockGameRepo.On("GetAllGames").Return(games, nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil).Times(2)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-
-	// Execute
-	err := registry.LoadAll()
+	// Execute - constructor loads games
+	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	// Verify services are loaded
-	gameService1, err := registry.GetOrCreate("game1")
-	assert.NoError(t, err)
+	// Verify services are loaded (Get returns them without creating new ones)
+	gameService1, exists := registry.Get("game1")
+	assert.True(t, exists)
 	assert.NotNil(t, gameService1)
 	assert.Equal(t, "game1", gameService1.GetGameID())
 
-	gameService2, err := registry.GetOrCreate("game2")
-	assert.NoError(t, err)
+	gameService2, exists := registry.Get("game2")
+	assert.True(t, exists)
 	assert.NotNil(t, gameService2)
 	assert.Equal(t, "game2", gameService2.GetGameID())
 
@@ -198,8 +181,7 @@ func TestGameServiceRegistry_LoadAll(t *testing.T) {
 	mockWatcher.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_LoadAll_RepositoryError(t *testing.T) {
-	// Setup
+func TestGameServiceRegistry_ConstructorFailsOnRepositoryError(t *testing.T) {
 	mockGameRepo := new(MockGameRepository)
 	mockBetRepo := new(MockBetRepository)
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
@@ -208,21 +190,19 @@ func TestGameServiceRegistry_LoadAll_RepositoryError(t *testing.T) {
 	// Mock expectations - repository error
 	mockGameRepo.On("GetAllGames").Return(nil, errors.New("database error"))
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-
 	// Execute
-	err := registry.LoadAll()
+	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 
 	// Assert
 	assert.Error(t, err)
+	assert.Nil(t, registry)
 	assert.Contains(t, err.Error(), "failed to load games from repository")
 
 	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_LoadAll_SubscriptionError(t *testing.T) {
-	// Setup
+func TestGameServiceRegistry_ConstructorContinuesOnSubscriptionError(t *testing.T) {
 	mockGameRepo := new(MockGameRepository)
 	mockBetRepo := new(MockBetRepository)
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
@@ -239,13 +219,12 @@ func TestGameServiceRegistry_LoadAll_SubscriptionError(t *testing.T) {
 	mockGameRepo.On("GetAllGames").Return(games, nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(errors.New("subscription error"))
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-
 	// Execute - should succeed even if subscription fails (just logs warning)
-	err := registry.LoadAll()
+	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 
-	// Assert - LoadAll doesn't fail on subscription errors
+	// Assert - constructor doesn't fail on subscription errors
 	assert.NoError(t, err)
+	assert.NotNil(t, registry)
 
 	// Verify mocks
 	mockGameRepo.AssertExpectations(t)
@@ -253,13 +232,8 @@ func TestGameServiceRegistry_LoadAll_SubscriptionError(t *testing.T) {
 }
 
 func TestGameServiceRegistry_ConcurrentAccess(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockWatcher := new(MockWatcher)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
 	// Mock expectations - may be called multiple times due to concurrency
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -288,13 +262,8 @@ func TestGameServiceRegistry_ConcurrentAccess(t *testing.T) {
 }
 
 func TestGameServiceRegistry_Get_Exists(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockWatcher := new(MockWatcher)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
 	// Mock expectations
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -313,12 +282,7 @@ func TestGameServiceRegistry_Get_Exists(t *testing.T) {
 }
 
 func TestGameServiceRegistry_Get_NotExists(t *testing.T) {
-	// Setup
-	mockGameRepo := new(MockGameRepository)
-	mockBetRepo := new(MockBetRepository)
-	mockGamePlayerRepo := new(MockGamePlayerRepository)
-
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry, _, _, _ := setupEmptyRegistry(t, nil)
 
 	// Execute - Get non-existent game
 	gameService, exists := registry.Get("nonexistent")
