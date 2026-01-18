@@ -1242,10 +1242,17 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	code := createResp.Code
 
 	// Step 2: Leave the game as player1
-	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil)
+	// Create a real game with the player for the cached game service to use when removing player
+	otherPlayer := &models.PlayerData{ID: "other", Name: "Other Player"}
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player, otherPlayer}, []models.Match{}, &rules.ScorerOriginal{})
+	// GetGame is called multiple times during leave and rejoin operations
+	mockGameRepo.On("GetGame", gameID).Return(realGame, nil)
+	mockGameRepo.On("SaveWithId", gameID, realGame).Return(nil)
+
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(true, nil).Once()
 	mockGamePlayerRepo.On("RemovePlayerFromGame", mock.Anything, gameID, player.ID).Return(nil)
 	// Simulate other players remaining after leave
-	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, gameID).Return([]models.Player{&models.PlayerData{ID: "other", Name: "Other Player"}}, nil)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, gameID).Return([]models.Player{otherPlayer}, nil)
 
 	err = service.LeaveGame(gameID, player)
 	assert.NoError(t, err)
@@ -1257,13 +1264,9 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 		ExpiresAt: testTime.Add(24 * time.Hour),
 	}, nil)
 
-	// Create a real game WITHOUT the player (player will be added by JoinGame)
-	realGameForRejoin := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
-	mockGameRepo.On("GetGame", gameID).Return(realGameForRejoin, nil)
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil)
-	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(false, nil)
+	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, gameID, player.ID).Return(false, nil).Once()
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, gameID, player.ID).Return(nil)
-	mockGameRepo.On("SaveWithId", gameID, realGameForRejoin).Return(nil)
 
 	joinResp, err := service.JoinGame(code, player)
 	assert.NoError(t, err)

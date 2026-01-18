@@ -250,6 +250,14 @@ func (g *GameServiceImpl) RemovePlayer(player models.Player) error {
 		log.Errorf("Error removing player: %v", err)
 		return err
 	}
+
+	// Save the updated game
+	err = g.gameRepo.SaveWithId(g.gameId, game)
+	if err != nil {
+		log.Errorf("Error saving game after removing player: %v", err)
+		return err
+	}
+
 	return nil
 }
 
