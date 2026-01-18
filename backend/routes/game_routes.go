@@ -39,14 +39,6 @@ func NewGameHandler(
 	}
 }
 
-// NewGameHandlerLegacy creates a GameHandler with just GameCreationService for backward compatibility
-// DEPRECATED: Use NewGameHandler with individual services instead
-func NewGameHandlerLegacy(gameCreationService services.GameCreationServiceInterface, authService services.AuthServiceInterface) *GameHandler {
-	return &GameHandler{
-		creationService: gameCreationService,
-		authService:     authService,
-	}
-}
 
 // SetupRoutes registers all game-related routes
 func (h *GameHandler) SetupRoutes(router *gin.Engine) {
@@ -131,14 +123,7 @@ func (h *GameHandler) joinGame(c *gin.Context) {
 		return
 	}
 
-	// Use joinService if available, otherwise fall back to creationService
-	var response *services.JoinGameResponse
-	var err error
-	if h.joinService != nil {
-		response, err = h.joinService.JoinGame(req.Code, player.(models.Player))
-	} else {
-		response, err = h.creationService.JoinGame(req.Code, player.(models.Player))
-	}
+	response, err := h.joinService.JoinGame(req.Code, player.(models.Player))
 
 	if err != nil {
 		if strings.Contains(err.Error(), "invalid game code") {
@@ -177,14 +162,7 @@ func (h *GameHandler) getPlayerGames(c *gin.Context) {
 		return
 	}
 
-	// Use queryService if available, otherwise fall back to creationService
-	var games []services.PlayerGame
-	var err error
-	if h.queryService != nil {
-		games, err = h.queryService.GetPlayerGames(player.(models.Player))
-	} else {
-		games, err = h.creationService.GetPlayerGames(player.(models.Player))
-	}
+	games, err := h.queryService.GetPlayerGames(player.(models.Player))
 
 	if err != nil {
 		log.WithError(err).Error("Failed to get player games")
@@ -209,13 +187,7 @@ func (h *GameHandler) leaveGame(c *gin.Context) {
 		return
 	}
 
-	// Use membershipService if available, otherwise fall back to creationService
-	var err error
-	if h.membershipService != nil {
-		err = h.membershipService.LeaveGame(gameID, player.(models.Player))
-	} else {
-		err = h.creationService.LeaveGame(gameID, player.(models.Player))
-	}
+	err := h.membershipService.LeaveGame(gameID, player.(models.Player))
 
 	if err != nil {
 		if err == services.ErrPlayerNotInGame || err.Error() == "player is not in the game" {

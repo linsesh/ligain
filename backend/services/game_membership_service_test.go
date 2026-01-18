@@ -321,7 +321,7 @@ func TestGameMembershipService_LeaveGame_UnregistersFromRegistry(t *testing.T) {
 
 	// First register a game service
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Mock expectations for leaving
@@ -368,7 +368,7 @@ func TestGameMembershipService_UpdateCachedGameService(t *testing.T) {
 
 	// First register a game service
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Mock AddPlayer expectations
