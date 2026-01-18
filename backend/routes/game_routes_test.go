@@ -152,42 +152,115 @@ func (m *MockGameAuthService) DeleteAccount(ctx context.Context, playerID string
 	return args.Error(0)
 }
 
-func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {
+// MockJoinService is a mock implementation of GameJoinServiceInterface
+type MockJoinService struct {
+	mock.Mock
+}
+
+func (m *MockJoinService) JoinGame(code string, player models.Player) (*services.JoinGameResponse, error) {
+	args := m.Called(code, player)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*services.JoinGameResponse), args.Error(1)
+}
+
+// MockQueryService is a mock implementation of GameQueryServiceInterface
+type MockQueryService struct {
+	mock.Mock
+}
+
+func (m *MockQueryService) GetPlayerGames(player models.Player) ([]services.PlayerGame, error) {
+	args := m.Called(player)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]services.PlayerGame), args.Error(1)
+}
+
+func (m *MockQueryService) GetGame(gameID string) (models.Game, error) {
+	args := m.Called(gameID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(models.Game), args.Error(1)
+}
+
+// MockMembershipService is a mock implementation of GameMembershipServiceInterface
+type MockMembershipService struct {
+	mock.Mock
+}
+
+func (m *MockMembershipService) AddPlayerToGame(gameID string, player models.Player) error {
+	args := m.Called(gameID, player)
+	return args.Error(0)
+}
+
+func (m *MockMembershipService) RemovePlayerFromGame(gameID string, player models.Player) error {
+	args := m.Called(gameID, player)
+	return args.Error(0)
+}
+
+func (m *MockMembershipService) IsPlayerInGame(gameID string, playerID string) (bool, error) {
+	args := m.Called(gameID, playerID)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockMembershipService) GetPlayersInGame(gameID string) ([]models.Player, error) {
+	args := m.Called(gameID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Player), args.Error(1)
+}
+
+func (m *MockMembershipService) LeaveGame(gameID string, player models.Player) error {
+	args := m.Called(gameID, player)
+	return args.Error(0)
+}
+
+func setupGameTestRouter() (*gin.Engine, *MockGameCreationService, *MockJoinService, *MockQueryService, *MockMembershipService, *MockGameAuthService) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
 	mockGameCreationService := new(MockGameCreationService)
+	mockJoinService := new(MockJoinService)
+	mockQueryService := new(MockQueryService)
+	mockMembershipService := new(MockMembershipService)
 	mockAuthService := new(MockGameAuthService)
 
-	// Pass nil for specialized services to test backward compatibility (falls back to creationService)
-	handler := NewGameHandler(mockGameCreationService, nil, nil, nil, mockAuthService)
+	handler := NewGameHandler(mockGameCreationService, mockJoinService, mockQueryService, mockMembershipService, mockAuthService)
 
 	// Add middleware to routes manually for testing
 	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
+	router.POST("/api/games/join", middleware.PlayerAuth(mockAuthService), handler.joinGame)
 	router.GET("/api/games", middleware.PlayerAuth(mockAuthService), handler.getPlayerGames)
 
-	return router, mockGameCreationService, mockAuthService
+	return router, mockGameCreationService, mockJoinService, mockQueryService, mockMembershipService, mockAuthService
 }
 
-func setupGameTestRouterWithLeave() (*gin.Engine, *MockGameCreationService, *MockGameAuthService) {
+func setupGameTestRouterWithLeave() (*gin.Engine, *MockGameCreationService, *MockJoinService, *MockQueryService, *MockMembershipService, *MockGameAuthService) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
 	mockGameCreationService := new(MockGameCreationService)
+	mockJoinService := new(MockJoinService)
+	mockQueryService := new(MockQueryService)
+	mockMembershipService := new(MockMembershipService)
 	mockAuthService := new(MockGameAuthService)
 
-	// Pass nil for specialized services to test backward compatibility (falls back to creationService)
-	handler := NewGameHandler(mockGameCreationService, nil, nil, nil, mockAuthService)
+	handler := NewGameHandler(mockGameCreationService, mockJoinService, mockQueryService, mockMembershipService, mockAuthService)
 
 	router.POST("/api/games", middleware.PlayerAuth(mockAuthService), handler.createGame)
+	router.POST("/api/games/join", middleware.PlayerAuth(mockAuthService), handler.joinGame)
 	router.GET("/api/games", middleware.PlayerAuth(mockAuthService), handler.getPlayerGames)
 	router.DELETE("/api/games/:gameId/leave", middleware.PlayerAuth(mockAuthService), handler.leaveGame)
 
-	return router, mockGameCreationService, mockAuthService
+	return router, mockGameCreationService, mockJoinService, mockQueryService, mockMembershipService, mockAuthService
 }
 
 func TestCreateGame_Success(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	requestBody := services.CreateGameRequest{
@@ -233,7 +306,7 @@ func TestCreateGame_Success(t *testing.T) {
 }
 
 func TestCreateGame_InvalidJSON(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Mock expectations for authentication middleware
 	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(&models.PlayerData{
@@ -264,7 +337,7 @@ func TestCreateGame_InvalidJSON(t *testing.T) {
 }
 
 func TestCreateGame_MissingSeasonYear(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data with missing seasonYear
 	requestBody := map[string]string{
@@ -301,7 +374,7 @@ func TestCreateGame_MissingSeasonYear(t *testing.T) {
 }
 
 func TestCreateGame_MissingCompetitionName(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data with missing competitionName
 	requestBody := map[string]string{
@@ -338,7 +411,7 @@ func TestCreateGame_MissingCompetitionName(t *testing.T) {
 }
 
 func TestCreateGame_ServiceError(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	requestBody := services.CreateGameRequest{
@@ -378,7 +451,7 @@ func TestCreateGame_ServiceError(t *testing.T) {
 }
 
 func TestCreateGame_Unauthorized(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	requestBody := services.CreateGameRequest{
@@ -414,7 +487,7 @@ func TestCreateGame_Unauthorized(t *testing.T) {
 }
 
 func TestCreateGame_InvalidCompetitionName(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data with invalid competition name
 	requestBody := services.CreateGameRequest{
@@ -454,7 +527,7 @@ func TestCreateGame_InvalidCompetitionName(t *testing.T) {
 }
 
 func TestCreateGame_InvalidSeasonYear(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, mockGameCreationService, _, _, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data with invalid season year
 	requestBody := services.CreateGameRequest{
@@ -494,7 +567,7 @@ func TestCreateGame_InvalidSeasonYear(t *testing.T) {
 }
 
 func TestGetPlayerGames_Success(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, _, _, mockQueryService, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	player := &models.PlayerData{
@@ -522,7 +595,7 @@ func TestGetPlayerGames_Success(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("GetPlayerGames", player).Return(expectedGames, nil)
+	mockQueryService.On("GetPlayerGames", player).Return(expectedGames, nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/games", nil)
@@ -558,12 +631,12 @@ func TestGetPlayerGames_Success(t *testing.T) {
 	assert.Equal(t, "in progress", game2["status"])
 
 	// Verify mocks
-	mockGameCreationService.AssertExpectations(t)
+	mockQueryService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
 
 func TestGetPlayerGames_EmptyList(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, _, _, mockQueryService, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	player := &models.PlayerData{
@@ -576,7 +649,7 @@ func TestGetPlayerGames_EmptyList(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("GetPlayerGames", player).Return([]services.PlayerGame{}, nil)
+	mockQueryService.On("GetPlayerGames", player).Return([]services.PlayerGame{}, nil)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/games", nil)
@@ -598,12 +671,12 @@ func TestGetPlayerGames_EmptyList(t *testing.T) {
 	assert.Len(t, games, 0)
 
 	// Verify mocks
-	mockGameCreationService.AssertExpectations(t)
+	mockQueryService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
 
 func TestGetPlayerGames_ServiceError(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, _, _, mockQueryService, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	player := &models.PlayerData{
@@ -616,7 +689,7 @@ func TestGetPlayerGames_ServiceError(t *testing.T) {
 		ID:   "test-player-id",
 		Name: "Test Player",
 	}, nil)
-	mockGameCreationService.On("GetPlayerGames", player).Return(nil, repositories.ErrGameCodeNotFound)
+	mockQueryService.On("GetPlayerGames", player).Return(nil, repositories.ErrGameCodeNotFound)
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/games", nil)
@@ -635,12 +708,12 @@ func TestGetPlayerGames_ServiceError(t *testing.T) {
 	assert.Equal(t, "Failed to get player games", response["error"])
 
 	// Verify mocks
-	mockGameCreationService.AssertExpectations(t)
+	mockQueryService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
 
 func TestGetPlayerGames_Unauthorized(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, _, _, mockQueryService, _, mockAuthService := setupGameTestRouter()
 
 	// Mock expectations - authentication fails
 	mockAuthService.On("ValidateToken", mock.Anything, "invalidtoken").Return(nil, repositories.ErrGameCodeNotFound)
@@ -662,12 +735,12 @@ func TestGetPlayerGames_Unauthorized(t *testing.T) {
 	assert.Equal(t, "Invalid or expired token", response["error"])
 
 	// Verify no service calls were made
-	mockGameCreationService.AssertNotCalled(t, "GetPlayerGames")
+	mockQueryService.AssertNotCalled(t, "GetPlayerGames")
 	mockAuthService.AssertExpectations(t)
 }
 
 func TestGetPlayerGames_NoAuthHeader(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, _, _, mockQueryService, _, mockAuthService := setupGameTestRouter()
 
 	// Create request without authorization header
 	req := httptest.NewRequest("GET", "/api/games", nil)
@@ -685,17 +758,17 @@ func TestGetPlayerGames_NoAuthHeader(t *testing.T) {
 	assert.Equal(t, "Authorization header is required", response["error"])
 
 	// Verify no service calls were made
-	mockGameCreationService.AssertNotCalled(t, "GetPlayerGames")
+	mockQueryService.AssertNotCalled(t, "GetPlayerGames")
 	mockAuthService.AssertNotCalled(t, "ValidateToken")
 }
 
 func TestLeaveGame_Success(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouterWithLeave()
+	router, _, _, _, mockMembershipService, mockAuthService := setupGameTestRouterWithLeave()
 	gameID := "test-game-id"
 	player := &models.PlayerData{ID: "test-player-id", Name: "Test Player"}
 
 	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil)
-	mockGameCreationService.On("LeaveGame", gameID, player).Return(nil)
+	mockMembershipService.On("LeaveGame", gameID, player).Return(nil)
 
 	req := httptest.NewRequest("DELETE", "/api/games/"+gameID+"/leave", nil)
 	req.Header.Set("Authorization", "Bearer testtoken")
@@ -708,17 +781,17 @@ func TestLeaveGame_Success(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "Successfully left the game", response["message"])
-	mockGameCreationService.AssertExpectations(t)
+	mockMembershipService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
 
 func TestLeaveGame_NotInGame(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouterWithLeave()
+	router, _, _, _, mockMembershipService, mockAuthService := setupGameTestRouterWithLeave()
 	gameID := "test-game-id"
 	player := &models.PlayerData{ID: "test-player-id", Name: "Test Player"}
 
 	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil)
-	mockGameCreationService.On("LeaveGame", gameID, player).Return(errors.New("player is not in the game"))
+	mockMembershipService.On("LeaveGame", gameID, player).Return(errors.New("player is not in the game"))
 
 	req := httptest.NewRequest("DELETE", "/api/games/"+gameID+"/leave", nil)
 	req.Header.Set("Authorization", "Bearer testtoken")
@@ -731,17 +804,17 @@ func TestLeaveGame_NotInGame(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "player is not in the game", response["error"])
-	mockGameCreationService.AssertExpectations(t)
+	mockMembershipService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
 
 func TestLeaveGame_Error(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouterWithLeave()
+	router, _, _, _, mockMembershipService, mockAuthService := setupGameTestRouterWithLeave()
 	gameID := "test-game-id"
 	player := &models.PlayerData{ID: "test-player-id", Name: "Test Player"}
 
 	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil)
-	mockGameCreationService.On("LeaveGame", gameID, player).Return(errors.New("some db error"))
+	mockMembershipService.On("LeaveGame", gameID, player).Return(errors.New("some db error"))
 
 	req := httptest.NewRequest("DELETE", "/api/games/"+gameID+"/leave", nil)
 	req.Header.Set("Authorization", "Bearer testtoken")
@@ -754,13 +827,13 @@ func TestLeaveGame_Error(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Equal(t, "Failed to leave game", response["error"])
-	mockGameCreationService.AssertExpectations(t)
+	mockMembershipService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }
 
 // TestGetPlayerGamesAPIStatusInconsistency tests the actual API endpoint for game status consistency
 func TestGetPlayerGamesAPIStatusInconsistency(t *testing.T) {
-	router, mockGameCreationService, mockAuthService := setupGameTestRouter()
+	router, _, _, mockQueryService, _, mockAuthService := setupGameTestRouter()
 
 	// Setup test data
 	player := &models.PlayerData{
@@ -796,8 +869,8 @@ func TestGetPlayerGamesAPIStatusInconsistency(t *testing.T) {
 
 	// Mock expectations for initial call
 	mockAuthService.On("ValidateToken", mock.Anything, "testtoken").Return(player, nil).Times(2)
-	mockGameCreationService.On("GetPlayerGames", player).Return(initialGames, nil).Once()
-	mockGameCreationService.On("GetPlayerGames", player).Return(updatedGames, nil).Once()
+	mockQueryService.On("GetPlayerGames", player).Return(initialGames, nil).Once()
+	mockQueryService.On("GetPlayerGames", player).Return(updatedGames, nil).Once()
 
 	// Create request
 	req := httptest.NewRequest("GET", "/api/games", nil)
@@ -846,6 +919,6 @@ func TestGetPlayerGamesAPIStatusInconsistency(t *testing.T) {
 	assert.Equal(t, "finished", updatedGame["status"], "Updated game status should be 'finished'")
 
 	// Verify mocks
-	mockGameCreationService.AssertExpectations(t)
+	mockQueryService.AssertExpectations(t)
 	mockAuthService.AssertExpectations(t)
 }

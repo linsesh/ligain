@@ -26,7 +26,7 @@ func setupEmptyRegistry(t *testing.T, watcher MatchWatcherService) (*GameService
 	return registry, mockGameRepo, mockBetRepo, mockGamePlayerRepo
 }
 
-func TestGameServiceRegistry_GetOrCreate_NewGame(t *testing.T) {
+func TestGameServiceRegistry_Create_NewGame(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
@@ -34,7 +34,7 @@ func TestGameServiceRegistry_GetOrCreate_NewGame(t *testing.T) {
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
 	// Execute
-	gameService, err := registry.GetOrCreate("game1")
+	gameService, err := registry.Create("game1")
 
 	// Assert
 	assert.NoError(t, err)
@@ -45,20 +45,20 @@ func TestGameServiceRegistry_GetOrCreate_NewGame(t *testing.T) {
 	mockWatcher.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_GetOrCreate_CachedGame(t *testing.T) {
+func TestGameServiceRegistry_Create_ThenGet_ReturnsSameInstance(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
-	// Mock expectations - Subscribe should only be called once (first GetOrCreate)
+	// Mock expectations - Subscribe should only be called once (Create)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil).Once()
 
-	// Execute - first call creates
-	gameService1, err := registry.GetOrCreate("game1")
+	// Execute - Create registers the service
+	gameService1, err := registry.Create("game1")
 	require.NoError(t, err)
 
-	// Execute - second call should return cached instance
-	gameService2, err := registry.GetOrCreate("game1")
-	require.NoError(t, err)
+	// Execute - Get should return the same instance
+	gameService2, exists := registry.Get("game1")
+	require.True(t, exists)
 
 	// Assert - same instance returned
 	assert.Equal(t, gameService1, gameService2)
@@ -68,7 +68,7 @@ func TestGameServiceRegistry_GetOrCreate_CachedGame(t *testing.T) {
 	mockWatcher.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_GetOrCreate_SubscriptionFails(t *testing.T) {
+func TestGameServiceRegistry_Create_SubscriptionFails(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
@@ -76,7 +76,7 @@ func TestGameServiceRegistry_GetOrCreate_SubscriptionFails(t *testing.T) {
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(errors.New("subscription error"))
 
 	// Execute
-	gameService, err := registry.GetOrCreate("game1")
+	gameService, err := registry.Create("game1")
 
 	// Assert - should fail when subscription fails
 	assert.Error(t, err)
@@ -87,12 +87,12 @@ func TestGameServiceRegistry_GetOrCreate_SubscriptionFails(t *testing.T) {
 	mockWatcher.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_GetOrCreate_NoWatcher(t *testing.T) {
+func TestGameServiceRegistry_Create_NoWatcher(t *testing.T) {
 	// Setup - no watcher
 	registry, _, _, _ := setupEmptyRegistry(t, nil)
 
 	// Execute
-	gameService, err := registry.GetOrCreate("game1")
+	gameService, err := registry.Create("game1")
 
 	// Assert - should succeed without watcher
 	assert.NoError(t, err)
@@ -110,8 +110,8 @@ func TestGameServiceRegistry_Register(t *testing.T) {
 	registry.Register("game1", gameService)
 
 	// Get should return the registered service
-	retrievedService, err := registry.GetOrCreate("game1")
-	assert.NoError(t, err)
+	retrievedService, exists := registry.Get("game1")
+	assert.True(t, exists)
 	assert.Equal(t, gameService, retrievedService)
 }
 
@@ -122,21 +122,22 @@ func TestGameServiceRegistry_Unregister(t *testing.T) {
 	// First create a game
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
-	gameService1, err := registry.GetOrCreate("game1")
+	gameService1, err := registry.Create("game1")
 	require.NoError(t, err)
 	require.NotNil(t, gameService1)
+
+	// Verify it exists
+	_, exists := registry.Get("game1")
+	require.True(t, exists)
 
 	// Execute - unregister the game
 	registry.Unregister("game1")
 
-	// After unregister, GetOrCreate should create a new service (not return cached)
-	gameService2, err := registry.GetOrCreate("game1")
-	require.NoError(t, err)
+	// After unregister, Get should return false
+	_, exists = registry.Get("game1")
+	assert.False(t, exists)
 
-	// Should be different instance
-	assert.NotEqual(t, gameService1, gameService2)
-
-	// Verify Subscribe was called twice (once for each GetOrCreate)
+	// Verify Subscribe was called once
 	mockWatcher.AssertExpectations(t)
 }
 
@@ -231,21 +232,24 @@ func TestGameServiceRegistry_ConstructorContinuesOnSubscriptionError(t *testing.
 	mockWatcher.AssertExpectations(t)
 }
 
-func TestGameServiceRegistry_ConcurrentAccess(t *testing.T) {
+func TestGameServiceRegistry_ConcurrentGet(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 	registry, _, _, _ := setupEmptyRegistry(t, mockWatcher)
 
-	// Mock expectations - may be called multiple times due to concurrency
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	// First create the game
+	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil).Once()
+	originalService, err := registry.Create("game1")
+	require.NoError(t, err)
 
-	// Execute - concurrent access
+	// Execute - concurrent Get access
 	const numGoroutines = 10
 	done := make(chan bool)
 
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
-			_, err := registry.GetOrCreate("game1")
-			assert.NoError(t, err)
+			gs, exists := registry.Get("game1")
+			assert.True(t, exists)
+			assert.Equal(t, originalService, gs)
 			done <- true
 		}()
 	}
@@ -255,10 +259,7 @@ func TestGameServiceRegistry_ConcurrentAccess(t *testing.T) {
 		<-done
 	}
 
-	// Verify that only one service instance exists
-	gameService1, _ := registry.GetOrCreate("game1")
-	gameService2, _ := registry.GetOrCreate("game1")
-	assert.Equal(t, gameService1, gameService2)
+	mockWatcher.AssertExpectations(t)
 }
 
 func TestGameServiceRegistry_Get_Exists(t *testing.T) {
@@ -269,7 +270,7 @@ func TestGameServiceRegistry_Get_Exists(t *testing.T) {
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
 	// Create a game first
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Execute - Get existing game

@@ -262,7 +262,7 @@ func TestGameJoinService_JoinGame_UpdatesCachedGameService(t *testing.T) {
 
 	// First create a cached game service
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	assert.NoError(t, err)
 
 	// Mock expectations for joining

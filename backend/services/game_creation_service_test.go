@@ -761,10 +761,6 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	mockGameCodeRepo.On("GetGameCodeByGameID", "game1").Return(nil, errors.New("code not found"))
 	mockGameCodeRepo.On("GetGameCodeByGameID", "game2").Return(nil, errors.New("code not found"))
 
-	// Mock IsPlayerInGame for GetGameService calls
-	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(true, nil)
-	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game2", "player1").Return(true, nil)
-
 	// Execute
 	playerGames, err := service.GetPlayerGames(player)
 
@@ -775,17 +771,6 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	assert.Equal(t, "game2", playerGames[1].GameID)
 	assert.Equal(t, "2025/2026", playerGames[0].SeasonYear)
 	assert.Equal(t, "Ligue 1", playerGames[0].CompetitionName)
-
-	// Verify that we can get game services for the real games
-	gameService1, err := service.GetGameService("game1", player)
-	assert.NoError(t, err)
-	assert.NotNil(t, gameService1)
-	assert.Equal(t, "game1", gameService1.GetGameID())
-
-	gameService2, err := service.GetGameService("game2", player)
-	assert.NoError(t, err)
-	assert.NotNil(t, gameService2)
-	assert.Equal(t, "game2", gameService2.GetGameID())
 
 	// Verify mocks
 	mockGamePlayerRepo.AssertExpectations(t)
@@ -875,9 +860,6 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(mockScores, nil)
 	mockGameCodeRepo.On("GetGameCodeByGameID", "game1").Return(nil, errors.New("code not found"))
 
-	// Mock IsPlayerInGame for GetGameService call
-	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(true, nil)
-
 	playerGames, err := service.GetPlayerGames(player1)
 	assert.NoError(t, err)
 	assert.Len(t, playerGames, 1)
@@ -896,18 +878,6 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 			assert.Equal(t, 15, p.ScoresByMatch["match2"])
 		}
 	}
-
-	// Verify that we can get a game service for the real game
-	gameService, err := service.GetGameService("game1", player1)
-	assert.NoError(t, err)
-	assert.NotNil(t, gameService)
-	assert.Equal(t, "game1", gameService.GetGameID())
-
-	// Verify that the game service returns the correct players
-	players := gameService.GetPlayers()
-	assert.Len(t, players, 2)
-	assert.Equal(t, "player1", players[0].GetID())
-	assert.Equal(t, "player2", players[1].GetID())
 
 	mockGamePlayerRepo.AssertExpectations(t)
 	mockGameRepo.AssertExpectations(t)

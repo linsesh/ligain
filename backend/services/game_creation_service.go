@@ -160,7 +160,11 @@ func (s *GameCreationService) GetGameService(gameID string, player models.Player
 		return nil, ErrPlayerNotInGame
 	}
 
-	return s.registry.GetOrCreate(gameID)
+	gs, exists := s.registry.Get(gameID)
+	if !exists {
+		return nil, fmt.Errorf("game service not found for game %s", gameID)
+	}
+	return gs, nil
 }
 
 // CreateGame creates a new game with a unique 4-character code
@@ -216,7 +220,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 	}
 
 	// Register the game service in the registry
-	_, err = s.registry.GetOrCreate(gameID)
+	_, err = s.registry.Create(gameID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create game service: %v", err)
 	}

@@ -158,7 +158,7 @@ func TestJoinGame_RegistryGameServiceSeesNewPlayer(t *testing.T) {
 
 	// First, get or create game service (simulating it was already cached)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Setup mocks for join
@@ -222,7 +222,7 @@ func TestLeaveGame_RegistryGameServiceNoLongerShowsPlayer(t *testing.T) {
 
 	// First, get or create game service (simulating it was already cached)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Setup mocks for leave (player A leaves, player B remains)
@@ -252,7 +252,7 @@ func TestLastPlayerLeave_GameDeletedAcrossServices(t *testing.T) {
 
 	// First, get or create game service
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Setup mocks for leave (last player)
@@ -294,7 +294,7 @@ func TestMembershipCheck_ConsistentAcrossServices(t *testing.T) {
 
 	// First create game service
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
-	_, err := registry.GetOrCreate("game1")
+	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
 	// Setup mocks for join - first IsPlayerInGame returns false, then true after join

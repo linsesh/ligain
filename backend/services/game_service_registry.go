@@ -10,8 +10,8 @@ import (
 
 // GameServiceRegistryInterface defines the interface for the game service registry
 type GameServiceRegistryInterface interface {
-	// GetOrCreate returns an existing GameService or creates a new one
-	GetOrCreate(gameID string) (GameService, error)
+	// Create creates a new GameService and registers it
+	Create(gameID string) (GameService, error)
 	// Get returns an existing GameService without creating one
 	Get(gameID string) (GameService, bool)
 	// Register explicitly adds a GameService to the registry
@@ -26,8 +26,7 @@ type GameServiceRegistry struct {
 	betRepo        repositories.BetRepository
 	gamePlayerRepo repositories.GamePlayerRepository
 	watcher        MatchWatcherService
-	gameServices   map[string]GameService
-	mu             sync.RWMutex
+	gameServices   sync.Map
 }
 
 // NewGameServiceRegistry creates a new GameServiceRegistry instance and loads all existing games
@@ -42,7 +41,6 @@ func NewGameServiceRegistry(
 		betRepo:        betRepo,
 		gamePlayerRepo: gamePlayerRepo,
 		watcher:        watcher,
-		gameServices:   make(map[string]GameService),
 	}
 	if err := r.loadAll(); err != nil {
 		return nil, err
@@ -50,26 +48,8 @@ func NewGameServiceRegistry(
 	return r, nil
 }
 
-// GetOrCreate returns an existing GameService or creates a new one
-func (r *GameServiceRegistry) GetOrCreate(gameID string) (GameService, error) {
-	// First try read lock
-	r.mu.RLock()
-	if gs, exists := r.gameServices[gameID]; exists {
-		r.mu.RUnlock()
-		return gs, nil
-	}
-	r.mu.RUnlock()
-
-	// Need write lock to create
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	// Double-check after acquiring write lock
-	if gs, exists := r.gameServices[gameID]; exists {
-		return gs, nil
-	}
-
-	// Create new GameService
+// Create creates a new GameService and registers it
+func (r *GameServiceRegistry) Create(gameID string) (GameService, error) {
 	gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo)
 
 	// Subscribe to watcher if available
@@ -79,33 +59,27 @@ func (r *GameServiceRegistry) GetOrCreate(gameID string) (GameService, error) {
 		}
 	}
 
-	r.gameServices[gameID] = gameService
+	r.gameServices.Store(gameID, gameService)
 	return gameService, nil
 }
 
 // Get returns an existing GameService without creating one
 func (r *GameServiceRegistry) Get(gameID string) (GameService, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	gs, exists := r.gameServices[gameID]
-	return gs, exists
+	gs, exists := r.gameServices.Load(gameID)
+	if !exists {
+		return nil, false
+	}
+	return gs.(GameService), true
 }
 
 // Register explicitly adds a GameService to the registry
 func (r *GameServiceRegistry) Register(gameID string, gs GameService) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.gameServices[gameID] = gs
+	r.gameServices.Store(gameID, gs)
 }
 
 // Unregister removes a GameService from the registry
 func (r *GameServiceRegistry) Unregister(gameID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	delete(r.gameServices, gameID)
+	r.gameServices.Delete(gameID)
 }
 
 // loadAll loads all existing games from the repository
@@ -115,12 +89,9 @@ func (r *GameServiceRegistry) loadAll() error {
 		return fmt.Errorf("failed to load games from repository: %v", err)
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	for gameID := range games {
 		gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo)
-		r.gameServices[gameID] = gameService
+		r.gameServices.Store(gameID, gameService)
 
 		// Subscribe to watcher if available
 		if r.watcher != nil {
