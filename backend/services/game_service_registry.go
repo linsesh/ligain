@@ -18,8 +18,6 @@ type GameServiceRegistryInterface interface {
 	Register(gameID string, gs GameService)
 	// Unregister removes a GameService from the registry
 	Unregister(gameID string)
-	// LoadAll loads all existing games from the repository
-	LoadAll() error
 }
 
 // GameServiceRegistry manages GameService instances
@@ -32,20 +30,24 @@ type GameServiceRegistry struct {
 	mu             sync.RWMutex
 }
 
-// NewGameServiceRegistry creates a new GameServiceRegistry instance
+// NewGameServiceRegistry creates a new GameServiceRegistry instance and loads all existing games
 func NewGameServiceRegistry(
 	gameRepo repositories.GameRepository,
 	betRepo repositories.BetRepository,
 	gamePlayerRepo repositories.GamePlayerRepository,
 	watcher MatchWatcherService,
-) *GameServiceRegistry {
-	return &GameServiceRegistry{
+) (*GameServiceRegistry, error) {
+	r := &GameServiceRegistry{
 		gameRepo:       gameRepo,
 		betRepo:        betRepo,
 		gamePlayerRepo: gamePlayerRepo,
 		watcher:        watcher,
 		gameServices:   make(map[string]GameService),
 	}
+	if err := r.loadAll(); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // GetOrCreate returns an existing GameService or creates a new one
@@ -106,8 +108,8 @@ func (r *GameServiceRegistry) Unregister(gameID string) {
 	delete(r.gameServices, gameID)
 }
 
-// LoadAll loads all existing games from the repository
-func (r *GameServiceRegistry) LoadAll() error {
+// loadAll loads all existing games from the repository
+func (r *GameServiceRegistry) loadAll() error {
 	games, err := r.gameRepo.GetAllGames()
 	if err != nil {
 		return fmt.Errorf("failed to load games from repository: %v", err)

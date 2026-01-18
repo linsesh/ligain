@@ -86,10 +86,9 @@ func main() {
 	gamePlayerRepo := postgres.NewPostgresGamePlayerRepository(db)
 
 	// Initialize specialized game services
-	registry := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
-	if err := registry.LoadAll(); err != nil {
-		log.Fatal("Failed to load games from repository:", err)
-		os.Exit(1)
+	registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
+	if err != nil {
+		log.Fatal("Failed to create game registry:", err)
 	}
 
 	membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)

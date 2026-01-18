@@ -36,8 +36,11 @@ func setupIntegrationTest() (
 	mockMatchRepo := new(MockMatchRepository)
 	mockWatcher := new(MockWatcher)
 
+	// Constructor calls loadAll, so we need to mock GetAllGames
+	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
+
 	// Wire services with SAME mock instances
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry, _ := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return integrationTestTime })

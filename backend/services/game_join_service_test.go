@@ -9,9 +9,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var joinTestTime = time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
+
+// setupJoinTestRegistry creates a registry for join tests
+func setupJoinTestRegistry(t *testing.T, mockGameRepo *MockGameRepository, mockBetRepo *MockBetRepository, mockGamePlayerRepo *MockGamePlayerRepository, watcher MatchWatcherService) *GameServiceRegistry {
+	// Constructor calls loadAll, so we need to mock GetAllGames
+	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
+
+	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, watcher)
+	require.NoError(t, err)
+	return registry
+}
 
 func TestGameJoinService_JoinGame_Success(t *testing.T) {
 	// Setup
@@ -21,7 +32,7 @@ func TestGameJoinService_JoinGame_Success(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -65,7 +76,7 @@ func TestGameJoinService_JoinGame_InvalidCode(t *testing.T) {
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -92,7 +103,7 @@ func TestGameJoinService_JoinGame_ExpiredCode(t *testing.T) {
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -124,7 +135,7 @@ func TestGameJoinService_JoinGame_FinishedGame(t *testing.T) {
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -161,7 +172,7 @@ func TestGameJoinService_JoinGame_PlayerGameLimit(t *testing.T) {
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -200,7 +211,7 @@ func TestGameJoinService_JoinGame_GameNotFound(t *testing.T) {
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -235,7 +246,7 @@ func TestGameJoinService_JoinGame_UpdatesCachedGameService(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
@@ -283,7 +294,7 @@ func TestGameJoinService_JoinGame_PlayerCanJoinFifthGame(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockWatcher := new(MockWatcher)
 
-	registry := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
+	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
