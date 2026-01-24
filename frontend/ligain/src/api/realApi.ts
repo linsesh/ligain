@@ -18,6 +18,8 @@ import {
   JoinGameResponse,
   BetResponse,
   UploadAvatarResponse,
+  AvatarError,
+  AvatarErrorCode,
 } from './types';
 
 /**
@@ -94,19 +96,56 @@ export class RealAuthApi implements AuthApi {
   }
 }
 
+function createAvatarFormData(imageUri: string): FormData {
+  const formData = new FormData();
+  const uriParts = imageUri.split('/');
+  const fileName = uriParts[uriParts.length - 1] || 'avatar.jpg';
+  const extension = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+  const mimeType = extension === 'png' ? 'image/png' :
+                   extension === 'webp' ? 'image/webp' : 'image/jpeg';
+
+  formData.append('avatar', {
+    uri: imageUri,
+    type: mimeType,
+    name: fileName,
+  } as unknown as Blob);
+
+  return formData;
+}
+
 /**
  * Real Profile API implementation
  * Makes HTTP calls to the backend for profile operations
  */
 export class RealProfileApi implements ProfileApi {
-  async uploadAvatar(_imageUri: string): Promise<UploadAvatarResponse> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('Avatar upload not implemented yet');
+  async uploadAvatar(imageUri: string): Promise<UploadAvatarResponse> {
+    const response = await authenticatedFetch(
+      `${API_CONFIG.BASE_URL}/api/players/me/avatar`,
+      { method: 'POST', body: createAvatarFormData(imageUri) }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorCode = errorData.code as AvatarErrorCode;
+      const validCodes = ['INVALID_IMAGE', 'FILE_TOO_LARGE', 'IMAGE_TOO_SMALL', 'UPLOAD_FAILED'];
+      const code = validCodes.includes(errorCode) ? errorCode : 'UPLOAD_FAILED';
+      throw new AvatarError(code, errorData.error || `Upload failed: ${code}`);
+    }
+
+    const data = await response.json();
+    return { avatarUrl: data.avatar_url };
   }
 
   async deleteAvatar(): Promise<void> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('Avatar deletion not implemented yet');
+    const response = await authenticatedFetch(
+      `${API_CONFIG.BASE_URL}/api/players/me/avatar`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Failed to delete avatar: ${response.status}`);
+    }
   }
 }
 
