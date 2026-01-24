@@ -36,7 +36,7 @@ func NewProfileHandler(
 
 // SetupRoutes registers profile routes on the router
 func (h *ProfileHandler) SetupRoutes(router *gin.Engine) {
-	players := router.Group("/api/v1/players")
+	players := router.Group("/api/players")
 	{
 		// Get player by ID (requires auth to access)
 		players.GET("/:id", middleware.PlayerAuth(h.authService), h.GetPlayer)
