@@ -89,6 +89,11 @@ docker-build-push:
 # Deploy to GCP (requires image to be pushed first)
 docker-deploy:
 	cd infrastructure && pulumi stack select linsesh/$(ENV) && pulumi up --yes
+	@echo "Forcing Cloud Run to pull latest image..."
+	gcloud run services update $(SERVICE_NAME) \
+		--region=europe-west1 \
+		--project=$(PROJECT_ID) \
+		--image=gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest
 	@echo "Setting up Cloud Monitoring metrics..."
 	@./scripts/setup-metrics.sh $(ENV)
 

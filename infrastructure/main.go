@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/cloudrun"
+	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/organizations"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
@@ -20,6 +21,14 @@ func main() {
 		projectID := cfg.Require("project")
 		region := cfg.Require("region")
 		serviceName := fmt.Sprintf("server-%s", stack)
+
+		// Get project details to access project number (needed for service account reference)
+		project, err := organizations.LookupProject(ctx, &organizations.LookupProjectArgs{
+			ProjectId: &projectID,
+		})
+		if err != nil {
+			return err
+		}
 
 		// Get environment variables from config
 		databaseURL := ligainCfg.Require("database_url")
@@ -46,6 +55,17 @@ func main() {
 			return err
 		}
 
+		// Grant Cloud Run default service account access to avatar bucket
+		// Cloud Run uses the default compute service account: {PROJECT_NUMBER}-compute@developer.gserviceaccount.com
+		_, err = storage.NewBucketIAMMember(ctx, "avatars-bucket-iam", &storage.BucketIAMMemberArgs{
+			Bucket: avatarBucket.Name,
+			Role:   pulumi.String("roles/storage.objectAdmin"),
+			Member: pulumi.Sprintf("serviceAccount:%s-compute@developer.gserviceaccount.com", project.Number),
+		})
+		if err != nil {
+			return err
+		}
+
 		// Create test bucket for integration tests (only in dev)
 		if stack == "dev" {
 			testBucket, err := storage.NewBucket(ctx, "avatars-bucket-test", &storage.BucketArgs{
@@ -57,6 +77,17 @@ func main() {
 			if err != nil {
 				return err
 			}
+
+			// Grant Cloud Run service account access to test bucket as well
+			_, err = storage.NewBucketIAMMember(ctx, "avatars-bucket-test-iam", &storage.BucketIAMMemberArgs{
+				Bucket: testBucket.Name,
+				Role:   pulumi.String("roles/storage.objectAdmin"),
+				Member: pulumi.Sprintf("serviceAccount:%s-compute@developer.gserviceaccount.com", project.Number),
+			})
+			if err != nil {
+				return err
+			}
+
 			ctx.Export("testBucketName", testBucket.Name)
 		}
 
