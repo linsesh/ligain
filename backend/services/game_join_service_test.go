@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"ligain/backend/models"
 	"ligain/backend/rules"
@@ -11,6 +12,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// passThruUoW is a test helper that executes functions directly
+type passThruUoW struct{}
+
+func (u *passThruUoW) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
 
 var joinTestTime = time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
 
@@ -33,7 +41,7 @@ func TestGameJoinService_JoinGame_Success(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -77,7 +85,7 @@ func TestGameJoinService_JoinGame_InvalidCode(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -104,7 +112,7 @@ func TestGameJoinService_JoinGame_ExpiredCode(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -136,7 +144,7 @@ func TestGameJoinService_JoinGame_FinishedGame(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -173,7 +181,7 @@ func TestGameJoinService_JoinGame_PlayerGameLimit(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -212,7 +220,7 @@ func TestGameJoinService_JoinGame_GameNotFound(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -247,7 +255,7 @@ func TestGameJoinService_JoinGame_UpdatesCachedGameService(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -295,7 +303,7 @@ func TestGameJoinService_JoinGame_PlayerCanJoinFifthGame(t *testing.T) {
 	mockWatcher := new(MockWatcher)
 
 	registry := setupJoinTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
+	membershipService := NewGameMembershipService(&passThruUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	service := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return joinTestTime })
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}

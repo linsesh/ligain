@@ -25,6 +25,7 @@ type GameMembershipServiceInterface interface {
 
 // GameMembershipService handles player membership in games
 type GameMembershipService struct {
+	uow            repositories.UnitOfWork
 	gamePlayerRepo repositories.GamePlayerRepository
 	gameRepo       repositories.GameRepository
 	gameCodeRepo   repositories.GameCodeRepository
@@ -34,6 +35,7 @@ type GameMembershipService struct {
 
 // NewGameMembershipService creates a new GameMembershipService instance
 func NewGameMembershipService(
+	uow repositories.UnitOfWork,
 	gamePlayerRepo repositories.GamePlayerRepository,
 	gameRepo repositories.GameRepository,
 	gameCodeRepo repositories.GameCodeRepository,
@@ -41,6 +43,7 @@ func NewGameMembershipService(
 	watcher MatchWatcherService,
 ) *GameMembershipService {
 	return &GameMembershipService{
+		uow:            uow,
 		gamePlayerRepo: gamePlayerRepo,
 		gameRepo:       gameRepo,
 		gameCodeRepo:   gameCodeRepo,
@@ -79,7 +82,7 @@ func (s *GameMembershipService) AddPlayerToGame(gameID string, player models.Pla
 func (s *GameMembershipService) RemovePlayerFromGame(gameID string, player models.Player) error {
 	ctx := context.Background()
 
-	// Check if player is in the game
+	// Check if player is in the game (read-only, outside tx)
 	isInGame, err := s.gamePlayerRepo.IsPlayerInGame(ctx, gameID, player.GetID())
 	if err != nil {
 		return fmt.Errorf("error checking if player is in game: %v", err)
@@ -89,26 +92,35 @@ func (s *GameMembershipService) RemovePlayerFromGame(gameID string, player model
 		return ErrPlayerNotInGame
 	}
 
-	// Remove player from game
-	err = s.gamePlayerRepo.RemovePlayerFromGame(ctx, gameID, player.GetID())
+	// Atomic: DB removal + cache update
+	err = s.uow.WithinTx(ctx, func(txCtx context.Context) error {
+		// Remove from DB (within transaction)
+		if err := s.gamePlayerRepo.RemovePlayerFromGame(txCtx, gameID, player.GetID()); err != nil {
+			return fmt.Errorf("error removing player from game: %v", err)
+		}
+
+		// Update cache - if this fails, tx rolls back
+		if err := s.removePlayerFromGameService(gameID, player); err != nil {
+			return fmt.Errorf("failed to update cached game service: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("error removing player from game: %v", err)
+		return err
 	}
 
-	// Update cached game service if it exists
-	s.removePlayerFromGameService(gameID, player)
-
-	// Check if any players are left
+	// Post-commit: check if game should be deleted
 	players, err := s.gamePlayerRepo.GetPlayersInGame(ctx, gameID)
 	if err != nil {
-		return fmt.Errorf("error checking remaining players: %v", err)
+		log.WithError(err).Error("error checking remaining players")
+		return nil
 	}
 
 	if len(players) == 0 {
 		if err := s.deleteGame(gameID); err != nil {
-			return err
+			log.WithError(err).Error("error deleting empty game")
 		}
-		// Only remove from registry cache when game is deleted
 		s.registry.Unregister(gameID)
 	}
 
@@ -167,8 +179,13 @@ func (s *GameMembershipService) addPlayerToGameService(gameID string, player mod
 }
 
 // removePlayerFromGameService updates the cached game service when a player is removed
-func (s *GameMembershipService) removePlayerFromGameService(gameID string, player models.Player) {
-	if gs, exists := s.registry.Get(gameID); exists {
-		_ = gs.RemovePlayer(player)
+func (s *GameMembershipService) removePlayerFromGameService(gameID string, player models.Player) error {
+	gs, exists := s.registry.Get(gameID)
+	if !exists {
+		return nil // No cached game service - nothing to update
 	}
+	if err := gs.RemovePlayer(player); err != nil {
+		return fmt.Errorf("failed to remove player %s from cached game service: %w", player.GetID(), err)
+	}
+	return nil
 }

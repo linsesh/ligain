@@ -16,6 +16,13 @@ import (
 
 var testTime = time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
 
+// creationTestUoW is a test helper that executes functions directly
+type creationTestUoW struct{}
+
+func (u *creationTestUoW) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
+
 // MockGameRepository is a mock implementation of GameRepository
 type MockGameRepository struct {
 	mock.Mock
@@ -188,7 +195,7 @@ func setupCreationTestService(t *testing.T, mockGameRepo *MockGameRepository, mo
 	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, watcher)
 	require.NoError(t, err)
 
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, watcher)
+	membershipService := NewGameMembershipService(&creationTestUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, watcher)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return testTime })
 
