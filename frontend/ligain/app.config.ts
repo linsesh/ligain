@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '5',
+    buildNumber: '6',
     infoPlist: {
       CFBundleLocalizations: ['en', 'fr'],
       CFBundleDevelopmentRegion: 'en',
