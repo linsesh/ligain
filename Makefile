@@ -73,27 +73,25 @@ build:
 ENV ?= dev
 PROJECT_ID := $(shell if [ "$(ENV)" = "prd" ]; then echo "prd-ligain"; else echo "woven-century-307314"; fi)
 SERVICE_NAME := $(shell if [ "$(ENV)" = "prd" ]; then echo "server-prd"; else echo "server-dev"; fi)
+GIT_SHA := $(shell git rev-parse --short HEAD)
 
 # Build Docker image
 docker-build:
-	docker build -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest -f backend/Dockerfile .
+	docker build -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):$(GIT_SHA) -f backend/Dockerfile .
 
 # Push Docker image to GCR
 docker-push:
-	docker push gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest
+	docker push gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):$(GIT_SHA)
 
 # Build and push Docker image
 docker-build-push:
-	docker buildx build --platform linux/amd64 -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest -f backend/Dockerfile . --push --provenance=false --sbom=false
+	docker buildx build --platform linux/amd64 -t gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):$(GIT_SHA) -f backend/Dockerfile . --push --provenance=false --sbom=false
 
 # Deploy to GCP (requires image to be pushed first)
 docker-deploy:
-	cd infrastructure && pulumi stack select linsesh/$(ENV) && pulumi up --yes
-	@echo "Forcing Cloud Run to pull latest image..."
-	gcloud run services update $(SERVICE_NAME) \
-		--region=europe-west1 \
-		--project=$(PROJECT_ID) \
-		--image=gcr.io/$(PROJECT_ID)/$(SERVICE_NAME):latest
+	cd infrastructure && pulumi stack select linsesh/$(ENV) && \
+		pulumi config set ligain:image_tag $(GIT_SHA) && \
+		pulumi up --yes
 	@echo "Setting up Cloud Monitoring metrics..."
 	@./scripts/setup-metrics.sh $(ENV)
 
