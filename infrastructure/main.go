@@ -43,6 +43,12 @@ func main() {
 		appleKeyID := ligainCfg.Get("apple_key_id")
 		applePrivateKeyPath := ligainCfg.Get("apple_private_key_path")
 
+		// Image tag (git SHA) - set by Makefile during deploy
+		imageTag := ligainCfg.Get("image_tag")
+		if imageTag == "" {
+			imageTag = "latest" // Fallback for manual deploys
+		}
+
 		// Create GCS bucket for avatar storage
 		avatarBucketName := fmt.Sprintf("ligain-avatars-%s", stack)
 		avatarBucket, err := storage.NewBucket(ctx, "avatars-bucket", &storage.BucketArgs{
@@ -105,7 +111,7 @@ func main() {
 				Spec: &cloudrun.ServiceTemplateSpecArgs{
 					Containers: cloudrun.ServiceTemplateSpecContainerArray{
 						&cloudrun.ServiceTemplateSpecContainerArgs{
-							Image: pulumi.Sprintf("gcr.io/%s/%s:latest", projectID, serviceName),
+							Image: pulumi.Sprintf("gcr.io/%s/%s:%s", projectID, serviceName, imageTag),
 							Ports: cloudrun.ServiceTemplateSpecContainerPortArray{
 								&cloudrun.ServiceTemplateSpecContainerPortArgs{
 									ContainerPort: pulumi.Int(8080), // Fixed: match Dockerfile port
@@ -208,16 +214,16 @@ func getMemoryLimit(stack string) string {
 	if stack == "prd" {
 		return "4Gi"
 	}
-	// Minimum memory required for 100m CPU in Cloud Run
-	return "128Mi"
+	// 512Mi needed for image processing (avatar uploads)
+	return "512Mi"
 }
 
 func getCPULimit(stack string) string {
 	if stack == "prd" {
 		return "2" // 2 vCPUs for production to support 4GB memory
 	}
-	// Same minimal resources for both environments
-	return "100m"
+	// 250m CPU required for 512Mi memory in Cloud Run
+	return "250m"
 }
 
 func getMinScale(stack string) string {
