@@ -75,7 +75,7 @@ export default function ProfileScreen() {
     try {
       setIsUpdating(true);
       
-      const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/profile/display-name`, {
+      const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/players/me/display-name`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
