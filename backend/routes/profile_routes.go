@@ -44,7 +44,7 @@ func (h *ProfileHandler) SetupRoutes(router *gin.Engine) {
 		// Profile operations for current user
 		players.PUT("/me/display-name", middleware.PlayerAuth(h.authService), h.UpdateDisplayName)
 
-		// Avatar operations for current user
+		// Avatar operations for current user (requires GCS)
 		players.POST("/me/avatar", middleware.PlayerAuth(h.authService), h.UploadAvatar)
 		players.DELETE("/me/avatar", middleware.PlayerAuth(h.authService), h.DeleteAvatar)
 	}
@@ -52,6 +52,14 @@ func (h *ProfileHandler) SetupRoutes(router *gin.Engine) {
 
 // GetPlayer returns a player by ID
 func (h *ProfileHandler) GetPlayer(c *gin.Context) {
+	if h.profileService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Profile feature not available",
+			"code":  "FEATURE_UNAVAILABLE",
+		})
+		return
+	}
+
 	playerID := c.Param("id")
 
 	player, err := h.profileService.GetPlayerProfile(c.Request.Context(), playerID)
@@ -71,6 +79,14 @@ func (h *ProfileHandler) GetPlayer(c *gin.Context) {
 
 // UploadAvatar handles avatar upload for the current user
 func (h *ProfileHandler) UploadAvatar(c *gin.Context) {
+	if h.profileService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Avatar upload not available",
+			"code":  "FEATURE_UNAVAILABLE",
+		})
+		return
+	}
+
 	// Get player from context (set by middleware)
 	player, err := getPlayerFromContext(c)
 	if err != nil {
@@ -122,6 +138,14 @@ func (h *ProfileHandler) UploadAvatar(c *gin.Context) {
 
 // DeleteAvatar removes the avatar for the current user
 func (h *ProfileHandler) DeleteAvatar(c *gin.Context) {
+	if h.profileService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Avatar deletion not available",
+			"code":  "FEATURE_UNAVAILABLE",
+		})
+		return
+	}
+
 	// Get player from context (set by middleware)
 	player, err := getPlayerFromContext(c)
 	if err != nil {

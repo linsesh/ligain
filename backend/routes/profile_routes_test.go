@@ -616,3 +616,117 @@ func TestUpdateDisplayName_Unauthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+// Tests for nil profileService (GCS not configured)
+
+func TestGetPlayer_NilProfileService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	authService := &MockAuthService{player: &models.PlayerData{ID: "player-1", Name: "Test Player"}}
+
+	// Create handler with nil profileService
+	handler := NewProfileHandler(nil, authService)
+	router := gin.New()
+	router.GET("/players/:id", middleware.PlayerAuth(authService), handler.GetPlayer)
+
+	req, _ := http.NewRequest("GET", "/players/player-1", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	assert.Equal(t, "FEATURE_UNAVAILABLE", response["code"])
+}
+
+func TestUploadAvatar_NilProfileService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	player := &models.PlayerData{ID: "player-1", Name: "Test Player"}
+	authService := &MockAuthService{player: player}
+
+	// Create handler with nil profileService
+	handler := NewProfileHandler(nil, authService)
+	router := gin.New()
+	router.POST("/players/me/avatar", middleware.PlayerAuth(authService), handler.UploadAvatar)
+
+	imageData := createTestJPEGForUpload(200, 200)
+	body, contentType := createMultipartForm(t, "avatar", "test.jpg", imageData)
+
+	req, _ := http.NewRequest("POST", "/players/me/avatar", body)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	assert.Equal(t, "FEATURE_UNAVAILABLE", response["code"])
+	assert.Equal(t, "Avatar upload not available", response["error"])
+}
+
+func TestDeleteAvatar_NilProfileService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	avatarKey := "avatars/player-1/test.webp"
+	player := &models.PlayerData{
+		ID:              "player-1",
+		Name:            "Test Player",
+		AvatarObjectKey: &avatarKey,
+	}
+	authService := &MockAuthService{player: player}
+
+	// Create handler with nil profileService
+	handler := NewProfileHandler(nil, authService)
+	router := gin.New()
+	router.DELETE("/players/me/avatar", middleware.PlayerAuth(authService), handler.DeleteAvatar)
+
+	req, _ := http.NewRequest("DELETE", "/players/me/avatar", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	assert.Equal(t, "FEATURE_UNAVAILABLE", response["code"])
+	assert.Equal(t, "Avatar deletion not available", response["error"])
+}
+
+func TestUpdateDisplayName_WorksWithNilProfileService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	authService := &MockAuthService{
+		player: &models.PlayerData{ID: "player-1", Name: "Updated Name"},
+	}
+
+	// Create handler with nil profileService - UpdateDisplayName should still work
+	handler := NewProfileHandler(nil, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	requestBody := map[string]string{"displayName": "Updated Name"}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	playerResp := response["player"].(map[string]interface{})
+	assert.Equal(t, "Updated Name", playerResp["name"])
+}
