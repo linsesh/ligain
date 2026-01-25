@@ -95,7 +95,7 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	}
 
 	log.Infof("✅ SignIn - Authentication successful for user: %s", resp.Player.Name)
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, toAuthResponse(resp))
 }
 
 // SignInGuest handles guest authentication
@@ -129,7 +129,7 @@ func (h *AuthHandler) SignInGuest(c *gin.Context) {
 	}
 
 	log.Infof("✅ SignInGuest - Guest authentication successful for user: %s", response.Player.Name)
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, toAuthResponse(response))
 }
 
 // SignOut handles user logout
@@ -173,6 +173,14 @@ func (h *AuthHandler) GetCurrentPlayer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"player": toPlayerResponse(playerData)})
+}
+
+// toAuthResponse creates a consistent auth response with proper field naming
+func toAuthResponse(resp *models.AuthResponse) gin.H {
+	return gin.H{
+		"player": toPlayerResponse(&resp.Player),
+		"token":  resp.Token,
+	}
 }
 
 // toPlayerResponse converts a PlayerData to the API response format
