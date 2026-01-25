@@ -198,7 +198,7 @@ func (h *ProfileHandler) UpdateDisplayName(c *gin.Context) {
 	}
 
 	log.Infof("UpdateDisplayName - Display name updated successfully for user: %s", updatedPlayer.Name)
-	c.JSON(http.StatusOK, gin.H{"player": updatedPlayer})
+	c.JSON(http.StatusOK, gin.H{"player": h.toPlayerResponse(updatedPlayer)})
 }
 
 // toPlayerResponse converts a PlayerData to the API response format
