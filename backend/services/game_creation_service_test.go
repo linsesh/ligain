@@ -190,7 +190,7 @@ func setupCreationTestService(t *testing.T, mockGameRepo *MockGameRepository, mo
 
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, watcher)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
-	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return testTime })
+	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return testTime })
 
 	return NewGameCreationServiceWithServices(
 		mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockMatchRepo,
