@@ -26,7 +26,7 @@ import {
 /**
  * Maps player data from backend snake_case to frontend camelCase
  */
-function mapPlayerFromBackend(player: Record<string, unknown>): Player {
+export function mapPlayerFromBackend(player: Record<string, unknown>): Player {
   return {
     id: player.id as string,
     name: player.name as string,
