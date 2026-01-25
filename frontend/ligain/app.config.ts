@@ -44,7 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: 'com.ligain.app',
     supportsTablet: true,
-    buildNumber: '4',
+    buildNumber: '5',
     infoPlist: {
       CFBundleLocalizations: ['en', 'fr'],
       CFBundleDevelopmentRegion: 'en',
@@ -55,7 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.ligain.app',
-    versionCode: 8,
+    versionCode: 9,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#ffffff',
