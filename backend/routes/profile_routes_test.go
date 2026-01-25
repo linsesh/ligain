@@ -730,3 +730,49 @@ func TestUpdateDisplayName_WorksWithNilProfileService(t *testing.T) {
 	playerResp := response["player"].(map[string]interface{})
 	assert.Equal(t, "Updated Name", playerResp["name"])
 }
+
+func TestUpdateDisplayName_ReturnsFullPlayerData(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	email := "test@example.com"
+	provider := "google"
+	providerId := "google-123"
+
+	profileService := NewMockProfileService()
+	authService := &MockAuthService{
+		player: &models.PlayerData{
+			ID:         "player-1",
+			Name:       "Updated Name",
+			Email:      &email,
+			Provider:   &provider,
+			ProviderID: &providerId,
+		},
+	}
+
+	handler := NewProfileHandler(profileService, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	requestBody := map[string]string{"displayName": "Updated Name"}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	playerResp := response["player"].(map[string]interface{})
+
+	// These assertions verify the full player data is returned
+	assert.Equal(t, "player-1", playerResp["id"])
+	assert.Equal(t, "Updated Name", playerResp["name"])
+	assert.Equal(t, "test@example.com", playerResp["email"])
+	assert.Equal(t, "google", playerResp["provider"])
+	assert.Equal(t, "google-123", playerResp["provider_id"])
+}
