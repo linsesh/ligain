@@ -573,6 +573,11 @@ func TestSignOutHandler(t *testing.T) {
 	}
 }
 
+// stringPtr is a helper function to create a pointer to a string
+func stringPtr(s string) *string {
+	return &s
+}
+
 func TestCurrentUserHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -589,6 +594,17 @@ func TestCurrentUserHandler(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectedError:  false,
 			authService:    &MockAuthService{false, &models.PlayerData{ID: "test-player-id", Name: "Test Player"}},
+		},
+		{
+			name:           "successful get current user with avatar",
+			authHeader:     "Bearer mock-token",
+			expectedStatus: http.StatusOK,
+			expectedError:  false,
+			authService: &MockAuthService{false, &models.PlayerData{
+				ID:              "test-player-id",
+				Name:            "Test Player",
+				AvatarSignedURL: stringPtr("https://storage.example.com/avatar.jpg"),
+			}},
 		},
 		{
 			name:           "missing auth header",
@@ -630,17 +646,22 @@ func TestCurrentUserHandler(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
 			if !tt.expectedError {
-				// Parse response
-				type playerResponse struct {
-					Player models.PlayerData `json:"player"`
-				}
-				var response playerResponse
-				err = json.Unmarshal(w.Body.Bytes(), &response)
+				// Parse response as raw JSON to check field names
+				var rawResponse map[string]interface{}
+				err = json.Unmarshal(w.Body.Bytes(), &rawResponse)
 				assert.NoError(t, err)
 
+				player := rawResponse["player"].(map[string]interface{})
+
 				// Assert response fields
-				assert.Equal(t, "test-player-id", response.Player.ID)
-				assert.Equal(t, "Test Player", response.Player.Name)
+				assert.Equal(t, "test-player-id", player["id"])
+				assert.Equal(t, "Test Player", player["name"])
+
+				// For the avatar test case, verify avatar_url field is used (not avatar_signed_url)
+				if tt.name == "successful get current user with avatar" {
+					assert.Equal(t, "https://storage.example.com/avatar.jpg", player["avatar_url"])
+					assert.Nil(t, player["avatar_signed_url"], "avatar_signed_url should NOT exist in response")
+				}
 			}
 		})
 	}

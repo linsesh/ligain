@@ -172,7 +172,28 @@ func (h *AuthHandler) GetCurrentPlayer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"player": playerData})
+	c.JSON(http.StatusOK, gin.H{"player": toPlayerResponse(playerData)})
+}
+
+// toPlayerResponse converts a PlayerData to the API response format
+// This ensures consistent field naming (avatar_url instead of avatar_signed_url)
+func toPlayerResponse(player *models.PlayerData) map[string]interface{} {
+	response := map[string]interface{}{
+		"id":   player.ID,
+		"name": player.Name,
+	}
+
+	if player.Email != nil {
+		response["email"] = *player.Email
+	}
+	if player.Provider != nil {
+		response["provider"] = *player.Provider
+	}
+	if player.AvatarSignedURL != nil {
+		response["avatar_url"] = *player.AvatarSignedURL
+	}
+
+	return response
 }
 
 // DeleteAccount handles permanent account deletion
