@@ -208,6 +208,15 @@ func (h *ProfileHandler) toPlayerResponse(player *models.PlayerData) map[string]
 		"name": player.Name,
 	}
 
+	if player.Email != nil {
+		response["email"] = *player.Email
+	}
+	if player.Provider != nil {
+		response["provider"] = *player.Provider
+	}
+	if player.ProviderID != nil {
+		response["provider_id"] = *player.ProviderID
+	}
 	if player.AvatarSignedURL != nil {
 		response["avatar_url"] = *player.AvatarSignedURL
 	}
