@@ -95,3 +95,5 @@ android/app/debug/
 
 .vscode/
 *google-services.json
+
+.claude/settings*
