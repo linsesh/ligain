@@ -5,6 +5,7 @@
   "build": {
     "development": {
       "distribution": "store",
+      "environment": "development",
       "android": {
         "buildType": "app-bundle"
       },
