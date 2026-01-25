@@ -6,6 +6,7 @@
  */
 
 import { API_CONFIG, getApiHeaders, authenticatedFetch } from '../config/api';
+import { Player } from '../contexts/AuthContext';
 import {
   AuthApi,
   GamesApi,
@@ -23,6 +24,22 @@ import {
 } from './types';
 
 /**
+ * Maps player data from backend snake_case to frontend camelCase
+ */
+function mapPlayerFromBackend(player: Record<string, unknown>): Player {
+  return {
+    id: player.id as string,
+    name: player.name as string,
+    email: player.email as string | undefined,
+    provider: player.provider as string | undefined,
+    provider_id: player.provider_id as string | undefined,
+    created_at: player.created_at as string | undefined,
+    updated_at: player.updated_at as string | undefined,
+    avatarUrl: (player.avatar_url || player.avatar_signed_url || null) as string | null,
+  };
+}
+
+/**
  * Real Auth API implementation
  * Makes HTTP calls to the backend for authentication operations
  */
@@ -32,7 +49,7 @@ export class RealAuthApi implements AuthApi {
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/me`);
       if (response.ok) {
         const data = await response.json();
-        return { player: data.player };
+        return { player: mapPlayerFromBackend(data.player) };
       }
       return null;
     } catch (error) {
@@ -61,7 +78,11 @@ export class RealAuthApi implements AuthApi {
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return {
+      ...data,
+      player: data.player ? mapPlayerFromBackend(data.player) : undefined,
+    };
   }
 
   async signInGuest(name: string): Promise<AuthSignInResponse> {
@@ -79,7 +100,11 @@ export class RealAuthApi implements AuthApi {
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return {
+      ...data,
+      player: data.player ? mapPlayerFromBackend(data.player) : undefined,
+    };
   }
 
   async signOut(): Promise<void> {
