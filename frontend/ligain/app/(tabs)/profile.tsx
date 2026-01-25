@@ -23,6 +23,7 @@ import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
 import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
+import { mapPlayerFromBackend } from '../../src/api';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { PlayerAvatar } from '../../src/components/PlayerAvatar';
 import { AvatarEditor } from '../../src/components/AvatarEditor';
@@ -92,7 +93,7 @@ export default function ProfileScreen() {
 
       // Update the auth context with the new player data
       if (setPlayer) {
-        setPlayer(data.player);
+        setPlayer(mapPlayerFromBackend(data.player));
       }
 
       // Refresh games data to update player names in leaderboards and match lists

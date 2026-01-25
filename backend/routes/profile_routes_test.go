@@ -776,3 +776,47 @@ func TestUpdateDisplayName_ReturnsFullPlayerData(t *testing.T) {
 	assert.Equal(t, "google", playerResp["provider"])
 	assert.Equal(t, "google-123", playerResp["provider_id"])
 }
+
+func TestUpdateDisplayName_PreservesAvatarUrl(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	email := "test@example.com"
+	provider := "google"
+	providerId := "google-123"
+	avatarUrl := "https://storage.example.com/avatar.webp"
+
+	profileService := NewMockProfileService()
+	authService := &MockAuthService{
+		player: &models.PlayerData{
+			ID:              "player-1",
+			Name:            "Updated Name",
+			Email:           &email,
+			Provider:        &provider,
+			ProviderID:      &providerId,
+			AvatarSignedURL: &avatarUrl,
+		},
+	}
+
+	handler := NewProfileHandler(profileService, authService)
+	router := gin.New()
+	router.PUT("/players/me/display-name", middleware.PlayerAuth(authService), handler.UpdateDisplayName)
+
+	requestBody := map[string]string{"displayName": "Updated Name"}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	req, _ := http.NewRequest("PUT", "/players/me/display-name", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+	playerResp := response["player"].(map[string]interface{})
+
+	// Verify avatar_url is preserved
+	assert.Equal(t, "https://storage.example.com/avatar.webp", playerResp["avatar_url"])
+}

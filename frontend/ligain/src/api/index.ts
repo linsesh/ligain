@@ -26,7 +26,7 @@ export type {
 export { ApiProvider, useApi, useAuthApi, useGamesApi, useProfileApi } from './ApiProvider';
 
 // Real implementations (for direct use if needed)
-export { RealAuthApi, RealGamesApi, RealProfileApi } from './realApi';
+export { RealAuthApi, RealGamesApi, RealProfileApi, mapPlayerFromBackend } from './realApi';
 
 // Mock implementations (for testing)
 export { MockAuthApi, MockGamesApi, MockProfileApi } from './mockApi';
