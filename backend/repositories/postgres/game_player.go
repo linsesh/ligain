@@ -12,6 +12,14 @@ type PostgresGamePlayerRepository struct {
 	db *sql.DB
 }
 
+// executor returns the appropriate DBExecutor (transaction or db connection).
+func (r *PostgresGamePlayerRepository) executor(ctx context.Context) DBExecutor {
+	if tx := TxFromContext(ctx); tx != nil {
+		return tx
+	}
+	return r.db
+}
+
 func NewPostgresGamePlayerRepository(db *sql.DB) repositories.GamePlayerRepository {
 	return &PostgresGamePlayerRepository{db: db}
 }
@@ -23,7 +31,7 @@ func (r *PostgresGamePlayerRepository) AddPlayerToGame(ctx context.Context, game
 		ON CONFLICT (game_id, player_id) DO NOTHING
 	`
 
-	_, err := r.db.ExecContext(ctx, query, gameID, playerID)
+	_, err := r.executor(ctx).ExecContext(ctx, query, gameID, playerID)
 	if err != nil {
 		return fmt.Errorf("error adding player to game: %v", err)
 	}
@@ -37,7 +45,7 @@ func (r *PostgresGamePlayerRepository) RemovePlayerFromGame(ctx context.Context,
 		WHERE game_id = $1 AND player_id = $2
 	`
 
-	_, err := r.db.ExecContext(ctx, query, gameID, playerID)
+	_, err := r.executor(ctx).ExecContext(ctx, query, gameID, playerID)
 	if err != nil {
 		return fmt.Errorf("error removing player from game: %v", err)
 	}
@@ -54,7 +62,7 @@ func (r *PostgresGamePlayerRepository) GetPlayersInGame(ctx context.Context, gam
 		ORDER BY p.name
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, gameID)
+	rows, err := r.executor(ctx).QueryContext(ctx, query, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting players in game: %v", err)
 	}
@@ -85,7 +93,7 @@ func (r *PostgresGamePlayerRepository) GetPlayerGames(ctx context.Context, playe
 		ORDER BY created_at DESC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, playerID)
+	rows, err := r.executor(ctx).QueryContext(ctx, query, playerID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting player games: %v", err)
 	}
@@ -117,7 +125,7 @@ func (r *PostgresGamePlayerRepository) IsPlayerInGame(ctx context.Context, gameI
 	`
 
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, gameID, playerID).Scan(&exists)
+	err := r.executor(ctx).QueryRowContext(ctx, query, gameID, playerID).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("error checking if player is in game: %v", err)
 	}

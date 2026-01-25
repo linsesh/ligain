@@ -91,7 +91,10 @@ func main() {
 		log.Fatal("Failed to create game registry:", err)
 	}
 
-	membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	// Create UnitOfWork for atomic database operations
+	uow := postgres.NewUnitOfWork(db)
+
+	membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
 	queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
 	joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 	creationService := services.NewGameCreationServiceWithServices(

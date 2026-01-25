@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"ligain/backend/models"
 	"ligain/backend/rules"
 	"testing"
@@ -10,6 +11,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// integrationUoW is a test helper that executes functions directly
+type integrationUoW struct{}
+
+func (u *integrationUoW) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
 
 var integrationTestTime = time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
 
@@ -41,7 +49,7 @@ func setupIntegrationTest() (
 
 	// Wire services with SAME mock instances
 	registry, _ := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
+	membershipService := NewGameMembershipService(&integrationUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return integrationTestTime })
 	creationService := NewGameCreationServiceWithServices(
@@ -255,6 +263,11 @@ func TestLastPlayerLeave_GameDeletedAcrossServices(t *testing.T) {
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
+	// Create a game WITH the player so RemovePlayer can succeed
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
+	mockGameRepo.On("SaveWithId", "game1", realGame).Return(nil)
+
 	// First, get or create game service
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	_, err := registry.Create("game1")
@@ -266,9 +279,6 @@ func TestLastPlayerLeave_GameDeletedAcrossServices(t *testing.T) {
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{}, nil) // No players left
 
 	// Setup mocks for game deletion
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
-	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
-	mockGameRepo.On("SaveWithId", "game1", realGame).Return(nil)
 	mockWatcher.On("Unsubscribe", "game1").Return(nil)
 	mockGameCodeRepo.On("DeleteGameCodeByGameID", "game1").Return(nil)
 

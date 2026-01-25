@@ -782,7 +782,7 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		// Create game creation service with all dependencies
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
-		membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
 		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
@@ -872,7 +872,7 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		// Create game creation service with all dependencies
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
-		membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
 		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
@@ -962,7 +962,7 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		// Create game creation service with all dependencies
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
-		membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
 		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
@@ -1078,5 +1078,87 @@ func TestPostgresGameRepositoryCacheClearing(t *testing.T) {
 		game3, err := gameRepo.GetGame(gameID)
 		require.NoError(t, err)
 		require.Equal(t, "Test Game", game3.GetName())
+	}, 10*time.Second)
+}
+
+// TestUnitOfWork_RollbackOnCacheFailure verifies that when a cache update fails,
+// the database transaction is actually rolled back and the player remains in the DB.
+func TestUnitOfWork_RollbackOnCacheFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		// Create repositories
+		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		require.NoError(t, err)
+		betRepo := NewPostgresBetRepository(testDB.db)
+		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
+		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
+		playerRepo := NewPostgresPlayerRepository(testDB.db)
+
+		// Create a player in the database
+		player := &models.PlayerData{
+			ID:         "550e8400-e29b-41d4-a716-446655440099",
+			Name:       "Rollback Test Player",
+			Provider:   stringPtr("google"),
+			ProviderID: stringPtr("google_rollback_test"),
+		}
+		err = playerRepo.CreatePlayer(context.Background(), player)
+		require.NoError(t, err)
+
+		// Create a game WITHOUT the player in its cached state
+		// This simulates a scenario where DB and cache are out of sync
+		gameWithoutPlayer := rules.NewFreshGame("2025/2026", "Ligue 1", "Rollback Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+		gameID, err := gameRepo.CreateGame(gameWithoutPlayer)
+		require.NoError(t, err)
+
+		// Add player to game_player table directly (bypassing the cache)
+		err = gamePlayerRepo.AddPlayerToGame(context.Background(), gameID, player.ID)
+		require.NoError(t, err)
+
+		// Verify player is in the database
+		isInGame, err := gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, player.ID)
+		require.NoError(t, err)
+		require.True(t, isInGame, "Player should be in game before removal attempt")
+
+		// Create registry and membership service with real UnitOfWork
+		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
+		require.NoError(t, err)
+
+		// Create the GameService - this will cache the game WITHOUT the player
+		_, err = registry.Create(gameID)
+		require.NoError(t, err)
+
+		// Create membership service with real UnitOfWork
+		uow := NewUnitOfWork(testDB.db)
+		membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+
+		// Attempt to remove player
+		// - DB removal will succeed (player is in game_player table)
+		// - Cache removal will FAIL (player is not in cached game object)
+		// - Transaction should ROLLBACK
+		err = membershipService.RemovePlayerFromGame(gameID, player)
+
+		// We expect an error because the cache update failed
+		require.Error(t, err, "Should return error when cache update fails")
+		assert.Contains(t, err.Error(), "cached game service", "Error should mention cache failure")
+
+		// THE KEY ASSERTION: Player should STILL be in the database
+		// If rollback worked, the DB removal was undone
+		isStillInGame, err := gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, player.ID)
+		require.NoError(t, err)
+		assert.True(t, isStillInGame, "Player should STILL be in game after rollback - DB removal should have been undone")
+
+		// Verify by checking the actual count
+		players, err := gamePlayerRepo.GetPlayersInGame(context.Background(), gameID)
+		require.NoError(t, err)
+		assert.Len(t, players, 1, "Should still have 1 player after rollback")
+		if len(players) > 0 {
+			assert.Equal(t, player.ID, players[0].GetID(), "The player should be the one we added")
+		}
 	}, 10*time.Second)
 }

@@ -96,6 +96,24 @@ func (s *GameService) GetPlayers() ([]Player, error) {
 }
 ```
 
+### Transactions with Unit of Work Pattern
+
+When multiple operations must succeed or fail together (atomic), use `UnitOfWork.WithinTx(ctx, fn)`.
+Services remain database-agnostic. See `backend/repositories/postgres/unit_of_work.go` for implementation.
+
+**Example:**
+```go
+err := s.uow.WithinTx(ctx, func(txCtx context.Context) error {
+    if err := s.repoA.DoSomething(txCtx, ...); err != nil {
+        return err  // Triggers rollback
+    }
+    if err := s.repoB.DoSomethingElse(txCtx, ...); err != nil {
+        return err  // Triggers rollback
+    }
+    return nil  // Success = commit
+})
+```
+
 ## Code Style
 
 - Follow TDD: write tests first, then implementation
