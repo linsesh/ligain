@@ -93,7 +93,7 @@ func main() {
 
 	membershipService := services.NewGameMembershipService(gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
 	queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
-	joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, membershipService, registry, time.Now)
+	joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 	creationService := services.NewGameCreationServiceWithServices(
 		gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
 		registry, membershipService, queryService, joinService,
@@ -146,7 +146,8 @@ func main() {
 	gameHandler := routes.NewGameHandler(creationService, joinService, queryService, membershipService, authService)
 	gameHandler.SetupRoutes(router)
 
-	// Setup profile routes (with avatar upload support if GCS is configured)
+	// Setup profile routes (avatar upload requires GCS, display name works without it)
+	var profileService services.ProfileService
 	if bucketName := os.Getenv("GCS_BUCKET_NAME"); bucketName != "" {
 		gcsStorage, err := storage.NewGCSBlobStorage(ctx, bucketName)
 		if err != nil {
@@ -156,13 +157,13 @@ func main() {
 
 		storageService := services.NewStorageService(gcsStorage)
 		imageProcessor := services.NewImageProcessor()
-		profileService := services.NewProfileService(storageService, imageProcessor, playerRepo)
-		profileHandler := routes.NewProfileHandler(profileService, authService)
-		profileHandler.SetupRoutes(router)
+		profileService = services.NewProfileService(storageService, imageProcessor, playerRepo)
 		log.Infof("Profile routes enabled with GCS bucket: %s", bucketName)
 	} else {
 		log.Warn("GCS_BUCKET_NAME not set, avatar upload disabled")
 	}
+	profileHandler := routes.NewProfileHandler(profileService, authService)
+	profileHandler.SetupRoutes(router)
 
 	// Start server
 	port := os.Getenv("PORT")

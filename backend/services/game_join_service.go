@@ -28,16 +28,11 @@ type GameJoinService struct {
 func NewGameJoinService(
 	gameCodeRepo repositories.GameCodeRepository,
 	gameRepo repositories.GameRepository,
+	gamePlayerRepo repositories.GamePlayerRepository,
 	membershipService GameMembershipServiceInterface,
 	registry GameServiceRegistryInterface,
 	timeFunc func() time.Time,
 ) *GameJoinService {
-	// Extract gamePlayerRepo from membershipService for game limit checks
-	var gamePlayerRepo repositories.GamePlayerRepository
-	if ms, ok := membershipService.(*GameMembershipService); ok {
-		gamePlayerRepo = ms.gamePlayerRepo
-	}
-
 	return &GameJoinService{
 		gameCodeRepo:      gameCodeRepo,
 		gameRepo:          gameRepo,

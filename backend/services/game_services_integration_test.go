@@ -43,7 +43,7 @@ func setupIntegrationTest() (
 	registry, _ := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
 	membershipService := NewGameMembershipService(mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
-	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, membershipService, registry, func() time.Time { return integrationTestTime })
+	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return integrationTestTime })
 	creationService := NewGameCreationServiceWithServices(
 		mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockMatchRepo,
 		registry, membershipService, queryService, joinService,
