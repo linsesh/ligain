@@ -114,6 +114,39 @@ err := s.uow.WithinTx(ctx, func(txCtx context.Context) error {
 })
 ```
 
+### Frontend: Components vs Logic
+
+**Components** should be pure display with no business logic:
+- Receive data via props or hooks
+- Render UI
+- Delegate actions to hooks/services
+
+**Hooks/Services** should contain all testable logic:
+- State management
+- API calls
+- Business rules
+
+**Testing:**
+- Test hooks and services thoroughly (real behavior tests)
+- Don't write tests for trivial display components (no value)
+
+**Example - Good separation:**
+```tsx
+// Hook contains testable logic
+const useUpdateRequired = () => {
+  const [isUpdateRequired, setIsUpdateRequired] = useState(false);
+  // ... logic here, tested separately
+  return { isUpdateRequired, storeUrl };
+};
+
+// Component is pure display, no tests needed
+const UpdateRequiredModal = () => {
+  const { isUpdateRequired, storeUrl } = useUpdateRequired();
+  if (!isUpdateRequired) return null;
+  return <Modal>...</Modal>;
+};
+```
+
 ## Code Style
 
 - Follow TDD: write tests first, then implementation

@@ -121,7 +121,7 @@ func main() {
 			}
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-App-Version")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if c.Request.Method == "OPTIONS" {
@@ -136,6 +136,9 @@ func main() {
 
 	// Apply API key authentication middleware
 	router.Use(middleware.APIKeyAuth())
+
+	// Apply version check middleware
+	router.Use(middleware.VersionCheck())
 
 	// Setup routes
 	matchHandler := routes.NewMatchHandler(creationService, authService)

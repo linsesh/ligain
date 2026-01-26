@@ -9,27 +9,32 @@ import { UIEventProvider } from '../src/contexts/UIEventContext';
 import { GamesProvider } from '../src/contexts/GamesContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ApiProvider } from '../src/api';
+import { UpdateRequiredProvider } from '../src/contexts/UpdateRequiredContext';
+import { UpdateRequiredModal } from '../src/components/UpdateRequiredModal';
 
 export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <I18nextProvider i18n={i18n}>
-        <UIEventProvider>
-          <ApiProvider>
-            <AuthProvider>
-              <TimeServiceProvider service={new RealTimeService()}>
-                <GamesProvider>
-                  <AuthGuard>
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="signin" />
-                      <Stack.Screen name="(tabs)" />
-                    </Stack>
-                  </AuthGuard>
-                </GamesProvider>
-              </TimeServiceProvider>
-            </AuthProvider>
-          </ApiProvider>
-        </UIEventProvider>
+        <UpdateRequiredProvider>
+          <UIEventProvider>
+            <ApiProvider>
+              <AuthProvider>
+                <TimeServiceProvider service={new RealTimeService()}>
+                  <GamesProvider>
+                    <AuthGuard>
+                      <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen name="signin" />
+                        <Stack.Screen name="(tabs)" />
+                      </Stack>
+                    </AuthGuard>
+                  </GamesProvider>
+                </TimeServiceProvider>
+              </AuthProvider>
+            </ApiProvider>
+          </UIEventProvider>
+          <UpdateRequiredModal />
+        </UpdateRequiredProvider>
       </I18nextProvider>
     </GestureHandlerRootView>
   );

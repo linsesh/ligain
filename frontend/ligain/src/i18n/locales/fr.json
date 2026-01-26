@@ -263,6 +263,11 @@
     "downloadLigain": "Téléchargez Ligain !",
     "yourBet": "Ma prédiction :"
   },
+  "update": {
+    "title": "Mise à jour requise",
+    "message": "Une nouvelle version de Ligain est disponible. Mets à jour pour continuer à utiliser l'application.",
+    "updateButton": "Mettre à jour"
+  },
   "errors": {
     "authentication": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",
     "forbidden": "Un problème d'authentification s'est produit, veuillez actualiser la page et réessayer",
