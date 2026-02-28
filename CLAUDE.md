@@ -154,13 +154,13 @@ const UpdateRequiredModal = () => {
 - Use `@pytest.mark.parametrize`when it is an adapted solution to simplify and consolidate tests
 - Integration tests usually use testcontainers and docker
 - **STRICT TDD PROTOCOL — follow these steps in order, never skip ahead:**
-  1. **Write the test first.** Do NOT write any production code before the test exists.
+  1. **Write the test first.** Do NOT write any code before the test exists.
   2. **Ensure the test compiles.** Create any missing interfaces, stubs, or type definitions so the code has no import/type errors. RED means a failing assertion, not a compilation error.
   3. **Run the test and confirm it is RED.** Show the test output. If it passes already, the test is wrong — fix it before proceeding.
-  4. **Only now write the minimal production code** to make the test pass.
+  4. **Only now write the minimal code** to make the test pass.
   5. **Run the test again and confirm it is GREEN.** Show the output.
   6. **Refactor if needed**, keeping tests green.
-- **If you catch yourself writing production code before a test exists, STOP immediately**, delete the production code, and go back to step 1.
+- **If you catch yourself writing code before a test exists, STOP immediately**, delete the code, and go back to step 1.
 - **Test services with mocks, don't test mocks directly**: Mock implementations exist as test doubles to enable testing business logic. Test the service layer using mocks, not the mock implementation itself. Integration tests validate that real implementations behave correctly.
 
 **Architecture:**
