@@ -1,11 +1,9 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"ligain/backend/models"
 	"ligain/backend/utils"
 	"net/http"
@@ -507,8 +505,8 @@ func NewSportsmonkAPI(apiToken string) *SportsmonkAPIImpl {
 }
 
 func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string, competitionId int) (map[string]int, error) {
-	seasons := make(chan []season)
-	errChan := make(chan error)
+	seasons := make(chan []season, 1)
+	errChan := make(chan error, 1)
 	//should we forward the context from the caller?
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -560,8 +558,8 @@ func (s *SportsmonkAPIImpl) fetchSeasons(competitionId int, ctx context.Context,
 }
 
 func (s *SportsmonkAPIImpl) GetSeasonFixtures(seasonId int) (map[int]models.Match, error) {
-	seasonFixtures := make(chan map[int]models.Match)
-	errChan := make(chan error)
+	seasonFixtures := make(chan map[int]models.Match, 1)
+	errChan := make(chan error, 1)
 	//should we forward the context from the caller?
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -720,19 +718,6 @@ func (s *SportsmonkAPIImpl) makeRequest(req *http.Request) (resp *http.Response,
 	if err != nil {
 		return nil, err
 	}
-
-	// Read the body into a buffer
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a new reader with the bytes for later use
-	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-	// Just print the status and raw response
-	//fmt.Printf("Status: %s\nResponse: %s\n", resp.Status, string(bodyBytes))
-
 	return resp, nil
 }
 
