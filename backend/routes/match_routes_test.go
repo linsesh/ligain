@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"ligain/backend/middleware"
 	"ligain/backend/models"
 	"ligain/backend/repositories"
@@ -53,6 +54,9 @@ func (m *MockGame) GetName() string {
 }
 
 func (m *MockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
+	if datetime.After(bet.Match.GetDate()) {
+		return fmt.Errorf("too late to bet on match %v", bet.Match.Id())
+	}
 	return nil
 }
 
@@ -203,7 +207,7 @@ func (m *MockBetAuthService) DeleteAccount(ctx context.Context, playerID string)
 	panic("not implemented")
 }
 
-func setupTestRouter() (*gin.Engine, *MockGame) {
+func setupTestRouterWithTime(timeFunc func() time.Time) (*gin.Engine, *MockGame) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
@@ -215,7 +219,7 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 		bets:            make(map[string]map[string]*models.Bet),
 	}
 	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
-	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
+	gameService := services.NewGameServiceWithTime("123e4567-e89b-12d3-a456-426614174000", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), timeFunc)
 
 	mockAuthService := &MockBetAuthService{}
 	mockGameCreationService := &MockGameCreationService{}
@@ -223,13 +227,19 @@ func setupTestRouter() (*gin.Engine, *MockGame) {
 	// Set up the mock to return the game service
 	mockGameCreationService.On("GetGameService", "123e4567-e89b-12d3-a456-426614174000", mock.AnythingOfType("*models.PlayerData")).Return(gameService, nil)
 
-	handler := NewMatchHandler(mockGameCreationService, mockAuthService)
+	handler := NewMatchHandlerWithTimeFunc(mockGameCreationService, mockAuthService, timeFunc)
 
 	// Add middleware to routes manually for testing
 	router.GET("/api/game/:game-id/matches", middleware.PlayerAuth(mockAuthService), handler.getMatches)
 	router.POST("/api/game/:game-id/bet", middleware.PlayerAuth(mockAuthService), handler.saveBet)
 
 	return router, game
+}
+
+func setupTestRouter() (*gin.Engine, *MockGame) {
+	// Freeze time one day before testTime so match dates at testTime remain in the future
+	frozenTime := testTime.Add(-24 * time.Hour)
+	return setupTestRouterWithTime(func() time.Time { return frozenTime })
 }
 
 func TestGetMatches(t *testing.T) {
@@ -634,6 +644,33 @@ func TestSaveBet_SevenOneBet(t *testing.T) {
 	assert.NotNil(t, playerBet)
 	assert.Equal(t, 7, playerBet.PredictedHomeGoals)
 	assert.Equal(t, 1, playerBet.PredictedAwayGoals)
+}
+
+func TestSaveBet_TooLateToBet(t *testing.T) {
+	// Freeze current time to 1 hour AFTER the match date — bet should be rejected
+	frozenTime := testTime.Add(time.Hour)
+	router, game := setupTestRouterWithTime(func() time.Time { return frozenTime })
+
+	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
+	matchResult := models.NewMatchWithBets(match, nil)
+	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+
+	homeGoals := 2
+	awayGoals := 1
+	betRequest := SaveBetRequest{
+		MatchID:            match.Id(),
+		PredictedHomeGoals: &homeGoals,
+		PredictedAwayGoals: &awayGoals,
+	}
+	jsonBody, _ := json.Marshal(betRequest)
+
+	req := httptest.NewRequest("POST", "/api/game/123e4567-e89b-12d3-a456-426614174000/bet", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer testtoken")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code, "bet submitted after match date should be rejected")
 }
 
 func TestGetMatches_PlayerNotInGame_ServiceLevel(t *testing.T) {

@@ -109,4 +109,13 @@ func TestBetIsModifiable(t *testing.T) {
 	if bet.IsModifiable(referenceTime) {
 		t.Error("Bet should not be modifiable when match is in progress")
 	}
+
+	// Test API-early-update scenario: API set status to in-progress but scheduled date not yet reached
+	// Date is the source of truth — bet should still be modifiable until the scheduled date
+	earlyMatch := NewSeasonMatch("Home", "Away", "2024", "Premier League", referenceTime.Add(time.Hour), 1)
+	earlyMatch.Start() // API updated status early
+	earlyBet := NewBet(earlyMatch, 2, 1)
+	if !earlyBet.IsModifiable(referenceTime) {
+		t.Error("Bet should be modifiable when API set in-progress early but scheduled date not yet reached")
+	}
 }

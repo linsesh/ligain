@@ -43,5 +43,5 @@ func (b *Bet) GetPredictedResult() string {
 
 // IsModifiable checks if the bet can be modified based on the match's state and time
 func (b *Bet) IsModifiable(now time.Time) bool {
-	return !b.Match.IsFinished() && !b.Match.IsInProgress() && now.Before(b.Match.GetDate())
+	return !b.Match.IsFinished() && now.Before(b.Match.GetDate())
 }

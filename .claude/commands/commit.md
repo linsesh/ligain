@@ -26,8 +26,8 @@ Create a git commit containing only the files you modified during this conversat
    - Format: `type(scope): concise description`
    - Types: feat, fix, refactor, test, docs, chore, style, perf
    - Keep the title under 72 characters
-   - Add a body if the changes need explanation
-   - Be concise and don't focus too much on the how but rather what's added
+   - **Keep it simple**: title says what changed and why — no bullet lists, no implementation details, no how
+   - Only add a body if the why truly cannot fit in the title
 
 6. **Author** IMPORTANT: do not include claude as a co-author
 

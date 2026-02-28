@@ -67,7 +67,7 @@ export class BetImpl implements Bet {
     }
 
     isModifiable(now: Date): boolean {
-        return !this.match.isFinished() && !this.match.isInProgress() && now < this.match.getDate();
+        return !this.match.isFinished() && now < this.match.getDate();
     }
 
     static fromJSON(json: any, match: SeasonMatch): BetImpl {

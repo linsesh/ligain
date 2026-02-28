@@ -8,6 +8,7 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/services"
 	"net/http"
+	"time"
 
 	"errors"
 
@@ -19,6 +20,7 @@ import (
 type MatchHandler struct {
 	gameCreationService services.GameCreationServiceInterface
 	authService         services.AuthServiceInterface
+	timeFunc            func() time.Time
 }
 
 // NewMatchHandler creates a new MatchHandler instance
@@ -26,6 +28,16 @@ func NewMatchHandler(gameCreationService services.GameCreationServiceInterface, 
 	return &MatchHandler{
 		gameCreationService: gameCreationService,
 		authService:         authService,
+		timeFunc:            time.Now,
+	}
+}
+
+// NewMatchHandlerWithTimeFunc creates a MatchHandler with custom time function (for testing)
+func NewMatchHandlerWithTimeFunc(gameCreationService services.GameCreationServiceInterface, authService services.AuthServiceInterface, timeFunc func() time.Time) *MatchHandler {
+	return &MatchHandler{
+		gameCreationService: gameCreationService,
+		authService:         authService,
+		timeFunc:            timeFunc,
 	}
 }
 
@@ -230,7 +242,7 @@ func (h *MatchHandler) saveBet(c *gin.Context) {
 	match := matchResult.Match
 
 	bet := models.NewBet(match, *request.PredictedHomeGoals, *request.PredictedAwayGoals)
-	updateErr := gameService.UpdatePlayerBet(player, bet, match.GetDate())
+	updateErr := gameService.UpdatePlayerBet(player, bet, h.timeFunc())
 	if updateErr != nil {
 		log.Error("Failed to update player bet", updateErr)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": updateErr.Error()})

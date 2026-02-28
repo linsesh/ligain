@@ -91,7 +91,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   const [isSharing, setIsSharing] = useState(false);
   const shareableRef = useRef<ViewShot>(null);
   const now = new Date();
-  const isFuture = !matchResult.match.isFinished() && !matchResult.match.isInProgress();
+  const isFuture = !matchResult.match.isFinished() && !matchResult.match.hasStarted(now);
   const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
   const canModify = isFuture && (userBet?.isModifiable(now) !== false);
   

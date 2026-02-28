@@ -155,5 +155,13 @@ describe('Bet', () => {
             const bet = createBet(match);
             expect(bet.isModifiable(referenceTime)).toBe(false);
         });
+
+        it('should be modifiable when API set in-progress too early but scheduled date not yet reached', () => {
+            // API updated status to in-progress before match date — date is the source of truth
+            const futureDate = new Date('2024-01-01T16:00:00Z'); // 1 hour after referenceTime
+            const match = createMatch('Home', 'Away', futureDate, 'in-progress');
+            const bet = createBet(match);
+            expect(bet.isModifiable(referenceTime)).toBe(true);
+        });
     });
 }); 
