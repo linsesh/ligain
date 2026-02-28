@@ -35,7 +35,7 @@ go.work
 go.work.sum
 
 # env file
-.env
+.env*
 
 # logs
 logs
@@ -93,7 +93,13 @@ android/app/debug/
 .android/
 .idea/
 
+frontend/ligain/credentials.json
+infrastructure/ligain
+
 .vscode/
 *google-services.json
 
 .claude/settings*
+.grepai/
+
+log*

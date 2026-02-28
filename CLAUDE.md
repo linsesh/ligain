@@ -147,8 +147,45 @@ const UpdateRequiredModal = () => {
 };
 ```
 
-## Code Style
+## Key Conventions
 
-- Follow TDD: write tests first, then implementation
-- Keep functions focused and small
-- Use meaningful error messages with context
+**Testing — TDD is mandatory, not optional:**
+- Mark tests with `@pytest.mark.unit` or `@pytest.mark.integration`
+- Use `@pytest.mark.parametrize`when it is an adapted solution to simplify and consolidate tests
+- Integration tests usually use testcontainers and docker
+- **STRICT TDD PROTOCOL — follow these steps in order, never skip ahead:**
+  1. **Write the test first.** Do NOT write any production code before the test exists.
+  2. **Ensure the test compiles.** Create any missing interfaces, stubs, or type definitions so the code has no import/type errors. RED means a failing assertion, not a compilation error.
+  3. **Run the test and confirm it is RED.** Show the test output. If it passes already, the test is wrong — fix it before proceeding.
+  4. **Only now write the minimal production code** to make the test pass.
+  5. **Run the test again and confirm it is GREEN.** Show the output.
+  6. **Refactor if needed**, keeping tests green.
+- **If you catch yourself writing production code before a test exists, STOP immediately**, delete the production code, and go back to step 1.
+- **Test services with mocks, don't test mocks directly**: Mock implementations exist as test doubles to enable testing business logic. Test the service layer using mocks, not the mock implementation itself. Integration tests validate that real implementations behave correctly.
+
+**Architecture:**
+- Follow SOLID principles and clean architecture
+- Use dependency inversion with interfaces - business code shouldn't know about infrastructure
+- Keep classes focused on one use case
+
+**Problem-Solving Approach:**
+- **Strongly bias towards simple solutions**: Choose the simplest approach that solves the problem. Avoid over-engineering, premature optimization, or complex abstractions when straightforward solutions will work
+- **Ask questions liberally in plan mode**: Instead of making assumptions about requirements, user preferences, or implementation details, ask clarifying questions to understand the exact needs and constraints
+- Prefer direct, obvious implementations over clever or sophisticated ones
+- When multiple approaches exist, default to the one with fewer moving parts and less complexity
+
+**Communication Style:**
+- **Challenge ideas when you disagree**: Don't be overly agreeable. If you see issues with an approach, say so directly and explain why. Be factual and honest rather than accommodating.
+
+## Where to retrieve documentation
+
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+
+
+## Code Search Strategy
+
+**Prefer grepai MCP tools over raw Grep/Glob for code exploration:**
+- Use `grepai_search` as the **first choice** for semantic code questions ("how does X work?", "where is Y computed?", "find code related to Z"). It understands meaning, not just text patterns.
+- Use `grepai_trace_callers` / `grepai_trace_callees` / `grepai_trace_graph` to follow call chains and understand data flow between functions.
+- Fall back to Grep/Glob only for **exact literal matches** (specific variable names, error strings, import paths) where pattern matching is more precise than semantic search.
+- When using the Explore subagent, instruct it to use grepai MCP tools as well.

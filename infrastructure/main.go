@@ -5,6 +5,7 @@ import (
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/cloudrun"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/organizations"
+	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/serviceaccount"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
@@ -63,10 +64,23 @@ func main() {
 
 		// Grant Cloud Run default service account access to avatar bucket
 		// Cloud Run uses the default compute service account: {PROJECT_NUMBER}-compute@developer.gserviceaccount.com
+		serviceAccountEmail := pulumi.Sprintf("%s-compute@developer.gserviceaccount.com", project.Number)
+
 		_, err = storage.NewBucketIAMMember(ctx, "avatars-bucket-iam", &storage.BucketIAMMemberArgs{
 			Bucket: avatarBucket.Name,
 			Role:   pulumi.String("roles/storage.objectAdmin"),
-			Member: pulumi.Sprintf("serviceAccount:%s-compute@developer.gserviceaccount.com", project.Number),
+			Member: pulumi.Sprintf("serviceAccount:%s", serviceAccountEmail),
+		})
+		if err != nil {
+			return err
+		}
+
+		// Grant the service account permission to sign blobs (required for generating signed URLs)
+		// The service account needs roles/iam.serviceAccountTokenCreator on itself
+		_, err = serviceaccount.NewIAMMember(ctx, "sa-token-creator", &serviceaccount.IAMMemberArgs{
+			ServiceAccountId: pulumi.Sprintf("projects/%s/serviceAccounts/%s-compute@developer.gserviceaccount.com", projectID, project.Number),
+			Role:             pulumi.String("roles/iam.serviceAccountTokenCreator"),
+			Member:           pulumi.Sprintf("serviceAccount:%s", serviceAccountEmail),
 		})
 		if err != nil {
 			return err
@@ -88,7 +102,7 @@ func main() {
 			_, err = storage.NewBucketIAMMember(ctx, "avatars-bucket-test-iam", &storage.BucketIAMMemberArgs{
 				Bucket: testBucket.Name,
 				Role:   pulumi.String("roles/storage.objectAdmin"),
-				Member: pulumi.Sprintf("serviceAccount:%s-compute@developer.gserviceaccount.com", project.Number),
+				Member: pulumi.Sprintf("serviceAccount:%s", serviceAccountEmail),
 			})
 			if err != nil {
 				return err
