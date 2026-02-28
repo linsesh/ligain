@@ -73,7 +73,7 @@ func (s *SimulatedSportsmonkAPI) GetSeasonFixtures(seasonId int) (map[int]models
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for id, m := range fixtures {
-		if sm, ok := m.(*models.SeasonMatch); ok && rand.Float64() < 0.05 {
+		if sm, ok := m.(*models.SeasonMatch); ok && rand.Float64() < 0.01 {
 			randomFixtureUpdate(sm)
 			fixtures[id] = sm
 		}
