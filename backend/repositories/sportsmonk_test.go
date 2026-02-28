@@ -289,7 +289,6 @@ func TestAskAndCacheSeasonIdCaching(t *testing.T) {
 		api:                            mockAPI,
 		seasonCodeToSeasonId:           make(map[string]int),
 		competitionCodeToCompetitionId: make(map[string]int),
-		matchIdToFixtureId:             make(map[string]int),
 	}
 
 	matches := make(map[string]models.Match)

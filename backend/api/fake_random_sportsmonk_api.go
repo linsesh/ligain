@@ -4,7 +4,6 @@ import (
 	"ligain/backend/models"
 	"math"
 	"math/rand"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -98,31 +97,7 @@ func (a *FakeRandomSportsmonkAPI) GetFixturesInfos(fixtureIds []int) (map[int]mo
 }
 
 func (a *FakeRandomSportsmonkAPI) randomFixtureUpdate(fixture *models.SeasonMatch) {
-	log.Infof("Updating fixture %s", fixture.Id())
-	whichEvent := rand.Intn(10)
-	// 10% of chance of being postponed (between 1 and 3 days)
-	if whichEvent == 0 {
-		log.Infof("Postponing fixture %s", fixture.Id())
-		fixture.Date = fixture.Date.Add(time.Duration(rand.Intn(2)+1) * time.Hour * 24)
-		return
-	}
-	// 50% of chance of having a random goal
-	if whichEvent < 6 {
-		log.Infof("Goal !! %s", fixture.Id())
-		if !fixture.IsInProgress() {
-			fixture.Start()
-		}
-		whichTeam := rand.Intn(2)
-		if whichTeam == 0 {
-			fixture.HomeGoals++
-		} else {
-			fixture.AwayGoals++
-		}
-		return
-	}
-	// 40% of chance of being finished now
-	log.Infof("Finishing fixture %s", fixture.Id())
-	fixture.Finish(fixture.HomeGoals, fixture.AwayGoals)
+	randomFixtureUpdate(fixture)
 }
 
 func (a *FakeRandomSportsmonkAPI) GetSeasonFixtures(seasonId int) (map[int]models.Match, error) {

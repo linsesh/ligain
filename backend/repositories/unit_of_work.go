@@ -10,3 +10,14 @@ type UnitOfWork interface {
 	// If fn returns nil, the transaction is committed.
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
+
+// NoopUnitOfWork runs the function directly with no transaction. For use in fake/test mode.
+type NoopUnitOfWork struct{}
+
+func NewNoopUnitOfWork() UnitOfWork {
+	return &NoopUnitOfWork{}
+}
+
+func (n *NoopUnitOfWork) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}

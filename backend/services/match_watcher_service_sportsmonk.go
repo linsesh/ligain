@@ -57,6 +57,24 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 	return watcher, nil
 }
 
+// NewMatchWatcherServiceSportsmonkWithOptions creates a MatchWatcherServiceSportsmonk with a custom
+// repository and poll interval. Intended for local development and testing (e.g. FakeRandomSportsmonkAPI).
+func NewMatchWatcherServiceSportsmonkWithOptions(
+	repo repositories.SportsmonkRepository,
+	matches map[string]models.Match,
+	matchRepo repositories.MatchRepository,
+	pollInterval time.Duration,
+) *MatchWatcherServiceSportsmonk {
+	return &MatchWatcherServiceSportsmonk{
+		watchedMatches: matches,
+		repo:           repo,
+		matchRepo:      matchRepo,
+		subscribers:    make(map[string]GameService),
+		stopChan:       make(chan struct{}),
+		pollInterval:   pollInterval,
+	}
+}
+
 func (m *MatchWatcherServiceSportsmonk) Subscribe(handler GameService) error {
 	gameID := handler.GetGameID()
 	m.subscribers[gameID] = handler
