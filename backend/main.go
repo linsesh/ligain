@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/profiler"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,15 @@ func main() {
 	// Configure structured logging for Cloud Run
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
+
+	// Start Cloud Profiler for production heap diagnostics.
+	// No-op if not running on GCP (e.g. ENV=fake locally).
+	if err := profiler.Start(profiler.Config{
+		Service:        "ligain-backend",
+		ServiceVersion: "1.0.0",
+	}); err != nil {
+		log.Warnf("Cloud Profiler failed to start: %v", err)
+	}
 
 	env := os.Getenv("ENV")
 
@@ -90,8 +100,8 @@ func main() {
 			}
 			simulatedAPI := api.NewSimulatedSportsmonkAPI(api.NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN")))
 			sportsmonkRepo := repositories.NewSportsmonkRepository(simulatedAPI)
-			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(sportsmonkRepo, matchesMap, matchRepo, 500*time.Millisecond)
-			log.Info("Running in fake mode: SimulatedSportsmonkAPI + real postgres (500ms poll)")
+			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(sportsmonkRepo, matchesMap, matchRepo, 1*time.Minute)
+			log.Info("Running in fake mode: SimulatedSportsmonkAPI + real postgres (1m poll)")
 		} else {
 			log.Info("Running in fake mode — all repositories are in-memory, no DB required")
 
