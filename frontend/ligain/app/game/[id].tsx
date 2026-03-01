@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
+import { Text } from '../../src/components/ui/Text';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -197,7 +198,7 @@ export default function GameOverviewScreen() {
         }
       >
         <View style={styles.gameHeader}>
-          <Text style={styles.gameTitle}>{gameDetails.name}</Text>
+          <Text className="font-hk-bold" style={styles.gameTitle}>{gameDetails.name}</Text>
           <Text style={styles.gameSubtitle}>
             {gameDetails.seasonYear} • {gameDetails.competitionName}
           </Text>
@@ -210,9 +211,9 @@ export default function GameOverviewScreen() {
         </View>
         {gameDetails.code && (
           <View style={styles.codeContainer}>
-            <Text style={styles.codeLabel}>{t('games.gameCode')}</Text>
+            <Text className="font-hk-semibold" style={styles.codeLabel}>{t('games.gameCode')}</Text>
             <View style={styles.codeDisplay}>
-              <Text style={styles.codeText}>{gameDetails.code}</Text>
+              <Text className="font-hk-bold" style={styles.codeText}>{gameDetails.code}</Text>
               <TouchableOpacity
                 style={styles.copyButton}
                 onPress={() => gameDetails.code && copyToClipboard(gameDetails.code)}
@@ -239,7 +240,7 @@ export default function GameOverviewScreen() {
           <View style={styles.pickerOverlay}>
             <View style={styles.pickerContainer}>
               <View style={styles.pickerHeader}>
-                <Text style={styles.pickerTitle}>{t('games.selectPeriod')}</Text>
+                <Text className="font-hk-bold" style={styles.pickerTitle}>{t('games.selectPeriod')}</Text>
                 <TouchableOpacity onPress={() => setShowPeriodPicker(false)}>
                   <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -276,25 +277,25 @@ export default function GameOverviewScreen() {
         {/* Current Month Leader and Last Month Winner cards */}
         {(currentMonthTop && currentMonthTop.Points > 0) && (
           <View style={styles.cardContainer}>
-            <Text style={styles.cardTitle}>{t('games.currentMonthLeader')}</Text>
+            <Text className="font-hk-semibold" style={styles.cardTitle}>{t('games.currentMonthLeader')}</Text>
             <View style={styles.cardRow}>
-              <Text style={styles.cardPrimary}>{currentMonthTop.PlayerName}</Text>
-              <Text style={styles.cardSecondary}>{currentMonthTop.Points} {t('game.points')}</Text>
+              <Text className="font-hk-bold" style={styles.cardPrimary}>{currentMonthTop.PlayerName}</Text>
+              <Text className="font-hk-medium" style={styles.cardSecondary}>{currentMonthTop.Points} {t('game.points')}</Text>
             </View>
           </View>
         )}
         {(lastMonthTop && lastMonthTop.Points > 0) && (
           <View style={styles.cardContainer}>
-            <Text style={styles.cardTitle}>{t('games.lastMonthWinner')}</Text>
+            <Text className="font-hk-semibold" style={styles.cardTitle}>{t('games.lastMonthWinner')}</Text>
             <View style={styles.cardRow}>
-              <Text style={styles.cardPrimary}>{lastMonthTop.PlayerName}</Text>
-              <Text style={styles.cardSecondary}>{lastMonthTop.Points} {t('game.points')}</Text>
+              <Text className="font-hk-bold" style={styles.cardPrimary}>{lastMonthTop.PlayerName}</Text>
+              <Text className="font-hk-medium" style={styles.cardSecondary}>{lastMonthTop.Points} {t('game.points')}</Text>
             </View>
           </View>
         )}
         {cumulativeData.series.length > 0 && cumulativeData.matchdays.length > 0 && (
           <View style={styles.cardContainer}>
-            <Text style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
+            <Text className="font-hk-semibold" style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
             <CumulativePointsChart
               matchdays={cumulativeData.matchdays}
               series={cumulativeData.series.map(s => ({
@@ -310,7 +311,7 @@ export default function GameOverviewScreen() {
           onPress={navigateToMatches}
         >
           <Ionicons name="football" size={24} color={colors.text} />
-          <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
+          <Text className="font-hk-bold" style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
 
         {/* Hidden shareable component for image generation */}
@@ -350,7 +351,6 @@ const styles = StyleSheet.create({
   },
   gameTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 8,
@@ -364,7 +364,6 @@ const styles = StyleSheet.create({
   gameStatus: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   statusContainer: {
@@ -389,7 +388,6 @@ const styles = StyleSheet.create({
   periodSelectorText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '600',
   },
   periodInfoText: {
     color: colors.textSecondary,
@@ -408,7 +406,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     marginBottom: 12,
-    fontWeight: '600',
     textAlign: 'left',
   },
   cardRow: {
@@ -419,12 +416,10 @@ const styles = StyleSheet.create({
   cardPrimary: {
     fontSize: 18,
     color: colors.text,
-    fontWeight: '700',
   },
   cardSecondary: {
     fontSize: 16,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
   codeContainer: {
     backgroundColor: colors.card,
@@ -438,7 +433,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     marginBottom: 12,
-    fontWeight: '600',
   },
   codeDisplay: {
     flexDirection: 'row',
@@ -450,7 +444,6 @@ const styles = StyleSheet.create({
   },
   codeText: {
     fontSize: 28,
-    fontWeight: 'bold',
     color: colors.primary,
     marginRight: 12,
     letterSpacing: 2,
@@ -486,7 +479,6 @@ const styles = StyleSheet.create({
   pickerTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: 'bold',
   },
   pickerWrapper: {
     backgroundColor: colors.border,
@@ -509,7 +501,6 @@ const styles = StyleSheet.create({
   },
   leaderboardTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
     textAlign: 'center',
@@ -532,7 +523,6 @@ const styles = StyleSheet.create({
   },
   rankText: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: colors.card,
   },
   playerInfo: {
@@ -541,7 +531,6 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 16,
     color: colors.text,
-    fontWeight: '600',
   },
   playerScore: {
     fontSize: 14,
@@ -557,7 +546,6 @@ const styles = StyleSheet.create({
   currentPlayerText: {
     fontSize: 12,
     color: colors.text,
-    fontWeight: 'bold',
   },
   matchesButton: {
     backgroundColor: colors.secondary,
@@ -573,7 +561,6 @@ const styles = StyleSheet.create({
   },
   matchesButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: colors.text,
   },
   errorContainer: {
@@ -597,6 +584,5 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: 'bold',
   },
 });

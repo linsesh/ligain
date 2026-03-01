@@ -76,7 +76,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
 
       {/* Match preview */}
       <View style={styles.matchesPreview}>
-        <Text style={[styles.matchesTitle, { color: colors.text }]}>
+        <Text className="font-hk-semibold" style={[styles.matchesTitle, { color: colors.text }]}>
           {t('betSync.matchesToSync', { count: syncOpportunity.matchesToSync.length })}
         </Text>
         {(() => {
@@ -118,7 +118,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
 
       {syncResult && syncResult.successful.length > 0 && (
         <View style={styles.matchesPreview}>
-          <Text style={[styles.matchesTitle, { color: colors.text }]}>
+          <Text className="font-hk-semibold" style={[styles.matchesTitle, { color: colors.text }]}>
             {t('betSync.partialSuccess.successfulMatches')}
           </Text>
           {syncResult.successful.map((match, index) => (
@@ -131,7 +131,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
 
       {syncResult && syncResult.failed.length > 0 && (
         <View style={[styles.matchesPreview, { backgroundColor: '#ffebee' }]}>
-          <Text style={[styles.matchesTitle, { color: colors.text }]}>
+          <Text className="font-hk-semibold" style={[styles.matchesTitle, { color: colors.text }]}>
             {t('betSync.partialSuccess.failedMatches')}
           </Text>
           {syncResult.failed.map((failedMatch, index) => (
@@ -171,7 +171,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
             style={[styles.button, styles.singleButton, { backgroundColor: colors.primary }]}
             onPress={onNotNow}
           >
-            <Text style={styles.synchronizeButtonText}>
+            <Text className="font-hk-semibold" style={styles.synchronizeButtonText}>
               {t('betSync.success.close')}
             </Text>
           </TouchableOpacity>
@@ -184,7 +184,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
               style={[styles.button, styles.notNowButton]}
               onPress={onNotNow}
             >
-              <Text style={[styles.notNowButtonText, { color: colors.text }]}>
+              <Text className="font-hk-semibold" style={[styles.notNowButtonText, { color: colors.text }]}>
                 {t('betSync.partialSuccess.close')}
               </Text>
             </TouchableOpacity>
@@ -194,7 +194,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
                 style={[styles.button, styles.synchronizeButton, { backgroundColor: colors.secondary }]}
                 onPress={onRetryFailed}
               >
-                <Text style={styles.synchronizeButtonText}>
+                <Text className="font-hk-semibold" style={styles.synchronizeButtonText}>
                   {t('betSync.partialSuccess.retryFailed')}
                 </Text>
               </TouchableOpacity>
@@ -208,7 +208,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
             style={[styles.button, styles.singleButton, { backgroundColor: colors.primary }]}
             onPress={onNotNow}
           >
-            <Text style={styles.synchronizeButtonText}>
+            <Text className="font-hk-semibold" style={styles.synchronizeButtonText}>
               {t('betSync.failure.close')}
             </Text>
           </TouchableOpacity>
@@ -222,7 +222,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
               onPress={onNotNow}
               disabled={loading}
             >
-              <Text style={[styles.notNowButtonText, { color: colors.text }]}>
+              <Text className="font-hk-semibold" style={[styles.notNowButtonText, { color: colors.text }]}>
                 {t('betSync.notNow')}
               </Text>
             </TouchableOpacity>
@@ -233,11 +233,11 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
               disabled={loading}
             >
               {loading ? (
-                <Text style={styles.synchronizeButtonText}>
+                <Text className="font-hk-semibold" style={styles.synchronizeButtonText}>
                   {t('common.loading')}
                 </Text>
               ) : (
-                <Text style={styles.synchronizeButtonText}>
+                <Text className="font-hk-semibold" style={styles.synchronizeButtonText}>
                   {t('betSync.synchronize')}
                 </Text>
               )}
@@ -298,7 +298,7 @@ export const BetSyncModal: React.FC<BetSyncModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <Ionicons name={getIcon()} size={40} color={getIconColor()} style={styles.icon} />
-            <Text style={[styles.title, { color: colors.text }]}>
+            <Text className="font-hk-bold" style={[styles.title, { color: colors.text }]}>
               {getTitle()}
             </Text>
           </View>
@@ -343,7 +343,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   content: {
@@ -369,7 +368,6 @@ const styles = StyleSheet.create({
   },
   matchesTitle: {
     fontSize: 14,
-    fontWeight: '600',
     marginBottom: 8,
   },
   matchItem: {
@@ -399,7 +397,6 @@ const styles = StyleSheet.create({
   },
   notNowButtonText: {
     fontSize: 14,
-    fontWeight: '600',
     textAlign: 'center',
   },
   synchronizeButton: {
@@ -408,7 +405,6 @@ const styles = StyleSheet.create({
   synchronizeButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
     textAlign: 'center',
   },
   scrollContent: {

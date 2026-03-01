@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Text } from './ui/Text';
 import { AuthService } from '../services/authService';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -133,7 +134,7 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
     >
       <View style={styles.contentRow}>
         <Ionicons name="logo-apple" size={24} color="#FFFFFF" style={{ marginRight: 10 }} />
-        <Text style={styles.buttonText}>{t('auth.continueWithApple')}</Text>
+        <Text className="font-hk-semibold" style={styles.buttonText}>{t('auth.continueWithApple')}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -156,7 +157,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
   },
   contentRow: {
     flexDirection: 'row',

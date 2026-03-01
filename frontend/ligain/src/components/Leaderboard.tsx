@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
 
@@ -44,7 +45,7 @@ export default function Leaderboard({ players, currentPlayerId, t, showTitle = t
     ]}>
       {showTitle && (
         <View style={styles.titleContainer}>
-          <Text style={styles.leaderboardTitle}>{t('games.playerLeaderboard')}</Text>
+          <Text className="font-hk-bold" style={styles.leaderboardTitle}>{t('games.playerLeaderboard')}</Text>
           {onShare && (
             <TouchableOpacity
               style={styles.shareButton}
@@ -63,15 +64,15 @@ export default function Leaderboard({ players, currentPlayerId, t, showTitle = t
       {players.map((playerInfo, index) => (
         <View key={playerInfo.id} style={styles.playerRow}>
           <View style={[styles.playerRank, getRankBackgroundColor(index)]}>
-            <Text style={styles.rankText}>{index + 1}</Text>
+            <Text className="font-hk-bold" style={styles.rankText}>{index + 1}</Text>
           </View>
           <View style={styles.playerInfo}>
-            <Text style={styles.playerName}>{playerInfo.name}</Text>
+            <Text className="font-hk-semibold" style={styles.playerName}>{playerInfo.name}</Text>
             <Text style={styles.playerScore}>{playerInfo.totalScore} {t('game.points')}</Text>
           </View>
           {showCurrentPlayerTag && playerInfo.id === currentPlayerId && (
             <View style={styles.currentPlayerIndicator}>
-              <Text style={styles.currentPlayerText}>{t('game.currentPlayer')}</Text>
+              <Text className="font-hk-bold" style={styles.currentPlayerText}>{t('game.currentPlayer')}</Text>
             </View>
           )}
         </View>
@@ -98,7 +99,6 @@ const styles = StyleSheet.create({
   },
   leaderboardTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     color: colors.text,
     textAlign: 'left',
   },
@@ -129,7 +129,6 @@ const styles = StyleSheet.create({
   },
   rankText: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: colors.card,
   },
   playerInfo: {
@@ -138,7 +137,6 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 16,
     color: colors.text,
-    fontWeight: '600',
   },
   playerScore: {
     fontSize: 14,
@@ -155,6 +153,5 @@ const styles = StyleSheet.create({
   currentPlayerText: {
     fontSize: 12,
     color: colors.text,
-    fontWeight: 'bold',
   },
 }); 

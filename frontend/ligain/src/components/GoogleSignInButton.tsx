@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Text } from './ui/Text';
 import { AuthService } from '../services/authService';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -128,7 +129,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     >
       <View style={styles.contentRow}>
         <Ionicons name="logo-google" size={24} color="#4285F4" style={{ marginRight: 10 }} />
-        <Text style={styles.buttonText}>{t('auth.continueWithGoogleButton')}</Text>
+        <Text className="font-hk-semibold" style={styles.buttonText}>{t('auth.continueWithGoogleButton')}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -153,7 +154,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#333333',
     fontSize: 16,
-    fontWeight: '600',
   },
   contentRow: {
     flexDirection: 'row',

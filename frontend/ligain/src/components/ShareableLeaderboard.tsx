@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
+import { Text } from './ui/Text';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../constants/colors';
 
@@ -46,12 +47,12 @@ export default function ShareableLeaderboard({
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.ligainTitle}>Ligain</Text>
+        <Text className="font-hk-bold" style={styles.ligainTitle}>Ligain</Text>
       </View>
 
       {/* Game name and period */}
       <View style={styles.titleContainer}>
-        <Text style={styles.gameName}>{gameName}</Text>
+        <Text className="font-hk-semibold" style={styles.gameName}>{gameName}</Text>
         <Text style={styles.period}>{period}</Text>
       </View>
 
@@ -63,15 +64,15 @@ export default function ShareableLeaderboard({
               styles.rankBadge,
               { backgroundColor: getRankBackgroundColor(player.rank) }
             ]}>
-              <Text style={styles.rankText}>{player.rank}</Text>
+              <Text className="font-hk-bold" style={styles.rankText}>{player.rank}</Text>
             </View>
 
             <View style={styles.playerInfo}>
-              <Text style={styles.playerName}>{player.name}</Text>
+              <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
             </View>
 
             <View style={styles.pointsContainer}>
-              <Text style={[
+              <Text className="font-hk-bold" style={[
                 styles.points,
                 { color: getRankBackgroundColor(player.rank) }
               ]}>
@@ -111,7 +112,6 @@ const styles = StyleSheet.create({
   },
   ligainTitle: {
     fontSize: 72,
-    fontWeight: 'bold',
     color: colors.primary,
     textAlign: 'center',
   },
@@ -121,7 +121,6 @@ const styles = StyleSheet.create({
   },
   gameName: {
     fontSize: 48,
-    fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 15,
@@ -155,7 +154,6 @@ const styles = StyleSheet.create({
   },
   rankText: {
     fontSize: 36,
-    fontWeight: 'bold',
     color: colors.background,
   },
   playerInfo: {
@@ -163,7 +161,6 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 36,
-    fontWeight: '600',
     color: colors.text,
   },
   pointsContainer: {
@@ -172,7 +169,6 @@ const styles = StyleSheet.create({
   },
   points: {
     fontSize: 42,
-    fontWeight: 'bold',
   },
   pointsLabel: {
     fontSize: 24,

@@ -44,7 +44,7 @@ export const UpdateRequiredModal = () => {
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>{t('update.title')}</Text>
+          <Text className="font-hk-bold" style={styles.title}>{t('update.title')}</Text>
 
           {/* Message */}
           <Text style={styles.message}>{t('update.message')}</Text>
@@ -55,7 +55,7 @@ export const UpdateRequiredModal = () => {
             onPress={handleUpdate}
             testID="update-button"
           >
-            <Text style={styles.updateButtonText}>{t('update.updateButton')}</Text>
+            <Text className="font-hk-semibold" style={styles.updateButtonText}>{t('update.updateButton')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -84,7 +84,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 16,
@@ -107,6 +106,5 @@ const styles = StyleSheet.create({
   updateButtonText: {
     color: colors.background,
     fontSize: 16,
-    fontWeight: '600',
   },
 });

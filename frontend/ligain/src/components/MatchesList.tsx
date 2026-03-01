@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions, Image } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions, Image } from 'react-native';
+import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../hooks/useMatches';
 import { useBetSubmission } from '../../hooks/useBetSubmission';
@@ -233,7 +234,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
         <View style={styles.oddsRow}>
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>1</Text>
-            <Text style={styles.oddsValue}>
+            <Text className="font-hk-bold" style={styles.oddsValue}>
               {matchResult.match.getHomeTeamOdds() ? matchResult.match.getHomeTeamOdds().toFixed(2) : '-'}
             </Text>
             {matchResult.match.hasClearFavorite() && (
@@ -244,7 +245,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           </View>
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>N</Text>
-            <Text style={styles.oddsValue}>
+            <Text className="font-hk-bold" style={styles.oddsValue}>
               {matchResult.match.getDrawOdds() ? matchResult.match.getDrawOdds().toFixed(2) : '-'}
             </Text>
             {matchResult.match.hasClearFavorite() && (
@@ -253,7 +254,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           </View>
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>2</Text>
-            <Text style={styles.oddsValue}>
+            <Text className="font-hk-bold" style={styles.oddsValue}>
               {matchResult.match.getAwayTeamOdds() ? matchResult.match.getAwayTeamOdds().toFixed(2) : '-'}
             </Text>
             {matchResult.match.hasClearFavorite() && (
@@ -271,7 +272,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             style={styles.toggleButton} 
             onPress={() => onToggleBetSection(matchResult.match.id())}
           >
-            <Text style={styles.toggleButtonText}>
+            <Text className="font-hk-bold" style={styles.toggleButtonText}>
               {t('games.playersBets')}
             </Text>
             <Ionicons 
@@ -294,7 +295,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                       if (player && playerId === player.id) {
                         userRow = (
                           <View key={playerId} style={styles.playerScoreRow}>
-                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {s.playerName} ({t('common.me')}): {s.points} points </Text>
+                            <Text className="font-hk-bold" style={[styles.scoreText]}> {s.playerName} ({t('common.me')}): {s.points} points </Text>
                             {matchResult.bets?.[playerId] ? (
                               <Text style={styles.betResultText}> ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals}) </Text>
                             ) : (
@@ -318,7 +319,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                     if (!userRow && player) {
                       userRow = (
                         <View key={player.id} style={styles.playerScoreRow}>
-                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
+                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
                         </View>
                       );
                     }
@@ -336,7 +337,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                       if (player && playerId === player.id) {
                         userRow = (
                           <View key={playerId} style={styles.playerScoreRow}>
-                            <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {b.playerName} ({t('common.me')}): </Text>
+                            <Text className="font-hk-bold" style={[styles.scoreText]}> {b.playerName} ({t('common.me')}): </Text>
                             <Text style={styles.betResultText}> ({b.predictedHomeGoals} - {b.predictedAwayGoals}) </Text>
                           </View>
                         );
@@ -352,7 +353,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                     if (!userRow && player) {
                       userRow = (
                         <View key={player.id} style={styles.playerScoreRow}>
-                          <Text style={[styles.scoreText, { fontWeight: 'bold' }]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
+                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
                         </View>
                       );
                     }
@@ -881,7 +882,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             return (
               <View key={dateTimeKey} style={styles.timeGroup}>
                 <View style={styles.timeHeaderContainer}>
-                  <Text style={styles.timeHeader}>{timeDisplay}</Text>
+                  <Text className="font-hk-bold" style={styles.timeHeader}>{timeDisplay}</Text>
                   <Text style={styles.dayHeader}>{dateDisplay}</Text>
                 </View>
                 {matchesAtTime.map((matchResult: any) => (
@@ -908,7 +909,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         {/* Legend for odds indicators */}
         {shouldShowLegend && (
           <View style={styles.legendContainer}>
-            <Text style={styles.legendTitle}>{t('games.oddsLegend')}</Text>
+            <Text className="font-hk-bold" style={styles.legendTitle}>{t('games.oddsLegend')}</Text>
             <View style={styles.legendItem}>
               <Text style={styles.legendStar}>⭐</Text>
               <Text style={styles.legendText}>{t('games.clearFavorite')}</Text>
@@ -979,7 +980,6 @@ const styles = StyleSheet.create({
   matchdayTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: 'bold',
   },
   matchdayDate: {
     color: colors.textSecondary,
@@ -998,7 +998,6 @@ const styles = StyleSheet.create({
   },
   timeHeader: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: colors.text,
   },
   dayHeader: {
@@ -1111,7 +1110,6 @@ const styles = StyleSheet.create({
   },
   resultScore: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#333',
     marginHorizontal: 8,
   },
@@ -1137,7 +1135,6 @@ const styles = StyleSheet.create({
   statusTagText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: 'bold',
   },
   successTag: {
     backgroundColor: '#4CAF50',
@@ -1167,7 +1164,6 @@ const styles = StyleSheet.create({
   },
   toggleButtonText: {
     fontSize: 14,
-    fontWeight: 'bold',
     color: '#333',
   },
   betResultContainer: {
@@ -1203,7 +1199,6 @@ const styles = StyleSheet.create({
   legendTitle: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: 'bold',
     marginBottom: 8,
   },
   legendItem: {
@@ -1241,7 +1236,6 @@ const styles = StyleSheet.create({
   doneButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
   },
   oddsContainer: {
     marginTop: 40,
@@ -1265,7 +1259,6 @@ const styles = StyleSheet.create({
   },
   oddsValue: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: '#333',
   },
   favoriteStar: {
@@ -1298,6 +1291,5 @@ const styles = StyleSheet.create({
   nextMatchButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
   },
 }); 

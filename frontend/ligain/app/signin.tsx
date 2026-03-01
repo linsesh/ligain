@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -10,6 +9,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import { Text } from '../src/components/ui/Text';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/contexts/AuthContext';
@@ -164,7 +164,7 @@ export default function SignInScreen() {
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>{t('auth.welcome')}</Text>
+          <Text className="font-hk-bold" style={[styles.title, { color: colors.text }]}>{t('auth.welcome')}</Text>
           <Text style={[styles.subtitle, { color: colors.text }]}>
             {t('auth.signInSubtitle')}
           </Text>
@@ -279,7 +279,7 @@ export default function SignInScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
+            <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.text }]}>
               {t('auth.chooseName')}
             </Text>
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
@@ -312,7 +312,7 @@ export default function SignInScreen() {
                 }}
                 disabled={isLoading}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -323,7 +323,7 @@ export default function SignInScreen() {
                 {isLoading ? (
                   <ActivityIndicator color={colors.primary} />
                 ) : (
-                  <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
+                  <Text className="font-hk-semibold" style={styles.continueButtonText}>{t('common.continue')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -343,7 +343,7 @@ export default function SignInScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
+            <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.text }]}>
               {t('auth.guestPasswordTitle')}
             </Text>
             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
@@ -374,9 +374,9 @@ export default function SignInScreen() {
                 }}
                 disabled={isLoading}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, styles.continueButton]}
                 onPress={handleGuestPasswordSubmit}
@@ -385,7 +385,7 @@ export default function SignInScreen() {
                 {isLoading ? (
                   <ActivityIndicator color={colors.primary} />
                 ) : (
-                  <Text style={styles.continueButtonText}>{t('common.continue')}</Text>
+                  <Text className="font-hk-semibold" style={styles.continueButtonText}>{t('common.continue')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -417,7 +417,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -447,7 +446,6 @@ const styles = StyleSheet.create({
   googleButtonText: {
     marginLeft: 12,
     fontSize: 16,
-    fontWeight: '600',
     color: '#333333',
   },
 
@@ -460,7 +458,6 @@ const styles = StyleSheet.create({
   guestButtonText: {
     marginLeft: 12,
     fontSize: 16,
-    fontWeight: '600',
     color: '#333',
   },
   guestNote: {
@@ -497,7 +494,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -535,14 +531,12 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '600',
   },
   continueButton: {
     backgroundColor: '#4a9eff',
   },
   continueButtonText: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
   },
   guestSection: {

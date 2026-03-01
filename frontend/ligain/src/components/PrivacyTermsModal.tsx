@@ -242,8 +242,8 @@ These terms are governed by French law. In case of dispute, the competent courts
         <View style={[styles.modalContent, { width: width - 20, height: '95%' }]}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              {activeTab === 'privacy' 
+            <Text className="font-hk-bold" style={[styles.title, { color: colors.text }]}>
+              {activeTab === 'privacy'
                 ? (isFrench ? 'Politique de confidentialité' : 'Privacy Policy')
                 : (isFrench ? 'Conditions d\'utilisation' : 'Terms of Service')
               }
@@ -262,7 +262,7 @@ These terms are governed by French law. In case of dispute, the competent courts
               ]}
               onPress={() => setActiveTab('privacy')}
             >
-              <Text style={[
+              <Text className="font-hk-semibold" style={[
                 styles.tabText,
                 { color: activeTab === 'privacy' ? colors.primary : colors.textSecondary }
               ]}>
@@ -276,7 +276,7 @@ These terms are governed by French law. In case of dispute, the competent courts
               ]}
               onPress={() => setActiveTab('terms')}
             >
-              <Text style={[
+              <Text className="font-hk-semibold" style={[
                 styles.tabText,
                 { color: activeTab === 'terms' ? colors.primary : colors.textSecondary }
               ]}>
@@ -301,7 +301,7 @@ These terms are governed by French law. In case of dispute, the competent courts
               style={[styles.closeModalButton, { backgroundColor: colors.primary }]}
               onPress={onClose}
             >
-              <Text style={styles.closeModalButtonText}>
+              <Text className="font-hk-semibold" style={styles.closeModalButtonText}>
                 {t('common.ok')}
               </Text>
             </TouchableOpacity>
@@ -335,7 +335,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
     flex: 1,
   },
   closeButton: {
@@ -357,7 +356,6 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 18,
-    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -382,6 +380,5 @@ const styles = StyleSheet.create({
   closeModalButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
   },
 }); 
