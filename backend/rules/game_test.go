@@ -578,6 +578,82 @@ func TestRemovePlayer_MultipleRemovals(t *testing.T) {
 	}
 }
 
+func TestGetIncomingMatchesPlayerBetStatus(t *testing.T) {
+	player1 := newTestPlayer("Player1")
+	player2 := newTestPlayer("Player2")
+	player3 := newTestPlayer("Player3")
+	players := []models.Player{player1, player2, player3}
+
+	// Use a future time so the match is scheduled (not in-progress)
+	futureTime := testTime.Add(24 * time.Hour)
+	scheduledMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", futureTime, 1)
+	inProgressMatch := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", testTime.Add(-1*time.Hour), 2)
+	inProgressMatch.Start()
+
+	matches := []models.Match{scheduledMatch, inProgressMatch}
+	scorer := &ScorerTest{}
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+
+	// Player2 bets on scheduled match, Player2 and Player3 bet on in-progress match
+	bet2Scheduled := models.NewBet(scheduledMatch, 1, 0)
+	bet2InProgress := models.NewBet(inProgressMatch, 2, 1)
+	bet3InProgress := models.NewBet(inProgressMatch, 0, 0)
+
+	game.AddPlayerBet(player2, bet2Scheduled)
+	game.AddPlayerBet(player2, bet2InProgress)
+	game.AddPlayerBet(player3, bet3InProgress)
+
+	// Request matches as Player1
+	incomingMatches := game.GetIncomingMatches(player1)
+
+	// --- Scheduled match ---
+	scheduledResult := incomingMatches[scheduledMatch.Id()]
+	if scheduledResult == nil {
+		t.Fatal("Expected scheduled match result to be non-nil")
+	}
+
+	// Requesting player (Player1) not in PlayerBetStatus
+	if _, exists := scheduledResult.PlayerBetStatus[player1.GetID()]; exists {
+		t.Error("Requesting player (Player1) should NOT be in PlayerBetStatus")
+	}
+
+	// Player2 has bet → true
+	if status, exists := scheduledResult.PlayerBetStatus[player2.GetID()]; !exists || !status {
+		t.Errorf("Expected Player2 to have hasBet=true in PlayerBetStatus, got exists=%v status=%v", exists, status)
+	}
+
+	// Player3 has no bet → false
+	if status, exists := scheduledResult.PlayerBetStatus[player3.GetID()]; !exists || status {
+		t.Errorf("Expected Player3 to have hasBet=false in PlayerBetStatus, got exists=%v status=%v", exists, status)
+	}
+
+	// Requesting player's bet should still be in Bets (Player1 has no bet here, so empty)
+	if len(scheduledResult.Bets) != 0 {
+		t.Errorf("Expected 0 bets for requesting player, got %d", len(scheduledResult.Bets))
+	}
+
+	// --- In-progress match ---
+	inProgressResult := incomingMatches[inProgressMatch.Id()]
+	if inProgressResult == nil {
+		t.Fatal("Expected in-progress match result to be non-nil")
+	}
+
+	// Requesting player (Player1) not in PlayerBetStatus
+	if _, exists := inProgressResult.PlayerBetStatus[player1.GetID()]; exists {
+		t.Error("Requesting player (Player1) should NOT be in PlayerBetStatus for in-progress match")
+	}
+
+	// Player2 has bet → true
+	if status, exists := inProgressResult.PlayerBetStatus[player2.GetID()]; !exists || !status {
+		t.Errorf("Expected Player2 to have hasBet=true in in-progress PlayerBetStatus, got exists=%v status=%v", exists, status)
+	}
+
+	// Player3 has bet → true
+	if status, exists := inProgressResult.PlayerBetStatus[player3.GetID()]; !exists || !status {
+		t.Errorf("Expected Player3 to have hasBet=true in in-progress PlayerBetStatus, got exists=%v status=%v", exists, status)
+	}
+}
+
 func TestRemovePlayer_AfterGameStarted(t *testing.T) {
 	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3")}
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)

@@ -234,22 +234,28 @@ func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.M
 	matches := make(map[string]*models.MatchResult)
 	for _, match := range g.incomingMatches {
 		playerBets := make(map[string]*models.Bet)
+
+		// Pre-populate all non-requesting players with hasBet: false
+		playerBetStatus := make(map[string]bool)
+		for _, p := range g.players {
+			if p.GetID() != player.GetID() {
+				playerBetStatus[p.GetID()] = false
+			}
+		}
+
 		if bets, exists := g.bets[match.Id()]; exists {
-			// For future matches, only show current player's bets
-			// For in-progress matches, show all players' bets
-			if match.IsInProgress() {
-				// Show all bets for in-progress matches
-				for playerID, bet := range bets {
-					playerBets[playerID] = bet
-				}
-			} else {
-				// Only show current player's bet for future matches
-				if bet, exists := bets[player.GetID()]; exists {
-					playerBets[player.GetID()] = bet
+			for playerID, bet := range bets {
+				if playerID == player.GetID() {
+					playerBets[playerID] = bet // requesting player: full bet
+				} else {
+					playerBetStatus[playerID] = true // others: just boolean
 				}
 			}
 		}
-		matches[match.Id()] = models.NewMatchWithBetsWithIDs(match, playerBets)
+
+		matchResult := models.NewMatchWithBetsWithIDs(match, playerBets)
+		matchResult.PlayerBetStatus = playerBetStatus
+		matches[match.Id()] = matchResult
 	}
 	return matches
 }

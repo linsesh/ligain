@@ -70,6 +70,9 @@ export interface MatchData {
     prediction: string;
     points?: number;
   }[];
+  playerBetStatuses?: {
+    [playerId: string]: { playerId: string; playerName: string; hasBet: boolean };
+  };
 }
 
 export interface MatchesResponse {
