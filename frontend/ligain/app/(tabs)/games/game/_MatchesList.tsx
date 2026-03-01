@@ -780,7 +780,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
 
   if (matchesLoading && !refreshing) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.loadingBackground }]}> 
+      <View style={styles.container}> 
         <ActivityIndicator testID="loading-indicator" size="large" color={colors.primary} />
       </View>
     );
@@ -833,7 +833,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             onRefresh={onRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
-            progressBackgroundColor="#25292e"
+            progressBackgroundColor={colors.background}
             progressViewOffset={20}
           />
         }
@@ -849,7 +849,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             disabled={sortedMatchdays.indexOf(currentMatchday!) <= 0}
             testID="prev-matchday-button"
           >
-            <Ionicons name="chevron-back" size={24} color="#fff" />
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.matchdayInfo}>
             <Text style={styles.matchdayTitle}>{t('games.matchday')} {currentMatchday}</Text>
@@ -868,7 +868,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             disabled={sortedMatchdays.indexOf(currentMatchday!) >= sortedMatchdays.length - 1}
             testID="next-matchday-button"
           >
-            <Ionicons name="chevron-forward" size={24} color="#fff" />
+            <Ionicons name="chevron-forward" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
         {/* Matches for current matchday */}
@@ -951,7 +951,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: 'transparent',
   },
   scrollView: {
     flex: 1,
@@ -962,9 +962,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   navButton: {
     padding: 8,
@@ -977,12 +977,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   matchdayTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
   },
   matchdayDate: {
-    color: '#ccc',
+    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 4,
   },
@@ -999,11 +999,11 @@ const styles = StyleSheet.create({
   timeHeader: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
   },
   dayHeader: {
     fontSize: 14,
-    color: '#ccc',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   matchCard: {
@@ -1197,11 +1197,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginHorizontal: 16,
     padding: 16,
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     borderRadius: 8,
   },
   legendTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
@@ -1226,7 +1226,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   legendText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 14,
     textAlign: 'left',
   },

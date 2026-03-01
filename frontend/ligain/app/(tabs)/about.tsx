@@ -23,7 +23,7 @@ export default function AboutScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.contentContainer}>
         <Text style={[styles.title, { color: colors.text }]}>{t('about.whatIsLigain')}</Text>
         <Text style={[styles.text, { color: colors.text }]}>

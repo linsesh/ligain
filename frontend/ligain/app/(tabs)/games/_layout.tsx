@@ -30,17 +30,18 @@ export default function GamesStackLayout() {
               accessibilityRole="button"
               accessibilityLabel={t('games.back')}
             >
-              <Ionicons name="chevron-back" size={22} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 16, marginLeft: 2 }}>{t('games.back')}</Text>
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
+              <Text style={{ color: colors.text, fontSize: 16, marginLeft: 2 }}>{t('games.back')}</Text>
             </TouchableOpacity>
           ),
           headerStyle: {
-            backgroundColor: '#25292e',
+            backgroundColor: colors.background,
           },
-          headerTintColor: '#fff',
+          headerTintColor: colors.text,
           headerTitleStyle: {
-            color: '#fff',
+            color: colors.text,
           },
+          contentStyle: { backgroundColor: 'transparent' },
         }} 
       />
     </Stack>

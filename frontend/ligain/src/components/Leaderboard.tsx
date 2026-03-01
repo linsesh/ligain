@@ -31,7 +31,7 @@ const getRankBackgroundColor = (index: number) => {
     case 2: // 3rd place
       return { backgroundColor: colors.bronze }; // Bronze
     default: // 4th place onwards
-      return { backgroundColor: '#666666' }; // Neutral grey
+      return { backgroundColor: colors.textSecondary }; // Neutral grey
   }
 };
 
@@ -82,7 +82,7 @@ export default function Leaderboard({ players, currentPlayerId, t, showTitle = t
 
 const styles = StyleSheet.create({
   leaderboardContainer: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     borderRadius: 12,
     marginHorizontal: 20,
     marginBottom: 20,
@@ -99,13 +99,13 @@ const styles = StyleSheet.create({
   leaderboardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     textAlign: 'left',
   },
   shareButton: {
     padding: 6,
     borderRadius: 6,
-    backgroundColor: '#444',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     width: 40,
@@ -116,13 +116,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   playerRank: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffd33d',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -130,19 +130,19 @@ const styles = StyleSheet.create({
   rankText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#25292e',
+    color: colors.card,
   },
   playerInfo: {
     flex: 1,
   },
   playerName: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.text,
     fontWeight: '600',
   },
   playerScore: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   currentPlayerIndicator: {
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   currentPlayerText: {
     fontSize: 12,
-    color: '#fff',
+    color: colors.text,
     fontWeight: 'bold',
   },
 }); 

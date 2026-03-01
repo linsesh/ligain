@@ -262,7 +262,7 @@ export default function ProfileScreen() {
 
   if (!player) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: 'transparent' }]}>
         <Text style={[styles.errorText, { color: colors.text }]}>
           {t('profile.noUserInfo')}
         </Text>
@@ -272,7 +272,7 @@ export default function ProfileScreen() {
 
   return (
     <>
-      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}> 
+      <ScrollView style={[styles.container, { backgroundColor: 'transparent' }]}> 
         <View style={styles.content}> 
           {/* Guest Testing Banner */}
           {!player.email && !player.provider && (

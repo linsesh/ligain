@@ -32,7 +32,7 @@ export default function MatchesTabScreen() {
 
   if (isAuthLoading || loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -41,8 +41,8 @@ export default function MatchesTabScreen() {
   // If user has no games, show a message and a button to go to Games
   if (games.length === 0) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#25292e' }}>
-        <Text style={{ color: '#fff', fontSize: 18, marginBottom: 16 }}>{t('games.noGames')}</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: colors.text, fontSize: 18, marginBottom: 16 }}>{t('games.noGames')}</Text>
         <TouchableOpacity
           style={{ backgroundColor: colors.secondary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 999, marginTop: 8 }}
           onPress={() => {
@@ -50,7 +50,7 @@ export default function MatchesTabScreen() {
             router.replace('/(tabs)/index');
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{t('games.goToGames')}</Text>
+          <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>{t('games.goToGames')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -70,7 +70,7 @@ export default function MatchesTabScreen() {
           <Text style={styles.gameSelectorText}>
             {selectedGame ? selectedGame.name : t('games.selectGame')}
           </Text>
-          <Ionicons name="chevron-down" size={20} color="#fff" />
+          <Ionicons name="chevron-down" size={20} color={colors.text} />
         </TouchableOpacity>
         {selectedGame && (
           <Text style={styles.gameInfoText}>
@@ -85,7 +85,7 @@ export default function MatchesTabScreen() {
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>{t('games.selectGame')}</Text>
               <TouchableOpacity onPress={() => setShowGamePicker(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             <Picker
@@ -126,7 +126,7 @@ export default function MatchesTabScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: 'transparent',
   },
   gameSelectionContainer: {
     paddingHorizontal: 16,
@@ -137,19 +137,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   gameSelectorText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   gameInfoText: {
-    color: '#999',
+    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   pickerContainer: {
-    backgroundColor: '#25292e',
+    backgroundColor: colors.card,
     borderRadius: 10,
     width: '80%',
     maxHeight: '60%',
@@ -177,17 +177,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   pickerTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
   },
   picker: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
   },
   pickerItem: {
-    color: '#fff',
+    color: colors.text,
   },
 }); 
