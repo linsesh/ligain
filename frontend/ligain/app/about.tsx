@@ -1,8 +1,10 @@
-import { Text, View, StyleSheet, Linking, TouchableOpacity } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { Text } from '../src/components/ui/Text';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors } from '../src/constants/colors';
 import { useTranslation } from '../src/hooks/useTranslation';
+import { SectionCard } from '../src/components/ui/SectionCard';
+import { colors } from '../src/constants/colors';
 
 export default function AboutScreen() {
   const { t } = useTranslation();
@@ -25,110 +27,73 @@ export default function AboutScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={colors.text} />
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
+      <TouchableOpacity onPress={() => router.back()} className="self-start p-4">
+        <Ionicons name="arrow-back" size={24} className="text-foreground" color={colors.text} />
       </TouchableOpacity>
-      <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: colors.text }]}>{t('about.whatIsLigain')}</Text>
-        <Text style={[styles.text, { color: colors.text }]}>
-          {t('about.description')}
-        </Text>
-        <Text style={[styles.text, { color: colors.text }]}>
-          {t('about.alphaNote')}
-        </Text>
-        <Text style={[styles.text, { color: colors.text }]}>
-          {t('about.contactInfo')}{' '}
-          <Text style={[styles.link, { color: colors.link }]} onPress={handleEmailPress}>contact@ligain.com</Text>
-        </Text>
 
-        <View style={styles.supportSection}>
-          <Text style={[styles.supportTitle, { color: colors.text }]}>{t('about.supportSection')}</Text>
-          <Text style={[styles.text, { color: colors.text }]}>
-            {t('about.supportDescription')}
-          </Text>
-          <TouchableOpacity onPress={handleBuyMeACoffeePress} style={styles.buyMeACoffeeButton}>
-            <FontAwesome name="coffee" size={20} color="#FFFFFF" />
-            <Text style={styles.buyMeACoffeeText}>{t('about.buyMeACoffee')}</Text>
-          </TouchableOpacity>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-4 pb-8 gap-4"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero block */}
+        <View className="items-center py-8">
+          <Text className="text-6xl font-extrabold text-primary">LIGAIN</Text>
         </View>
 
+        {/* What is Ligain? */}
+        <SectionCard title={t('about.whatIsLigain')}>
+          <Text className="text-base text-foreground leading-6 mb-3">
+            {t('about.description')}
+          </Text>
+          <Text className="text-base text-foreground-secondary leading-6">
+            {t('about.alphaNote')}
+          </Text>
+        </SectionCard>
 
-        <View style={styles.socialContainer}>
-          <TouchableOpacity onPress={handleGithubPress} style={styles.socialButton}>
+        {/* Contact */}
+        <SectionCard title="Contact">
+          <Text className="text-base text-foreground leading-6">
+            {t('about.contactInfo')}{' '}
+            <Text className="text-link underline" onPress={handleEmailPress}>
+              contact@ligain.com
+            </Text>
+          </Text>
+        </SectionCard>
+
+        {/* Support the Project */}
+        <SectionCard title={t('about.supportSection')}>
+          <Text className="text-base text-foreground leading-6 mb-4">
+            {t('about.supportDescription')}
+          </Text>
+          <TouchableOpacity
+            onPress={handleBuyMeACoffeePress}
+            className="flex-row items-center justify-center bg-primary rounded-full py-3 px-6"
+          >
+            <FontAwesome name="coffee" size={18} color="#ffffff" />
+            <Text className="text-white text-base font-semibold ml-2">
+              {t('about.buyMeACoffee')}
+            </Text>
+          </TouchableOpacity>
+        </SectionCard>
+
+        {/* Social row */}
+        <View className="flex-row justify-center gap-6 mt-4">
+          <TouchableOpacity
+            onPress={handleGithubPress}
+            className="bg-surface rounded-full p-3"
+          >
             <FontAwesome name="github" size={24} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleLinkedInPress} style={styles.socialButton}>
+          <TouchableOpacity
+            onPress={handleLinkedInPress}
+            className="bg-surface rounded-full p-3"
+          >
             <FontAwesome name="linkedin" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: 16,
-  },
-  contentContainer: {
-    padding: 20,
-    width: '100%',
-    maxWidth: 600,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  text: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  link: {
-    textDecorationLine: 'underline',
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-    gap: 20,
-  },
-  socialButton: {
-    padding: 10,
-  },
-  supportSection: {
-    marginTop: 24,
-    marginBottom: 24,
-    padding: 16,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-  },
-  supportTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  buyMeACoffeeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFDD00',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  buyMeACoffeeText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-});
