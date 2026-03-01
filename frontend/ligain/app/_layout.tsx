@@ -1,5 +1,8 @@
 import '../global.css';
 import { Stack } from 'expo-router';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { TimeServiceProvider } from '../src/contexts/TimeServiceContext';
 import { RealTimeService } from '../src/services/timeService';
@@ -13,16 +16,34 @@ import { ApiProvider } from '../src/api';
 import { UpdateRequiredProvider } from '../src/contexts/UpdateRequiredContext';
 import { UpdateRequiredModal } from '../src/components/UpdateRequiredModal';
 import { GridBackground } from '../src/components/GridBackground';
-import { GridFadeProvider } from '../src/contexts/GridFadeContext';
 import { PortalHost } from '@rn-primitives/portal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+SplashScreen.preventAutoHideAsync();
+
 export default function Layout() {
+  const [fontsLoaded, fontError] = useFonts({
+    'HKGroteskWide-Light': require('../assets/fonts/hkgroteskwide-light.otf'),
+    'HKGroteskWide-Regular': require('../assets/fonts/hkgroteskwide-regular.otf'),
+    'HKGroteskWide-Medium': require('../assets/fonts/hkgroteskwide-medium.otf'),
+    'HKGroteskWide-SemiBold': require('../assets/fonts/hkgroteskwide-semibold.otf'),
+    'HKGroteskWide-Bold': require('../assets/fonts/hkgroteskwide-bold.otf'),
+    'HKGroteskWide-ExtraBold': require('../assets/fonts/hkgroteskwide-extrabold.otf'),
+    'HKGroteskWide-Black': require('../assets/fonts/hkgroteskwide-black.otf'),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <GridFadeProvider>
-        <GridBackground />
-        <I18nextProvider i18n={i18n}>
+      <GridBackground />
+      <I18nextProvider i18n={i18n}>
           <UpdateRequiredProvider>
             <UIEventProvider>
               <ApiProvider>
@@ -48,7 +69,6 @@ export default function Layout() {
           </UpdateRequiredProvider>
         </I18nextProvider>
         <PortalHost />
-      </GridFadeProvider>
     </GestureHandlerRootView>
   );
 }
