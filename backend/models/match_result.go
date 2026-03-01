@@ -1,9 +1,10 @@
 package models
 
 type MatchResult struct {
-	Match  Match
-	Bets   map[string]*Bet
-	Scores map[string]int
+	Match           Match
+	Bets            map[string]*Bet
+	Scores          map[string]int
+	PlayerBetStatus map[string]bool // playerID → hasBet, for non-requesting players
 }
 
 func NewUnscoredMatch(match Match) *MatchResult {

@@ -56,6 +56,13 @@ type SimplifiedScore struct {
 	Points     int    `json:"points"`
 }
 
+// SimplifiedPlayerBetStatus represents whether a player has placed a bet
+type SimplifiedPlayerBetStatus struct {
+	PlayerID   string `json:"playerId"`
+	PlayerName string `json:"playerName"`
+	HasBet     bool   `json:"hasBet"`
+}
+
 // getAuthenticatedPlayer extracts the authenticated player from the context
 func (h *MatchHandler) getAuthenticatedPlayer(c *gin.Context) (models.Player, error) {
 	playerInterface, exists := c.Get("player")
@@ -87,6 +94,12 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult,
 		result["scores"] = nil
 	}
 
+	if matchResult.PlayerBetStatus != nil {
+		result["playerBetStatuses"] = h.simplifyPlayerBetStatuses(matchResult.PlayerBetStatus, playerIDToName)
+	} else {
+		result["playerBetStatuses"] = nil
+	}
+
 	return result
 }
 
@@ -113,6 +126,21 @@ func (h *MatchHandler) simplifyScores(scores map[string]int, playerIDToName map[
 		}
 	}
 	return simplifiedScores
+}
+
+func (h *MatchHandler) simplifyPlayerBetStatuses(
+	statuses map[string]bool,
+	playerIDToName map[string]string,
+) map[string]SimplifiedPlayerBetStatus {
+	result := make(map[string]SimplifiedPlayerBetStatus)
+	for playerID, hasBet := range statuses {
+		result[playerID] = SimplifiedPlayerBetStatus{
+			PlayerID:   playerID,
+			PlayerName: playerIDToName[playerID],
+			HasBet:     hasBet,
+		}
+	}
+	return result
 }
 
 // SetupRoutes registers all match-related routes

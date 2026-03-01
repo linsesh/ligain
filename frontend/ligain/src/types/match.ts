@@ -204,10 +204,17 @@ export interface SimplifiedScore {
     points: number;
 }
 
+export interface PlayerBetStatus {
+    playerId: string;
+    playerName: string;
+    hasBet: boolean;
+}
+
 export interface MatchResult {
     match: SeasonMatch;
     bets: { [key: string]: SimplifiedBet } | null;
     scores: { [key: string]: SimplifiedScore } | null;
+    playerBetStatuses: { [key: string]: PlayerBetStatus } | null;
 }
 
 export interface MatchesResponse {

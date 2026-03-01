@@ -243,6 +243,88 @@ describe('useMatches', () => {
     expect(result.current.error).toBe(null);
   });
 
+  it('should map playerBetStatuses from API response', async () => {
+    const mockResponse = {
+      incomingMatches: {
+        'match-1': {
+          match: {
+            homeTeam: 'Team A',
+            awayTeam: 'Team B',
+            homeGoals: 0,
+            awayGoals: 0,
+            homeTeamOdds: 1.5,
+            awayTeamOdds: 2.5,
+            drawOdds: 3.0,
+            status: 'scheduled',
+            seasonCode: '2024',
+            competitionCode: 'Premier League',
+            date: '2024-01-01T15:00:00Z',
+            matchday: 1,
+          },
+          bets: {
+            'player-1': {
+              playerId: 'player-1',
+              playerName: 'John Doe',
+              predictedHomeGoals: 2,
+              predictedAwayGoals: 1,
+            },
+          },
+          scores: null,
+          playerBetStatuses: {
+            'player-2': { playerId: 'player-2', playerName: 'Alice', hasBet: true },
+            'player-3': { playerId: 'player-3', playerName: 'Bob', hasBet: false },
+          },
+        },
+        'match-2': {
+          match: {
+            homeTeam: 'Team C',
+            awayTeam: 'Team D',
+            homeGoals: 0,
+            awayGoals: 0,
+            homeTeamOdds: 2.0,
+            awayTeamOdds: 2.0,
+            drawOdds: 3.0,
+            status: 'scheduled',
+            seasonCode: '2024',
+            competitionCode: 'Premier League',
+            date: '2024-01-02T15:00:00Z',
+            matchday: 2,
+          },
+          bets: null,
+          scores: null,
+          playerBetStatuses: null,
+        },
+      },
+      pastMatches: {},
+    };
+
+    mockGetGameMatches.mockResolvedValueOnce(mockResponse);
+
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // match-1: playerBetStatuses should be mapped correctly
+    const match1 = result.current.incomingMatches['match-1'];
+    expect(match1.playerBetStatuses).not.toBeNull();
+    expect(match1.playerBetStatuses!['player-2']).toEqual({
+      playerId: 'player-2',
+      playerName: 'Alice',
+      hasBet: true,
+    });
+    expect(match1.playerBetStatuses!['player-3']).toEqual({
+      playerId: 'player-3',
+      playerName: 'Bob',
+      hasBet: false,
+    });
+
+    // match-2: playerBetStatuses is null when absent
+    const match2 = result.current.incomingMatches['match-2'];
+    expect(match2.playerBetStatuses).toBeNull();
+  });
+
   it('should call refresh function', async () => {
     const mockResponse = {
       incomingMatches: {},

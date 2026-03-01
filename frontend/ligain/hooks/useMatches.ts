@@ -57,10 +57,18 @@ export const useMatches = (gameId: string) => {
             const firstScore = Object.values(scores)[0];
           }
           
+          const playerBetStatuses = value.playerBetStatuses
+            ? Object.entries(value.playerBetStatuses).reduce((acc: { [key: string]: any }, [, s]: [string, any]) => {
+                acc[s.playerId] = { playerId: s.playerId, playerName: s.playerName, hasBet: s.hasBet };
+                return acc;
+              }, {})
+            : null;
+
           processed[key] = {
             match,
             bets,
-            scores
+            scores,
+            playerBetStatuses
           };
         });
         return processed;
