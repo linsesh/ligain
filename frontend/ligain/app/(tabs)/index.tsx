@@ -171,7 +171,7 @@ function GamesList() {
     if (isAnySwipeActive) {
       return;
     }
-    router.push('/(tabs)/games/game/overview/' + gameId);
+    router.push('/game/' + gameId);
   };
 
   const onRefresh = React.useCallback(async () => {
