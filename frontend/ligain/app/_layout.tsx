@@ -32,6 +32,7 @@ export default function Layout() {
                         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
                           <Stack.Screen name="signin" />
                           <Stack.Screen name="(tabs)" />
+                          <Stack.Screen name="about" />
                         </Stack>
                       </SafeAreaView>
                     </AuthGuard>
