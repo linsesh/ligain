@@ -4,14 +4,24 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      fontFamily: {
+        'hk-light': ['HKGroteskWide-Light'],
+        'hk': ['HKGroteskWide-Regular'],
+        'hk-medium': ['HKGroteskWide-Medium'],
+        'hk-semibold': ['HKGroteskWide-SemiBold'],
+        'hk-bold': ['HKGroteskWide-Bold'],
+        'hk-extrabold': ['HKGroteskWide-ExtraBold'],
+        'hk-black': ['HKGroteskWide-Black'],
+      },
       colors: {
         background: '#e4e9ef',
         card: '#ffffff',
         foreground: '#1d1d1d',
         'foreground-secondary': '#8e8e93',
         border: '#ccd2d7',
-        primary: '#469dff',
+        primary: '#f25702',
         secondary: '#e9a317',
+        surface: '#eef1f4',
         link: '#469dff',
         success: '#2e7d32',
         error: '#ff0000',
