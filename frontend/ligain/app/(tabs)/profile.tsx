@@ -17,6 +17,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useGames } from '../../src/contexts/GamesContext';
 import { colors } from '../../src/constants/colors';
@@ -32,6 +33,7 @@ export default function ProfileScreen() {
   const { player, signOut, setPlayer, uploadAvatar, deleteAvatar } = useAuth();
   const { refresh: refreshGames } = useGames();
   const { t, isFrench } = useTranslation();
+  const router = useRouter();
   // Notification preferences management
   // This hook provides permission status and toggle functionality
   const { preferences, setNotificationEnabled, requestPermissions } = useNotifications();
@@ -377,6 +379,11 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
             
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/about')}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('navigation.about')}</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
               <Ionicons name="log-out-outline" size={20} color={colors.text} />
               <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
