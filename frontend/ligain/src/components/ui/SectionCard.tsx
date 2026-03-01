@@ -12,7 +12,7 @@ export function SectionCard({ title, children, className }: SectionCardProps) {
   return (
     <View className={`rounded-2xl bg-background p-4 ${className ?? ''}`}>
       {title && (
-        <Text className="text-xs font-semibold text-foreground-secondary tracking-widest uppercase mb-3">
+        <Text className="text-xs font-hk-semibold text-foreground-secondary tracking-widest uppercase mb-3">
           {title}
         </Text>
       )}

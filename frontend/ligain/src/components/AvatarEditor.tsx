@@ -159,7 +159,7 @@ export function AvatarEditor({
     >
       <View style={styles.overlay}>
         <View style={[styles.content, { backgroundColor: colors.card }]}>
-          <Text style={[styles.title, { color: colors.text }]}>
+          <Text className="font-hk-bold" style={[styles.title, { color: colors.text }]}>
             {t('avatar.editAvatar')}
           </Text>
 
@@ -182,7 +182,7 @@ export function AvatarEditor({
           {isUploading && (
             <View style={styles.loadingOverlay} testID="upload-loading">
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.text }]}>
+              <Text className="font-hk-medium" style={[styles.loadingText, { color: colors.text }]}>
                 {t('avatar.uploading')}
               </Text>
             </View>
@@ -196,7 +196,7 @@ export function AvatarEditor({
               disabled={isUploading}
             >
               <Ionicons name="camera-outline" size={24} color={colors.text} />
-              <Text style={[styles.actionText, { color: colors.text }]}>
+              <Text className="font-hk-medium" style={[styles.actionText, { color: colors.text }]}>
                 {t('avatar.takePhoto')}
               </Text>
             </TouchableOpacity>
@@ -207,7 +207,7 @@ export function AvatarEditor({
               disabled={isUploading}
             >
               <Ionicons name="images-outline" size={24} color={colors.text} />
-              <Text style={[styles.actionText, { color: colors.text }]}>
+              <Text className="font-hk-medium" style={[styles.actionText, { color: colors.text }]}>
                 {t('avatar.chooseFromLibrary')}
               </Text>
             </TouchableOpacity>
@@ -219,7 +219,7 @@ export function AvatarEditor({
                 disabled={isUploading}
               >
                 <Ionicons name="trash-outline" size={24} color={colors.danger} />
-                <Text style={[styles.actionText, { color: colors.danger }]}>
+                <Text className="font-hk-medium" style={[styles.actionText, { color: colors.danger }]}>
                   {t('avatar.removeAvatar')}
                 </Text>
               </TouchableOpacity>
@@ -233,7 +233,7 @@ export function AvatarEditor({
               onPress={handleClose}
               disabled={isUploading}
             >
-              <Text style={[styles.bottomButtonText, { color: colors.text }]}>
+              <Text className="font-hk-semibold" style={[styles.bottomButtonText, { color: colors.text }]}>
                 {t('common.cancel')}
               </Text>
             </TouchableOpacity>
@@ -244,7 +244,7 @@ export function AvatarEditor({
                 onPress={handleSave}
                 disabled={isUploading}
               >
-                <Text style={[styles.bottomButtonText, { color: '#fff' }]}>
+                <Text className="font-hk-semibold" style={[styles.bottomButtonText, { color: '#fff' }]}>
                   {t('avatar.save')}
                 </Text>
               </TouchableOpacity>
@@ -270,7 +270,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -324,7 +323,6 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
-    fontWeight: '500',
   },
   bottomButtons: {
     flexDirection: 'row',
@@ -338,6 +336,5 @@ const styles = StyleSheet.create({
   },
   bottomButtonText: {
     fontSize: 16,
-    fontWeight: '600',
   },
 });

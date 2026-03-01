@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -16,6 +15,7 @@ import {
   Switch,
   Linking,
 } from 'react-native';
+import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -301,7 +301,7 @@ export default function ProfileScreen() {
                 <Ionicons name="pencil" size={14} color="#fff" />
               </View>
             </TouchableOpacity>
-            <Text style={[styles.name, { color: colors.text }]}>{player.name}</Text>
+            <Text className="font-hk-bold" style={[styles.name, { color: colors.text }]}>{player.name}</Text>
             {player.email && (
               <Text style={[styles.email, { color: colors.textSecondary }]}>
                 {player.email}
@@ -311,7 +311,7 @@ export default function ProfileScreen() {
 
           {/* Account Information */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.accountInfo')}</Text>
+            <Text className="font-hk-bold" style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.accountInfo')}</Text>
             
             <TouchableOpacity
               style={styles.infoRow}
@@ -346,7 +346,7 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <Text className="font-hk-bold" style={[styles.sectionTitle, { color: colors.text }]}>
               {t('notifications.title')}
             </Text>
             
@@ -377,16 +377,16 @@ export default function ProfileScreen() {
 
           {/* Actions */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
-            
+            <Text className="font-hk-bold" style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
+
             <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/about')}>
               <Ionicons name="information-circle-outline" size={20} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('navigation.about')}</Text>
+              <Text className="font-hk-semibold" style={[styles.actionButtonText, { color: colors.text }]}>{t('navigation.about')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
               <Ionicons name="log-out-outline" size={20} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
+              <Text className="font-hk-semibold" style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -426,7 +426,7 @@ export default function ProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}> 
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.text }]}>
                   {t('profile.editDisplayName')}
                 </Text>
                 <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
@@ -455,9 +455,9 @@ export default function ProfileScreen() {
                     onPress={handleModalCancel}
                     disabled={isUpdating}
                   >
-                    <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                    <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
-                  
+
                   <TouchableOpacity
                     style={[styles.modalButton, styles.continueButton]}
                     onPress={handleModalSave}
@@ -466,7 +466,7 @@ export default function ProfileScreen() {
                     {isUpdating ? (
                       <ActivityIndicator color={colors.primary} />
                     ) : (
-                      <Text style={styles.continueButtonText}>{t('common.save')}</Text>
+                      <Text className="font-hk-semibold" style={styles.continueButtonText}>{t('common.save')}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -484,13 +484,13 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <Ionicons name="warning" size={60} color={colors.danger} style={{ marginBottom: 20 }} />
-            <Text style={[styles.modalTitle, { color: colors.danger }]}>
+            <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.danger }]}>
               {t('profile.deleteAccount')}
             </Text>
             <Text style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center' }]}>
               {t('profile.deleteAccountWarning')}
             </Text>
-            <Text style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center', marginTop: 10, fontWeight: 'bold' }]}>
+            <Text className="font-hk-bold" style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center', marginTop: 10 }]}>
               {t('profile.deleteAccountConfirm')}
             </Text>
             
@@ -499,14 +499,14 @@ export default function ProfileScreen() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={handleDeleteModalCancel}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: colors.danger }]}
                 onPress={handleDeleteAccountConfirm}
               >
-                <Text style={[styles.continueButtonText, { color: '#fff' }]}>{t('common.continue')}</Text>
+                <Text className="font-hk-semibold" style={[styles.continueButtonText, { color: '#fff' }]}>{t('common.continue')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -523,7 +523,7 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <Ionicons name="alert-circle" size={60} color={colors.danger} style={{ marginBottom: 20 }} />
-            <Text style={[styles.modalTitle, { color: colors.danger }]}>
+            <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.danger }]}>
               {t('profile.deleteAccountFinalConfirm')}
             </Text>
             
@@ -550,9 +550,9 @@ export default function ProfileScreen() {
                 onPress={handleDeleteConfirmModalCancel}
                 disabled={isDeleting}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: colors.danger }]}
                 onPress={handleDeleteAccountFinal}
@@ -561,7 +561,7 @@ export default function ProfileScreen() {
                 {isDeleting ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={[styles.continueButtonText, { color: '#fff' }]}>{t('profile.deleteAccount')}</Text>
+                  <Text className="font-hk-semibold" style={[styles.continueButtonText, { color: '#fff' }]}>{t('profile.deleteAccount')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -612,7 +612,6 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 4,
   },
   email: {
@@ -624,7 +623,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 16,
   },
   infoRow: {
@@ -656,7 +654,6 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
-    fontWeight: '600',
     marginLeft: 12,
   },
   errorText: {
@@ -677,7 +674,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     marginLeft: 10,
-    fontWeight: '600',
   },
   editButton: {
     marginLeft: 10,
@@ -699,7 +695,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 8,
   },
   modalSubtitle: {
@@ -733,14 +728,12 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 18,
-    fontWeight: '600',
   },
   continueButton: {
     backgroundColor: colors.secondary,
   },
   continueButtonText: {
     fontSize: 18,
-    fontWeight: '600',
     color: '#fff',
   },
   pencilIcon: {

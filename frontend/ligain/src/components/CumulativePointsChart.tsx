@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import { Text } from './ui/Text';
 import Svg, { Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 export interface Series {

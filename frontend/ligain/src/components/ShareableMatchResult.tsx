@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
+import { Text } from './ui/Text';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../constants/colors';
 
@@ -54,33 +55,33 @@ export default function ShareableMatchResult({
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.ligainTitle}>Ligain</Text>
+        <Text className="font-hk-bold" style={styles.ligainTitle}>Ligain</Text>
       </View>
 
       {/* Game name */}
-      <Text style={styles.gameName}>{gameName}</Text>
+      <Text className="font-hk-semibold" style={styles.gameName}>{gameName}</Text>
 
       {/* Match result */}
       <View style={styles.matchContainer}>
         <View style={styles.teamContainer}>
-          <Text style={styles.teamName}>{homeTeam}</Text>
-          <Text style={styles.score}>{homeScore}</Text>
+          <Text className="font-hk-semibold" style={styles.teamName}>{homeTeam}</Text>
+          <Text className="font-hk-bold" style={styles.score}>{homeScore}</Text>
         </View>
         
         <View style={styles.vsContainer}>
-          <Text style={styles.vsText}>vs</Text>
+          <Text className="font-hk-bold" style={styles.vsText}>vs</Text>
           <Text style={styles.dateText}>{date}</Text>
         </View>
         
         <View style={styles.teamContainer}>
-          <Text style={styles.teamName}>{awayTeam}</Text>
-          <Text style={styles.score}>{awayScore}</Text>
+          <Text className="font-hk-semibold" style={styles.teamName}>{awayTeam}</Text>
+          <Text className="font-hk-bold" style={styles.score}>{awayScore}</Text>
         </View>
       </View>
 
       {/* Your bet */}
       <View style={styles.betSection}>
-        <Text style={styles.betTitle}>{t('share.yourBet')}</Text>
+        <Text className="font-hk-bold" style={styles.betTitle}>{t('share.yourBet')}</Text>
         <View style={styles.matchContainer}>
           <View style={styles.teamContainer}>
             <Text style={styles.teamName}>{homeTeam}</Text>
@@ -88,7 +89,7 @@ export default function ShareableMatchResult({
           </View>
           
           <View style={styles.vsContainer}>
-            <Text style={styles.vsText}>vs</Text>
+            <Text className="font-hk-bold" style={styles.vsText}>vs</Text>
             <Text style={styles.dateText}>{date}</Text>
           </View>
           
@@ -101,19 +102,19 @@ export default function ShareableMatchResult({
 
       {/* Players results */}
       <View style={styles.playersContainer}>
-        <Text style={styles.playersTitle}>{t('share.playersResults')}</Text>
+        <Text className="font-hk-bold" style={styles.playersTitle}>{t('share.playersResults')}</Text>
         {sortedPlayers.map((player, index) => (
           <View key={index} style={styles.playerRow}>
             <View style={styles.playerInfo}>
-              <Text style={styles.playerName}>{player.name}</Text>
+              <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
               {player.bet && (
                 <Text style={styles.playerBet}>{t('share.predicted')}: {player.bet}</Text>
               )}
             </View>
             <View style={styles.pointsContainer}>
-              <Text style={[
+              <Text className="font-hk-bold" style={[
                 styles.points,
-                player.points > 0 ? styles.positivePoints : 
+                player.points > 0 ? styles.positivePoints :
                 player.points < 0 ? styles.negativePoints : styles.zeroPoints
               ]}>
                 {player.points > 0 ? '+' : ''}{player.points}
@@ -152,13 +153,11 @@ const styles = StyleSheet.create({
   },
   ligainTitle: {
     fontSize: 72,
-    fontWeight: 'bold',
     color: colors.primary,
     textAlign: 'center',
   },
   gameName: {
     fontSize: 48,
-    fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 60,
@@ -178,14 +177,12 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 42,
-    fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 15,
   },
   score: {
     fontSize: 72,
-    fontWeight: 'bold',
     color: colors.primary,
   },
   vsContainer: {
@@ -194,7 +191,6 @@ const styles = StyleSheet.create({
   },
   vsText: {
     fontSize: 36,
-    fontWeight: 'bold',
     color: colors.textSecondary,
     marginBottom: 15,
   },
@@ -207,7 +203,6 @@ const styles = StyleSheet.create({
   },
   betTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 20,
@@ -221,7 +216,6 @@ const styles = StyleSheet.create({
   },
   playersTitle: {
     fontSize: 42,
-    fontWeight: 'bold',
     color: colors.text,
     textAlign: 'center',
     marginBottom: 40,
@@ -239,7 +233,6 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 32,
-    fontWeight: '600',
     color: colors.text,
     marginBottom: 8,
   },
@@ -252,7 +245,6 @@ const styles = StyleSheet.create({
   },
   points: {
     fontSize: 36,
-    fontWeight: 'bold',
   },
   positivePoints: {
     color: colors.success,

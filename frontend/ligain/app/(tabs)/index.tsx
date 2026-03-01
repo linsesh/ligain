@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -155,9 +156,8 @@ function GamesList() {
         onPress={() => handleLeaveGame(gameId)}
       >
         <Ionicons name="exit-outline" size={20} color="#fff" />
-        <Text style={{ 
-          color: colors.text, 
-          fontWeight: '600', 
+        <Text className="font-hk-semibold" style={{
+          color: colors.text,
           fontSize: 11,
           marginTop: 2
         }}>
@@ -197,11 +197,11 @@ function GamesList() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <Text style={styles.title}>{t('games.myGames')}</Text>
+      <Text className="font-hk-bold" style={styles.title}>{t('games.myGames')}</Text>
       {!player?.email && !player?.provider && (
         <View style={styles.guestBanner}>
           <Ionicons name="warning" size={20} color="#FFA500" />
-          <Text style={styles.guestBannerText}>
+          <Text className="font-hk-semibold" style={styles.guestBannerText}>
             {t('games.guestModeBanner')}
           </Text>
         </View>
@@ -261,7 +261,7 @@ function GamesList() {
                   >
                     <StatusTag text={text} variant={variant} style={styles.statusTag} />
                     <View style={styles.headerGroupAbsolute}>
-                      <Text style={styles.leagueNamePlain}>{game.name}</Text>
+                      <Text className="font-hk-bold" style={styles.leagueNamePlain}>{game.name}</Text>
                       <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
                     </View>
                     {game.totalLeaderboard && game.totalLeaderboard.length > 0 && (
@@ -290,7 +290,7 @@ function GamesList() {
             activeOpacity={0.85}
           >
             <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={styles.bigJoinButtonText}>{t('games.joinOrCreate')}</Text>
+            <Text className="font-hk-bold" style={styles.bigJoinButtonText}>{t('games.joinOrCreate')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -305,7 +305,7 @@ function GamesList() {
               }}
             >
               <Ionicons name="people" size={22} color="#fff" style={styles.actionSheetButtonIcon} />
-              <Text style={styles.actionSheetButtonText}>{t('games.joinGame')}</Text>
+              <Text className="font-hk-bold" style={styles.actionSheetButtonText}>{t('games.joinGame')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionSheetButton, styles.actionSheetCreate]}
@@ -315,7 +315,7 @@ function GamesList() {
               }}
             >
               <Ionicons name="add-circle" size={22} color="#fff" style={styles.actionSheetButtonIcon} />
-              <Text style={styles.actionSheetButtonText}>{t('games.createGame')}</Text>
+              <Text className="font-hk-bold" style={styles.actionSheetButtonText}>{t('games.createGame')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.closeTextContainer}
@@ -323,7 +323,7 @@ function GamesList() {
                 setShowActionSheet(false);
               }}
             >
-              <Text style={styles.closeText}>✕ {t('common.close')}</Text>
+              <Text className="font-hk-bold" style={styles.closeText}>✕ {t('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -334,7 +334,7 @@ function GamesList() {
           style={styles.modalOverlay}
         >
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>{t('games.createNewGame')}</Text>
+            <Text className="font-hk-bold" style={styles.modalTitle}>{t('games.createNewGame')}</Text>
             <Text style={styles.modalSubtitle}>{t('games.createGameSubtitle')}</Text>
             <TextInput
               style={styles.gameNameInput}
@@ -353,17 +353,17 @@ function GamesList() {
                   setNewGameName('');
                 }}
               >
-                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                <Text className="font-hk-bold" style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmCreateButton]} 
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmCreateButton]}
                 onPress={handleCreateGame}
                 disabled={creatingGame}
               >
                 {creatingGame ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>{t('common.create')}</Text>
+                  <Text className="font-hk-bold" style={styles.confirmButtonText}>{t('common.create')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -376,7 +376,7 @@ function GamesList() {
           style={styles.modalOverlay}
         >
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>{t('games.joinGame')}</Text>
+            <Text className="font-hk-bold" style={styles.modalTitle}>{t('games.joinGame')}</Text>
             <Text style={styles.modalSubtitle}>{t('games.joinGameSubtitle')}</Text>
             <TextInput
               style={styles.codeInput}
@@ -389,24 +389,24 @@ function GamesList() {
               autoFocus
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
                   setShowJoinModal(false);
                   setJoinCode('');
                 }}
               >
-                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                <Text className="font-hk-bold" style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.confirmJoinButton]} 
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmJoinButton]}
                 onPress={handleJoinGame}
                 disabled={joiningGame}
               >
                 {joiningGame ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>{t('common.join')}</Text>
+                  <Text className="font-hk-bold" style={styles.confirmButtonText}>{t('common.join')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -458,7 +458,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
     margin: 16,
     color: colors.text,
   },
@@ -476,7 +475,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     marginLeft: 10,
-    fontWeight: '600',
     flex: 1,
   },
   actionButtons: {
@@ -506,7 +504,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: 'bold',
   },
   codeContainer: {
     backgroundColor: colors.card,
@@ -530,7 +527,6 @@ const styles = StyleSheet.create({
   },
   codeText: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: colors.primary,
     marginRight: 8,
   },
@@ -589,7 +585,6 @@ const styles = StyleSheet.create({
   leagueNamePlain: {
     color: colors.text,
     fontSize: 22,
-    fontWeight: 'bold',
     textAlign: 'left',
     marginTop: 0,
     marginLeft: 0,
@@ -605,7 +600,6 @@ const styles = StyleSheet.create({
   },
   gameTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: colors.text,
   },
   gameSeason: {
@@ -620,7 +614,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: 'bold',
   },
   modalOverlay: {
     position: 'absolute',
@@ -642,7 +635,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 5,
   },
@@ -693,7 +685,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   confirmJoinButton: {
@@ -709,7 +700,6 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   statusTag: {
@@ -751,7 +741,6 @@ const styles = StyleSheet.create({
   bigJoinButtonText: {
     color: colors.text,
     fontSize: 20,
-    fontWeight: 'bold',
   },
   actionSheetOverlay: {
     position: 'absolute',
@@ -791,7 +780,6 @@ const styles = StyleSheet.create({
   actionSheetButtonText: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: 'bold',
   },
   closeTextContainer: {
     marginTop: 8,
@@ -801,7 +789,6 @@ const styles = StyleSheet.create({
   closeText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: 'bold',
     opacity: 0.7,
     paddingVertical: 8,
   },

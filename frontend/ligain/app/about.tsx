@@ -39,7 +39,7 @@ export default function AboutScreen() {
       >
         {/* Hero block */}
         <View className="items-center py-8">
-          <Text className="text-6xl font-extrabold text-primary">LIGAIN</Text>
+          <Text className="text-6xl font-hk-extrabold text-primary">LIGAIN</Text>
         </View>
 
         {/* What is Ligain? */}
@@ -72,7 +72,7 @@ export default function AboutScreen() {
             className="flex-row items-center justify-center bg-primary rounded-full py-3 px-6"
           >
             <FontAwesome name="coffee" size={18} color="#ffffff" />
-            <Text className="text-white text-base font-semibold ml-2">
+            <Text className="text-white text-base font-hk-semibold ml-2">
               {t('about.buyMeACoffee')}
             </Text>
           </TouchableOpacity>

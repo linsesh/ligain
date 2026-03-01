@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '../../src/components/ui/Text';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 
@@ -11,22 +12,22 @@ export default function RulesScreen() {
       <View style={styles.content}>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.philosophy')}</Text>
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.philosophy')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.philosophyDescription1')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.philosophyDescription2')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.philosophyDescription3')}</Text>
         </View>
         
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.basicPoints')}</Text>
-          
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.basicPoints')}</Text>
+
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.exactScore')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.exactScore')}</Text>
             <Text style={styles.example}>{t('rules.exactScoreExample')}</Text>
           </View>
           
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.closeScore')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.closeScore')}</Text>
             <Text style={styles.ruleDescription}>
               {t('rules.closeScoreDescription')}
             </Text>
@@ -36,24 +37,24 @@ export default function RulesScreen() {
           </View>
           
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.goodResult')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.goodResult')}</Text>
             <Text style={styles.example}>{t('rules.goodResultExample')}</Text>
           </View>
 
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.missedBet')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.missedBet')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.missedBetDescription')}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.multipliers')}</Text>
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.multipliers')}</Text>
           
           <Text style={styles.ruleDescription}>{t('rules.multipliersDescription1')}</Text>
           <Text style={styles.ruleDescription}>{t('rules.multipliersDescription2')}</Text>
 
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.oddsDifferenceHigh')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.oddsDifferenceHigh')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.favoriteWin')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.draw')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.underdogWin')}</Text>
@@ -61,22 +62,22 @@ export default function RulesScreen() {
           </View>
           
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.oddsDifferenceLow')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.oddsDifferenceLow')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.noMultiplier')}</Text>
             <Text style={styles.example}>{t('rules.oddsDifferenceLowExample')}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.riskBonus')}</Text>
-          
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.riskBonus')}</Text>
+
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.riskBonus50')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.riskBonus50')}</Text>
             <Text style={styles.example}>{t('rules.riskBonus50Example')}</Text>
           </View>
           
           <View style={styles.ruleItem}>
-            <Text style={styles.ruleTitle}>{t('rules.riskBonus25')}</Text>
+            <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.riskBonus25')}</Text>
             <Text style={styles.example}>{t('rules.riskBonus25Example')}</Text>
           </View>
 
@@ -84,17 +85,17 @@ export default function RulesScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.oddsUpdates')}</Text>
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.oddsUpdates')}</Text>
           <Text style={styles.ruleDescription}>{t('rules.oddsUpdatesDescription')}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.noBet')}</Text>
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.noBet')}</Text>
           <Text style={styles.ruleDescription}>{t('rules.noBetDescription')}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('rules.completeExample')}</Text>
+          <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.completeExample')}</Text>
           <Text style={styles.example}>
             {t('rules.completeExampleText')}
           </Text>
@@ -114,7 +115,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
     color: colors.primary,
     marginBottom: 30,
     textAlign: 'center',
@@ -127,7 +127,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
   },
@@ -136,7 +135,6 @@ const styles = StyleSheet.create({
   },
   ruleTitle: {
     fontSize: 16,
-    fontWeight: '600',
     color: colors.primary,
     marginBottom: 8,
   },

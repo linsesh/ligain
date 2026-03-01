@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useGames } from '../../src/contexts/GamesContext';
@@ -50,7 +51,7 @@ export default function MatchesTabScreen() {
             router.replace('/(tabs)/index');
           }}
         >
-          <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>{t('games.goToGames')}</Text>
+          <Text className="font-hk-bold" style={{ color: colors.text, fontSize: 16 }}>{t('games.goToGames')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -67,7 +68,7 @@ export default function MatchesTabScreen() {
           style={styles.gameSelector}
           onPress={() => setShowGamePicker(true)}
         >
-          <Text style={styles.gameSelectorText}>
+          <Text className="font-hk-semibold" style={styles.gameSelectorText}>
             {selectedGame ? selectedGame.name : t('games.selectGame')}
           </Text>
           <Ionicons name="chevron-down" size={20} color={colors.text} />
@@ -83,7 +84,7 @@ export default function MatchesTabScreen() {
         <View style={styles.pickerOverlay}>
           <View style={styles.pickerContainer}>
             <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>{t('games.selectGame')}</Text>
+              <Text className="font-hk-bold" style={styles.pickerTitle}>{t('games.selectGame')}</Text>
               <TouchableOpacity onPress={() => setShowGamePicker(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
@@ -146,7 +147,6 @@ const styles = StyleSheet.create({
   gameSelectorText: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '600',
   },
   gameInfoText: {
     color: colors.textSecondary,
@@ -182,7 +182,6 @@ const styles = StyleSheet.create({
   pickerTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: 'bold',
   },
   picker: {
     backgroundColor: colors.card,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from './ui/Text';
 
 interface PlayerAvatarProps {
   player: { name: string; avatarUrl?: string | null };
@@ -80,7 +81,7 @@ export function PlayerAvatar({ player, displaySize, onPress }: PlayerAvatarProps
       testID="avatar-image"
     />
   ) : (
-    <Text style={[styles.initials, { fontSize: size.fontSize }]} testID="avatar-initials">
+    <Text className="font-hk-semibold" style={[styles.initials, { fontSize: size.fontSize }]} testID="avatar-initials">
       {initials}
     </Text>
   );
@@ -114,7 +115,6 @@ const styles = StyleSheet.create({
   },
   initials: {
     color: '#FFFFFF',
-    fontWeight: '600',
   },
   image: {
     resizeMode: 'cover',

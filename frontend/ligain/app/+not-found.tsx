@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '../src/components/ui/Text';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTranslation } from '../src/hooks/useTranslation';
@@ -22,10 +23,10 @@ export default function NotFoundScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('notFound.title')}</Text>
+      <Text className="font-hk-bold" style={styles.title}>{t('notFound.title')}</Text>
       <Text style={styles.subtitle}>{t('notFound.subtitle')}</Text>
       <TouchableOpacity style={styles.button} onPress={handleGoBack}>
-        <Text style={styles.buttonText}>
+        <Text className="font-hk-bold" style={styles.buttonText}>
           {player ? t('notFound.goToGames') : t('notFound.goToSignIn')}
         </Text>
       </TouchableOpacity>
@@ -43,7 +44,6 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 10,
   },
@@ -64,6 +64,5 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: 'bold',
   },
 });

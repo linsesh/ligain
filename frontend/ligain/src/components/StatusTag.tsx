@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from './ui/Text';
 import { colors } from '../constants/colors';
 
 export interface StatusTagProps {
@@ -37,7 +38,7 @@ export default function StatusTag({ text, variant, style, textStyle }: StatusTag
   
   return (
     <View style={[...baseStyle, variantStyle, style]}>
-      <Text style={[styles.statusTagText, textStyle]}>{text}</Text>
+      <Text className="font-hk-bold" style={[styles.statusTagText, textStyle]}>{text}</Text>
     </View>
   );
 }
@@ -51,7 +52,6 @@ const styles = StyleSheet.create({
   },
   statusTagText: {
     fontSize: 12,
-    fontWeight: 'bold',
     color: '#fff',
   },
   successTag: {
