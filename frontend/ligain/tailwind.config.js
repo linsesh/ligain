@@ -5,13 +5,13 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        'hk-light': ['HKGroteskWide-Light'],
-        'hk': ['HKGroteskWide-Regular'],
-        'hk-medium': ['HKGroteskWide-Medium'],
-        'hk-semibold': ['HKGroteskWide-SemiBold'],
-        'hk-bold': ['HKGroteskWide-Bold'],
-        'hk-extrabold': ['HKGroteskWide-ExtraBold'],
-        'hk-black': ['HKGroteskWide-Black'],
+        sans: ['HKGroteskWide-Regular'],
+        light: ['HKGroteskWide-Light'],
+        medium: ['HKGroteskWide-Medium'],
+        semibold: ['HKGroteskWide-SemiBold'],
+        bold: ['HKGroteskWide-Bold'],
+        extrabold: ['HKGroteskWide-ExtraBold'],
+        black: ['HKGroteskWide-Black'],
       },
       colors: {
         background: '#e4e9ef',
