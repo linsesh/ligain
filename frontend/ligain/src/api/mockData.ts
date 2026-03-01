@@ -81,7 +81,70 @@ export const MOCK_PLAYERS: Player[] = [
     provider_id: 'google-4',
     avatarUrl: null,
   },
+  {
+    id: 'mock-player-5',
+    name: 'Antoine',
+    email: 'antoine@example.com',
+    provider: 'google',
+    provider_id: 'google-5',
+    avatarUrl: null,
+  },
+  {
+    id: 'mock-player-6',
+    name: 'Emma',
+    email: 'emma@example.com',
+    provider: 'apple',
+    provider_id: 'apple-6',
+    avatarUrl: null,
+  },
+  {
+    id: 'mock-player-7',
+    name: 'Thomas',
+    email: 'thomas@example.com',
+    provider: 'google',
+    provider_id: 'google-7',
+    avatarUrl: null,
+  },
+  {
+    id: 'mock-player-8',
+    name: 'Léa',
+    email: 'lea@example.com',
+    provider: 'apple',
+    provider_id: 'apple-8',
+    avatarUrl: null,
+  },
 ];
+
+// ============================================================================
+// HELPERS FOR EXTRA PLAYER BETS
+// ============================================================================
+
+const OUTCOMES = ['home', 'draw', 'away'] as const;
+
+// Generates a stable prediction for a given match+player pair (no randomness across renders)
+function deterministicPrediction(matchId: string, playerId: string): 'home' | 'draw' | 'away' {
+  const hash = [...`${matchId}${playerId}`].reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return OUTCOMES[hash % 3];
+}
+
+// Appends bets for extra players to every past match, computing points from the actual result
+function enrichPastMatchesWithExtraPlayers(
+  matches: Record<string, MatchData>,
+  extraPlayers: { id: string; name: string }[]
+): Record<string, MatchData> {
+  const result: Record<string, MatchData> = {};
+  for (const [id, matchData] of Object.entries(matches)) {
+    const { homeGoals = 0, awayGoals = 0 } = matchData.match;
+    const actualResult: 'home' | 'draw' | 'away' =
+      homeGoals > awayGoals ? 'home' : homeGoals < awayGoals ? 'away' : 'draw';
+    const extraBets = extraPlayers.map((p) => {
+      const prediction = deterministicPrediction(id, p.id);
+      return { playerId: p.id, playerName: p.name, prediction, points: prediction === actualResult ? 1 : 0 };
+    });
+    result[id] = { ...matchData, allBets: [...(matchData.allBets || []), ...extraBets] };
+  }
+  return result;
+}
 
 // ============================================================================
 // MOCK GAMES
@@ -915,7 +978,7 @@ const pastMatchesGame1: Record<string, MatchData> = {
 
 export const MOCK_MATCHES_GAME_1: MatchesResponse = {
   incomingMatches: incomingMatchesGame1,
-  pastMatches: pastMatchesGame1,
+  pastMatches: enrichPastMatchesWithExtraPlayers(pastMatchesGame1, MOCK_PLAYERS.slice(4)),
 };
 
 // ============================================================================
