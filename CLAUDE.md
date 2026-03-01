@@ -182,6 +182,31 @@ const UpdateRequiredModal = () => {
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
 
+## Frontend: Full UI Rewrite in Progress
+
+The frontend is being **completely rewritten** screen by screen. The old dark-theme UI with `StyleSheet.create()` is legacy — every screen will be rebuilt with NativeWind (Tailwind for RN) + react-native-reusables (RNR) components.
+
+**Rewrite approach:**
+- Convert screens **one at a time** — delete `StyleSheet.create` block when redesigning that screen, replace with NativeWind `className` props
+- It's OK to break visual polish on screens not yet converted — they will all be redone
+- Old `StyleSheet.create` code is throwaway; don't polish it, just leave it until the screen is rebuilt
+- Light theme with grid background is the new visual foundation
+
+**Color system:** `frontend/ligain/src/constants/colors.ts` is the source of truth. Tailwind semantic colors in `tailwind.config.js` mirror these values.
+
+**RNR components:** installed individually as needed (e.g. `@rnr/button`, `@rnr/text`), placed in `src/components/ui/`.
+
+**Global layout (`app/_layout.tsx`):**
+- `SafeAreaView` wraps all content — no screen needs its own safe area handling
+- `GridBackground` renders edge-to-edge behind everything — screens must use `backgroundColor: 'transparent'`
+- `PortalHost` at the bottom for RNR modals/sheets
+
+**NativeWind config files:**
+- `frontend/ligain/global.css` — Tailwind imports (must be imported in `app/_layout.tsx`)
+- `frontend/ligain/tailwind.config.js` — content paths, semantic colors
+- `frontend/ligain/metro.config.js` — wrapped with `withNativeWind()`
+- `frontend/ligain/nativewind-env.d.ts` — TypeScript reference
+
 ## Code Search Strategy
 
 **Prefer grepai MCP tools over raw Grep/Glob for code exploration:**

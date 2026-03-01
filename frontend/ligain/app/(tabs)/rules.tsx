@@ -107,7 +107,7 @@ export default function RulesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: 'transparent',
   },
   content: {
     padding: 20,
@@ -121,14 +121,14 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 30,
-    backgroundColor: '#2f353a',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     marginBottom: 16,
   },
   ruleItem: {
@@ -142,13 +142,13 @@ const styles = StyleSheet.create({
   },
   ruleDescription: {
     fontSize: 14,
-    color: '#e0e0e0',
+    color: colors.text,
     marginBottom: 8,
     lineHeight: 20,
   },
   example: {
     fontSize: 14,
-    color: '#b0b0b0',
+    color: colors.textSecondary,
     fontStyle: 'italic',
     marginTop: 4,
     lineHeight: 18,

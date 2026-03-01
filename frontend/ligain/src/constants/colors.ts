@@ -1,9 +1,9 @@
 export const colors = {
-  background: '#25292e',
-  card: '#1c1c1e',
-  text: '#ffffff',
-  textSecondary: '#666666',
-  border: '#38383a',
+  background: '#e4e9ef',
+  card: '#ffffff',
+  text: '#1d1d1d',
+  textSecondary: '#8e8e93',
+  border: '#ccd2d7',
   disabled: '#e0e0e0',
   success: '#2e7d32',
   error: '#ff0000',
@@ -11,10 +11,11 @@ export const colors = {
   warning: '#e65100',
   inProgress: '#e65100',
   finished: '#9e9e9e',
-  link: '#4a9eff',
-  primary: '#ffd33d',
-  secondary: '#3385ff',
+  link: '#469dff',
+  primary: '#469dff',
+  secondary: '#e9a317',
   silver: '#C0C0C0', // Silver for 2nd place
   bronze: '#CD7F32', // Bronze for 3rd place
-  loadingBackground: '#25292e', // Dedicated loading background (same as background for now)
-} as const; 
+  loadingBackground: '#e4e9ef',
+  gridLine: '#ccd2d7',
+} as const;

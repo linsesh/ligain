@@ -1,3 +1,4 @@
+import '../global.css';
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { TimeServiceProvider } from '../src/contexts/TimeServiceContext';
@@ -11,10 +12,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ApiProvider } from '../src/api';
 import { UpdateRequiredProvider } from '../src/contexts/UpdateRequiredContext';
 import { UpdateRequiredModal } from '../src/components/UpdateRequiredModal';
+import { GridBackground } from '../src/components/GridBackground';
+import { PortalHost } from '@rn-primitives/portal';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <GridBackground />
       <I18nextProvider i18n={i18n}>
         <UpdateRequiredProvider>
           <UIEventProvider>
@@ -23,10 +28,12 @@ export default function Layout() {
                 <TimeServiceProvider service={new RealTimeService()}>
                   <GamesProvider>
                     <AuthGuard>
-                      <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="signin" />
-                        <Stack.Screen name="(tabs)" />
-                      </Stack>
+                      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
+                        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+                          <Stack.Screen name="signin" />
+                          <Stack.Screen name="(tabs)" />
+                        </Stack>
+                      </SafeAreaView>
                     </AuthGuard>
                   </GamesProvider>
                 </TimeServiceProvider>
@@ -36,6 +43,7 @@ export default function Layout() {
           <UpdateRequiredModal />
         </UpdateRequiredProvider>
       </I18nextProvider>
+      <PortalHost />
     </GestureHandlerRootView>
   );
 }

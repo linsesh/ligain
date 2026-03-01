@@ -161,7 +161,7 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.loadingBackground }]}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>{t('auth.welcome')}</Text>

@@ -156,7 +156,7 @@ function GamesList() {
       >
         <Ionicons name="exit-outline" size={20} color="#fff" />
         <Text style={{ 
-          color: '#fff', 
+          color: colors.text, 
           fontWeight: '600', 
           fontSize: 11,
           marginTop: 2
@@ -182,7 +182,7 @@ function GamesList() {
 
   if (loading && !refreshing) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -215,7 +215,7 @@ function GamesList() {
             onRefresh={onRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
-            progressBackgroundColor="#25292e"
+            progressBackgroundColor={colors.background}
             progressViewOffset={20}
           />
         }
@@ -436,7 +436,7 @@ export default function TabOneScreen() {
 
   if (isAuthLoading || isGamesLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.loadingBackground }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -451,7 +451,7 @@ let hasAttemptedInitialRedirectGlobal = false;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: 'transparent',
   },
   scrollView: {
     flex: 1,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     margin: 16,
-    color: '#fff',
+    color: colors.text,
   },
   guestBanner: {
     flexDirection: 'row',
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   },
   guestBannerText: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.text,
     marginLeft: 10,
     fontWeight: '600',
     flex: 1,
@@ -504,12 +504,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   actionButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
   },
   codeContainer: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 8,
     marginHorizontal: 16,
@@ -518,13 +518,13 @@ const styles = StyleSheet.create({
   },
   codeLabel: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.text,
     marginBottom: 8,
   },
   codeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#444',
+    backgroundColor: colors.border,
     borderRadius: 6,
     padding: 8,
   },
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   refreshHint: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -561,16 +561,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 20,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 10,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textSecondary,
     marginTop: 5,
   },
   gameCard: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 8,
     marginHorizontal: 16,
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   leagueNamePlain: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'left',
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   gameSeasonPlain: {
-    color: '#999',
+    color: colors.textSecondary,
     fontSize: 15,
     textAlign: 'left',
     marginLeft: 0,
@@ -606,14 +606,14 @@ const styles = StyleSheet.create({
   gameTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
   },
   gameSeason: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textSecondary,
   },
   gameStatus: {
-    backgroundColor: '#444',
+    backgroundColor: colors.border,
     padding: 8,
     borderRadius: 4,
   },
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   modal: {
-    backgroundColor: '#25292e',
+    backgroundColor: colors.card,
     borderRadius: 10,
     padding: 20,
     width: '80%',
@@ -643,12 +643,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     marginBottom: 5,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textSecondary,
     marginBottom: 15,
   },
   gameNameInput: {
@@ -658,8 +658,8 @@ const styles = StyleSheet.create({
     padding: 12,
     width: '100%',
     fontSize: 18,
-    color: '#fff',
-    backgroundColor: '#444',
+    color: colors.text,
+    backgroundColor: colors.border,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -670,8 +670,8 @@ const styles = StyleSheet.create({
     padding: 12,
     width: '100%',
     fontSize: 18,
-    color: '#fff',
-    backgroundColor: '#444',
+    color: colors.text,
+    backgroundColor: colors.border,
     textAlign: 'center',
   },
   modalButtons: {
@@ -686,12 +686,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   cancelButton: {
-    backgroundColor: '#666',
+    backgroundColor: colors.textSecondary,
     flex: 1,
     marginRight: 10,
   },
   cancelButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   confirmButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   bigJoinButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 20,
     fontWeight: 'bold',
   },
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   actionSheetButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   closeText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
     opacity: 0.7,

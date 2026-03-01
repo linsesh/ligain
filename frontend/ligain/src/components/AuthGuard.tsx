@@ -32,7 +32,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.loadingBackground }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: 'transparent' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );

@@ -11,14 +11,11 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="matches"
       screenOptions={{
+        sceneStyle: { backgroundColor: 'transparent' },
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        headerStyle: {
-          backgroundColor: '#25292e',
-        },
-        headerShadowVisible: false,
-        headerTintColor: '#fff',
         tabBarStyle: {
-          backgroundColor: '#25292e',
+          backgroundColor: colors.background,
         },
       }}
     >

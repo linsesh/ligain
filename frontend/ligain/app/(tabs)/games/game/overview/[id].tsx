@@ -142,7 +142,7 @@ export default function GameOverviewScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.loadingBackground }]}>
+      <View style={[styles.container]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -180,7 +180,7 @@ export default function GameOverviewScreen() {
               onRefresh={onRefresh}
               colors={[colors.primary]}
               tintColor={colors.primary}
-              progressBackgroundColor="#25292e"
+              progressBackgroundColor={colors.background}
             />
           }
         >
@@ -220,7 +220,7 @@ export default function GameOverviewScreen() {
             <Text style={styles.periodSelectorText}>
               {selectedPeriod === 'general' ? t('games.general') : formatMonthLabel(selectedPeriod)}
             </Text>
-            <Ionicons name="chevron-down" size={20} color="#fff" />
+            <Ionicons name="chevron-down" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
         {showPeriodPicker && (
@@ -229,7 +229,7 @@ export default function GameOverviewScreen() {
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>{t('games.selectPeriod')}</Text>
                 <TouchableOpacity onPress={() => setShowPeriodPicker(false)}>
-                  <Ionicons name="close" size={24} color="#fff" />
+                  <Ionicons name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
               <Picker
@@ -241,13 +241,13 @@ export default function GameOverviewScreen() {
                 style={styles.picker}
                 itemStyle={styles.pickerItem}
               >
-                <Picker.Item label={t('games.general')} value="general" color="#fff" />
+                <Picker.Item label={t('games.general')} value="general" color={colors.text} />
                 {availableMonths.map((k) => (
                   <Picker.Item 
                     key={k} 
                     label={formatMonthLabel(k)} 
                     value={k}
-                    color="#fff"
+                    color={colors.text}
                   />
                 ))}
               </Picker>
@@ -297,7 +297,7 @@ export default function GameOverviewScreen() {
           style={styles.matchesButton}
           onPress={navigateToMatches}
         >
-          <Ionicons name="football" size={24} color="#fff" />
+          <Ionicons name="football" size={24} color={colors.text} />
           <Text style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
         </TouchableOpacity>
         
@@ -323,7 +323,7 @@ export default function GameOverviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: 'transparent',
   },
 
   scrollView: {
@@ -336,19 +336,19 @@ const styles = StyleSheet.create({
   gameTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   gameSubtitle: {
     fontSize: 16,
-    color: '#999',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
   },
   gameStatus: {
     fontSize: 14,
-    color: '#ffd33d',
+    color: colors.primary,
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -365,25 +365,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: colors.border,
   },
   periodSelectorText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   periodInfoText: {
-    color: '#999',
+    color: colors.textSecondary,
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
   },
   cardContainer: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     padding: 20,
     borderRadius: 12,
     marginHorizontal: 20,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.text,
     marginBottom: 12,
     fontWeight: '600',
     textAlign: 'left',
@@ -403,16 +403,16 @@ const styles = StyleSheet.create({
   },
   cardPrimary: {
     fontSize: 18,
-    color: '#fff',
+    color: colors.text,
     fontWeight: '700',
   },
   cardSecondary: {
     fontSize: 16,
-    color: '#999',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   codeContainer: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     padding: 20,
     borderRadius: 12,
     marginHorizontal: 20,
@@ -421,14 +421,14 @@ const styles = StyleSheet.create({
   },
   codeLabel: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.text,
     marginBottom: 12,
     fontWeight: '600',
   },
   codeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#444',
+    backgroundColor: colors.border,
     borderRadius: 8,
     padding: 12,
     paddingHorizontal: 16,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#ffd33d',
+    color: colors.primary,
     marginRight: 12,
     letterSpacing: 2,
   },
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   pickerContainer: {
-    backgroundColor: '#25292e',
+    backgroundColor: colors.card,
     borderRadius: 10,
     width: '80%',
     maxHeight: '60%',
@@ -466,27 +466,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   pickerTitle: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
   },
   pickerWrapper: {
-    backgroundColor: '#444',
+    backgroundColor: colors.border,
     borderRadius: 8,
   },
   picker: {
-    color: '#fff',
+    color: colors.text,
     width: '100%',
   },
   pickerItem: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
   },
   leaderboardContainer: {
-    backgroundColor: '#333',
+    backgroundColor: colors.card,
     borderRadius: 12,
     marginHorizontal: 20,
     marginBottom: 20,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   leaderboardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -504,13 +504,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    borderBottomColor: colors.border,
   },
   playerRank: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffd33d',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -518,19 +518,19 @@ const styles = StyleSheet.create({
   rankText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#25292e',
+    color: colors.card,
   },
   playerInfo: {
     flex: 1,
   },
   playerName: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.text,
     fontWeight: '600',
   },
   playerScore: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   currentPlayerIndicator: {
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   },
   currentPlayerText: {
     fontSize: 12,
-    color: '#fff',
+    color: colors.text,
     fontWeight: 'bold',
   },
   matchesButton: {
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   matchesButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
   },
   errorContainer: {
     flex: 1,
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
   },

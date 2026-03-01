@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useTranslation } from '../src/hooks/useTranslation';
+import { colors } from '../src/constants/colors';
 
 export default function NotFoundScreen() {
   const { player } = useAuth();
@@ -35,7 +36,7 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -43,25 +44,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     marginBottom: 10,
   },
 
   subtitle: {
     fontSize: 18,
-    color: '#888',
+    color: colors.textSecondary,
     marginBottom: 20,
   },
 
   button: {
-    backgroundColor: '#007bff',
+    backgroundColor: colors.primary,
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 8,
   },
 
   buttonText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
   },
