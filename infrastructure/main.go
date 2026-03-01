@@ -225,19 +225,11 @@ func main() {
 }
 
 func getMemoryLimit(stack string) string {
-	if stack == "prd" {
-		return "4Gi"
-	}
-	// 512Mi needed for image processing (avatar uploads)
 	return "512Mi"
 }
 
 func getCPULimit(stack string) string {
-	if stack == "prd" {
-		return "2" // 2 vCPUs for production to support 4GB memory
-	}
-	// 250m CPU required for 512Mi memory in Cloud Run
-	return "250m"
+	return "1"
 }
 
 func getMinScale(stack string) string {
