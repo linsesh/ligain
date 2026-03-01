@@ -49,6 +49,21 @@ function upsertAggregate(
   bucket[playerId].Points += pointsToAdd;
 }
 
+// Accepts both .scores (real API: Record<string, any>) and .allBets (mock: array)
+function resolveScores(entry: PastMatchEntry): Record<string, any> | null {
+  if (entry.scores && typeof entry.scores === 'object' && !Array.isArray(entry.scores)) {
+    return entry.scores;
+  }
+  if (Array.isArray(entry.allBets) && entry.allBets.length > 0) {
+    const result: Record<string, any> = {};
+    for (const bet of entry.allBets) {
+      if (bet.playerId) result[bet.playerId] = bet;
+    }
+    return result;
+  }
+  return null;
+}
+
 // Accept both API shapes: { PlayerID, PlayerName, Points } or { playerId, playerName, points }
 function normalizeScoreShape(raw: any): { playerId?: string; playerName?: string; points?: number } {
   if (!raw || typeof raw !== 'object') return {};
@@ -84,14 +99,15 @@ export function computeMonthlyAndMatchdayScores(
   }
 
   for (const [, entry] of Object.entries(pastMatches)) {
-    if (!entry || !entry.match || !entry.scores) continue;
+    const scores = resolveScores(entry);
+    if (!entry || !entry.match || !scores) continue;
     const matchDate = parseMatchDate(entry.match.date);
     if (!matchDate) continue;
 
     const monthKey = getMonthKeyUTC(matchDate);
     const matchday = Number(entry.match.matchday);
 
-    for (const [, score] of Object.entries(entry.scores)) {
+    for (const [, score] of Object.entries(scores)) {
       const { playerId, playerName, points } = normalizeScoreShape(score);
       if (!playerId) continue;
       const delta = Number(points) || 0;
@@ -136,8 +152,9 @@ export function computeTotalScores(
   const totals: Record<string, AggregatedScore> = {};
 
   for (const [, entry] of Object.entries(pastMatches)) {
-    if (!entry || !entry.scores) continue;
-    for (const [, score] of Object.entries(entry.scores)) {
+    const scores = resolveScores(entry);
+    if (!entry || !scores) continue;
+    for (const [, score] of Object.entries(scores)) {
       const { playerId, playerName, points } = normalizeScoreShape(score);
       if (!playerId) continue;
       const delta = Number(points) || 0;
