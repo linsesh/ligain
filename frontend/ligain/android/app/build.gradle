@@ -87,13 +87,13 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.ligain.app'
+    namespace "com.ligain"
     defaultConfig {
-        applicationId 'com.ligain.app'
+        applicationId "com.ligain"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.4.0"
+        versionCode 1
+        versionName "1.0"
     }
     signingConfigs {
         debug {
