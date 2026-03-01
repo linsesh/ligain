@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useGames } from '../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
-import MatchesList from './games/game/_MatchesList';
+import MatchesList from '../../src/components/MatchesList';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';

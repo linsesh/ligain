@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import MatchesList from '../../../app/(tabs)/games/game/_MatchesList';
+import MatchesList from '../MatchesList';
 import { useBetSynchronization } from '../../../hooks/useBetSynchronization';
 import { useBetSubmission } from '../../../hooks/useBetSubmission';
 import { useMatches } from '../../../hooks/useMatches';

@@ -13,38 +13,42 @@ import { ApiProvider } from '../src/api';
 import { UpdateRequiredProvider } from '../src/contexts/UpdateRequiredContext';
 import { UpdateRequiredModal } from '../src/components/UpdateRequiredModal';
 import { GridBackground } from '../src/components/GridBackground';
+import { GridFadeProvider } from '../src/contexts/GridFadeContext';
 import { PortalHost } from '@rn-primitives/portal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Layout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <GridBackground />
-      <I18nextProvider i18n={i18n}>
-        <UpdateRequiredProvider>
-          <UIEventProvider>
-            <ApiProvider>
-              <AuthProvider>
-                <TimeServiceProvider service={new RealTimeService()}>
-                  <GamesProvider>
-                    <AuthGuard>
-                      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
-                        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
-                          <Stack.Screen name="signin" />
-                          <Stack.Screen name="(tabs)" />
-                          <Stack.Screen name="about" />
-                        </Stack>
-                      </SafeAreaView>
-                    </AuthGuard>
-                  </GamesProvider>
-                </TimeServiceProvider>
-              </AuthProvider>
-            </ApiProvider>
-          </UIEventProvider>
-          <UpdateRequiredModal />
-        </UpdateRequiredProvider>
-      </I18nextProvider>
-      <PortalHost />
+      <GridFadeProvider>
+        <GridBackground />
+        <I18nextProvider i18n={i18n}>
+          <UpdateRequiredProvider>
+            <UIEventProvider>
+              <ApiProvider>
+                <AuthProvider>
+                  <TimeServiceProvider service={new RealTimeService()}>
+                    <GamesProvider>
+                      <AuthGuard>
+                        <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
+                          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+                            <Stack.Screen name="signin" />
+                            <Stack.Screen name="(tabs)" />
+                            <Stack.Screen name="about" />
+                            <Stack.Screen name="game/[id]" />
+                          </Stack>
+                        </SafeAreaView>
+                      </AuthGuard>
+                    </GamesProvider>
+                  </TimeServiceProvider>
+                </AuthProvider>
+              </ApiProvider>
+            </UIEventProvider>
+            <UpdateRequiredModal />
+          </UpdateRequiredProvider>
+        </I18nextProvider>
+        <PortalHost />
+      </GridFadeProvider>
     </GestureHandlerRootView>
   );
 }
