@@ -20,7 +20,6 @@ type SportsmonkRepositoryImpl struct {
 	competitionCodeToCompetitionId map[string]int
 	matchIdToFixtureId             map[string]int
 	lastFullFetch                  time.Time
-	lastFullFetchFailed            bool
 }
 
 func NewSportsmonkRepository(api api.SportsmonkAPI) SportsmonkRepository {
@@ -57,12 +56,10 @@ func (r *SportsmonkRepositoryImpl) getFixtureInfos(matches map[string]models.Mat
 }
 
 // needsFullFetch returns true if we should re-fetch the full season fixture list.
-// This happens when: the last full fetch failed, the cache TTL has expired, or a
-// watched match has no cached fixture ID yet.
+// This happens when: the cache TTL has expired (including after a failed fetch,
+// since lastFullFetch is only updated on success), or a watched match has no
+// cached fixture ID yet.
 func (r *SportsmonkRepositoryImpl) needsFullFetch(matches map[string]models.Match) bool {
-	if r.lastFullFetchFailed {
-		return true
-	}
 	if time.Since(r.lastFullFetch) > fixtureCacheTTL {
 		return true
 	}
@@ -86,12 +83,10 @@ func (r *SportsmonkRepositoryImpl) askAndCacheFixtureInfo(seasonId int, matches 
 func (r *SportsmonkRepositoryImpl) fetchAndCacheAllFixtures(seasonId int, matches map[string]models.Match) (map[string]models.Match, error) {
 	fixtureIdToMatch, err := r.api.GetSeasonFixtures(seasonId)
 	if err != nil {
-		r.lastFullFetchFailed = true
 		return nil, err
 	}
 
 	r.lastFullFetch = time.Now()
-	r.lastFullFetchFailed = false
 	for fixtureId, match := range fixtureIdToMatch {
 		r.matchIdToFixtureId[match.Id()] = fixtureId
 	}

@@ -435,7 +435,8 @@ func TestFixtureIdCaching_RefetchAfter12Hours(t *testing.T) {
 }
 
 // TestFixtureIdCaching_RefetchAfterFailure verifies that a failed full fetch causes the
-// next call to retry the full fetch rather than use the (incomplete) cache.
+// next call to retry the full fetch. Since lastFullFetch is only updated on success, a
+// failed fetch leaves the timestamp stale, which naturally triggers a retry.
 func TestFixtureIdCaching_RefetchAfterFailure(t *testing.T) {
 	m1, m2, matches := newTwoMatchesSameSeason()
 
@@ -446,28 +447,19 @@ func TestFixtureIdCaching_RefetchAfterFailure(t *testing.T) {
 
 	repo := NewSportsmonkRepository(failingAPI).(*SportsmonkRepositoryImpl)
 
-	// First call: GetSeasonFixtures fails.
+	// First call: GetSeasonFixtures fails; lastFullFetch is not updated.
 	_, err := repo.GetLastMatchInfos(matches)
 	if err == nil {
 		t.Fatal("expected first call to fail")
 	}
-	if !repo.lastFullFetchFailed {
-		t.Error("expected lastFullFetchFailed to be true after failure")
-	}
 
-	// Second call: must retry GetSeasonFixtures despite a fresh timestamp.
-	repo.lastFullFetch = time.Now() // simulate a fresh timestamp to confirm failure flag wins
+	// Second call: lastFullFetch is still zero (stale), so a retry is triggered.
 	_, err = repo.GetLastMatchInfos(matches)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
-	// seasonFixturesCalls was incremented to 1 by the first (failing) call and to 2 by the retry.
-	// The FailingMockSportsmonkAPI wraps inner and both failing and successful paths increment the counter.
 	if innerMock.seasonFixturesCalls != 2 {
 		t.Errorf("expected 2 GetSeasonFixtures calls (1 fail + 1 retry), got %d", innerMock.seasonFixturesCalls)
-	}
-	if repo.lastFullFetchFailed {
-		t.Error("expected lastFullFetchFailed to be cleared after successful retry")
 	}
 }
 
