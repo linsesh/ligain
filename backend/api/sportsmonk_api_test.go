@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"ligain/backend/models"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -1806,5 +1808,52 @@ func TestExtractScores_Function(t *testing.T) {
 				t.Errorf("Away goals = %d, expected %d. %s", *awayScore, tt.expectedAway, tt.description)
 			}
 		})
+	}
+}
+
+// TestGetFixturesInfos_BatchesRequestsAt50 verifies that GetFixturesInfos splits
+// requests into batches of at most maxFixtureIdsPerRequest (50) IDs, as required
+// by the Sportmonks API (returns 422 when more than 50 IDs are provided).
+func TestGetFixturesInfos_BatchesRequestsAt50(t *testing.T) {
+	maxBatchSizeReceived := 0
+	callCount := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		// URL path is like /fixtures/multi/1,2,3,...
+		parts := strings.Split(r.URL.Path, "/")
+		idsStr := parts[len(parts)-1]
+		ids := strings.Split(idsStr, ",")
+		if len(ids) > maxBatchSizeReceived {
+			maxBatchSizeReceived = len(ids)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fixturesResponse{Data: []sportmonksFixture{}})
+	}))
+	defer server.Close()
+
+	api := &SportsmonkAPIImpl{
+		apiToken: "test-token",
+		baseURL:  server.URL + "/",
+	}
+
+	// 89 IDs exceeds the 50-per-request Sportmonks API limit
+	fixtureIds := make([]int, 89)
+	for i := range fixtureIds {
+		fixtureIds[i] = i + 1
+	}
+
+	_, err := api.GetFixturesInfos(fixtureIds)
+	if err != nil {
+		t.Fatalf("GetFixturesInfos failed: %v", err)
+	}
+
+	if maxBatchSizeReceived > maxFixtureIdsPerRequest {
+		t.Errorf("batch size %d exceeds limit of %d", maxBatchSizeReceived, maxFixtureIdsPerRequest)
+	}
+
+	expectedCalls := (89 + maxFixtureIdsPerRequest - 1) / maxFixtureIdsPerRequest // ceil(89/50) = 2
+	if callCount != expectedCalls {
+		t.Errorf("expected %d API calls for 89 IDs, got %d", expectedCalls, callCount)
 	}
 }
