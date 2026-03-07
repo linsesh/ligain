@@ -7,6 +7,7 @@ import { useGames } from '../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import MatchesList from '../../src/components/MatchesList';
 import { SeasonBanner } from '../../src/components/SeasonBanner';
+import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -15,6 +16,7 @@ import { useUIEvent } from '../../src/contexts/UIEventContext';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
+  const cellSize = useGridCellSize();
   const { games, selectedGameId, setSelectedGameId, bestGameId, loading } = useGames();
   const { player, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
@@ -64,13 +66,13 @@ export default function MatchesTabScreen() {
   return (
     <View style={styles.container}>
       {/* Game title */}
-      <Text className="font-hk-bold text-center text-xl" style={{ color: colors.text, paddingVertical: 12 }}>
+      <Text className="font-hk-bold text-center text-xl" style={{ color: colors.text, height: cellSize * 2, textAlignVertical: 'center' }}>
         {selectedGame ? selectedGame.name : t('games.selectGame')}
       </Text>
 
       {/* Season banner */}
       {selectedGame && (
-        <SeasonBanner
+        <SeasonBanner className="mb-4"
           seasonYear={selectedGame.seasonYear}
           competitionName={selectedGame.competitionName}
         />

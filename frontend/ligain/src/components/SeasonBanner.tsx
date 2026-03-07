@@ -1,9 +1,10 @@
 import { View } from 'react-native';
 import { Text } from './ui/Text';
-import { GRID_CELL_SIZE } from './GridBackground';
+import { useGridCellSize } from '../hooks/useGridCellSize';
+import { colors } from '../constants/colors';
 
 function formatSeasonShort(seasonYear: string): string {
-  const parts = seasonYear.split('-');
+  const parts = seasonYear.split(/[-\/]/);
   if (parts.length === 2) return `${parts[0].slice(-2)}/${parts[1].slice(-2)}`;
   return seasonYear;
 }
@@ -15,16 +16,18 @@ interface SeasonBannerProps {
 }
 
 export function SeasonBanner({ seasonYear, competitionName, className }: SeasonBannerProps) {
+  const cellSize = useGridCellSize();
   const label = `${formatSeasonShort(seasonYear)} · ${competitionName}`;
 
   return (
+    <View style={{ width: '100%', alignItems: 'center' }} className={className}>
     <View
-      style={{ height: GRID_CELL_SIZE * 2, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', width: '100%' }}
-      className={className}
+      style={{ height: cellSize, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center', width: cellSize * 6 }}
     >
       <Text className="font-hk-semibold text-white text-sm tracking-wide">
         {label}
       </Text>
+    </View>
     </View>
   );
 }

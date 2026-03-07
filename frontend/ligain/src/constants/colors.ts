@@ -1,4 +1,6 @@
 export const colors = {
+  black: '#000000',
+  white: '#ffffff',
   background: '#e4e9ef',
   card: '#ffffff',
   text: '#1d1d1d',

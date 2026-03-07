@@ -1,22 +1,23 @@
 import { StyleSheet } from 'react-native';
 import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
 import { colors } from '../constants/colors';
-
-export const GRID_CELL_SIZE = 25;
+import { useGridCellSize } from '../hooks/useGridCellSize';
 
 export function GridBackground() {
+  const cellSize = useGridCellSize();
+
   return (
     <Svg style={StyleSheet.absoluteFillObject}>
       <Defs>
         <Pattern
           id="grid"
-          width={GRID_CELL_SIZE}
-          height={GRID_CELL_SIZE}
+          width={cellSize}
+          height={cellSize}
           patternUnits="userSpaceOnUse"
         >
           <Rect
-            width={GRID_CELL_SIZE}
-            height={GRID_CELL_SIZE}
+            width={cellSize}
+            height={cellSize}
             fill={colors.background}
             stroke={colors.gridLine}
             strokeWidth={0.5}
