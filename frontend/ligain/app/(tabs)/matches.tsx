@@ -6,6 +6,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useGames } from '../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import MatchesList from '../../src/components/MatchesList';
+import { SeasonBanner } from '../../src/components/SeasonBanner';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -62,23 +63,41 @@ export default function MatchesTabScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Game Selector */}
-      <View style={styles.gameSelectionContainer}>
-        <TouchableOpacity 
-          style={styles.gameSelector}
-          onPress={() => setShowGamePicker(true)}
-        >
-          <Text className="font-hk-semibold" style={styles.gameSelectorText}>
-            {selectedGame ? selectedGame.name : t('games.selectGame')}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color={colors.text} />
-        </TouchableOpacity>
-        {selectedGame && (
-          <Text style={styles.gameInfoText}>
-            {selectedGame.seasonYear} • {selectedGame.competitionName}
-          </Text>
-        )}
-      </View>
+      {/* Game title */}
+      <Text className="font-hk-bold text-center text-xl" style={{ color: colors.text, paddingVertical: 12 }}>
+        {selectedGame ? selectedGame.name : t('games.selectGame')}
+      </Text>
+
+      {/* Season banner */}
+      {selectedGame && (
+        <SeasonBanner
+          seasonYear={selectedGame.seasonYear}
+          competitionName={selectedGame.competitionName}
+        />
+      )}
+
+      {/* Match list */}
+      {selectedGameId && (
+        <View style={{ flex: 1 }}>
+          <MatchesList
+            key={selectedGameId}
+            gameId={selectedGameId}
+            initialMatchday={initialMatchday}
+          />
+        </View>
+      )}
+
+      {/* Game selector — bottom */}
+      <TouchableOpacity
+        style={styles.gameSelector}
+        onPress={() => setShowGamePicker(true)}
+      >
+        <Text className="font-hk-semibold" style={styles.gameSelectorText}>
+          {selectedGame ? selectedGame.name : t('games.selectGame')}
+        </Text>
+        <Ionicons name="chevron-down" size={20} color={colors.text} />
+      </TouchableOpacity>
+
       {/* Game Picker Modal */}
       {showGamePicker && (
         <View style={styles.pickerOverlay}>
@@ -99,25 +118,15 @@ export default function MatchesTabScreen() {
               itemStyle={styles.pickerItem}
             >
               {games.map((game) => (
-                <Picker.Item 
-                  key={game.gameId} 
-                  label={game.name} 
+                <Picker.Item
+                  key={game.gameId}
+                  label={game.name}
                   value={game.gameId}
                   color="#fff"
                 />
               ))}
             </Picker>
           </View>
-        </View>
-      )}
-      {/* Old MatchesList UI for the selected game */}
-      {selectedGameId && (
-        <View style={{ flex: 1 }}>
-          <MatchesList 
-            key={selectedGameId} 
-            gameId={selectedGameId} 
-            initialMatchday={initialMatchday} 
-          />
         </View>
       )}
     </View>
@@ -129,30 +138,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
-  gameSelectionContainer: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
   gameSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.card,
     padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   gameSelectorText: {
     color: colors.text,
     fontSize: 16,
-  },
-  gameInfoText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-    marginLeft: 4,
   },
   pickerOverlay: {
     position: 'absolute',

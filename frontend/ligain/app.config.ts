@@ -1,5 +1,6 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
-import { colors } from './src/constants/colors';
+
+const PRIMARY_COLOR = '#f25702';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -40,7 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/images/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: colors.primary,
+    backgroundColor: PRIMARY_COLOR,
   },
   ios: {
     bundleIdentifier: 'com.ligain.app',
@@ -69,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     splash: {
       image: './assets/images/splash-icon.png',
       resizeMode: 'contain',
-      backgroundColor: colors.primary,
+      backgroundColor: PRIMARY_COLOR,
     },
   },
   web: {
