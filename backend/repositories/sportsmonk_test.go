@@ -399,44 +399,9 @@ func TestFixtureIdCaching_UsesGetFixturesInfosAfterCachePopulated(t *testing.T) 
 	}
 }
 
-// TestFixtureIdCaching_RefetchAfter12Hours verifies that the cache TTL triggers a new
-// full season fetch after 12 hours.
-func TestFixtureIdCaching_RefetchAfter12Hours(t *testing.T) {
-	m1, m2, matches := newTwoMatchesSameSeason()
-
-	futureUpdates := []map[int]models.Match{
-		{1: m1, 2: m2}, // first full fetch
-		{1: m1, 2: m2}, // second full fetch after TTL expires
-	}
-
-	mockAPI := NewMockSportsmonkAPI(futureUpdates)
-	repo := NewSportsmonkRepository(mockAPI).(*SportsmonkRepositoryImpl)
-
-	// First call: populates cache.
-	_, err := repo.GetLastMatchInfos(matches)
-	if err != nil {
-		t.Fatalf("first call failed: %v", err)
-	}
-
-	// Simulate 13 hours passing.
-	repo.lastFullFetch = time.Now().Add(-13 * time.Hour)
-
-	// Second call: cache is stale, must do a full fetch again.
-	_, err = repo.GetLastMatchInfos(matches)
-	if err != nil {
-		t.Fatalf("second call failed: %v", err)
-	}
-	if mockAPI.seasonFixturesCalls != 2 {
-		t.Errorf("expected 2 GetSeasonFixtures calls after TTL expired, got %d", mockAPI.seasonFixturesCalls)
-	}
-	if mockAPI.fixtureInfosCalls != 0 {
-		t.Errorf("expected 0 GetFixturesInfos calls, got %d", mockAPI.fixtureInfosCalls)
-	}
-}
-
 // TestFixtureIdCaching_RefetchAfterFailure verifies that a failed full fetch causes the
-// next call to retry the full fetch. Since lastFullFetch is only updated on success, a
-// failed fetch leaves the timestamp stale, which naturally triggers a retry.
+// next call to retry the full fetch. Since the cache is not populated on failure,
+// the missing fixture IDs naturally trigger a retry.
 func TestFixtureIdCaching_RefetchAfterFailure(t *testing.T) {
 	m1, m2, matches := newTwoMatchesSameSeason()
 
@@ -453,7 +418,7 @@ func TestFixtureIdCaching_RefetchAfterFailure(t *testing.T) {
 		t.Fatal("expected first call to fail")
 	}
 
-	// Second call: lastFullFetch is still zero (stale), so a retry is triggered.
+	// Second call: cache is still empty (failed fetch didn't populate it), so a retry is triggered.
 	_, err = repo.GetLastMatchInfos(matches)
 	if err != nil {
 		t.Fatalf("second call failed: %v", err)

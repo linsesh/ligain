@@ -4,10 +4,7 @@ import (
 	"ligain/backend/api"
 	"ligain/backend/models"
 	"ligain/backend/utils"
-	"time"
 )
-
-const fixtureCacheTTL = 12 * time.Hour
 
 type SportsmonkRepository interface {
 	// GetLastMatchInfos returns the last match infos for a given list of matches. The matches should be from the same season/competition
@@ -19,7 +16,6 @@ type SportsmonkRepositoryImpl struct {
 	seasonCodeToSeasonId           map[string]int
 	competitionCodeToCompetitionId map[string]int
 	matchIdToFixtureId             map[string]int
-	lastFullFetch                  time.Time
 }
 
 func NewSportsmonkRepository(api api.SportsmonkAPI) SportsmonkRepository {
@@ -55,14 +51,8 @@ func (r *SportsmonkRepositoryImpl) getFixtureInfos(matches map[string]models.Mat
 	return fixtureInfos, nil
 }
 
-// needsFullFetch returns true if we should re-fetch the full season fixture list.
-// This happens when: the cache TTL has expired (including after a failed fetch,
-// since lastFullFetch is only updated on success), or a watched match has no
-// cached fixture ID yet.
+// needsFullFetch returns true if any watched match has no cached fixture ID yet.
 func (r *SportsmonkRepositoryImpl) needsFullFetch(matches map[string]models.Match) bool {
-	if time.Since(r.lastFullFetch) > fixtureCacheTTL {
-		return true
-	}
 	for matchId := range matches {
 		if _, ok := r.matchIdToFixtureId[matchId]; !ok {
 			return true
@@ -86,7 +76,6 @@ func (r *SportsmonkRepositoryImpl) fetchAndCacheAllFixtures(seasonId int, matche
 		return nil, err
 	}
 
-	r.lastFullFetch = time.Now()
 	for fixtureId, match := range fixtureIdToMatch {
 		r.matchIdToFixtureId[match.Id()] = fixtureId
 	}
