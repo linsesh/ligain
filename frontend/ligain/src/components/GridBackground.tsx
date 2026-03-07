@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
 import { colors } from '../constants/colors';
 
-const CELL_SIZE = 25;
+export const GRID_CELL_SIZE = 25;
 
 export function GridBackground() {
   return (
@@ -10,13 +10,13 @@ export function GridBackground() {
       <Defs>
         <Pattern
           id="grid"
-          width={CELL_SIZE}
-          height={CELL_SIZE}
+          width={GRID_CELL_SIZE}
+          height={GRID_CELL_SIZE}
           patternUnits="userSpaceOnUse"
         >
           <Rect
-            width={CELL_SIZE}
-            height={CELL_SIZE}
+            width={GRID_CELL_SIZE}
+            height={GRID_CELL_SIZE}
             fill={colors.background}
             stroke={colors.gridLine}
             strokeWidth={0.5}
