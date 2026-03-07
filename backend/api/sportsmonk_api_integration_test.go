@@ -26,12 +26,12 @@ func runTestWithTimeout(t *testing.T, testFunc func(t *testing.T), timeout time.
 	}
 }
 
-// TestMain is used to setup integration tests and check if they should run
+// TestMain is used to setup integration tests and check if they should run.
+// Unit tests always run; integration tests skip themselves when INTEGRATION_TESTS != "true".
 func TestMain(m *testing.M) {
-	// Check if integration tests should be run
 	if os.Getenv("INTEGRATION_TESTS") != "true" {
 		println("Skipping integration tests. Set INTEGRATION_TESTS=true to run them.")
-		os.Exit(0)
+		os.Exit(m.Run())
 	}
 
 	// Get API token from environment
@@ -46,8 +46,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetSeasonIds_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TESTS=true to run.")
 	}
 
 	runTestWithTimeout(t, func(t *testing.T) {
@@ -71,8 +71,8 @@ func TestGetSeasonIds_Integration(t *testing.T) {
 }
 
 func TestGetFixturesInfos_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TESTS=true to run.")
 	}
 
 	runTestWithTimeout(t, func(t *testing.T) {
@@ -97,8 +97,8 @@ func TestGetFixturesInfos_Integration(t *testing.T) {
 }
 
 func TestGetSeasonFixtures_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TESTS=true to run.")
 	}
 
 	runTestWithTimeout(t, func(t *testing.T) {
@@ -121,8 +121,8 @@ func TestGetSeasonFixtures_Integration(t *testing.T) {
 }
 
 func TestGetFixturesInfos_WithOdds_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TESTS=true to run.")
 	}
 
 	runTestWithTimeout(t, func(t *testing.T) {
@@ -172,8 +172,8 @@ func TestGetFixturesInfos_WithOdds_Integration(t *testing.T) {
 }
 
 func TestGetSeasonFixtures_WithOdds_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TESTS=true to run.")
 	}
 
 	runTestWithTimeout(t, func(t *testing.T) {
@@ -242,8 +242,8 @@ func TestGetSeasonFixtures_WithOdds_Integration(t *testing.T) {
 }
 
 func TestBookmakerPreference_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+	if os.Getenv("INTEGRATION_TESTS") != "true" {
+		t.Skip("Skipping integration test. Set INTEGRATION_TESTS=true to run.")
 	}
 
 	runTestWithTimeout(t, func(t *testing.T) {

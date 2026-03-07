@@ -29,6 +29,7 @@ type SportsmonkAPI interface {
 
 type SportsmonkAPIImpl struct {
 	apiToken string
+	baseURL  string
 }
 
 type seasonsResponse struct {
@@ -497,11 +498,12 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 	}
 }
 
-const baseURL = "https://api.sportmonks.com/v3/football/"
+const sportsmonkBaseURL = "https://api.sportmonks.com/v3/football/"
 const ligue1LigueId = 301
+const maxFixtureIdsPerRequest = 50
 
 func NewSportsmonkAPI(apiToken string) *SportsmonkAPIImpl {
-	return &SportsmonkAPIImpl{apiToken: apiToken}
+	return &SportsmonkAPIImpl{apiToken: apiToken, baseURL: sportsmonkBaseURL}
 }
 
 func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string, competitionId int) (map[string]int, error) {
@@ -529,7 +531,7 @@ func (s *SportsmonkAPIImpl) GetSeasonIds(seasonCodes []string, competitionId int
 }
 
 func (s *SportsmonkAPIImpl) fetchSeasons(competitionId int, ctx context.Context, resultChan chan<- []season, errChan chan<- error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sseasons?filters=seasonLeagues:%d", baseURL, competitionId), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sseasons?filters=seasonLeagues:%d", s.baseURL, competitionId), nil)
 	if err != nil {
 		errChan <- err
 		return
@@ -586,7 +588,7 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 	// Loop through all pages
 	for hasMore {
 		// Use the fixtures endpoint with a season filter
-		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sfixtures", baseURL), nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sfixtures", s.baseURL), nil)
 		if err != nil {
 			errChan <- err
 			return
@@ -664,19 +666,35 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 }
 
 func (s *SportsmonkAPIImpl) GetFixturesInfos(fixtureIds []int) (map[int]models.Match, error) {
+	result := make(map[int]models.Match)
+	for i := 0; i < len(fixtureIds); i += maxFixtureIdsPerRequest {
+		end := i + maxFixtureIdsPerRequest
+		if end > len(fixtureIds) {
+			end = len(fixtureIds)
+		}
+		batch, err := s.fetchFixturesBatch(fixtureIds[i:end])
+		if err != nil {
+			return nil, err
+		}
+		for id, match := range batch {
+			result[id] = match
+		}
+	}
+	return result, nil
+}
+
+func (s *SportsmonkAPIImpl) fetchFixturesBatch(fixtureIds []int) (map[int]models.Match, error) {
 	fixtureIdsStr := utils.ConvertIntSliceToStringWithCommas(fixtureIds)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sfixtures/multi/%s", baseURL, fixtureIdsStr), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%sfixtures/multi/%s", s.baseURL, fixtureIdsStr), nil)
 	if err != nil {
 		return nil, err
 	}
 	query := s.basicQuery(req)
-	// Use semicolons for includes - this is the key change
 	query.Add("include", "league;season;round;scores;participants;odds")
-	// Filter for specific bookmaker and market if needed
 	query.Add("filters", "bookmakers:37;markets:1")
 	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
