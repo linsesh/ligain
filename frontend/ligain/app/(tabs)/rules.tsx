@@ -15,7 +15,6 @@ export default function RulesScreen() {
           <Text className="font-hk-bold" style={styles.sectionTitle}>{t('rules.philosophy')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.philosophyDescription1')}</Text>
             <Text style={styles.ruleDescription}>{t('rules.philosophyDescription2')}</Text>
-            <Text style={styles.ruleDescription}>{t('rules.philosophyDescription3')}</Text>
         </View>
         
         <View style={styles.section}>
@@ -23,7 +22,6 @@ export default function RulesScreen() {
 
           <View style={styles.ruleItem}>
             <Text className="font-hk-semibold" style={styles.ruleTitle}>{t('rules.exactScore')}</Text>
-            <Text style={styles.example}>{t('rules.exactScoreExample')}</Text>
           </View>
           
           <View style={styles.ruleItem}>
