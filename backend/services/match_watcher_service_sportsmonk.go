@@ -22,6 +22,7 @@ type MatchWatcherServiceSportsmonk struct {
 	stopChan       chan struct{}
 	isRunning      bool
 	pollInterval   time.Duration
+	now            func() time.Time
 }
 
 var (
@@ -52,6 +53,7 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 			subscribers:    make(map[string]GameService),
 			stopChan:       make(chan struct{}),
 			pollInterval:   time.Minute * 1,
+			now:            time.Now,
 		}
 	})
 	return watcher, nil
@@ -72,6 +74,7 @@ func NewMatchWatcherServiceSportsmonkWithOptions(
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   pollInterval,
+		now:            time.Now,
 	}
 }
 

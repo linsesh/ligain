@@ -14,12 +14,14 @@ import (
 )
 
 type SportsmonkRepositoryMock struct {
-	lastMatchInfos []map[string]models.Match
-	err            error
-	callCount      int
+	lastMatchInfos  []map[string]models.Match
+	receivedMatches []map[string]models.Match
+	err             error
+	callCount       int
 }
 
 func (r *SportsmonkRepositoryMock) GetLastMatchInfos(matches map[string]models.Match) (map[string]models.Match, error) {
+	r.receivedMatches = append(r.receivedMatches, matches)
 	if r.callCount >= len(r.lastMatchInfos) {
 		return make(map[string]models.Match), r.err
 	}
@@ -344,4 +346,88 @@ func TestMatchWasUpdated(t *testing.T) {
 
 		assert.False(t, matchWasUpdated(match1, match2))
 	})
+}
+
+func TestMatchWatcherService_OnlyQueriesMatchesWithinTwoWeeks(t *testing.T) {
+	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	matchWithin := models.NewSeasonMatch("Team1", "Team2", "2025", "Ligue 1", now.Add(7*24*time.Hour), 1)  // 7 days away
+	matchEdge := models.NewSeasonMatch("Team3", "Team4", "2025", "Ligue 1", now.Add(13*24*time.Hour), 1)  // 13 days away
+	matchBeyond := models.NewSeasonMatch("Team5", "Team6", "2025", "Ligue 1", now.Add(21*24*time.Hour), 1) // 21 days away
+
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{{}},
+	}
+
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: map[string]models.Match{
+			matchWithin.Id():  matchWithin,
+			matchEdge.Id():   matchEdge,
+			matchBeyond.Id(): matchBeyond,
+		},
+		repo:         mockRepo,
+		subscribers:  make(map[string]GameService),
+		stopChan:     make(chan struct{}),
+		pollInterval: 30 * time.Second,
+		matchRepo:    repositories.NewInMemoryMatchRepository(),
+		now:          func() time.Time { return now },
+	}
+
+	_, err := service.getMatchesUpdates()
+	require.NoError(t, err)
+
+	require.Len(t, mockRepo.receivedMatches, 1)
+	assert.Len(t, mockRepo.receivedMatches[0], 2)
+	assert.Contains(t, mockRepo.receivedMatches[0], matchWithin.Id())
+	assert.Contains(t, mockRepo.receivedMatches[0], matchEdge.Id())
+	assert.NotContains(t, mockRepo.receivedMatches[0], matchBeyond.Id())
+}
+
+func TestMatchWatcherService_MatchBecomesRelevantAsTimeAdvances(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	nearMatch := models.NewSeasonMatch("Team1", "Team2", "2025", "Ligue 1", baseTime.Add(5*24*time.Hour), 1)  // 5 days away
+	farMatch := models.NewSeasonMatch("Team3", "Team4", "2025", "Ligue 1", baseTime.Add(20*24*time.Hour), 1) // 20 days away
+
+	finishedNearMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2025", "Ligue 1", baseTime.Add(5*24*time.Hour), 1, 1.0, 2.0, 3.0)
+
+	currentTime := baseTime
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{
+			{nearMatch.Id(): finishedNearMatch},
+			{farMatch.Id(): farMatch},
+		},
+	}
+
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: map[string]models.Match{
+			nearMatch.Id(): nearMatch,
+			farMatch.Id():  farMatch,
+		},
+		repo:         mockRepo,
+		subscribers:  make(map[string]GameService),
+		stopChan:     make(chan struct{}),
+		pollInterval: 30 * time.Second,
+		matchRepo:    repositories.NewInMemoryMatchRepository(),
+		now:          func() time.Time { return currentTime },
+	}
+
+	// First call: only near match (5 days away) is within 2-week window
+	_, err := service.getMatchesUpdates()
+	require.NoError(t, err)
+	require.Len(t, mockRepo.receivedMatches, 1)
+	assert.Contains(t, mockRepo.receivedMatches[0], nearMatch.Id())
+	assert.NotContains(t, mockRepo.receivedMatches[0], farMatch.Id())
+
+	// near match finished and removed from watchedMatches
+	assert.NotContains(t, service.watchedMatches, nearMatch.Id())
+
+	// Advance time by 8 days: farMatch is now 12 days away, within the 2-week window
+	currentTime = baseTime.Add(8 * 24 * time.Hour)
+
+	// Second call: far match (now 12 days away) should now be queried
+	_, err = service.getMatchesUpdates()
+	require.NoError(t, err)
+	require.Len(t, mockRepo.receivedMatches, 2)
+	assert.Contains(t, mockRepo.receivedMatches[1], farMatch.Id())
 }
