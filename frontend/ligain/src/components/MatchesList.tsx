@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions, Image } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions, Image, FlatList } from 'react-native';
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../hooks/useMatches';
@@ -411,6 +411,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const { player } = useAuth();
   const { t } = useTranslation();
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const matchdaySelectorRef = useRef<FlatList>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const matchCardRefs = React.useRef<{ [key: string]: View | null }>({});
 
@@ -741,15 +742,13 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     }
   };
 
-  const navigateMatchday = (direction: 'prev' | 'next') => {
-    if (!currentMatchday) return;
-    const currentIndex = sortedMatchdays.indexOf(currentMatchday);
-    if (direction === 'prev' && currentIndex > 0) {
-      setCurrentMatchday(sortedMatchdays[currentIndex - 1]);
-    } else if (direction === 'next' && currentIndex < sortedMatchdays.length - 1) {
-      setCurrentMatchday(sortedMatchdays[currentIndex + 1]);
+  useEffect(() => {
+    if (currentMatchday == null || !matchdaySelectorRef.current) return;
+    const index = sortedMatchdays.indexOf(currentMatchday);
+    if (index >= 0) {
+      matchdaySelectorRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
     }
-  };
+  }, [currentMatchday, sortedMatchdays]);
 
   // Find the next closest unbet match in the current matchday
   const getNextUnbetMatchId = () => {
@@ -839,39 +838,30 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
           />
         }
       >
-        {/* Matchday Navigation */}
-        <View style={styles.matchdayNavigation}>
-          <TouchableOpacity 
-            style={[
-              styles.navButton, 
-              sortedMatchdays.indexOf(currentMatchday!) <= 0 && styles.navButtonDisabled
-            ]}
-            onPress={() => navigateMatchday('prev')}
-            disabled={sortedMatchdays.indexOf(currentMatchday!) <= 0}
-            testID="prev-matchday-button"
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <View style={styles.matchdayInfo}>
-            <Text style={styles.matchdayTitle}>{t('games.matchday')} {currentMatchday}</Text>
-            {currentMatchday && matchesByMatchday[currentMatchday] && matchesByMatchday[currentMatchday].length > 0 && (
-              <Text style={styles.matchdayDate}>
-                {formatDate(matchesByMatchday[currentMatchday][0].match.getDate())}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity 
-            style={[
-              styles.navButton, 
-              sortedMatchdays.indexOf(currentMatchday!) >= sortedMatchdays.length - 1 && styles.navButtonDisabled
-            ]}
-            onPress={() => navigateMatchday('next')}
-            disabled={sortedMatchdays.indexOf(currentMatchday!) >= sortedMatchdays.length - 1}
-            testID="next-matchday-button"
-          >
-            <Ionicons name="chevron-forward" size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        {/* Matchday Selector */}
+        <FlatList
+          ref={matchdaySelectorRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={sortedMatchdays}
+          keyExtractor={(item) => String(item)}
+          className="border-b border-border"
+          contentContainerClassName="px-2 py-2"
+          onScrollToIndexFailed={() => {}}
+          renderItem={({ item }) => {
+            const isSelected = item === currentMatchday;
+            return (
+              <TouchableOpacity
+                onPress={() => setCurrentMatchday(item)}
+                className={`px-3 py-1.5 mx-0.5 border-b-2 ${isSelected ? 'border-primary' : 'border-transparent'}`}
+              >
+                <Text className={`text-base ${isSelected ? 'font-hk-bold text-foreground' : 'font-hk-medium text-foreground-secondary'}`}>
+                  {t('games.matchdayShortPrefix')}{item}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
         {/* Matches for current matchday */}
         <View style={styles.matchesContainer}>
           {sortedDateTimeKeys.map((dateTimeKey: string) => {
@@ -956,35 +946,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  matchdayNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  navButton: {
-    padding: 8,
-  },
-  navButtonDisabled: {
-    opacity: 0.5,
-  },
-  matchdayInfo: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  matchdayTitle: {
-    color: colors.text,
-    fontSize: 18,
-  },
-  matchdayDate: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
   },
   matchesContainer: {
     marginTop: 16,
