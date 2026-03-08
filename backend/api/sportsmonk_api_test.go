@@ -1857,3 +1857,74 @@ func TestGetFixturesInfos_BatchesRequestsAt50(t *testing.T) {
 		t.Errorf("expected %d API calls for 89 IDs, got %d", expectedCalls, callCount)
 	}
 }
+
+// TestGetFixturesInfos_ReturnsOddsFromNonPreferredBookmaker verifies that when the
+// API response contains odds only from a bookmaker other than Unibet (23) or
+// Bet365 (2), the fallback logic still extracts them. This is a regression guard
+// against the previous bookmakers:37 filter which silently dropped all odds when
+// bookmaker 37 had no data.
+func TestGetFixturesInfos_ReturnsOddsFromNonPreferredBookmaker(t *testing.T) {
+	var capturedFilter string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedFilter = r.URL.Query().Get("filters")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fixturesResponse{Data: []sportmonksFixture{
+			{
+				ID:         99,
+				StateID:    1, // Not started
+				StartingAt: "2025-08-16 17:00:00",
+				HasOdds:    true,
+				League:     league{Name: "Ligue 1"},
+				Season:     season{Name: "2024/2025"},
+				Round:      round{Name: "1"},
+				Participants: []participant{
+					{Name: "Home Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "home"}},
+					{Name: "Away Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "away"}},
+				},
+				Odds: []odd{
+					{BookmakerID: 5, MarketID: 1, Label: "Home", Value: "2.5"},
+					{BookmakerID: 5, MarketID: 1, Label: "Draw", Value: "3.1"},
+					{BookmakerID: 5, MarketID: 1, Label: "Away", Value: "2.9"},
+				},
+			},
+		}})
+	}))
+	defer server.Close()
+
+	api := &SportsmonkAPIImpl{
+		apiToken: "test-token",
+		baseURL:  server.URL + "/",
+	}
+
+	matches, err := api.GetFixturesInfos([]int{99})
+	if err != nil {
+		t.Fatalf("GetFixturesInfos failed: %v", err)
+	}
+
+	if strings.Contains(capturedFilter, "bookmakers:37") {
+		t.Errorf("request filter must not restrict to bookmaker 37, got: %q", capturedFilter)
+	}
+
+	match, ok := matches[99]
+	if !ok {
+		t.Fatalf("expected fixture 99 in result, got %v", matches)
+	}
+	if match.GetHomeTeamOdds() != 2.5 {
+		t.Errorf("home odds = %f, want 2.5", match.GetHomeTeamOdds())
+	}
+	if match.GetDrawOdds() != 3.1 {
+		t.Errorf("draw odds = %f, want 3.1", match.GetDrawOdds())
+	}
+	if match.GetAwayTeamOdds() != 2.9 {
+		t.Errorf("away odds = %f, want 2.9", match.GetAwayTeamOdds())
+	}
+}
