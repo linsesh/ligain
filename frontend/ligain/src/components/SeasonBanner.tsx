@@ -22,7 +22,7 @@ export function SeasonBanner({ seasonYear, competitionName, className }: SeasonB
   return (
     <View style={{ width: '100%', alignItems: 'center' }} className={className}>
     <View
-      style={{ height: cellSize, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center', width: cellSize * 6 }}
+      style={{ height: cellSize, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center', width: cellSize * 7 }}
     >
       <Text className="font-hk-semibold text-white text-sm tracking-wide">
         {label}

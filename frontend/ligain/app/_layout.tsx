@@ -17,7 +17,9 @@ import { UpdateRequiredProvider } from '../src/contexts/UpdateRequiredContext';
 import { UpdateRequiredModal } from '../src/components/UpdateRequiredModal';
 import { GridBackground } from '../src/components/GridBackground';
 import { PortalHost } from '@rn-primitives/portal';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
+import { useGridCellSize } from '../src/hooks/useGridCellSize';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,6 +40,10 @@ export default function Layout() {
     }
   }, [fontsLoaded, fontError]);
 
+  const insets = useSafeAreaInsets();
+  const cellSize = useGridCellSize();
+  const alignedTop = Math.ceil(insets.top / cellSize) * cellSize;
+
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -51,14 +57,14 @@ export default function Layout() {
                   <TimeServiceProvider service={new RealTimeService()}>
                     <GamesProvider>
                       <AuthGuard>
-                        <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
+                        <View style={{ flex: 1, backgroundColor: 'transparent', paddingTop: alignedTop }}>
                           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
                             <Stack.Screen name="signin" />
                             <Stack.Screen name="(tabs)" />
                             <Stack.Screen name="about" />
                             <Stack.Screen name="game/[id]" />
                           </Stack>
-                        </SafeAreaView>
+                        </View>
                       </AuthGuard>
                     </GamesProvider>
                   </TimeServiceProvider>
