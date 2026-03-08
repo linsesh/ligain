@@ -66,7 +66,7 @@ export default function MatchesTabScreen() {
   return (
     <View style={styles.container}>
       {/* Game title */}
-      <Text className="font-hk-bold text-center text-xl" style={{ color: colors.text, height: cellSize * 2, textAlignVertical: 'center' }}>
+      <Text className="font-hk-extrabold text-center text-4xl mb-5">
         {selectedGame ? selectedGame.name : t('games.selectGame')}
       </Text>
 
