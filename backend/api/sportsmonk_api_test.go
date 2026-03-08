@@ -17,10 +17,50 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 		expectedHome float64
 		expectedDraw float64
 		expectedAway float64
+		wantErr      bool
 		description  string
 	}{
 		{
-			name: "Unibet preferred over Bet365",
+			name: "Betclic preferred over Unibet and Bet365",
+			fixture: sportmonksFixture{
+				ID: 12345,
+				Participants: []participant{
+					{Name: "Home Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "home"}},
+					{Name: "Away Team", Meta: struct {
+						Location string `json:"location"`
+						Winner   *bool  `json:"winner"`
+						Position int    `json:"position"`
+					}{Location: "away"}},
+				},
+				Odds: []odd{
+					{BookmakerID: 2, MarketID: 1, Label: "Home", Value: "2.0"},  // Bet365
+					{BookmakerID: 2, MarketID: 1, Label: "Draw", Value: "3.0"},  // Bet365
+					{BookmakerID: 2, MarketID: 1, Label: "Away", Value: "4.0"},  // Bet365
+					{BookmakerID: 23, MarketID: 1, Label: "Home", Value: "1.8"}, // Unibet
+					{BookmakerID: 23, MarketID: 1, Label: "Draw", Value: "3.2"}, // Unibet
+					{BookmakerID: 23, MarketID: 1, Label: "Away", Value: "4.2"}, // Unibet
+					{BookmakerID: 37, MarketID: 1, Label: "Home", Value: "1.5"}, // Betclic
+					{BookmakerID: 37, MarketID: 1, Label: "Draw", Value: "3.5"}, // Betclic
+					{BookmakerID: 37, MarketID: 1, Label: "Away", Value: "5.0"}, // Betclic
+				},
+				StartingAt: "2025-01-01 15:00:00",
+				Season:     season{Name: "2024/2025"},
+				League:     league{Name: "Ligue 1"},
+				Round:      round{Name: "1"},
+				StateID:    1,
+				HasOdds:    true,
+			},
+			expectedHome: 1.5,
+			expectedDraw: 3.5,
+			expectedAway: 5.0,
+			description:  "Should prefer Betclic (ID 37) over Unibet (ID 23) and Bet365 (ID 2)",
+		},
+		{
+			name: "Unibet preferred over Bet365 (no Betclic)",
 			fixture: sportmonksFixture{
 				ID: 12345,
 				Participants: []participant{
@@ -53,7 +93,7 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 			expectedHome: 1.8,
 			expectedDraw: 3.2,
 			expectedAway: 4.2,
-			description:  "Should prefer Unibet (ID 23) over Bet365 (ID 2)",
+			description:  "Should prefer Unibet (ID 23) over Bet365 (ID 2) when Betclic not available",
 		},
 		{
 			name: "Bet365 used when Unibet not available",
@@ -89,10 +129,10 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 			expectedHome: 2.0,
 			expectedDraw: 3.0,
 			expectedAway: 4.0,
-			description:  "Should use Bet365 (ID 2) when Unibet not available",
+			description:  "Should use Bet365 (ID 2) when Betclic and Unibet not available",
 		},
 		{
-			name: "Fallback to any available bookmaker",
+			name: "Error when only unsupported bookmaker available",
 			fixture: sportmonksFixture{
 				ID: 12347,
 				Participants: []participant{
@@ -119,10 +159,8 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 				StateID:    1,
 				HasOdds:    true,
 			},
-			expectedHome: 1.9,
-			expectedDraw: 3.1,
-			expectedAway: 4.1,
-			description:  "Should fallback to any available bookmaker when preferred ones not available",
+			wantErr:     true,
+			description: "Should return error when HasOdds is true but no supported bookmaker has odds",
 		},
 		{
 			name: "No odds available",
@@ -148,16 +186,21 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 				StateID:    1,
 				HasOdds:    true,
 			},
-			expectedHome: 0.0,
-			expectedDraw: 0.0,
-			expectedAway: 0.0,
-			description:  "Should return zero odds when no odds available",
+			wantErr:     true,
+			description: "Should return error when HasOdds is true but odds list is empty",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			match, err := tt.fixture.toMatch()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("toMatch() expected error but got none")
+				}
+				t.Logf("Test: %s - got expected error: %v", tt.name, err)
+				return
+			}
 			if err != nil {
 				t.Fatalf("toMatch() error = %v", err)
 			}
@@ -290,7 +333,7 @@ func TestToMatch_StateTransitionsAndScores(t *testing.T) {
 				"state_id": 1,
 				"name": "Monaco vs Le Havre",
 				"starting_at": "2025-08-16 17:00:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -315,7 +358,7 @@ func TestToMatch_StateTransitionsAndScores(t *testing.T) {
 				"state_id": 1,
 				"name": "Lens vs Olympique Lyonnais",
 				"starting_at": "2025-08-16 15:00:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -340,7 +383,7 @@ func TestToMatch_StateTransitionsAndScores(t *testing.T) {
 				"state_id": 2,
 				"name": "Brest vs LOSC Lille",
 				"starting_at": "2025-08-17 13:00:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -400,7 +443,7 @@ func TestToMatch_StateTransitionsAndScores(t *testing.T) {
 				"state_id": 5,
 				"name": "Rennes vs Olympique Marseille",
 				"starting_at": "2025-08-15 18:45:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -470,7 +513,7 @@ func TestToMatch_StateTransitionsAndScores(t *testing.T) {
 				"state_id": 1,
 				"name": "Auxerre vs Lorient",
 				"starting_at": "2025-08-17 15:15:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -586,7 +629,7 @@ func TestToMatch_UnknownStateID(t *testing.T) {
 				ID:         12345,
 				StateID:    tt.stateID,
 				StartingAt: "2025-01-01 15:00:00",
-				HasOdds:    true,
+				HasOdds:    false,
 				League:     league{Name: "Test League"},
 				Season:     season{Name: "2024/2025"},
 				Round:      round{Name: "1"},
@@ -669,7 +712,7 @@ func TestToMatch_AllKnownStateIDs(t *testing.T) {
 				ID:         12345,
 				StateID:    tt.stateID,
 				StartingAt: "2025-01-01 15:00:00",
-				HasOdds:    true,
+				HasOdds:    false,
 				League:     league{Name: "Test League"},
 				Season:     season{Name: "2024/2025"},
 				Round:      round{Name: "1"},
@@ -738,7 +781,7 @@ func TestToMatch_ScoreExtractionEdgeCases(t *testing.T) {
 				"state_id": 1,
 				"name": "Monaco vs Le Havre",
 				"starting_at": "2025-08-16 17:00:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -760,7 +803,7 @@ func TestToMatch_ScoreExtractionEdgeCases(t *testing.T) {
 				"state_id": 1,
 				"name": "Auxerre vs Lorient",
 				"starting_at": "2025-08-17 15:15:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -787,7 +830,7 @@ func TestToMatch_ScoreExtractionEdgeCases(t *testing.T) {
 				"state_id": 2,
 				"name": "Metz vs Strasbourg",
 				"starting_at": "2025-08-17 15:15:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -811,7 +854,7 @@ func TestToMatch_ScoreExtractionEdgeCases(t *testing.T) {
 				"state_id": 2,
 				"name": "Nantes vs Paris Saint Germain",
 				"starting_at": "2025-08-17 18:45:00",
-				"has_odds": true,
+				"has_odds": false,
 				"league": {"name": "Ligue 1"},
 				"season": {"name": "2025/2026"},
 				"round": {"name": "1"},
@@ -921,7 +964,7 @@ func TestBug_ScoreExtraction_ZeroZeroDraw(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 2,
 			expectedAway: 1,
@@ -978,7 +1021,7 @@ func TestBug_ScoreExtraction_ZeroZeroDraw(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 2, // Fixed: should extract from HALF scores
 			expectedAway: 1, // Fixed: should extract from HALF scores
@@ -1006,7 +1049,7 @@ func TestBug_ScoreExtraction_ZeroZeroDraw(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 0, // Empty scores array should still result in 0-0
 			expectedAway: 0, // Empty scores array should still result in 0-0
@@ -1116,7 +1159,7 @@ func TestBug_ScoreExtraction_ShouldExtractAnyScores(t *testing.T) {
 		League:     league{Name: "Ligue 1"},
 		Round:      round{Name: "1"},
 		StateID:    5, // Finished match
-		HasOdds:    true,
+		HasOdds:    false,
 	}
 
 	match, err := fixture.toMatch()
@@ -1247,7 +1290,7 @@ func TestBug_ScoreExtraction_TimingIssue(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 2, // Should be 1+1 = 2 from HALF scores
 			expectedAway: 0, // Should be 0+0 = 0 from HALF scores
@@ -1304,7 +1347,7 @@ func TestBug_ScoreExtraction_TimingIssue(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 2,
 			expectedAway: 0,
@@ -1408,7 +1451,7 @@ func TestBug_ScoreExtraction_LegitimateZeroZero(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 0,
 			expectedAway: 0,
@@ -1493,7 +1536,7 @@ func TestBug_ScoreExtraction_LegitimateZeroZero(t *testing.T) {
 				League:     league{Name: "Ligue 1"},
 				Round:      round{Name: "1"},
 				StateID:    5, // Finished match
-				HasOdds:    true,
+				HasOdds:    false,
 			},
 			expectedHome: 0,
 			expectedAway: 0,
@@ -1858,12 +1901,10 @@ func TestGetFixturesInfos_BatchesRequestsAt50(t *testing.T) {
 	}
 }
 
-// TestGetFixturesInfos_ReturnsOddsFromNonPreferredBookmaker verifies that when the
-// API response contains odds only from a bookmaker other than Unibet (23) or
-// Bet365 (2), the fallback logic still extracts them. This is a regression guard
-// against the previous bookmakers:37 filter which silently dropped all odds when
-// bookmaker 37 had no data.
-func TestGetFixturesInfos_ReturnsOddsFromNonPreferredBookmaker(t *testing.T) {
+// TestGetFixturesInfos_SendsBookmakerFilter verifies that the API request includes
+// the bookmakers:37,23,2 filter to restrict odds to the 3 supported bookmakers
+// (Betclic, Unibet, Bet365), and that odds from a supported bookmaker are extracted.
+func TestGetFixturesInfos_SendsBookmakerFilter(t *testing.T) {
 	var capturedFilter string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1891,9 +1932,9 @@ func TestGetFixturesInfos_ReturnsOddsFromNonPreferredBookmaker(t *testing.T) {
 					}{Location: "away"}},
 				},
 				Odds: []odd{
-					{BookmakerID: 5, MarketID: 1, Label: "Home", Value: "2.5"},
-					{BookmakerID: 5, MarketID: 1, Label: "Draw", Value: "3.1"},
-					{BookmakerID: 5, MarketID: 1, Label: "Away", Value: "2.9"},
+					{BookmakerID: 23, MarketID: 1, Label: "Home", Value: "2.5"}, // Unibet
+					{BookmakerID: 23, MarketID: 1, Label: "Draw", Value: "3.1"}, // Unibet
+					{BookmakerID: 23, MarketID: 1, Label: "Away", Value: "2.9"}, // Unibet
 				},
 			},
 		}})
@@ -1910,8 +1951,8 @@ func TestGetFixturesInfos_ReturnsOddsFromNonPreferredBookmaker(t *testing.T) {
 		t.Fatalf("GetFixturesInfos failed: %v", err)
 	}
 
-	if strings.Contains(capturedFilter, "bookmakers:37") {
-		t.Errorf("request filter must not restrict to bookmaker 37, got: %q", capturedFilter)
+	if !strings.Contains(capturedFilter, "bookmakers:37,23,2") {
+		t.Errorf("request filter must include bookmakers:37,23,2, got: %q", capturedFilter)
 	}
 
 	match, ok := matches[99]

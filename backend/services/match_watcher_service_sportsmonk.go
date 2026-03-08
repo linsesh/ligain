@@ -22,6 +22,7 @@ type MatchWatcherServiceSportsmonk struct {
 	stopChan       chan struct{}
 	isRunning      bool
 	pollInterval   time.Duration
+	now            func() time.Time
 }
 
 var (
@@ -52,6 +53,7 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 			subscribers:    make(map[string]GameService),
 			stopChan:       make(chan struct{}),
 			pollInterval:   time.Minute * 1,
+			now:            time.Now,
 		}
 	})
 	return watcher, nil
@@ -72,6 +74,7 @@ func NewMatchWatcherServiceSportsmonkWithOptions(
 		subscribers:    make(map[string]GameService),
 		stopChan:       make(chan struct{}),
 		pollInterval:   pollInterval,
+		now:            time.Now,
 	}
 }
 
@@ -163,8 +166,15 @@ func (m *MatchWatcherServiceSportsmonk) checkForUpdates() {
 
 func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.Match, error) {
 	updates := make(map[string]models.Match)
-	log.Infof("Getting last match infos for %d matches", len(m.watchedMatches))
-	lastMatchInfos, err := m.repo.GetLastMatchInfos(m.watchedMatches)
+	twoWeeksFromNow := m.now().Add(14 * 24 * time.Hour)
+	matchesToQuery := make(map[string]models.Match)
+	for id, match := range m.watchedMatches {
+		if !match.GetDate().After(twoWeeksFromNow) {
+			matchesToQuery[id] = match
+		}
+	}
+	log.Infof("Getting last match infos for %d matches (out of %d watched, filtering to next 2 weeks)", len(matchesToQuery), len(m.watchedMatches))
+	lastMatchInfos, err := m.repo.GetLastMatchInfos(matchesToQuery)
 	if err != nil {
 		return nil, err
 	}

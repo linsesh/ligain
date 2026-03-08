@@ -326,8 +326,8 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 	// Extract odds for home, draw, away (market_id=1, 1X2 market)
 	var homeOdd, drawOdd, awayOdd float64
 
-	// Try Unibet (23) first, then Bet365 (2), then any available
-	for _, bookmakerID := range []int{23, 2} {
+	// Try Betclic (37) first, then Unibet (23), then Bet365 (2)
+	for _, bookmakerID := range []int{37, 23, 2} {
 		for _, o := range f.Odds {
 			if o.MarketID == 1 && o.BookmakerID == bookmakerID {
 				switch o.Label {
@@ -345,26 +345,8 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	// If preferred bookmakers don't have all odds, try any available bookmaker
-	if !(homeOdd > 0 && drawOdd > 0 && awayOdd > 0) {
-		for _, o := range f.Odds {
-			if o.MarketID == 1 {
-				switch o.Label {
-				case "Home":
-					if homeOdd == 0 {
-						homeOdd, _ = strconv.ParseFloat(o.Value, 64)
-					}
-				case "Draw":
-					if drawOdd == 0 {
-						drawOdd, _ = strconv.ParseFloat(o.Value, 64)
-					}
-				case "Away":
-					if awayOdd == 0 {
-						awayOdd, _ = strconv.ParseFloat(o.Value, 64)
-					}
-				}
-			}
-		}
+	if f.HasOdds && !(homeOdd > 0 && drawOdd > 0 && awayOdd > 0) {
+		return nil, fmt.Errorf("fixture %d has odds but none from supported bookmakers (Betclic:37, Unibet:23, Bet365:2)", f.ID)
 	}
 
 	// Extract the matchday
@@ -595,7 +577,7 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		}
 		query := s.basicQuery(req)
 		// Add the season filter
-		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;markets:1", seasonId))
+		query.Add("filters", fmt.Sprintf("fixtureSeasons:%d;bookmakers:37,23,2;markets:1", seasonId))
 		// Use semicolons for includes
 		query.Add("include", "league;season;round;scores;participants;odds")
 		// Add pagination parameters
@@ -695,7 +677,7 @@ func (s *SportsmonkAPIImpl) fetchFixturesBatch(fixtureIds []int) (map[int]models
 	}
 	query := s.basicQuery(req)
 	query.Add("include", "league;season;round;scores;participants;odds")
-	query.Add("filters", "markets:1")
+	query.Add("filters", "bookmakers:37,23,2;markets:1")
 	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
