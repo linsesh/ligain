@@ -695,7 +695,7 @@ func (s *SportsmonkAPIImpl) fetchFixturesBatch(fixtureIds []int) (map[int]models
 	}
 	query := s.basicQuery(req)
 	query.Add("include", "league;season;round;scores;participants;odds")
-	query.Add("filters", "bookmakers:37;markets:1")
+	query.Add("filters", "markets:1")
 	req.URL.RawQuery = query.Encode()
 	resp, err := s.makeRequest(req)
 	if err != nil {
