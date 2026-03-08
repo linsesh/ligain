@@ -9,7 +9,7 @@
  * 'Monaco', 'LOSC Lille', 'Nice', 'Lens', 'Rennes', 'Strasbourg', 'Nantes',
  * 'Brest', 'Toulouse', 'Auxerre', 'Le Havre', 'Angers SCO', 'Metz', 'Paris'
  *
- * LEADERBOARD SUMMARY (Game 1 - Entre potes, Matchdays 15-19):
+ * LEADERBOARD SUMMARY (Game 1 - Entre potes, Matchdays 1-19 past + 20 incoming):
  * - Marie: 25 pts (best predictor, good at home wins)
  * - Sophie: 21 pts (consistent, good at draws)
  * - TestPlayer: 18 pts (middle of the pack)
@@ -242,6 +242,183 @@ const createPastMatch = (
 // MOCK MATCHES - GAME 1 (Entre potes) - COMPREHENSIVE DATA
 // ============================================================================
 
+// Helper to generate a full matchday of past matches compactly
+// Fixture tuple: [home, away, homeGoals, awayGoals, testPlayerPred, mariePred, lucasPred, sophiePred]
+function generateMatchday(
+  matchday: number,
+  daysAgo: number,
+  fixtures: [string, string, number, number, string, string, string, string][]
+): Record<string, MatchData> {
+  const result: Record<string, MatchData> = {};
+  fixtures.forEach(([home, away, hg, ag, tp, marie, lucas, sophie], i) => {
+    const id = `match-${matchday}-${i + 1}`;
+    result[id] = createPastMatch(id, home, away, subtractDays(daysAgo), matchday, [hg, ag], [
+      { playerId: 'mock-player-1', playerName: 'TestPlayer', prediction: tp },
+      { playerId: 'mock-player-2', playerName: 'Marie', prediction: marie },
+      { playerId: 'mock-player-3', playerName: 'Lucas', prediction: lucas },
+      { playerId: 'mock-player-4', playerName: 'Sophie', prediction: sophie },
+    ]);
+  });
+  return result;
+}
+
+const earlyMatchdaysGame1: Record<string, MatchData> = {
+  ...generateMatchday(1, 133, [
+    ['Paris Saint Germain', 'Monaco',             2, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Nice',               1, 1, 'home', 'draw', 'away', 'draw'],
+    ['Olympique Marseille', 'Lens',               2, 1, 'home', 'home', 'home', 'away'],
+    ['LOSC Lille',          'Rennes',             1, 0, 'home', 'home', 'draw', 'home'],
+    ['Strasbourg',          'Toulouse',           0, 0, 'home', 'draw', 'draw', 'draw'],
+    ['Nantes',              'Le Havre',           2, 3, 'home', 'away', 'home', 'draw'],
+    ['Brest',               'Auxerre',            3, 1, 'home', 'home', 'home', 'home'],
+    ['Angers SCO',          'Lorient',            1, 2, 'home', 'away', 'draw', 'away'],
+    ['Metz',                'Paris',              0, 1, 'home', 'away', 'home', 'draw'],
+  ]),
+  ...generateMatchday(2, 126, [
+    ['Paris Saint Germain', 'Olympique Marseille', 3, 1, 'home', 'home', 'draw', 'home'],
+    ['Monaco',              'LOSC Lille',          0, 1, 'home', 'away', 'home', 'away'],
+    ['Olympique Lyonnais',  'Lens',                2, 0, 'home', 'home', 'draw', 'home'],
+    ['Nice',                'Rennes',              1, 0, 'draw', 'home', 'away', 'home'],
+    ['Strasbourg',          'Brest',               1, 2, 'home', 'away', 'draw', 'away'],
+    ['Nantes',              'Auxerre',             1, 1, 'home', 'draw', 'draw', 'draw'],
+    ['Toulouse',            'Le Havre',            0, 0, 'home', 'draw', 'draw', 'draw'],
+    ['Angers SCO',          'Paris',               2, 2, 'draw', 'draw', 'home', 'draw'],
+    ['Metz',                'Lorient',             3, 0, 'home', 'home', 'draw', 'home'],
+  ]),
+  ...generateMatchday(3, 119, [
+    ['Paris Saint Germain', 'LOSC Lille',          2, 1, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Monaco',              0, 0, 'away', 'draw', 'draw', 'draw'],
+    ['Olympique Lyonnais',  'Rennes',              1, 0, 'home', 'home', 'draw', 'draw'],
+    ['Nice',                'Lens',                2, 1, 'home', 'home', 'away', 'home'],
+    ['Strasbourg',          'Nantes',              2, 2, 'home', 'draw', 'away', 'draw'],
+    ['Brest',               'Le Havre',            1, 0, 'home', 'home', 'draw', 'home'],
+    ['Toulouse',            'Auxerre',             2, 1, 'home', 'home', 'home', 'draw'],
+    ['Metz',                'Lorient',             0, 2, 'home', 'away', 'draw', 'away'],
+    ['Angers SCO',          'Paris',               0, 0, 'home', 'draw', 'draw', 'draw'],
+  ]),
+  ...generateMatchday(4, 112, [
+    ['Paris Saint Germain', 'Olympique Lyonnais',  4, 2, 'home', 'home', 'draw', 'home'],
+    ['Monaco',              'Nice',                1, 1, 'draw', 'draw', 'home', 'draw'],
+    ['Olympique Marseille', 'LOSC Lille',          0, 1, 'home', 'away', 'draw', 'away'],
+    ['Lens',                'Rennes',              1, 0, 'home', 'home', 'draw', 'home'],
+    ['Strasbourg',          'Auxerre',             3, 2, 'home', 'home', 'away', 'home'],
+    ['Nantes',              'Toulouse',            2, 1, 'home', 'home', 'draw', 'home'],
+    ['Brest',               'Angers SCO',          2, 0, 'home', 'home', 'home', 'home'],
+    ['Le Havre',            'Lorient',             1, 1, 'draw', 'draw', 'away', 'draw'],
+    ['Metz',                'Paris',               2, 1, 'home', 'home', 'draw', 'away'],
+  ]),
+  ...generateMatchday(5, 105, [
+    ['Paris Saint Germain', 'Nice',                3, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Monaco',              2, 2, 'home', 'draw', 'away', 'draw'],
+    ['Olympique Marseille', 'Rennes',              1, 1, 'home', 'draw', 'home', 'draw'],
+    ['LOSC Lille',          'Lens',                2, 0, 'home', 'home', 'home', 'draw'],
+    ['Strasbourg',          'Le Havre',            1, 0, 'home', 'home', 'draw', 'home'],
+    ['Nantes',              'Brest',               1, 2, 'home', 'away', 'draw', 'away'],
+    ['Toulouse',            'Angers SCO',          0, 1, 'draw', 'away', 'home', 'away'],
+    ['Auxerre',             'Lorient',             2, 1, 'home', 'home', 'draw', 'home'],
+    ['Metz',                'Paris',               0, 0, 'home', 'draw', 'away', 'draw'],
+  ]),
+  ...generateMatchday(6, 98, [
+    ['Paris Saint Germain', 'Lens',                2, 0, 'home', 'home', 'home', 'home'],
+    ['Olympique Lyonnais',  'LOSC Lille',          0, 1, 'home', 'away', 'draw', 'away'],
+    ['Olympique Marseille', 'Nice',                2, 2, 'home', 'draw', 'away', 'draw'],
+    ['Monaco',              'Rennes',              1, 0, 'home', 'home', 'draw', 'home'],
+    ['Strasbourg',          'Angers SCO',          2, 1, 'home', 'home', 'away', 'home'],
+    ['Nantes',              'Metz',                0, 0, 'home', 'draw', 'away', 'draw'],
+    ['Brest',               'Toulouse',            3, 1, 'home', 'home', 'draw', 'home'],
+    ['Auxerre',             'Le Havre',            1, 1, 'draw', 'draw', 'home', 'draw'],
+    ['Paris',               'Lorient',             2, 1, 'home', 'home', 'away', 'home'],
+  ]),
+  ...generateMatchday(7, 91, [
+    ['Paris Saint Germain', 'Rennes',              5, 0, 'home', 'home', 'home', 'home'],
+    ['Olympique Lyonnais',  'Olympique Marseille', 1, 1, 'home', 'draw', 'away', 'draw'],
+    ['Monaco',              'Lens',                0, 2, 'home', 'away', 'draw', 'away'],
+    ['LOSC Lille',          'Nice',                2, 1, 'home', 'home', 'draw', 'home'],
+    ['Strasbourg',          'Metz',                1, 0, 'home', 'home', 'draw', 'home'],
+    ['Nantes',              'Angers SCO',          2, 2, 'draw', 'draw', 'home', 'draw'],
+    ['Brest',               'Auxerre',             1, 1, 'draw', 'draw', 'away', 'draw'],
+    ['Toulouse',            'Lorient',             0, 1, 'home', 'away', 'draw', 'away'],
+    ['Le Havre',            'Paris',               1, 3, 'away', 'away', 'home', 'away'],
+  ]),
+  ...generateMatchday(8, 84, [
+    ['Paris Saint Germain', 'Strasbourg',          3, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Nantes',              2, 1, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Brest',               1, 0, 'home', 'home', 'draw', 'draw'],
+    ['Monaco',              'Toulouse',            3, 2, 'home', 'home', 'away', 'home'],
+    ['LOSC Lille',          'Auxerre',             2, 0, 'home', 'home', 'draw', 'home'],
+    ['Nice',                'Le Havre',            1, 1, 'home', 'draw', 'away', 'draw'],
+    ['Lens',                'Angers SCO',          3, 1, 'home', 'home', 'home', 'home'],
+    ['Rennes',              'Metz',                2, 0, 'home', 'home', 'draw', 'home'],
+    ['Paris',               'Lorient',             0, 0, 'home', 'draw', 'draw', 'draw'],
+  ]),
+  ...generateMatchday(9, 77, [
+    ['Paris Saint Germain', 'Nantes',              4, 1, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Strasbourg',          2, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Toulouse',            2, 0, 'home', 'home', 'home', 'home'],
+    ['Monaco',              'Brest',               1, 2, 'home', 'away', 'draw', 'away'],
+    ['LOSC Lille',          'Le Havre',            3, 0, 'home', 'home', 'home', 'home'],
+    ['Nice',                'Auxerre',             0, 0, 'home', 'draw', 'away', 'draw'],
+    ['Lens',                'Metz',                2, 1, 'home', 'home', 'draw', 'home'],
+    ['Rennes',              'Angers SCO',          1, 0, 'home', 'home', 'away', 'home'],
+    ['Paris',               'Lorient',             1, 1, 'draw', 'draw', 'home', 'draw'],
+  ]),
+  ...generateMatchday(10, 70, [
+    ['Paris Saint Germain', 'Brest',               2, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Toulouse',            3, 1, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Strasbourg',          1, 0, 'home', 'home', 'draw', 'draw'],
+    ['Monaco',              'Nantes',              2, 2, 'home', 'draw', 'away', 'draw'],
+    ['LOSC Lille',          'Angers SCO',          1, 0, 'home', 'home', 'home', 'home'],
+    ['Nice',                'Metz',                2, 1, 'home', 'home', 'draw', 'home'],
+    ['Lens',                'Auxerre',             0, 0, 'draw', 'draw', 'home', 'draw'],
+    ['Rennes',              'Le Havre',            2, 1, 'home', 'home', 'away', 'home'],
+    ['Paris',               'Lorient',             2, 3, 'home', 'away', 'draw', 'away'],
+  ]),
+  ...generateMatchday(11, 63, [
+    ['Paris Saint Germain', 'Toulouse',            3, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Brest',               1, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Nantes',              2, 1, 'home', 'home', 'draw', 'home'],
+    ['Monaco',              'Strasbourg',          1, 0, 'home', 'home', 'draw', 'home'],
+    ['LOSC Lille',          'Metz',                2, 0, 'home', 'home', 'home', 'home'],
+    ['Nice',                'Angers SCO',          1, 1, 'home', 'draw', 'away', 'draw'],
+    ['Lens',                'Le Havre',            3, 2, 'home', 'home', 'draw', 'home'],
+    ['Rennes',              'Auxerre',             0, 1, 'home', 'away', 'draw', 'away'],
+    ['Paris',               'Lorient',             1, 0, 'home', 'home', 'draw', 'home'],
+  ]),
+  ...generateMatchday(12, 56, [
+    ['Paris Saint Germain', 'Auxerre',             4, 0, 'home', 'home', 'home', 'home'],
+    ['Olympique Lyonnais',  'Le Havre',            2, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Angers SCO',          1, 0, 'home', 'home', 'draw', 'home'],
+    ['Monaco',              'Metz',                2, 1, 'home', 'home', 'draw', 'home'],
+    ['LOSC Lille',          'Paris',               1, 0, 'home', 'home', 'draw', 'home'],
+    ['Nice',                'Lorient',             3, 1, 'home', 'home', 'home', 'home'],
+    ['Lens',                'Strasbourg',          1, 1, 'home', 'draw', 'away', 'draw'],
+    ['Rennes',              'Nantes',              0, 0, 'home', 'draw', 'draw', 'draw'],
+    ['Brest',               'Toulouse',            2, 1, 'home', 'home', 'draw', 'home'],
+  ]),
+  ...generateMatchday(13, 49, [
+    ['Paris Saint Germain', 'Le Havre',            3, 0, 'home', 'home', 'home', 'home'],
+    ['Olympique Lyonnais',  'Auxerre',             2, 1, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Metz',                1, 0, 'home', 'home', 'draw', 'home'],
+    ['Monaco',              'Angers SCO',          2, 0, 'home', 'home', 'draw', 'home'],
+    ['LOSC Lille',          'Lorient',             2, 1, 'home', 'home', 'away', 'home'],
+    ['Nice',                'Paris',               0, 1, 'draw', 'away', 'draw', 'away'],
+    ['Lens',                'Nantes',              2, 1, 'home', 'home', 'draw', 'home'],
+    ['Rennes',              'Strasbourg',          1, 2, 'home', 'away', 'draw', 'away'],
+    ['Brest',               'Toulouse',            0, 0, 'home', 'draw', 'draw', 'draw'],
+  ]),
+  ...generateMatchday(14, 42, [
+    ['Paris Saint Germain', 'Angers SCO',          2, 0, 'home', 'home', 'draw', 'home'],
+    ['Olympique Lyonnais',  'Metz',                3, 1, 'home', 'home', 'draw', 'home'],
+    ['Olympique Marseille', 'Auxerre',             2, 1, 'home', 'home', 'draw', 'home'],
+    ['Monaco',              'Le Havre',            1, 0, 'home', 'home', 'draw', 'home'],
+    ['LOSC Lille',          'Strasbourg',          1, 0, 'home', 'home', 'draw', 'home'],
+    ['Nice',                'Nantes',              2, 0, 'home', 'home', 'draw', 'draw'],
+    ['Lens',                'Brest',               1, 1, 'draw', 'draw', 'away', 'draw'],
+    ['Rennes',              'Toulouse',            2, 0, 'home', 'home', 'draw', 'home'],
+    ['Paris',               'Lorient',             1, 2, 'home', 'away', 'draw', 'away'],
+  ]),
+};
+
 // Incoming matches for Matchday 20
 const incomingMatchesGame1: Record<string, MatchData> = {
   // Upcoming matches without user bets
@@ -325,6 +502,7 @@ const incomingMatchesGame1: Record<string, MatchData> = {
 
 // Past matches across multiple matchdays
 const pastMatchesGame1: Record<string, MatchData> = {
+  ...earlyMatchdaysGame1,
   // ========== MATCHDAY 19 (7 days ago) ==========
   // Results: 4 home wins, 2 draws, 3 away wins
   // Points: TestPlayer: 4, Marie: 6, Lucas: 2, Sophie: 5

@@ -83,6 +83,7 @@
     "failedToLoadMatches": "Failed to load matches:",
     "noMatchesAvailable": "No matches available",
     "matchday": "Matchday",
+    "matchdayShortPrefix": "M",
     "oddsLegend": "Odds Legend:",
     "clearFavorite": "Team clearly favorite (odds difference > 1.5)",
     "clearFavoriteBonus": "No bonus if guessing on the favorite",
