@@ -96,6 +96,7 @@ func TestMatchWatcherServiceSportsmonk_Subscribe(t *testing.T) {
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Create mock handler
@@ -125,6 +126,7 @@ func TestMatchWatcherServiceSportsmonk_Unsubscribe(t *testing.T) {
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Create mock handler and subscribe
@@ -156,6 +158,7 @@ func TestMatchWatcherServiceSportsmonk_StartStop(t *testing.T) {
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Test start (should not error)
@@ -200,6 +203,7 @@ func TestMatchWatcherServiceSportsmonk_CheckForUpdates(t *testing.T) {
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Create mock handler and subscribe
@@ -244,6 +248,7 @@ func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates(t *testing.T) {
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Get updates
@@ -278,6 +283,7 @@ func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates_NoChanges(t *testing.T)
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Get updates
@@ -307,6 +313,7 @@ func TestMatchWatcherServiceSportsmonk_GetMatchesUpdates_Error(t *testing.T) {
 		stopChan:       make(chan struct{}),
 		pollInterval:   30 * time.Second,
 		matchRepo:      repositories.NewInMemoryMatchRepository(),
+		now:            func() time.Time { return time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC) },
 	}
 
 	// Get updates
