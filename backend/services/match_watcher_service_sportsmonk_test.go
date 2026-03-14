@@ -438,3 +438,74 @@ func TestMatchWatcherService_MatchBecomesRelevantAsTimeAdvances(t *testing.T) {
 	require.Len(t, mockRepo.receivedMatches, 2)
 	assert.Contains(t, mockRepo.receivedMatches[1], farMatch.Id())
 }
+
+func TestMatchWatcherService_QueriesPastMatchesThatMayBeRescheduled(t *testing.T) {
+	now := time.Date(2025, 1, 22, 0, 0, 0, 0, time.UTC)
+
+	pastMatch := models.NewSeasonMatch("Team1", "Team2", "2025", "Ligue 1", now.Add(-21*24*time.Hour), 1)  // 3 weeks ago
+	futureMatch := models.NewSeasonMatch("Team3", "Team4", "2025", "Ligue 1", now.Add(7*24*time.Hour), 2)  // 7 days ahead (control: included)
+	farFutureMatch := models.NewSeasonMatch("Team5", "Team6", "2025", "Ligue 1", now.Add(21*24*time.Hour), 3) // 21 days ahead (control: excluded)
+
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{{}},
+	}
+
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: map[string]models.Match{
+			pastMatch.Id():      pastMatch,
+			futureMatch.Id():    futureMatch,
+			farFutureMatch.Id(): farFutureMatch,
+		},
+		repo:         mockRepo,
+		subscribers:  make(map[string]GameService),
+		stopChan:     make(chan struct{}),
+		pollInterval: 30 * time.Second,
+		matchRepo:    repositories.NewInMemoryMatchRepository(),
+		now:          func() time.Time { return now },
+	}
+
+	_, err := service.getMatchesUpdates()
+	require.NoError(t, err)
+	require.Len(t, mockRepo.receivedMatches, 1)
+	queried := mockRepo.receivedMatches[0]
+
+	assert.Contains(t, queried, pastMatch.Id(), "past-dated unfinished match must be queried so reschedules are detected")
+	assert.Contains(t, queried, futureMatch.Id())
+	assert.NotContains(t, queried, farFutureMatch.Id())
+	assert.Len(t, queried, 2)
+}
+
+func TestMatchWatcherService_DetectsRescheduleOfPastMatch(t *testing.T) {
+	now := time.Date(2025, 1, 22, 0, 0, 0, 0, time.UTC)
+	originalDate := now.Add(-21 * 24 * time.Hour)
+	rescheduledDate := now.Add(10 * 24 * time.Hour)
+
+	pastMatch := models.NewSeasonMatch("Team1", "Team2", "2025", "Ligue 1", originalDate, 1)
+	rescheduledMatch := models.NewSeasonMatch("Team1", "Team2", "2025", "Ligue 1", rescheduledDate, 1)
+
+	mockRepo := &SportsmonkRepositoryMock{
+		lastMatchInfos: []map[string]models.Match{
+			{pastMatch.Id(): rescheduledMatch},
+		},
+	}
+
+	service := &MatchWatcherServiceSportsmonk{
+		watchedMatches: map[string]models.Match{
+			pastMatch.Id(): pastMatch,
+		},
+		repo:         mockRepo,
+		subscribers:  make(map[string]GameService),
+		stopChan:     make(chan struct{}),
+		pollInterval: 30 * time.Second,
+		matchRepo:    repositories.NewInMemoryMatchRepository(),
+		now:          func() time.Time { return now },
+	}
+
+	updates, err := service.getMatchesUpdates()
+	require.NoError(t, err)
+	require.Len(t, updates, 1, "rescheduled past match must be reported as an update")
+	updatedMatch, ok := updates[pastMatch.Id()]
+	require.True(t, ok)
+	assert.Equal(t, rescheduledDate, updatedMatch.GetDate())
+	assert.Equal(t, rescheduledDate, service.watchedMatches[pastMatch.Id()].GetDate())
+}
