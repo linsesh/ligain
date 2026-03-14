@@ -173,7 +173,7 @@ func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.M
 			matchesToQuery[id] = match
 		}
 	}
-	log.Infof("Getting last match infos for %d matches (out of %d watched, filtering to next 2 weeks)", len(matchesToQuery), len(m.watchedMatches))
+	log.Infof("Getting last match infos for %d matches (out of %d watched, excluding matches scheduled beyond 2 weeks in the future)", len(matchesToQuery), len(m.watchedMatches))
 	lastMatchInfos, err := m.repo.GetLastMatchInfos(matchesToQuery)
 	if err != nil {
 		return nil, err
