@@ -230,7 +230,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
         )}
       </View>
       {/* Odds display */}
-      <View style={styles.oddsContainer}>
+      {/* <View style={styles.oddsContainer}>
         <View style={styles.oddsRow}>
           <View style={styles.oddsItem}>
             <Text style={styles.oddsLabel}>1</Text>
@@ -264,21 +264,21 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
             )}
           </View>
         </View>
-      </View>
+      </View> */}
       {/* Keep the rest of the card (other players' bets/scores) only for past/in-progress matches */}
-      {(!isFuture && (matchResult.match.isFinished() || matchResult.match.isInProgress())) && (
+      {false && (!isFuture && (matchResult.match.isFinished() || matchResult.match.isInProgress())) && (
         <>
-          <TouchableOpacity 
-            style={styles.toggleButton} 
+          <TouchableOpacity
+            style={styles.toggleButton}
             onPress={() => onToggleBetSection(matchResult.match.id())}
           >
             <Text className="font-hk-bold" style={styles.toggleButtonText}>
               {t('games.playersBets')}
             </Text>
-            <Ionicons 
-              name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"} 
-              size={24} 
-              color="#333" 
+            <Ionicons
+              name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"}
+              size={24}
+              color="#333"
             />
           </TouchableOpacity>
           {expandedMatches[matchResult.match.id()] && (
@@ -365,7 +365,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           )}
         </>
       )}
-      
+
       {/* Hidden shareable component for image generation */}
       {matchResult.match.isFinished() && (
         <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
@@ -411,6 +411,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const { player } = useAuth();
   const { t } = useTranslation();
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const itemWidth = Dimensions.get('window').width / 6;
   const matchdaySelectorRef = useRef<FlatList>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const matchCardRefs = React.useRef<{ [key: string]: View | null }>({});
@@ -853,15 +854,19 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             return (
               <TouchableOpacity
                 onPress={() => setCurrentMatchday(item)}
-                className={`px-3 py-1.5 mx-0.5 border-b-2 ${isSelected ? 'border-primary' : 'border-transparent'}`}
+                style={{ width: itemWidth }}
+                className="items-center py-1.5"
               >
-                <Text className={`text-base ${isSelected ? 'font-hk-bold text-foreground' : 'font-hk-medium text-foreground-secondary'}`}>
+                <Text className={`text-lg ${isSelected ? 'font-hk-bold text-foreground' : 'font-hk-medium text-foreground-secondary'}`}>
                   {t('games.matchdayShortPrefix')}{item}
                 </Text>
+                <View className={`h-0.5 w-1/2 mt-0.5 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
               </TouchableOpacity>
             );
           }}
         />
+        {/* Background panel: covers grid from below matchday selector */}
+        <View style={{ backgroundColor: colors.background, flexGrow: 1 }}>
         {/* Matches for current matchday */}
         <View style={styles.matchesContainer}>
           {sortedDateTimeKeys.map((dateTimeKey: string) => {
@@ -922,6 +927,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         
         {/* Add padding at the bottom to ensure last match is visible above keyboard */}
         <View style={{ height: 100 }} />
+        </View>
       </ScrollView>
       
       {/* Bet Synchronization Modal */}
@@ -977,8 +983,7 @@ const styles = StyleSheet.create({
     paddingTop: 48,
   },
   finishedMatchCard: {
-    backgroundColor: '#d3d3d3',
-    opacity: 0.6,
+    backgroundColor: colors.cardFinished,
   },
   bettingContainer: {
     flexDirection: 'row',
