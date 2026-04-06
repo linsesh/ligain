@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
 import { GridTag } from '../../src/components/ui/GridTag';
@@ -54,6 +54,7 @@ export default function MatchDetailScreen() {
   );
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       {/* Transparent grid zone — back button + header tags */}
       <TouchableOpacity
@@ -81,5 +82,6 @@ export default function MatchDetailScreen() {
         />
       </View>
     </View>
+    </TouchableWithoutFeedback>
   );
 }
