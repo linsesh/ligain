@@ -1,106 +1,135 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Animated, Dimensions, Image, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef, useTransition } from 'react';
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, Animated, Dimensions, Image, FlatList } from 'react-native';
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useMatches } from '../../hooks/useMatches';
-import { useBetPlacement } from '../../hooks/useBetPlacement';
 import { useMatchNotifications } from '../hooks/useMatchNotifications';
 import { useAuth } from '../contexts/AuthContext';
 import { useGames } from '../contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import { formatTime, formatDate } from '../utils/dateUtils';
 import { colors } from '../constants/colors';
-import { sharedStyles } from '../constants/sharedStyles';
 import StatusTag from './StatusTag';
 import ShareableMatchResult from './ShareableMatchResult';
 import { captureAndShareWithOptions, formatDateForShare } from '../utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
 import { getTeamLogo, isPngLogo } from '../utils/teamLogos';
 
-interface TempScores {
-  [key: string]: {
-    home?: number;
-    away?: number;
-  };
+function MatchCardSkeleton({ opacity }: { opacity: Animated.Value }) {
+  return (
+    <Animated.View style={[styles.matchCard, { opacity }]}>
+      <View style={styles.bettingContainer}>
+        {/* Home team */}
+        <View style={styles.teamDisplay}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#ddd' }} />
+          <View style={{ width: 60, height: 10, borderRadius: 4, backgroundColor: '#ddd' }} />
+        </View>
+        {/* VS/Score placeholder */}
+        <View style={styles.scoreCenterContainer}>
+          <View style={{ width: 40, height: 28, borderRadius: 4, backgroundColor: '#ddd' }} />
+        </View>
+        {/* Away team */}
+        <View style={styles.teamDisplay}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#ddd' }} />
+          <View style={{ width: 60, height: 10, borderRadius: 4, backgroundColor: '#ddd' }} />
+        </View>
+      </View>
+      {/* Tag placeholder */}
+      <View style={styles.tagCenterContainer}>
+        <View style={{ width: 80, height: 24, borderRadius: 12, backgroundColor: '#ddd' }} />
+      </View>
+    </Animated.View>
+  );
 }
 
-function TeamInput({ teamName, value, onChange, canModify, isAway = false, onFocus, onBlur, isFavorite }: {
-  teamName: string;
-  value: string;
-  onChange: (value: string) => void;
-  canModify: boolean;
-  isAway?: boolean;
-  onFocus?: () => void;
-  onBlur?: () => void;
-  isFavorite?: boolean;
-}) {
-  const teamLogo = getTeamLogo(teamName);
-  const TeamLogo = teamLogo;
-  
+function MatchesListSkeleton() {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  const itemWidth = Dimensions.get('window').width / 6;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [opacity]);
+
   return (
-    <View style={[styles.teamContainer, isAway && styles.awayTeamContainer]}>
-      <View style={[styles.logoAndNameContainer, isAway && styles.awayLogoAndNameContainer]}>
-        {TeamLogo && (
-          isPngLogo(TeamLogo) ? (
-            <Image
-              source={TeamLogo}
-              style={{ width: 56, height: 56, backgroundColor: 'transparent' }}
-              resizeMode="contain"
-            />
-          ) : (
-            <TeamLogo width={56} height={56} />
-          )
-        )}
-        <Text style={[styles.teamName, isAway && styles.awayTeamName]}>
-          {teamName}
-          {isFavorite && <Text style={{ color: colors.primary }}>⭐</Text>}
-        </Text>
-      </View>
-      <View style={[styles.inputContainer, isAway && styles.awayInputContainer]}>
-        <TextInput
-          style={[styles.betInput, !canModify && styles.disabledInput]}
-          value={value}
-          onChangeText={onChange}
-          editable={canModify}
-          keyboardType="numeric"
-          onFocus={onFocus}
-          onBlur={onBlur}
-          maxLength={2}
-        />
+    <View testID="loading-indicator" style={styles.container}>
+      {/* Matchday selector skeleton */}
+      <Animated.View style={[{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e0e0e0', paddingHorizontal: 8, paddingVertical: 8 }, { opacity }]}>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <View key={i} style={{ width: itemWidth, alignItems: 'center', paddingVertical: 6 }}>
+            <View style={{ width: 28, height: 18, borderRadius: 4, backgroundColor: '#ddd' }} />
+          </View>
+        ))}
+      </Animated.View>
+      {/* Cards area */}
+      <View style={{ backgroundColor: colors.background, flex: 1 }}>
+        <View style={[styles.matchesContainer]}>
+          <View style={[styles.timeGroup]}>
+            <Animated.View style={[styles.timeHeaderContainer, { opacity }]}>
+              <View style={{ width: 50, height: 18, borderRadius: 4, backgroundColor: '#ddd', marginBottom: 4 }} />
+              <View style={{ width: 120, height: 12, borderRadius: 4, backgroundColor: '#ddd' }} />
+            </Animated.View>
+            <MatchCardSkeleton opacity={opacity} />
+            <MatchCardSkeleton opacity={opacity} />
+            <MatchCardSkeleton opacity={opacity} />
+          </View>
+        </View>
       </View>
     </View>
   );
 }
 
-function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onToggleBetSection, onFocus, onBlur, onDone, onRef, gameId }: {
+function MatchdayContentSkeleton() {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [opacity]);
+
+  return (
+    <View style={styles.matchesContainer}>
+      <View style={styles.timeGroup}>
+        <Animated.View style={[styles.timeHeaderContainer, { opacity }]}>
+          <View style={{ width: 50, height: 18, borderRadius: 4, backgroundColor: '#ddd', marginBottom: 4 }} />
+          <View style={{ width: 120, height: 12, borderRadius: 4, backgroundColor: '#ddd' }} />
+        </Animated.View>
+        <MatchCardSkeleton opacity={opacity} />
+        <MatchCardSkeleton opacity={opacity} />
+        <MatchCardSkeleton opacity={opacity} />
+      </View>
+    </View>
+  );
+}
+
+function MatchCard({ matchResult, gameId }: {
   matchResult: any;
-  tempScores: TempScores;
-  expandedMatches: { [key: string]: boolean };
-  onBetChange: (matchId: string, team: 'home' | 'away', value: string) => void;
-  onToggleBetSection: (matchId: string) => void;
-  onFocus: () => void;
-  onBlur: () => void;
-  onDone?: () => void;
-  onRef?: (ref: View | null) => void;
   gameId: string;
 }) {
   const { player } = useAuth();
   const { games } = useGames();
   const { t } = useTranslation();
+  const router = useRouter();
   const [isSharing, setIsSharing] = useState(false);
   const shareableRef = useRef<ViewShot>(null);
   const now = new Date();
   const isFuture = !matchResult.match.isFinished() && !matchResult.match.hasStarted(now);
   const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
-  const canModify = isFuture && (userBet?.isModifiable(now) !== false);
-  
-  // Get game name from context
+
   const game = games.find(g => g.gameId === gameId);
   const gameName = game?.name || 'Ligain Game';
 
   const handleShareMatch = async () => {
     if (!matchResult.match.isFinished() || isSharing) return;
-    
     setIsSharing(true);
     try {
       await captureAndShareWithOptions(shareableRef, {
@@ -118,47 +147,41 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
   // Tag logic
   let tagText: string | null = null;
   let tagVariant: 'warning' | 'success' | 'negative' | 'finished' | 'primary' | null = null;
-  let hasTag = false;
   if (matchResult.match.isInProgress()) {
     tagText = t('games.inProgressTag');
     tagVariant = 'primary';
-    hasTag = true;
   } else if (matchResult.match.isFinished() && player) {
     if (matchResult.scores && matchResult.scores[player.id]) {
       const points = matchResult.scores[player.id].points;
       if (typeof points === 'number' && points > 0) {
         tagText = `+${points} points`;
         tagVariant = 'success';
-        hasTag = true;
       } else {
         tagText = `${points} points`;
         tagVariant = 'negative';
-        hasTag = true;
       }
     } else {
-      // No score entry means no bet was placed
       tagText = t('games.noBet');
       tagVariant = 'primary';
-      hasTag = true;
     }
   } else if (isFuture && (!matchResult.bets || !matchResult.bets[player?.id ?? ''])) {
     tagText = t('games.noBet');
     tagVariant = 'primary';
-    hasTag = true;
   }
 
-  // Determine card style: always greyed out if finished
   const cardStyle = [
     styles.matchCard,
     matchResult.match.isFinished() ? styles.finishedMatchCard : null,
-    hasTag ? styles.matchCardWithTag : null
   ].filter(Boolean);
 
+  const HomeTeamLogo = getTeamLogo(matchResult.match.getHomeTeam());
+  const AwayTeamLogo = getTeamLogo(matchResult.match.getAwayTeam());
+
   return (
-    <View 
-      key={matchResult.match.id()} 
+    <TouchableOpacity
       style={cardStyle}
-      ref={onRef}
+      onPress={() => router.push({ pathname: '/match/[id]', params: { id: matchResult.match.id(), gameId } })}
+      activeOpacity={0.8}
     >
       {/* Share Button */}
       {matchResult.match.isFinished() && (
@@ -174,192 +197,52 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           />
         </TouchableOpacity>
       )}
+
       <View style={styles.bettingContainer}>
-        {/* Only show the current user's bet for future matches */}
-        {isFuture ? (
-          <>
-            <TeamInput
-              teamName={matchResult.match.getHomeTeam()}
-              value={tempScores[matchResult.match.id()]?.home?.toString() || ''}
-              onChange={(value) => onBetChange(matchResult.match.id(), 'home', value)}
-              canModify={canModify}
-              onFocus={() => onFocus()}
-              onBlur={() => onBlur()}
-              isFavorite={matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getHomeTeam()}
-            />
-            <Text style={styles.vsText}>{t('common.vs')}</Text>
-            <TeamInput
-              teamName={matchResult.match.getAwayTeam()}
-              value={tempScores[matchResult.match.id()]?.away?.toString() || ''}
-              onChange={(value) => onBetChange(matchResult.match.id(), 'away', value)}
-              canModify={canModify}
-              isAway
-              onFocus={() => onFocus()}
-              onBlur={() => onBlur()}
-              isFavorite={matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getAwayTeam()}
-            />
-          </>
-        ) : (
-          <>
-            <TeamInput
-              teamName={matchResult.match.getHomeTeam()}
-              value={matchResult.match.getHomeGoals().toString()}
-              onChange={() => {}}
-              canModify={false}
-              isFavorite={matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getHomeTeam()}
-            />
-            <Text style={styles.vsText}>{t('common.vs')}</Text>
-            <TeamInput
-              teamName={matchResult.match.getAwayTeam()}
-              value={matchResult.match.getAwayGoals().toString()}
-              onChange={() => {}}
-              canModify={false}
-              isAway
-              isFavorite={matchResult.match.hasClearFavorite() && matchResult.match.getFavoriteTeam() === matchResult.match.getAwayTeam()}
-            />
-          </>
-        )}
+        {/* Home team */}
+        <View style={styles.teamDisplay}>
+          {HomeTeamLogo && (
+            isPngLogo(HomeTeamLogo) ? (
+              <Image source={HomeTeamLogo} style={{ width: 56, height: 56, backgroundColor: 'transparent' }} resizeMode="contain" />
+            ) : (
+              <HomeTeamLogo width={56} height={56} />
+            )
+          )}
+          <Text style={styles.teamName}>{matchResult.match.getHomeTeam()}</Text>
+        </View>
+
+        {/* Center: VS, predicted score, or actual score */}
+        <View style={styles.scoreCenterContainer}>
+          {isFuture && !userBet ? (
+            <Text className="font-hk-bold" style={styles.vsText}>VS</Text>
+          ) : isFuture && userBet ? (
+            <Text className="font-hk-bold" style={styles.scoreDisplayText}>
+              {userBet.predictedHomeGoals} - {userBet.predictedAwayGoals}
+            </Text>
+          ) : (
+            <Text className="font-hk-bold" style={styles.scoreDisplayText}>
+              {matchResult.match.getHomeGoals()} - {matchResult.match.getAwayGoals()}
+            </Text>
+          )}
+        </View>
+
+        {/* Away team */}
+        <View style={styles.teamDisplay}>
+          {AwayTeamLogo && (
+            isPngLogo(AwayTeamLogo) ? (
+              <Image source={AwayTeamLogo} style={{ width: 56, height: 56, backgroundColor: 'transparent' }} resizeMode="contain" />
+            ) : (
+              <AwayTeamLogo width={56} height={56} />
+            )
+          )}
+          <Text style={styles.teamName}>{matchResult.match.getAwayTeam()}</Text>
+        </View>
       </View>
+
       {tagText && typeof tagVariant === 'string' && (
         <View style={styles.tagCenterContainer}>
           <StatusTag text={tagText} variant={tagVariant} style={styles.statusTagWide} />
         </View>
-      )}
-      {/* Odds display */}
-      {/* <View style={styles.oddsContainer}>
-        <View style={styles.oddsRow}>
-          <View style={styles.oddsItem}>
-            <Text style={styles.oddsLabel}>1</Text>
-            <Text className="font-hk-bold" style={styles.oddsValue}>
-              {matchResult.match.getHomeTeamOdds() ? matchResult.match.getHomeTeamOdds().toFixed(2) : '-'}
-            </Text>
-            {matchResult.match.hasClearFavorite() && (
-              matchResult.match.getFavoriteTeam() === matchResult.match.getHomeTeam()
-                ? <Text style={styles.outsiderMark}>x1</Text>
-                : <Text style={styles.outsiderMark}>×2</Text>
-            )}
-          </View>
-          <View style={styles.oddsItem}>
-            <Text style={styles.oddsLabel}>N</Text>
-            <Text className="font-hk-bold" style={styles.oddsValue}>
-              {matchResult.match.getDrawOdds() ? matchResult.match.getDrawOdds().toFixed(2) : '-'}
-            </Text>
-            {matchResult.match.hasClearFavorite() && (
-              <Text style={styles.outsiderMark}>×1.5</Text>
-            )}
-          </View>
-          <View style={styles.oddsItem}>
-            <Text style={styles.oddsLabel}>2</Text>
-            <Text className="font-hk-bold" style={styles.oddsValue}>
-              {matchResult.match.getAwayTeamOdds() ? matchResult.match.getAwayTeamOdds().toFixed(2) : '-'}
-            </Text>
-            {matchResult.match.hasClearFavorite() && (
-              matchResult.match.getFavoriteTeam() === matchResult.match.getAwayTeam()
-                ? <Text style={styles.outsiderMark}>x1</Text>
-                : <Text style={styles.outsiderMark}>×2</Text>
-            )}
-          </View>
-        </View>
-      </View> */}
-      {/* Keep the rest of the card (other players' bets/scores) only for past/in-progress matches */}
-      {false && (!isFuture && (matchResult.match.isFinished() || matchResult.match.isInProgress())) && (
-        <>
-          <TouchableOpacity
-            style={styles.toggleButton}
-            onPress={() => onToggleBetSection(matchResult.match.id())}
-          >
-            <Text className="font-hk-bold" style={styles.toggleButtonText}>
-              {t('games.playersBets')}
-            </Text>
-            <Ionicons
-              name={expandedMatches[matchResult.match.id()] ? "chevron-up" : "chevron-down"}
-              size={24}
-              color="#333"
-            />
-          </TouchableOpacity>
-          {expandedMatches[matchResult.match.id()] && (
-            <View style={styles.betResultContainer}>
-              {matchResult.scores ? (
-                <View style={styles.scoresContainer}>
-                  {/* Custom order: current user first, then others */}
-                  {(() => {
-                    const entries = Object.entries(matchResult.scores);
-                    let userRow = null;
-                    let otherRows: React.ReactNode[] = [];
-                    entries.forEach(([playerId, scoreData]) => {
-                      const s = scoreData as { playerName: string; points: number };
-                      if (player && playerId === player.id) {
-                        userRow = (
-                          <View key={playerId} style={styles.playerScoreRow}>
-                            <Text className="font-hk-bold" style={[styles.scoreText]}> {s.playerName} ({t('common.me')}): {s.points} points </Text>
-                            {matchResult.bets?.[playerId] ? (
-                              <Text style={styles.betResultText}> ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals}) </Text>
-                            ) : (
-                              <Text style={[styles.betResultText, { fontStyle: 'italic', color: '#999' }]}> ({t('games.negativePointsTag')}) </Text>
-                            )}
-                          </View>
-                        );
-                      } else {
-                        otherRows.push(
-                          <View key={playerId} style={styles.playerScoreRow}>
-                            <Text style={styles.scoreText}> {s.playerName}: {s.points} points </Text>
-                            {matchResult.bets?.[playerId] ? (
-                              <Text style={styles.betResultText}> ({matchResult.bets[playerId].predictedHomeGoals} - {matchResult.bets[playerId].predictedAwayGoals}) </Text>
-                            ) : (
-                              <Text style={[styles.betResultText, { fontStyle: 'italic', color: '#999' }]}> ({t('games.negativePointsTag')}) </Text>
-                            )}
-                          </View>
-                        );
-                      }
-                    });
-                    if (!userRow && player) {
-                      userRow = (
-                        <View key={player!.id} style={styles.playerScoreRow}>
-                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player!.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
-                        </View>
-                      );
-                    }
-                    return [userRow, ...otherRows];
-                  })()}
-                </View>
-              ) : matchResult.bets && (
-                <View style={styles.scoresContainer}>
-                  {(() => {
-                    const entries = Object.entries(matchResult.bets);
-                    let userRow = null;
-                    let otherRows: React.ReactNode[] = [];
-                    entries.forEach(([playerId, betData]) => {
-                      const b = betData as { playerName: string; predictedHomeGoals: number; predictedAwayGoals: number };
-                      if (player && playerId === player.id) {
-                        userRow = (
-                          <View key={playerId} style={styles.playerScoreRow}>
-                            <Text className="font-hk-bold" style={[styles.scoreText]}> {b.playerName} ({t('common.me')}): </Text>
-                            <Text style={styles.betResultText}> ({b.predictedHomeGoals} - {b.predictedAwayGoals}) </Text>
-                          </View>
-                        );
-                      } else {
-                        otherRows.push(
-                          <View key={playerId} style={styles.playerScoreRow}>
-                            <Text style={styles.scoreText}> {b.playerName}: </Text>
-                            <Text style={styles.betResultText}> ({b.predictedHomeGoals} - {b.predictedAwayGoals}) </Text>
-                          </View>
-                        );
-                      }
-                    });
-                    if (!userRow && player) {
-                      userRow = (
-                        <View key={player!.id} style={styles.playerScoreRow}>
-                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player!.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
-                        </View>
-                      );
-                    }
-                    return [userRow, ...otherRows];
-                  })()}
-                </View>
-              )}
-            </View>
-          )}
-        </>
       )}
 
       {/* Hidden shareable component for image generation */}
@@ -377,8 +260,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
               players={Object.entries(matchResult.scores || {}).map(([playerId, scoreData]: [string, any]) => ({
                 name: scoreData.playerName,
                 points: scoreData.points,
-                bet: matchResult.bets?.[playerId] ? 
-                  `${matchResult.bets[playerId].predictedHomeGoals}-${matchResult.bets[playerId].predictedAwayGoals}` : 
+                bet: matchResult.bets?.[playerId] ?
+                  `${matchResult.bets[playerId].predictedHomeGoals}-${matchResult.bets[playerId].predictedAwayGoals}` :
                   undefined
               }))}
               gameName={gameName}
@@ -386,7 +269,7 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           </ViewShot>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -396,21 +279,15 @@ interface MatchesListProps {
 }
 
 export default function MatchesList({ gameId, initialMatchday }: MatchesListProps) {
-  const { incomingMatches, pastMatches, loading: matchesLoading, error: matchesError, refresh } = useMatches(gameId);
-  // Automatically manage match notifications (schedule/cancel based on bets)
+  const { incomingMatches, pastMatches, loading: matchesLoading, refresh } = useMatches(gameId);
   useMatchNotifications(incomingMatches, gameId);
-  const [tempScores, setTempScores] = useState<TempScores>({});
-  const [expandedMatches, setExpandedMatches] = useState<{ [key: string]: boolean }>({});
   const [refreshing, setRefreshing] = useState(false);
-  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [currentMatchday, setCurrentMatchday] = useState<number | null>(initialMatchday ?? null);
-  const { player } = useAuth();
+  const [isPending, startTransition] = useTransition();
   const { t } = useTranslation();
   const scrollViewRef = React.useRef<ScrollView>(null);
   const itemWidth = Dimensions.get('window').width / 6;
   const matchdaySelectorRef = useRef<FlatList>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const matchCardRefs = React.useRef<{ [key: string]: View | null }>({});
 
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
@@ -439,39 +316,20 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         setCurrentMatchday(sortedMatchdays[0]);
       }
     }
-    // Only run on mount or when sortedMatchdays changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedMatchdays]);
-
-  // Listen to keyboard events to track keyboard height
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
-  }, []);
 
   // Group matches by date and time within the current matchday
   const getMatchesByTime = (matchday: number) => {
     const matchdayMatches = matchesByMatchday[matchday] || [];
-    // Sort by date and time (ascending)
-    const sortedMatches = matchdayMatches.sort((a, b) => 
+    const sortedMatches = matchdayMatches.sort((a, b) =>
       a.match.getDate().getTime() - b.match.getDate().getTime()
     );
-    // Group by date and time
     const groupedByDateTime = sortedMatches.reduce((acc, matchResult) => {
       const date = matchResult.match.getDate();
       const dateKey = formatDate(date);
       const timeKey = formatTime(date);
       const dateTimeKey = `${dateKey} - ${timeKey}`;
-      
       if (!acc[dateTimeKey]) {
         acc[dateTimeKey] = [];
       }
@@ -487,112 +345,6 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     setRefreshing(false);
   }, [refresh]);
 
-  // Initialize tempScores with existing bets
-  useEffect(() => {
-    const initialTempScores: TempScores = {};
-    [...Object.values(incomingMatches), ...Object.values(pastMatches)].forEach((matchResult: any) => {
-      if (player && matchResult.bets && matchResult.bets[player.id]) {
-        const userBet = matchResult.bets[player.id];
-        initialTempScores[matchResult.match.id()] = {
-          home: userBet.predictedHomeGoals,
-          away: userBet.predictedAwayGoals
-        };
-      }
-    });
-    setTempScores(initialTempScores);
-  }, [incomingMatches, pastMatches, player]);
-
-  // Helper to reset tempScores for a match to the last server value
-  const resetTempScoreToServer = (matchId: string) => {
-    const matchResult = matches.find((m: any) => m.match.id() === matchId);
-    if (!matchResult || !player) return;
-    if (matchResult.bets && matchResult.bets[player.id]) {
-      const userBet = matchResult.bets[player.id];
-      setTempScores(prev => ({
-        ...prev,
-        [matchId]: {
-          home: userBet.predictedHomeGoals,
-          away: userBet.predictedAwayGoals
-        }
-      }));
-    } else {
-      // No bet on server, clear temp score
-      setTempScores(prev => {
-        const newScores = { ...prev };
-        delete newScores[matchId];
-        return newScores;
-      });
-    }
-  };
-
-  const { placeBet: submitBet, isSubmitting, error: submitError } = useBetPlacement(gameId, resetTempScoreToServer);
-
-  useEffect(() => {
-    if (submitError) {
-      Alert.alert(
-        t('games.betNotSaved'),
-        t('games.betNotSavedMessage'),
-        [{ text: t('common.ok') }]
-      );
-    }
-  }, [submitError, t]);
-
-  const toggleBetSection = (matchId: string) => {
-    setExpandedMatches(prev => ({
-      ...prev,
-      [matchId]: !prev[matchId]
-    }));
-  };
-
-  const handleBetChange = async (matchId: string, team: 'home' | 'away', value: string) => {
-    const matchResult = matches.find((m: any) => m.match.id() === matchId);
-    if (!matchResult) return;
-    const currentTempScores = tempScores[matchId] || {};
-    const newTempScores = {
-      ...currentTempScores,
-      [team]: value && value.trim() !== '' ? parseInt(value) : undefined
-    };
-    setTempScores(prev => ({
-      ...prev,
-      [matchId]: newTempScores
-    }));
-    if (newTempScores.home !== undefined && newTempScores.away !== undefined) {
-      const homeGoals = Number(newTempScores.home);
-      const awayGoals = Number(newTempScores.away);
-      if (!isNaN(homeGoals) && !isNaN(awayGoals) && homeGoals >= 0 && awayGoals >= 0) {
-        await submitBet(matchId, homeGoals, awayGoals);
-        await refresh();
-      }
-    }
-  };
-
-  const handleFocus = (matchId: string) => {
-    setEditingMatchId(matchId);
-    
-    // Get all matches for the current matchday
-    const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
-    const allMatches = Object.values(currentMatchdayMatches).flat() as any[];
-    
-    // Check if this is the last match
-    const lastMatch = allMatches[allMatches.length - 1];
-    
-    // Only scroll if this is the last match
-    if (lastMatch && lastMatch.match.id() === matchId && scrollViewRef.current) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  };
-
-  const handleBlur = () => {
-    setEditingMatchId(null);
-  };
-
-  const handleDone = () => {
-    setEditingMatchId(null);
-    Keyboard.dismiss();
-  };
-
   useEffect(() => {
     if (currentMatchday == null || !matchdaySelectorRef.current) return;
     const index = sortedMatchdays.indexOf(currentMatchday);
@@ -601,81 +353,34 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     }
   }, [currentMatchday, sortedMatchdays]);
 
-  // Find the next closest unbet match in the current matchday
-  const getNextUnbetMatchId = () => {
-    if (!currentMatchday) return null;
-    const matchesInDay = matchesByMatchday[currentMatchday] || [];
-    const now = new Date();
-    // Only consider matches in the future or in progress
-    const unbetMatches = matchesInDay.filter(m => {
-      const matchDate = m.match.getDate();
-      const isFutureOrInProgress = !m.match.isFinished() || matchDate > now;
-      const hasBet = player && m.bets && m.bets[player.id];
-      return isFutureOrInProgress && !hasBet;
-    });
-    if (unbetMatches.length === 0) return null;
-    // Find the closest in time to now
-    unbetMatches.sort((a, b) => a.match.getDate().getTime() - b.match.getDate().getTime());
-    return unbetMatches[0].match.id();
-  };
-
-  const nextUnbetMatchId = getNextUnbetMatchId();
-
-  // Scroll to the next unbet match
-  const scrollToNextMatch = () => {
-    if (!nextUnbetMatchId || !scrollViewRef.current) return;
-    // Find the y offset of the next match card
-    // For simplicity, scroll to top (could be improved with refs per card)
-    scrollViewRef.current.scrollTo({ y: 0, animated: true });
-  };
-
   if (matchesLoading && !refreshing) {
-    return (
-      <View style={styles.container}> 
-        <ActivityIndicator testID="loading-indicator" size="large" color={colors.primary} />
-      </View>
-    );
+    return <MatchesListSkeleton />;
   }
 
   const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
   const sortedDateTimeKeys = Object.keys(currentMatchdayMatches).sort((a, b) => {
-    // Extract date and time from the key format "Monday, January 15 - 20:00"
     const dateTimeA = a.split(' - ');
     const dateTimeB = b.split(' - ');
-    
     if (dateTimeA.length !== 2 || dateTimeB.length !== 2) {
-      return a.localeCompare(b); // Fallback to string comparison
+      return a.localeCompare(b);
     }
-    
     const dateA = dateTimeA[0];
     const timeA = dateTimeA[1];
     const dateB = dateTimeB[0];
     const timeB = dateTimeB[1];
-    
-    // First compare by date
     if (dateA !== dateB) {
-      // Parse dates for comparison (assuming format like "Monday, January 15")
       const dateAObj = new Date(dateA);
       const dateBObj = new Date(dateB);
       return dateAObj.getTime() - dateBObj.getTime();
     }
-    
-    // If same date, compare by time
     const timeANum = parseInt(timeA.replace(':', ''));
     const timeBNum = parseInt(timeB.replace(':', ''));
     return timeANum - timeBNum;
   });
 
-  // Show legend if not editing a match or if the editing match has a clear favorite
-  const editingMatch = editingMatchId ? matches.find(m => m.match.id() === editingMatchId) : null;
-  const shouldShowLegend = !editingMatchId || (editingMatch && editingMatch.match.hasClearFavorite());
-
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView 
+    <View style={styles.container}>
+      <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
         refreshControl={
@@ -703,7 +408,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
             const isSelected = item === currentMatchday;
             return (
               <TouchableOpacity
-                onPress={() => setCurrentMatchday(item)}
+                onPress={() => startTransition(() => setCurrentMatchday(item))}
                 style={{ width: itemWidth }}
                 className="items-center py-1.5"
               >
@@ -717,70 +422,38 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         />
         {/* Background panel: covers grid from below matchday selector */}
         <View style={{ backgroundColor: colors.background, flexGrow: 1 }}>
-        {/* Matches for current matchday */}
-        <View style={styles.matchesContainer}>
-          {sortedDateTimeKeys.map((dateTimeKey: string) => {
-            const matchesAtTime = currentMatchdayMatches[dateTimeKey];
-            const dateTimeParts = dateTimeKey.split(' - ');
-            const dateDisplay = dateTimeParts[0] || '';
-            const timeDisplay = dateTimeParts[1] || '';
-            return (
-              <View key={dateTimeKey} style={styles.timeGroup}>
-                <View style={styles.timeHeaderContainer}>
-                  <Text className="font-hk-bold" style={styles.timeHeader}>{timeDisplay}</Text>
-                  <Text style={styles.dayHeader}>{dateDisplay}</Text>
-                </View>
-                {matchesAtTime.map((matchResult: any) => (
-                  <MatchCard
-                    key={matchResult.match.id()}
-                    matchResult={matchResult}
-                    tempScores={tempScores}
-                    expandedMatches={expandedMatches}
-                    onBetChange={handleBetChange}
-                    onToggleBetSection={toggleBetSection}
-                    onFocus={() => handleFocus(matchResult.match.id())}
-                    onBlur={handleBlur}
-                    onDone={editingMatchId === matchResult.match.id() ? handleDone : undefined}
-                    onRef={(ref) => {
-                      matchCardRefs.current[matchResult.match.id()] = ref;
-                    }}
-                    gameId={gameId}
-                  />
-                ))}
-              </View>
-            );
-          })}
-        </View>
-        {/* Legend for odds indicators */}
-        {shouldShowLegend && (
-          <View style={styles.legendContainer}>
-            <Text className="font-hk-bold" style={styles.legendTitle}>{t('games.oddsLegend')}</Text>
-            <View style={styles.legendItem}>
-              <Text style={styles.legendStar}>⭐</Text>
-              <Text style={styles.legendText}>{t('games.clearFavorite')}</Text>
+          {isPending ? (
+            <MatchdayContentSkeleton />
+          ) : (
+            /* Matches for current matchday */
+            <View style={styles.matchesContainer}>
+              {sortedDateTimeKeys.map((dateTimeKey: string) => {
+                const matchesAtTime = currentMatchdayMatches[dateTimeKey];
+                const dateTimeParts = dateTimeKey.split(' - ');
+                const dateDisplay = dateTimeParts[0] || '';
+                const timeDisplay = dateTimeParts[1] || '';
+                return (
+                  <View key={dateTimeKey} style={styles.timeGroup}>
+                    <View style={styles.timeHeaderContainer}>
+                      <Text className="font-hk-bold" style={styles.timeHeader}>{timeDisplay}</Text>
+                      <Text style={styles.dayHeader}>{dateDisplay}</Text>
+                    </View>
+                    {matchesAtTime.map((matchResult: any) => (
+                      <MatchCard
+                        key={matchResult.match.id()}
+                        matchResult={matchResult}
+                        gameId={gameId}
+                      />
+                    ))}
+                  </View>
+                );
+              })}
             </View>
-            <View style={styles.legendItem}>
-              <Text style={styles.legendMark}>x1</Text>
-              <Text style={styles.legendText}>{t('games.clearFavoriteBonus')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <Text style={styles.legendMark}>×1.5</Text>
-              <Text style={styles.legendText}>{t('games.drawBonus')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <Text style={styles.legendMark}>×2</Text>
-              <Text style={styles.legendText}>{t('games.outsiderWinBonus')}</Text>
-            </View>
-          </View>
-        )}
-        
-        
-        {/* Add padding at the bottom to ensure last match is visible above keyboard */}
-        <View style={{ height: 100 }} />
+          )}
+          <View style={{ height: 100 }} />
         </View>
       </ScrollView>
-      
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -818,16 +491,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     position: 'relative',
   },
-  matchCardWithTag: {},
-  tagCenterContainer: {
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  statusTagWide: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    alignSelf: 'center',
-  },
   finishedMatchCard: {
     backgroundColor: colors.cardFinished,
   },
@@ -837,101 +500,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  teamContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  teamDisplay: {
     flex: 1,
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  awayTeamContainer: {
-    flexDirection: 'row-reverse',
-  },
-  inputContainer: {
-    position: 'absolute',
-    right: 0,
-    width: 40,
-    marginTop: 25,
-  },
-  awayInputContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 'auto',
-  },
-  logoAndNameContainer: {
-    flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
-    position: 'absolute',
-    left: 0,
-    right: 50, // Leave space for the input (40px width + 10px margin)
-    justifyContent: 'center',
-    height: '100%',
-    marginTop: 25,
   },
-  awayLogoAndNameContainer: {
-    flexDirection: 'column',
+  scoreCenterContainer: {
     alignItems: 'center',
-    gap: 4,
-    position: 'absolute',
-    left: 50, // Leave space for the input (40px width + 10px margin)
-    right: 0,
     justifyContent: 'center',
-    height: '100%',
+    minWidth: 80,
   },
-  // teamLogo style removed as we're using SVG components now
+  vsText: {
+    fontSize: 28,
+    color: '#666',
+    textAlign: 'center',
+  },
+  scoreDisplayText: {
+    fontSize: 28,
+    color: colors.text,
+    textAlign: 'center',
+  },
   teamName: {
     fontSize: 14,
     color: '#333',
     textAlign: 'center',
-    minWidth: 60,
   },
-  awayTeamName: {
-    textAlign: 'center',
-  },
-  vsText: {
-    fontSize: 14,
-    color: '#666',
-    marginHorizontal: 8,
-    marginTop: 25,
-  },
-  betInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    padding: 8,
-    width: 40,
-    textAlign: 'center',
-    backgroundColor: '#fff',
-  },
-  disabledInput: {
-    backgroundColor: '#f0f0f0',
-    color: '#999',
-  },
-  resultRow: {
-    flexDirection: 'row',
+  tagCenterContainer: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 24,
   },
-  resultTeam: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    textAlign: 'center',
-  },
-  resultScore: {
-    fontSize: 16,
-    color: '#333',
-    marginHorizontal: 8,
-  },
-  topRightContainer: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1,
+  statusTagWide: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    alignSelf: 'center',
   },
   shareButtonBottomRight: {
     position: 'absolute',
@@ -939,66 +540,6 @@ const styles = StyleSheet.create({
     right: 8,
     zIndex: 1,
     padding: 4,
-  },
-  statusTag: {
-    marginRight: 8,
-  },
-  statusTagText: {
-    color: '#fff',
-    fontSize: 12,
-  },
-  successTag: {
-    backgroundColor: '#4CAF50',
-  },
-  inProgressTag: {
-    backgroundColor: '#FFC107',
-  },
-  finishedTag: {
-    backgroundColor: '#9E9E9E',
-  },
-  primaryTag: {
-    backgroundColor: colors.primary,
-  },
-  negativeTag: {
-    backgroundColor: '#ff6b6b',
-  },
-  toggleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: '#e8e8e8',
-    borderRadius: 4,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  toggleButtonText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  betResultContainer: {
-    marginTop: 8,
-  },
-  scoresContainer: {
-    backgroundColor: '#f9f9f9',
-    padding: 12,
-    borderRadius: 4,
-  },
-  playerScoreRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  scoreText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  betResultText: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
   },
   legendContainer: {
     marginTop: 24,
@@ -1036,71 +577,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'left',
   },
-  doneButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    alignSelf: 'center',
-    marginTop: 10,
-  },
-  doneButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  oddsContainer: {
-    marginTop: 40,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-  },
-  oddsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  oddsItem: {
-    alignItems: 'center',
-  },
-  oddsLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  oddsValue: {
-    fontSize: 18,
-    color: '#333',
-  },
-  favoriteStar: {
-    fontSize: 16,
-    color: '#000',
-  },
-  outsiderMark: {
-    fontSize: 14,
-    color: '#000',
-  },
-  drawMark: {
-    fontSize: 14,
-    color: '#000',
-  },
-  nextMatchButton: {
-    backgroundColor: colors.secondary,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 16,
-    marginHorizontal: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  nextMatchButtonText: {
-    color: '#fff',
-    fontSize: 18,
-  },
-}); 
+});

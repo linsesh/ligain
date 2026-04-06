@@ -16,7 +16,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   useEffect(() => {    
     if (!isLoading) {
-      const inAllowedGroup = segments[0] === '(tabs)' || segments[0] === 'about' || segments[0] === 'game';
+      const inAllowedGroup = segments[0] === '(tabs)' || segments[0] === 'about' || segments[0] === 'game' || segments[0] === 'match';
 
       if (player && !inAllowedGroup) {
         console.log('✅ AuthGuard - User authenticated, navigating to /(tabs)');
