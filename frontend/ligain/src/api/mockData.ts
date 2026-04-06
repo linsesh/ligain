@@ -1390,14 +1390,54 @@ export const MOCK_MATCHES_GAME_3: MatchesResponse = {
 // HELPER: Get matches for a game
 // ============================================================================
 
+// Transform allBets (mock format) → scores + bets (hook format expected by useMatches)
+function transformMatchesResponse(response: MatchesResponse): MatchesResponse {
+  const transformPast = (matches: Record<string, any>): Record<string, any> =>
+    Object.fromEntries(
+      Object.entries(matches).map(([id, matchData]) => {
+        if (!matchData.allBets) return [id, matchData];
+        const scores: Record<string, any> = {};
+        const bets: Record<string, any> = {};
+        matchData.allBets.forEach((bet: any) => {
+          scores[bet.playerId] = { playerId: bet.playerId, playerName: bet.playerName, points: bet.points ?? 0 };
+          const [h, a] = bet.prediction === 'home' ? [2, 0] : bet.prediction === 'away' ? [0, 2] : [1, 1];
+          bets[bet.playerId] = { playerId: bet.playerId, playerName: bet.playerName, predictedHomeGoals: h, predictedAwayGoals: a };
+        });
+        return [id, { ...matchData, scores, bets }];
+      })
+    );
+
+  const transformIncoming = (matches: Record<string, any>): Record<string, any> =>
+    Object.fromEntries(
+      Object.entries(matches).map(([id, matchData]) => {
+        if (!matchData.bet) return [id, matchData];
+        // Expose the current player's bet so the "no bet" badge logic works
+        const bets: Record<string, any> = {
+          [MOCK_CURRENT_PLAYER.id]: {
+            playerId: MOCK_CURRENT_PLAYER.id,
+            playerName: MOCK_CURRENT_PLAYER.name,
+            predictedHomeGoals: 0,
+            predictedAwayGoals: 0,
+          },
+        };
+        return [id, { ...matchData, bets }];
+      })
+    );
+
+  return {
+    pastMatches: transformPast(response.pastMatches),
+    incomingMatches: transformIncoming(response.incomingMatches),
+  };
+}
+
 export const getMockMatchesForGame = (gameId: string): MatchesResponse => {
   switch (gameId) {
     case 'game-1':
-      return MOCK_MATCHES_GAME_1;
+      return transformMatchesResponse(MOCK_MATCHES_GAME_1);
     case 'game-2':
-      return MOCK_MATCHES_GAME_2;
+      return transformMatchesResponse(MOCK_MATCHES_GAME_2);
     case 'game-3':
-      return MOCK_MATCHES_GAME_3;
+      return transformMatchesResponse(MOCK_MATCHES_GAME_3);
     default:
       return { incomingMatches: {}, pastMatches: {} };
   }

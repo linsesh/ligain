@@ -5,6 +5,7 @@ import { useBetSynchronization } from '../../../hooks/useBetSynchronization';
 import { useBetSubmission } from '../../../hooks/useBetSubmission';
 import { useMatches } from '../../../hooks/useMatches';
 import { useAuth } from '../../contexts/AuthContext';
+import { SeasonMatch } from '../../types/match';
 
 // Mock the hooks - these are our boundaries
 jest.mock('../../../hooks/useBetSynchronization');
@@ -43,19 +44,29 @@ jest.mock('expo-sharing', () => ({
 }));
 
 // Mock react-native-view-shot
-jest.mock('react-native-view-shot', () => ({
-  captureRef: jest.fn(() => Promise.resolve('mock-uri')),
-}));
+jest.mock('react-native-view-shot', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const ViewShot = React.forwardRef(({ children }: any, _ref: any) => React.createElement(View, null, children));
+  ViewShot.captureRef = jest.fn(() => Promise.resolve('mock-uri'));
+  return ViewShot;
+});
 
 // Mock teamLogos utility (has asset imports that Jest can't handle)
 jest.mock('../../utils/teamLogos', () => ({
   getTeamLogo: jest.fn(() => null),
+  isPngLogo: jest.fn(() => false),
 }));
+
+// Mock ShareableMatchResult (imports image assets Jest can't parse)
+jest.mock('../ShareableMatchResult', () => 'ShareableMatchResult');
 
 // Mock shareUtils
 jest.mock('../../utils/shareUtils', () => ({
   shareMatchResult: jest.fn(),
   shareLeaderboard: jest.fn(),
+  captureAndShareWithOptions: jest.fn(),
+  formatDateForShare: jest.fn(() => '2024-01-15'),
 }));
 
 // Mock expo vector icons
@@ -123,11 +134,14 @@ jest.mock('../../hooks/useTranslation', () => ({
         'betSync.partialSuccess.close': 'Close',
         'common.loading': 'Loading...',
         'games.matchday': 'Matchday',
+        'games.noBet': 'No prono',
+        'games.inProgressTag': 'In progress',
         'games.oddsLegend': 'Odds Legend:',
         'games.clearFavorite': 'Clear Favorite',
         'games.clearFavoriteBonus': 'x1',
         'games.drawBonus': 'Draw Bonus',
         'games.outsiderWinBonus': 'Outsider Win',
+        'games.matchdayShortPrefix': 'J',
       };
       let result = translations[key] || key;
       if (params) {
@@ -165,6 +179,30 @@ const mockUseAuth = useAuth as jest.Mock;
 // Shared mock functions
 const mockSubmitBet = jest.fn();
 const mockRefresh = jest.fn();
+
+// Helper to create a minimal SeasonMatch-like mock object
+function makeMatch(status: 'finished' | 'scheduled' | 'in-progress', daysFromNow = 0) {
+  const date = new Date('2024-01-15T10:00:00Z');
+  date.setDate(date.getDate() + daysFromNow);
+  return {
+    id: () => `match-test-${status}`,
+    isFinished: () => status === 'finished',
+    isInProgress: () => status === 'in-progress',
+    hasStarted: () => status !== 'scheduled',
+    hasClearFavorite: () => false,
+    getFavoriteTeam: () => '',
+    getHomeTeam: () => 'Home FC',
+    getAwayTeam: () => 'Away FC',
+    getHomeGoals: () => 1,
+    getAwayGoals: () => 0,
+    getHomeTeamOdds: () => 1.8,
+    getAwayTeamOdds: () => 2.0,
+    getDrawOdds: () => 3.2,
+    getDate: () => date,
+    getMatchday: () => 19,
+    matchday: 19,
+  };
+}
 
 describe('MatchesList with Bet Synchronization', () => {
   beforeEach(() => {
@@ -478,6 +516,7 @@ describe('MatchesList with Bet Synchronization', () => {
     });
 
     it('allows retrying failed bets', async () => {
+
       mockUseBetSynchronization.mockReturnValue({
         syncOpportunity: {
           sourceGameId: 'game-2',
@@ -520,5 +559,106 @@ describe('MatchesList with Bet Synchronization', () => {
         expect(screen.queryByText('Partial Synchronization')).toBeNull();
       });
     });
+  });
+});
+
+describe('MatchesList - points badge display', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ player: { id: 'player-1', name: 'Test Player' }, token: 'test-token' });
+    mockUseBetSubmission.mockReturnValue({ submitBet: jest.fn(), loading: false, error: null });
+    mockUseBetSynchronization.mockReturnValue({ syncOpportunity: null, loading: false, error: null, refetch: jest.fn() });
+  });
+
+  it('shows positive points badge in green for a won finished match', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {},
+      pastMatches: {
+        'match-1': {
+          match: makeMatch('finished'),
+          bets: null,
+          scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 3 } },
+          playerBetStatuses: null,
+        },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" />);
+    await waitFor(() => expect(screen.getByText('+3 points')).toBeTruthy());
+  });
+
+  it('shows 0 points badge in red for a finished match with wrong prediction', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {},
+      pastMatches: {
+        'match-1': {
+          match: makeMatch('finished'),
+          bets: null,
+          scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 0 } },
+          playerBetStatuses: null,
+        },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" />);
+    await waitFor(() => expect(screen.getByText('0 points')).toBeTruthy());
+  });
+
+  it('shows "No prono" badge when finished match has no score entry for player', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {},
+      pastMatches: {
+        'match-1': {
+          match: makeMatch('finished'),
+          bets: null,
+          scores: null,
+          playerBetStatuses: null,
+        },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" />);
+    await waitFor(() => expect(screen.getByText('No prono')).toBeTruthy());
+  });
+
+  it('shows "No prono" badge for a future match with no bet placed', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-1': {
+          match: makeMatch('scheduled', 3),
+          bets: null,
+          scores: null,
+          playerBetStatuses: null,
+        },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" />);
+    await waitFor(() => expect(screen.getByText('No prono')).toBeTruthy());
+  });
+
+  it('does not show "No prono" badge for a future match where the player has already bet', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-1': {
+          match: makeMatch('scheduled', 3),
+          bets: {
+            'player-1': { playerId: 'player-1', playerName: 'Test Player', predictedHomeGoals: 2, predictedAwayGoals: 1, isModifiable: () => true },
+          },
+          scores: null,
+          playerBetStatuses: null,
+        },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" />);
+    await waitFor(() => expect(screen.queryByText('No prono')).toBeNull());
   });
 });

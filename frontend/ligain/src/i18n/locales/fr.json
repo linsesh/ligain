@@ -90,6 +90,7 @@
     "drawBonus": "Multiplicateur bonus match nul",
     "outsiderWinBonus": "Multiplicateur bonus victoire outsider",
     "goodResultTag": "Bon résultat",
+    "noBet": "Pas de prono",
     "inProgressTag": "En cours",
     "finishedNoPointsTag": "Terminé (aucun point)",
     "negativePointsTag": "pas de prédiction",

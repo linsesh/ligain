@@ -132,21 +132,21 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
         tagText = `+${points} points`;
         tagVariant = 'success';
         hasTag = true;
-      } else if (typeof points === 'number' && points < 0) {
-        tagText = `${points} points (${t('games.negativePointsTag')})`;
-        tagVariant = 'negative';
-        hasTag = true;
       } else {
-        tagText = `0 points`;
-        tagVariant = 'finished';
+        tagText = `${points} points`;
+        tagVariant = 'negative';
         hasTag = true;
       }
     } else {
-      // No score entry means no bet was placed, show 0 points
-      tagText = `0 points`;
-      tagVariant = 'finished';
+      // No score entry means no bet was placed
+      tagText = t('games.noBet');
+      tagVariant = 'primary';
       hasTag = true;
     }
+  } else if (isFuture && (!matchResult.bets || !matchResult.bets[player?.id ?? ''])) {
+    tagText = t('games.noBet');
+    tagVariant = 'primary';
+    hasTag = true;
   }
 
   // Determine card style: always greyed out if finished
@@ -178,11 +178,6 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           </TouchableOpacity>
         </View>
       )}
-      <View style={styles.topRightContainer}>
-        {tagText && typeof tagVariant === 'string' && (
-          <StatusTag text={tagText} variant={tagVariant} style={styles.statusTag} />
-        )}
-      </View>
       <View style={styles.bettingContainer}>
         {/* Only show the current user's bet for future matches */}
         {isFuture ? (
@@ -229,6 +224,11 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
           </>
         )}
       </View>
+      {tagText && typeof tagVariant === 'string' && (
+        <View style={styles.tagCenterContainer}>
+          <StatusTag text={tagText} variant={tagVariant} style={styles.statusTagWide} />
+        </View>
+      )}
       {/* Odds display */}
       {/* <View style={styles.oddsContainer}>
         <View style={styles.oddsRow}>
@@ -318,8 +318,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                     });
                     if (!userRow && player) {
                       userRow = (
-                        <View key={player.id} style={styles.playerScoreRow}>
-                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
+                        <View key={player!.id} style={styles.playerScoreRow}>
+                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player!.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
                         </View>
                       );
                     }
@@ -352,8 +352,8 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
                     });
                     if (!userRow && player) {
                       userRow = (
-                        <View key={player.id} style={styles.playerScoreRow}>
-                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
+                        <View key={player!.id} style={styles.playerScoreRow}>
+                          <Text className="font-hk-bold" style={[styles.scoreText]}> {player!.name} ({t('common.me')}): <Text style={{ fontStyle: 'italic', color: '#999' }}>{t('games.negativePointsTag')}</Text> </Text>
                         </View>
                       );
                     }
@@ -979,8 +979,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     position: 'relative',
   },
-  matchCardWithTag: {
-    paddingTop: 48,
+  matchCardWithTag: {},
+  tagCenterContainer: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  statusTagWide: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    alignSelf: 'center',
   },
   finishedMatchCard: {
     backgroundColor: colors.cardFinished,
