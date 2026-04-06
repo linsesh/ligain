@@ -90,6 +90,7 @@
     "drawBonus": "Draw bonus multiplier",
     "outsiderWinBonus": "Outsider win bonus multiplier",
     "goodResultTag": "Good result",
+    "noBet": "No prono",
     "inProgressTag": "In progress",
     "finishedNoPointsTag": "Finished (no points)",
     "negativePointsTag": "no guess",
