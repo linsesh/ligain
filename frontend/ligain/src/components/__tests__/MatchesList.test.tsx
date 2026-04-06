@@ -1,12 +1,10 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import MatchesList from '../MatchesList';
-import { useBetPlacement } from '../../../hooks/useBetPlacement';
 import { useMatches } from '../../../hooks/useMatches';
 import { useAuth } from '../../contexts/AuthContext';
 
 // Mock the hooks - these are our boundaries
-jest.mock('../../../hooks/useBetPlacement');
 jest.mock('../../../hooks/useMatches');
 jest.mock('../../contexts/AuthContext');
 
@@ -80,9 +78,7 @@ jest.mock('react-native', () => {
     Text: 'Text',
     TouchableOpacity: 'TouchableOpacity',
     ScrollView: 'ScrollView',
-    TextInput: 'TextInput',
     ActivityIndicator: 'ActivityIndicator',
-    KeyboardAvoidingView: 'KeyboardAvoidingView',
     RefreshControl: 'RefreshControl',
     Image: 'Image',
     Animated: {
@@ -91,10 +87,6 @@ jest.mock('react-native', () => {
     },
     Modal: ({ children, visible }: any) => visible ? children : null,
     Alert: { alert: jest.fn() },
-    Keyboard: {
-      addListener: jest.fn(() => ({ remove: jest.fn() })),
-      dismiss: jest.fn(),
-    },
     useWindowDimensions: () => ({ width: 400, height: 800 }),
     Dimensions: { get: () => ({ width: 400, height: 800 }) },
     StyleSheet: RN.StyleSheet,
@@ -157,12 +149,10 @@ jest.mock('../../constants/colors', () => ({
 }));
 
 // Get mocked functions
-const mockUseBetPlacement = useBetPlacement as jest.Mock;
 const mockUseMatches = useMatches as jest.Mock;
 const mockUseAuth = useAuth as jest.Mock;
 
 // Shared mock functions
-const mockPlaceBet = jest.fn();
 const mockRefresh = jest.fn();
 
 // Helper to create a minimal SeasonMatch-like mock object
@@ -193,7 +183,6 @@ describe('MatchesList - points badge display', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({ player: { id: 'player-1', name: 'Test Player' }, token: 'test-token' });
-    mockUseBetPlacement.mockReturnValue({ placeBet: mockPlaceBet, isSubmitting: false, error: null, lastFailedMatchId: null });
   });
 
   it('shows positive points badge in green for a won finished match', async () => {

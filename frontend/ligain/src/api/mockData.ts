@@ -203,6 +203,8 @@ const createIncomingMatch = (
     awayTeamOdds: odds[2],
     matchday,
     status: 'scheduled',
+    competitionCode: 'L1',
+    seasonCode: '2425',
   },
   bet: userBet ? { prediction: userBet } : undefined,
 });
@@ -233,6 +235,8 @@ const createPastMatch = (
       status: 'finished',
       homeGoals: score[0],
       awayGoals: score[1],
+      competitionCode: 'L1',
+      seasonCode: '2425',
     },
     allBets: betsWithPoints,
   };

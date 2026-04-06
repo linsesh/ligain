@@ -63,6 +63,7 @@ export default function Layout() {
                             <Stack.Screen name="(tabs)" />
                             <Stack.Screen name="about" />
                             <Stack.Screen name="game/[id]" />
+                            <Stack.Screen name="match/[id]" />
                           </Stack>
                         </View>
                       </AuthGuard>
