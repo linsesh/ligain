@@ -30,6 +30,17 @@ export const formatShortDate = (date: Date): string => {
 };
 
 /**
+ * Format a date for match detail header (e.g., "lun. 21 juil.")
+ */
+export const formatMatchHeaderDate = (date: Date): string => {
+  return date.toLocaleDateString(getCurrentLocale(), {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+};
+
+/**
  * Format a date to display date and time
  */
 export const formatDateTime = (date: Date): string => {
