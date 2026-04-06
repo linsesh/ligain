@@ -1,7 +1,6 @@
 import { View } from 'react-native';
-import { Text } from './ui/Text';
 import { useGridCellSize } from '../hooks/useGridCellSize';
-import { colors } from '../constants/colors';
+import { GridTag } from './ui/GridTag';
 
 function formatSeasonShort(seasonYear: string): string {
   const parts = seasonYear.split(/[-\/]/);
@@ -21,13 +20,9 @@ export function SeasonBanner({ seasonYear, competitionName, className }: SeasonB
 
   return (
     <View style={{ width: '100%', alignItems: 'center' }} className={className}>
-    <View
-      style={{ height: cellSize, backgroundColor: colors.black, justifyContent: 'center', alignItems: 'center', width: cellSize * 7 }}
-    >
-      <Text className="font-hk-semibold text-white text-sm tracking-wide">
-        {label}
-      </Text>
-    </View>
+      <View style={{ width: cellSize * 7 }}>
+        <GridTag label={label} />
+      </View>
     </View>
   );
 }

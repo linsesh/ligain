@@ -92,6 +92,7 @@
     "goodResultTag": "Good result",
     "noBet": "No prono",
     "inProgressTag": "In progress",
+    "placeBet": "Place bet",
     "finishedNoPointsTag": "Finished (no points)",
     "negativePointsTag": "no guess",
     "playersBets": "Players' guesses",

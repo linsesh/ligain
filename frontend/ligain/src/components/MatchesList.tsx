@@ -180,7 +180,23 @@ function MatchCard({ matchResult, gameId }: {
   return (
     <TouchableOpacity
       style={cardStyle}
-      onPress={() => router.push({ pathname: '/match/[id]', params: { id: matchResult.match.id(), gameId } })}
+      onPress={() => router.push({
+        pathname: '/match/[id]',
+        params: {
+          id: matchResult.match.id(),
+          gameId,
+          matchday: String(matchResult.match.getMatchday()),
+          date: matchResult.match.getDate().toISOString(),
+          homeTeam: matchResult.match.getHomeTeam(),
+          awayTeam: matchResult.match.getAwayTeam(),
+          betHomeGoals: player && matchResult.bets?.[player.id]
+            ? String(matchResult.bets[player.id].predictedHomeGoals)
+            : '',
+          betAwayGoals: player && matchResult.bets?.[player.id]
+            ? String(matchResult.bets[player.id].predictedAwayGoals)
+            : '',
+        },
+      })}
       activeOpacity={0.8}
     >
       {/* Share Button */}

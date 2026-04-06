@@ -92,6 +92,7 @@
     "goodResultTag": "Bon résultat",
     "noBet": "Pas de prono",
     "inProgressTag": "En cours",
+    "placeBet": "Valider le prono",
     "finishedNoPointsTag": "Terminé (aucun point)",
     "negativePointsTag": "pas de prédiction",
     "playersBets": "Prédictions des joueurs",
