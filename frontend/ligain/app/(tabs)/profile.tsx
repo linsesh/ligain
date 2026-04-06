@@ -26,6 +26,7 @@ import { formatShortDate } from '../../src/utils/dateUtils';
 import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
 import { mapPlayerFromBackend } from '../../src/api';
 import { useNotifications } from '../../src/hooks/useNotifications';
+import { useAutoReplicateBets } from '../../src/hooks/useAutoReplicateBets';
 import { PlayerAvatar } from '../../src/components/PlayerAvatar';
 import { AvatarEditor } from '../../src/components/AvatarEditor';
 
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
   // Notification preferences management
   // This hook provides permission status and toggle functionality
   const { preferences, setNotificationEnabled, requestPermissions } = useNotifications();
+  const { enabled: autoReplicate, isLoading: autoReplicateLoading, toggle: toggleAutoReplicate } = useAutoReplicateBets();
   const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -373,6 +375,21 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             )}
+
+            <View style={styles.infoRow}>
+              <Ionicons name="copy-outline" size={20} color={colors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                {t('settings.autoReplicateBets')}:
+              </Text>
+              <View style={{ flex: 0.7 }} />
+              <Switch
+                value={autoReplicate}
+                onValueChange={toggleAutoReplicate}
+                disabled={autoReplicateLoading}
+                trackColor={{ false: colors.border, true: colors.secondary }}
+                thumbColor={autoReplicate ? colors.primary : colors.textSecondary}
+              />
+            </View>
           </View>
 
           {/* Actions */}

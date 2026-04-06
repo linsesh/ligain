@@ -1,15 +1,12 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import MatchesList from '../MatchesList';
-import { useBetSynchronization } from '../../../hooks/useBetSynchronization';
-import { useBetSubmission } from '../../../hooks/useBetSubmission';
+import { useBetPlacement } from '../../../hooks/useBetPlacement';
 import { useMatches } from '../../../hooks/useMatches';
 import { useAuth } from '../../contexts/AuthContext';
-import { SeasonMatch } from '../../types/match';
 
 // Mock the hooks - these are our boundaries
-jest.mock('../../../hooks/useBetSynchronization');
-jest.mock('../../../hooks/useBetSubmission');
+jest.mock('../../../hooks/useBetPlacement');
 jest.mock('../../../hooks/useMatches');
 jest.mock('../../contexts/AuthContext');
 
@@ -121,17 +118,6 @@ jest.mock('../../hooks/useTranslation', () => ({
   useTranslation: () => ({
     t: (key: string, params?: any) => {
       const translations: Record<string, string> = {
-        'betSync.title': 'Synchronize Bets?',
-        'betSync.synchronize': 'Synchronize',
-        'betSync.notNow': 'Not now',
-        'betSync.success.title': 'Synchronization Complete',
-        'betSync.success.close': 'Close',
-        'betSync.failure.title': 'Synchronization Failed',
-        'betSync.failure.message': 'Failed to synchronize any bets. Please try again.',
-        'betSync.failure.close': 'Close',
-        'betSync.partialSuccess.title': 'Partial Synchronization',
-        'betSync.partialSuccess.retryFailed': 'Retry Failed',
-        'betSync.partialSuccess.close': 'Close',
         'common.loading': 'Loading...',
         'games.matchday': 'Matchday',
         'games.noBet': 'No prono',
@@ -171,13 +157,12 @@ jest.mock('../../constants/colors', () => ({
 }));
 
 // Get mocked functions
-const mockUseBetSynchronization = useBetSynchronization as jest.Mock;
-const mockUseBetSubmission = useBetSubmission as jest.Mock;
+const mockUseBetPlacement = useBetPlacement as jest.Mock;
 const mockUseMatches = useMatches as jest.Mock;
 const mockUseAuth = useAuth as jest.Mock;
 
 // Shared mock functions
-const mockSubmitBet = jest.fn();
+const mockPlaceBet = jest.fn();
 const mockRefresh = jest.fn();
 
 // Helper to create a minimal SeasonMatch-like mock object
@@ -204,370 +189,11 @@ function makeMatch(status: 'finished' | 'scheduled' | 'in-progress', daysFromNow
   };
 }
 
-describe('MatchesList with Bet Synchronization', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    // Setup default mocks
-    mockUseAuth.mockReturnValue({
-      player: { id: 'player-1', name: 'Test Player' },
-      token: 'test-token',
-    });
-
-    mockUseMatches.mockReturnValue({
-      incomingMatches: {},
-      pastMatches: {},
-      loading: false,
-      error: null,
-      refresh: mockRefresh,
-    });
-
-    mockUseBetSubmission.mockReturnValue({
-      submitBet: mockSubmitBet,
-      loading: false,
-      error: null,
-    });
-
-    mockUseBetSynchronization.mockReturnValue({
-      syncOpportunity: null,
-      loading: false,
-      error: null,
-      refetch: jest.fn(),
-    });
-  });
-
-  describe('Modal visibility', () => {
-    it('does not show modal when no sync opportunity exists', () => {
-      render(<MatchesList gameId="game-1" />);
-
-      expect(screen.queryByText('Synchronize Bets?')).toBeNull();
-    });
-
-    it('shows modal when sync opportunity exists', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize Bets?')).toBeTruthy();
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-        expect(screen.getByText('Not now')).toBeTruthy();
-      });
-    });
-
-    it('closes modal when "Not now" is pressed', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      render(<MatchesList gameId="game-1" />);
-
-      // Modal should be visible
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize Bets?')).toBeTruthy();
-      });
-
-      // Press "Not now"
-      fireEvent.press(screen.getByText('Not now'));
-
-      // Modal should close
-      expect(screen.queryByText('Synchronize Bets?')).toBeNull();
-    });
-
-    it('does not show modal again after dismissing for same game', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { rerender } = render(<MatchesList gameId="game-1" />);
-
-      // Dismiss modal
-      await waitFor(() => {
-        expect(screen.getByText('Not now')).toBeTruthy();
-      });
-      fireEvent.press(screen.getByText('Not now'));
-
-      // Rerender same game - modal should not appear
-      rerender(<MatchesList gameId="game-1" />);
-      expect(screen.queryByText('Synchronize Bets?')).toBeNull();
-    });
-
-    it('shows modal again when switching to different game', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      const { rerender } = render(<MatchesList gameId="game-1" />);
-
-      // Dismiss modal
-      await waitFor(() => {
-        expect(screen.getByText('Not now')).toBeTruthy();
-      });
-      fireEvent.press(screen.getByText('Not now'));
-
-      // Switch to different game - modal should appear again
-      rerender(<MatchesList gameId="game-3" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize Bets?')).toBeTruthy();
-      });
-    });
-  });
-
-  describe('Synchronization flow', () => {
-    it('submits bets when "Synchronize" is pressed', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-            { matchId: 'match-2', homeTeam: 'Team C', awayTeam: 'Team D', matchday: 2, predictedHomeGoals: 1, predictedAwayGoals: 0 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      mockSubmitBet.mockResolvedValue(undefined);
-      mockRefresh.mockResolvedValue(undefined);
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-      });
-
-      fireEvent.press(screen.getByText('Synchronize'));
-
-      await waitFor(() => {
-        expect(mockSubmitBet).toHaveBeenCalledTimes(2);
-      });
-
-      expect(mockSubmitBet).toHaveBeenCalledWith('match-1', 2, 1);
-      expect(mockSubmitBet).toHaveBeenCalledWith('match-2', 1, 0);
-      expect(mockRefresh).toHaveBeenCalled();
-    });
-
-    it('shows loading state during sync', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      // Make submitBet hang to test loading state
-      mockSubmitBet.mockImplementation(() => new Promise(() => {}));
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-      });
-
-      fireEvent.press(screen.getByText('Synchronize'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Loading...')).toBeTruthy();
-      });
-    });
-
-    it('closes modal after successful sync', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      mockSubmitBet.mockResolvedValue(undefined);
-      mockRefresh.mockResolvedValue(undefined);
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-      });
-
-      fireEvent.press(screen.getByText('Synchronize'));
-
-      await waitFor(() => {
-        expect(screen.queryByText('Synchronize Bets?')).toBeNull();
-      });
-    });
-  });
-
-  describe('Error handling', () => {
-    it('shows failure modal when all bets fail', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      mockSubmitBet.mockRejectedValue(new Error('Network error'));
-      mockRefresh.mockResolvedValue(undefined);
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-      });
-
-      fireEvent.press(screen.getByText('Synchronize'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronization Failed')).toBeTruthy();
-      });
-    });
-
-    it('shows partial success when some bets fail', async () => {
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-            { matchId: 'match-2', homeTeam: 'Team C', awayTeam: 'Team D', matchday: 2, predictedHomeGoals: 1, predictedAwayGoals: 0 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      // First succeeds, second fails
-      mockSubmitBet
-        .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new Error('Network error'));
-      mockRefresh.mockResolvedValue(undefined);
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-      });
-
-      fireEvent.press(screen.getByText('Synchronize'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Partial Synchronization')).toBeTruthy();
-        expect(screen.getByText('Retry Failed')).toBeTruthy();
-      });
-    });
-
-    it('allows retrying failed bets', async () => {
-
-      mockUseBetSynchronization.mockReturnValue({
-        syncOpportunity: {
-          sourceGameId: 'game-2',
-          sourceGameName: 'Game 2',
-          matchesToSync: [
-            { matchId: 'match-1', homeTeam: 'Team A', awayTeam: 'Team B', matchday: 1, predictedHomeGoals: 2, predictedAwayGoals: 1 },
-            { matchId: 'match-2', homeTeam: 'Team C', awayTeam: 'Team D', matchday: 2, predictedHomeGoals: 1, predictedAwayGoals: 0 },
-          ],
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      // First sync: first succeeds, second fails
-      mockSubmitBet
-        .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new Error('Network error'));
-      mockRefresh.mockResolvedValue(undefined);
-
-      render(<MatchesList gameId="game-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Synchronize')).toBeTruthy();
-      });
-
-      fireEvent.press(screen.getByText('Synchronize'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Retry Failed')).toBeTruthy();
-      });
-
-      // Retry succeeds
-      mockSubmitBet.mockResolvedValueOnce(undefined);
-
-      fireEvent.press(screen.getByText('Retry Failed'));
-
-      // Modal should close after successful retry
-      await waitFor(() => {
-        expect(screen.queryByText('Partial Synchronization')).toBeNull();
-      });
-    });
-  });
-});
-
 describe('MatchesList - points badge display', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({ player: { id: 'player-1', name: 'Test Player' }, token: 'test-token' });
-    mockUseBetSubmission.mockReturnValue({ submitBet: jest.fn(), loading: false, error: null });
-    mockUseBetSynchronization.mockReturnValue({ syncOpportunity: null, loading: false, error: null, refetch: jest.fn() });
+    mockUseBetPlacement.mockReturnValue({ placeBet: mockPlaceBet, isSubmitting: false, error: null, lastFailedMatchId: null });
   });
 
   it('shows positive points badge in green for a won finished match', async () => {
