@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, ScrollView, useWindowDimensions } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from '../../src/hooks/useTranslation';
+import { colors } from '../../src/constants/colors';
 
-const ACCENTS = ['#f25702', '#e9a317', '#469dff', '#2e7d32', '#f25702', '#e9a317', '#f25702'];
+const ACCENT = colors.primary;
 
 function RuleItem({ title, accent, children }: { title: string; accent: string; children?: React.ReactNode }) {
   return (
@@ -115,7 +116,7 @@ export default function RulesScreen() {
         className="flex-1"
       >
         {sections.map((section, i) => {
-          const accent = ACCENTS[i];
+          const accent = ACCENT;
           return (
             <View key={i} style={{ width }} className="flex-1 px-4 pt-2 pb-4">
               <View className="flex-1 rounded-2xl bg-background overflow-hidden">
@@ -149,7 +150,7 @@ export default function RulesScreen() {
           <View
             key={i}
             style={{
-              backgroundColor: i === currentPage ? ACCENTS[i] : '#ccd2d7',
+              backgroundColor: i === currentPage ? ACCENT : colors.border,
               width: i === currentPage ? 16 : 8,
               height: 8,
             }}
