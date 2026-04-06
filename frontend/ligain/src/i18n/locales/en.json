@@ -111,7 +111,9 @@
     "general": "General",
     "currentMonthLeader": "Current month leader",
     "lastMonthWinner": "Last month winner",
-    "cumulativePointsByMatchday": "Cumulative points by matchday"
+    "cumulativePointsByMatchday": "Cumulative points by matchday",
+    "betReplicationFailed": "Bet Saved",
+    "betReplicationFailedMessage": "Your bet was saved, but couldn't be copied to: {{gameNames}}. Please check your internet connection."
   },
   "profile": {
     "noUserInfo": "No user information available",
@@ -152,6 +154,10 @@
       "cameraPermission": "Camera permission is required to take photos",
       "libraryPermission": "Photo library permission is required to choose images"
     }
+  },
+  "settings": {
+    "autoReplicateBets": "Copy bets to all league games",
+    "autoReplicateBetsDescription": "When you place a bet, it will automatically be copied to all your other games in the same league."
   },
   "notifications": {
     "title": "Notifications",
@@ -228,33 +234,6 @@
     "currentPlayer": "You",
     "score": "Score",
     "points": "points"
-  },
-  "betSync": {
-    "title": "Synchronize Bets?",
-    "message": "We noticed you placed bets on {{count}} future matches in '{{gameName}}'. Would you like to apply the same bets to this game?",
-    "onlyUnbetted": "Only matches where you haven't bet yet will be synchronized.",
-    "synchronize": "Synchronize",
-    "notNow": "Not now",
-    "matchesToSync": "{{count}} matches to sync:",
-    "matchday": "Matchday {{matchday}}: {{count}} matches",
-    "success": {
-      "title": "Synchronization Complete",
-      "message": "All {{count}} bets have been successfully synchronized.",
-      "close": "Close"
-    },
-    "partialSuccess": {
-      "title": "Partial Synchronization",
-      "message": "{{successful}} out of {{total}} bets were synchronized successfully.",
-      "successfulMatches": "Successfully synchronized:",
-      "failedMatches": "Failed to synchronize:",
-      "retryFailed": "Retry Failed",
-      "close": "Close"
-    },
-    "failure": {
-      "title": "Synchronization Failed",
-      "message": "Failed to synchronize any bets. Please try again.",
-      "close": "Close"
-    }
   },
   "share": {
     "matchResult": "Share result",

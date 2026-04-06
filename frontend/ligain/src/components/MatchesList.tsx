@@ -3,8 +3,7 @@ import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpac
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useMatches } from '../../hooks/useMatches';
-import { useBetSubmission } from '../../hooks/useBetSubmission';
-import { useBetSynchronization } from '../../hooks/useBetSynchronization';
+import { useBetPlacement } from '../../hooks/useBetPlacement';
 import { useMatchNotifications } from '../hooks/useMatchNotifications';
 import { useAuth } from '../contexts/AuthContext';
 import { useGames } from '../contexts/GamesContext';
@@ -13,7 +12,6 @@ import { formatTime, formatDate } from '../utils/dateUtils';
 import { colors } from '../constants/colors';
 import { sharedStyles } from '../constants/sharedStyles';
 import StatusTag from './StatusTag';
-import { BetSyncModal, SyncResult } from './BetSyncModal';
 import ShareableMatchResult from './ShareableMatchResult';
 import { captureAndShareWithOptions, formatDateForShare } from '../utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
@@ -44,13 +42,13 @@ function TeamInput({ teamName, value, onChange, canModify, isAway = false, onFoc
       <View style={[styles.logoAndNameContainer, isAway && styles.awayLogoAndNameContainer]}>
         {TeamLogo && (
           isPngLogo(TeamLogo) ? (
-            <Image 
-              source={TeamLogo} 
-              style={{ width: 40, height: 40, backgroundColor: 'transparent' }}
+            <Image
+              source={TeamLogo}
+              style={{ width: 56, height: 56, backgroundColor: 'transparent' }}
               resizeMode="contain"
             />
           ) : (
-            <TeamLogo width={40} height={40} />
+            <TeamLogo width={56} height={56} />
           )
         )}
         <Text style={[styles.teamName, isAway && styles.awayTeamName]}>
@@ -162,21 +160,19 @@ function MatchCard({ matchResult, tempScores, expandedMatches, onBetChange, onTo
       style={cardStyle}
       ref={onRef}
     >
-      {/* Status Tag and Share Button */}
+      {/* Share Button */}
       {matchResult.match.isFinished() && (
-        <View style={styles.topLeftContainer}>
-          <TouchableOpacity
-            style={sharedStyles.shareButton}
-            onPress={handleShareMatch}
-            disabled={isSharing}
-          >
-            <Ionicons 
-              name={isSharing ? "hourglass-outline" : "share-outline"} 
-              size={20} 
-              color={isSharing ? colors.textSecondary : "#000000"} 
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.shareButtonBottomRight}
+          onPress={handleShareMatch}
+          disabled={isSharing}
+        >
+          <Ionicons
+            name={isSharing ? "hourglass-outline" : "share-outline"}
+            size={20}
+            color={isSharing ? colors.textSecondary : "#000000"}
+          />
+        </TouchableOpacity>
       )}
       <View style={styles.bettingContainer}>
         {/* Only show the current user's bet for future matches */}
@@ -416,15 +412,6 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const matchCardRefs = React.useRef<{ [key: string]: View | null }>({});
 
-  // Bet synchronization state
-  const { syncOpportunity, loading: syncLoading, refetch: refetchSync } = useBetSynchronization(gameId);
-  const [showSyncModal, setShowSyncModal] = useState(false);
-  const [syncModalShownForGame, setSyncModalShownForGame] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const [syncModalMode, setSyncModalMode] = useState<'initial' | 'success' | 'partialSuccess' | 'failure'>('initial');
-  const [failedBetsToRetry, setFailedBetsToRetry] = useState<SyncResult['failed']>([]);
-
   // Combine incoming and past matches
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
 
@@ -538,8 +525,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
     }
   };
 
-  // Use the new onFail callback in useBetSubmission
-  const { submitBet, isSubmitting, error: submitError } = useBetSubmission(gameId, resetTempScoreToServer);
+  const { placeBet: submitBet, isSubmitting, error: submitError } = useBetPlacement(gameId, resetTempScoreToServer);
 
   useEffect(() => {
     if (submitError) {
@@ -550,28 +536,6 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
       );
     }
   }, [submitError, t]);
-
-  // Show sync modal when opportunity exists and not shown for this game
-  useEffect(() => {
-    if (syncOpportunity && syncModalShownForGame !== gameId) {
-      setShowSyncModal(true);
-      setSyncModalShownForGame(gameId);
-    }
-  }, [syncOpportunity, gameId, syncModalShownForGame]);
-
-  // Reset sync modal state when game changes (but not on initial mount)
-  const prevGameIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (prevGameIdRef.current !== null && prevGameIdRef.current !== gameId) {
-      setSyncModalShownForGame(null);
-      setShowSyncModal(false);
-      setIsSyncing(false);
-      setSyncResult(null);
-      setSyncModalMode('initial');
-      setFailedBetsToRetry([]);
-    }
-    prevGameIdRef.current = gameId;
-  }, [gameId]);
 
   const toggleBetSection = (matchId: string) => {
     setExpandedMatches(prev => ({
@@ -627,120 +591,6 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
   const handleDone = () => {
     setEditingMatchId(null);
     Keyboard.dismiss();
-  };
-
-  // Sync handlers
-  const handleSyncSynchronize = async () => {
-    if (!syncOpportunity) return;
-    
-    setIsSyncing(true);
-    const results: SyncResult = { successful: [], failed: [] };
-    
-    try {
-      // Submit bets for each match to sync individually
-      for (const matchToSync of syncOpportunity.matchesToSync) {
-        try {
-          await submitBet(
-            matchToSync.matchId,
-            matchToSync.predictedHomeGoals,
-            matchToSync.predictedAwayGoals
-          );
-          results.successful.push(matchToSync);
-        } catch (error) {
-          console.error(`Failed to sync bet for match ${matchToSync.matchId}:`, error);
-          results.failed.push({ match: matchToSync, error });
-        }
-      }
-      
-      // Always refresh to show current state
-      await refresh();
-      
-      // Set the results and determine modal mode
-      setSyncResult(results);
-      
-      if (results.failed.length === 0) {
-        // All successful - close modal immediately (current behavior)
-        setShowSyncModal(false);
-        setSyncResult(null);
-        setSyncModalMode('initial');
-        setFailedBetsToRetry([]);
-        return;
-      } else if (results.successful.length > 0) {
-        // Partial success
-        setSyncModalMode('partialSuccess');
-        setFailedBetsToRetry(results.failed);
-      } else {
-        // All failed
-        setSyncModalMode('failure');
-      }
-    } catch (error) {
-      console.error('Error during sync process:', error);
-      setSyncModalMode('failure');
-      setSyncResult({ successful: [], failed: [] });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleSyncNotNow = () => {
-    setShowSyncModal(false);
-    setSyncResult(null);
-    setSyncModalMode('initial');
-    setFailedBetsToRetry([]);
-  };
-
-
-
-
-  const handleRetryFailed = async () => {
-    if (failedBetsToRetry.length === 0) return;
-    
-    setIsSyncing(true);
-    const retryResults: SyncResult = { successful: [], failed: [] };
-    
-    try {
-      // Retry only the failed bets
-      for (const failedBet of failedBetsToRetry) {
-        try {
-          await submitBet(
-            failedBet.match.matchId,
-            failedBet.match.predictedHomeGoals,
-            failedBet.match.predictedAwayGoals
-          );
-          retryResults.successful.push(failedBet.match);
-        } catch (error) {
-          console.error(`Retry failed for match ${failedBet.match.matchId}:`, error);
-          retryResults.failed.push(failedBet);
-        }
-      }
-      
-      // Refresh to show updated state
-      await refresh();
-      
-      // Update results with retry results
-      const updatedResults: SyncResult = {
-        successful: [...(syncResult?.successful || []), ...retryResults.successful],
-        failed: retryResults.failed
-      };
-      
-      setSyncResult(updatedResults);
-      
-      if (retryResults.failed.length === 0) {
-        setShowSyncModal(false);
-        setSyncResult(null);
-        setSyncModalMode('initial');
-        setFailedBetsToRetry([]);
-        return;
-      } else {
-        setSyncModalMode('partialSuccess');
-        setFailedBetsToRetry(retryResults.failed);
-      }
-    } catch (error) {
-      console.error('Error during retry:', error);
-      setSyncModalMode('failure');
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   useEffect(() => {
@@ -930,17 +780,6 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
         </View>
       </ScrollView>
       
-      {/* Bet Synchronization Modal */}
-      <BetSyncModal
-        visible={showSyncModal}
-        syncOpportunity={syncOpportunity}
-        onSynchronize={handleSyncSynchronize}
-        onNotNow={handleSyncNotNow}
-        onRetryFailed={handleRetryFailed}
-        loading={isSyncing}
-        syncResult={syncResult}
-        mode={syncModalMode}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -1094,13 +933,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  topLeftContainer: {
+  shareButtonBottomRight: {
     position: 'absolute',
-    top: 8,
-    left: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
+    bottom: 8,
+    right: 8,
     zIndex: 1,
+    padding: 4,
   },
   statusTag: {
     marginRight: 8,
