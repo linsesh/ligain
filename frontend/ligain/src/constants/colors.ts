@@ -22,4 +22,5 @@ export const colors = {
   bronze: '#CD7F32', // Bronze for 3rd place
   loadingBackground: '#e4e9ef',
   gridLine: '#ccd2d7',
+  darkSurface: '#2c2c2e',
 } as const;

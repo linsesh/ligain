@@ -147,6 +147,26 @@ const UpdateRequiredModal = () => {
 };
 ```
 
+### Domain Objects Own Business Logic
+
+Business logic lives in domain classes (`SeasonMatch`, `Bet`, etc.), not in components or hooks. When displaying derived state, call the domain object's methods and pass the result down — never re-implement the rule at the UI layer.
+
+**Bad — re-deriving logic in a component:**
+```tsx
+// BAD: component knows about odds thresholds
+const hasFavorite = Math.abs(homeOdds - awayOdds) > 1.5;
+```
+
+**Good — ask the domain object:**
+```tsx
+// GOOD: SeasonMatch already knows this
+const hasFavorite = match.hasClearFavorite();
+const favorite = match.getFavoriteTeam();
+// pass these down as props or URL params
+```
+
+This applies to any derived fact: whether a match has started, who the favorite is, whether a bet is modifiable, etc. Check the model class first.
+
 ## Key Conventions
 
 **Testing — TDD is mandatory, not optional:**

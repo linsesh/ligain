@@ -21,6 +21,11 @@ export default function MatchDetailScreen() {
     awayTeam,
     betHomeGoals,
     betAwayGoals,
+    homeTeamOdds,
+    awayTeamOdds,
+    drawOdds,
+    hasClearFavorite,
+    favoriteTeam,
   } = useLocalSearchParams<{
     id: string;
     gameId: string;
@@ -30,6 +35,11 @@ export default function MatchDetailScreen() {
     awayTeam: string;
     betHomeGoals: string;
     betAwayGoals: string;
+    homeTeamOdds: string;
+    awayTeamOdds: string;
+    drawOdds: string;
+    hasClearFavorite: string;
+    favoriteTeam: string;
   }>();
 
   const router = useRouter();
@@ -47,6 +57,11 @@ export default function MatchDetailScreen() {
 
   const editable = matchDate ? matchDate > new Date() : false;
 
+  const homeOdds = homeTeamOdds ? parseFloat(homeTeamOdds) : undefined;
+  const awayOdds = awayTeamOdds ? parseFloat(awayTeamOdds) : undefined;
+  const dOdds = drawOdds ? parseFloat(drawOdds) : undefined;
+  const clearFavorite = hasClearFavorite === 'true';
+
   useBetAutoSubmit(
     editable ? homeGoals : '',
     editable ? awayGoals : '',
@@ -59,18 +74,18 @@ export default function MatchDetailScreen() {
       {/* Transparent grid zone — back button + header tags */}
       <TouchableOpacity
         onPress={() => router.back()}
-        style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize }}
+        style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize, marginTop: -cellSize }}
       >
         <Ionicons name="arrow-back" size={24} color={colors.text} />
       </TouchableOpacity>
-      <View style={{ flexDirection: 'row', marginLeft: cellSize }}>
+      <View style={{ flexDirection: 'row', marginLeft: cellSize, marginTop: cellSize }}>
         <GridTag label={dateLabel} />
         <GridTag label={timeLabel} backgroundColor={colors.textSecondary} />
         <GridTag label={matchdayLabel} />
       </View>
 
-      {/* Opaque grey content zone */}
-      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 24 }}>
+      {/* Opaque grey content zone — natural height so grid shows below */}
+      <View style={{ backgroundColor: colors.background, paddingTop: 24 }}>
         <MatchBetCard
           homeTeam={homeTeam || ''}
           awayTeam={awayTeam || ''}
@@ -79,6 +94,11 @@ export default function MatchDetailScreen() {
           onHomeGoalsChange={setHomeGoals}
           onAwayGoalsChange={setAwayGoals}
           editable={editable}
+          homeTeamOdds={homeOdds}
+          awayTeamOdds={awayOdds}
+          drawOdds={dOdds}
+          hasClearFavorite={clearFavorite}
+          favoriteTeam={favoriteTeam || ''}
         />
       </View>
     </View>

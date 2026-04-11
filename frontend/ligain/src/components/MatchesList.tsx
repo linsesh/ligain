@@ -195,6 +195,11 @@ function MatchCard({ matchResult, gameId }: {
           betAwayGoals: player && matchResult.bets?.[player.id]
             ? String(matchResult.bets[player.id].predictedAwayGoals)
             : '',
+          homeTeamOdds: String(matchResult.match.getHomeTeamOdds()),
+          awayTeamOdds: String(matchResult.match.getAwayTeamOdds()),
+          drawOdds: String(matchResult.match.getDrawOdds()),
+          hasClearFavorite: String(matchResult.match.hasClearFavorite()),
+          favoriteTeam: matchResult.match.getFavoriteTeam(),
         },
       })}
       activeOpacity={0.8}

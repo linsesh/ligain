@@ -114,7 +114,10 @@
     "lastMonthWinner": "Vainqueur du mois dernier",
     "cumulativePointsByMatchday": "Points cumulés par journée",
     "betReplicationFailed": "Prédiction Sauvegardée",
-    "betReplicationFailedMessage": "Ta prédiction a été sauvegardée, mais n'a pas pu être copiée vers : {{gameNames}}. Vérifie ta connexion internet."
+    "betReplicationFailedMessage": "Ta prédiction a été sauvegardée, mais n'a pas pu être copiée vers : {{gameNames}}. Vérifie ta connexion internet.",
+    "homeWin": "Victoire dom.",
+    "draw": "Nul",
+    "awayWin": "Victoire ext."
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",
