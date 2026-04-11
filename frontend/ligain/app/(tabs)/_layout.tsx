@@ -37,14 +37,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="games"
-        options={{
-          href: null, // Hide from tab bar
-          headerShown: false, // Hide the tab header
-        }}
-      />
-      <Tabs.Screen
+<Tabs.Screen
         name="rules"
         options={{
           title: t('navigation.rules'),
