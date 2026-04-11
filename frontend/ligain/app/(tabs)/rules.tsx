@@ -99,9 +99,50 @@ export default function RulesScreen() {
     },
     {
       titleKey: 'rules.completeExample',
-      content: (accent: string) => (
-        <Text className="text-base text-foreground-secondary leading-6">{t('rules.completeExampleText')}</Text>
-      ),
+      content: (accent: string) => {
+        const lines = t('rules.completeExampleText').split('\n');
+        // Highlight: quoted strings, scores (1-1), multipliers (×1,5), percentages (+25%), numbers with points
+        const HIGHLIGHT = /("(?:[^"]+)"|\d+-\d+|\+\d+%|×\s*[\d,.]+|\d+(?:[,.]?\d+)?\s*points?)/gi;
+        const renderLine = (line: string) => {
+          const indented = line.startsWith(' ');
+          const trimmed = line.trimStart();
+          const parts: { text: string; highlight: boolean }[] = [];
+          let last = 0;
+          let m: RegExpExecArray | null;
+          HIGHLIGHT.lastIndex = 0;
+          while ((m = HIGHLIGHT.exec(trimmed)) !== null) {
+            if (m.index > last) parts.push({ text: trimmed.slice(last, m.index), highlight: false });
+            parts.push({ text: m[0], highlight: true });
+            last = m.index + m[0].length;
+          }
+          if (last < trimmed.length) parts.push({ text: trimmed.slice(last), highlight: false });
+          return { indented, parts };
+        };
+        return (
+          <View className="rounded-xl overflow-hidden border border-border">
+            {lines.map((line, i) => {
+              const { indented, parts } = renderLine(line);
+              return (
+                <View
+                  key={i}
+                  style={{ backgroundColor: i % 2 === 0 ? colors.surface : colors.card }}
+                  className={`px-4 py-3 ${indented ? 'pl-8' : ''}`}
+                >
+                  <Text className="text-sm leading-5 text-foreground-secondary">
+                    {parts.map((part, j) =>
+                      part.highlight ? (
+                        <Text key={j} className="font-hk-semibold" style={{ color: accent }}>{part.text}</Text>
+                      ) : (
+                        <Text key={j}>{part.text}</Text>
+                      )
+                    )}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        );
+      },
     },
   ];
 
