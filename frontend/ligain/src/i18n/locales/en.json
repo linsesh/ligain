@@ -285,5 +285,11 @@
     "authenticationError": "Authentication Error",
     "serverUnavailable": "Ligain servers are not available for now. Please try again later.",
     "missingAuthContext": "Missing authentication context. Please try again."
+  },
+  "team": {
+    "position": "{{position}}th",
+    "points": "{{points}} pts",
+    "matchHistory": "Match history",
+    "noMatchHistory": "No finished matches yet"
   }
 } 
