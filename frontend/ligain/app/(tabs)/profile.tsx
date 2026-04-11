@@ -365,7 +365,6 @@ export default function ProfileScreen() {
             <Switch
               value={autoReplicate}
               onValueChange={toggleAutoReplicate}
-              disabled={autoReplicateLoading}
               trackColor={{ false: colors.border, true: colors.secondary }}
               thumbColor={autoReplicate ? colors.primary : colors.textSecondary}
             />

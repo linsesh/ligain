@@ -4,12 +4,12 @@ import { getItem, setItem } from '../utils/storage';
 const AUTO_REPLICATE_KEY = 'auto_replicate_bets_enabled';
 
 export const useAutoReplicateBets = () => {
-  const [enabled, setEnabled] = useState(true); // default ON
+  const [enabled, setEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     getItem(AUTO_REPLICATE_KEY).then(val => {
-      if (val !== null) setEnabled(val === 'true');
+      setEnabled(val !== null ? val === 'true' : true);
       setIsLoading(false);
     });
   }, []);
