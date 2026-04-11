@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 import { useBetPlacement } from '../../hooks/useBetPlacement';
 import { useBetAutoSubmit } from '../../hooks/useBetAutoSubmit';
+import { useGames } from '../../src/contexts/GamesContext';
+import { computeTeamForm } from '../../src/utils/standings';
 
 export default function MatchDetailScreen() {
   const {
@@ -51,6 +53,16 @@ export default function MatchDetailScreen() {
   const { t } = useTranslation();
   const cellSize = useGridCellSize();
   const { placeBet } = useBetPlacement(gameId);
+  const { allMatchesForStandings } = useGames();
+
+  const homeForm = useMemo(
+    () => homeTeamRaw ? computeTeamForm(homeTeamRaw, allMatchesForStandings) : [],
+    [homeTeamRaw, allMatchesForStandings]
+  );
+  const awayForm = useMemo(
+    () => awayTeamRaw ? computeTeamForm(awayTeamRaw, allMatchesForStandings) : [],
+    [awayTeamRaw, allMatchesForStandings]
+  );
 
   const [homeGoals, setHomeGoals] = useState(betHomeGoals || '');
   const [awayGoals, setAwayGoals] = useState(betAwayGoals || '');
@@ -107,8 +119,10 @@ export default function MatchDetailScreen() {
           drawOdds={dOdds}
           hasClearFavorite={clearFavorite}
           favoriteTeam={favoriteTeam || ''}
-          onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[name]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
-          onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[name]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
+          homeTeamForm={homeForm}
+          awayTeamForm={awayForm}
+          onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
+          onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
         />
       </View>
 

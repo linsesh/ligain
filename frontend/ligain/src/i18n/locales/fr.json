@@ -289,6 +289,8 @@
     "position": "{{position}}e",
     "points": "{{points}} pts",
     "matchHistory": "Historique",
-    "noMatchHistory": "Aucun match terminé"
+    "noMatchHistory": "Aucun match terminé",
+    "home": "Domicile",
+    "away": "Extérieur"
   }
 } 

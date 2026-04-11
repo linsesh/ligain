@@ -1,5 +1,5 @@
 import { SeasonMatch, MatchResult } from '../types/match';
-import { computeLeagueStandings, resolveCurrentMatchday, computeFingerprint } from './standings';
+import { computeLeagueStandings, resolveCurrentMatchday, computeFingerprint, computeTeamForm } from './standings';
 
 // Helper to build a minimal MatchResult for testing
 function makeMatch(opts: {
@@ -281,5 +281,95 @@ describe('computeFingerprint', () => {
       m1: makeMatch({ homeTeam: 'A', awayTeam: 'B', homeGoals: 1, awayGoals: 0, status: 'finished', matchday: MD, date: '2025-01-01T20:00:00Z' }),
     };
     expect(computeFingerprint(order1, MD)).toBe(computeFingerprint(order2, MD));
+  });
+});
+
+// ─── computeTeamForm ─────────────────────────────────────────────────────────
+
+describe('computeTeamForm', () => {
+  it('returns empty array when there are no matches', () => {
+    expect(computeTeamForm('PSG', {})).toEqual([]);
+  });
+
+  it('returns empty array for an unknown team name', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'A', awayTeam: 'B', homeGoals: 1, awayGoals: 0, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+    };
+    expect(computeTeamForm('Unknown', matches)).toEqual([]);
+  });
+
+  it('ignores non-finished matches', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'PSG', awayTeam: 'Lyon', homeGoals: 0, awayGoals: 0, status: 'scheduled', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+      m2: makeMatch({ homeTeam: 'PSG', awayTeam: 'Nice', homeGoals: 1, awayGoals: 1, status: 'in-progress', matchday: 2, date: '2025-01-08T20:00:00Z' }),
+    };
+    expect(computeTeamForm('PSG', matches)).toEqual([]);
+  });
+
+  it('returns W for a home win', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'PSG', awayTeam: 'Lyon', homeGoals: 2, awayGoals: 1, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+    };
+    expect(computeTeamForm('PSG', matches)).toEqual(['W']);
+  });
+
+  it('returns W for an away win', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'Lyon', awayTeam: 'PSG', homeGoals: 0, awayGoals: 2, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+    };
+    expect(computeTeamForm('PSG', matches)).toEqual(['W']);
+  });
+
+  it('returns D for a draw', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'PSG', awayTeam: 'Lyon', homeGoals: 1, awayGoals: 1, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+    };
+    expect(computeTeamForm('PSG', matches)).toEqual(['D']);
+  });
+
+  it('returns L for a home loss', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'PSG', awayTeam: 'Lyon', homeGoals: 0, awayGoals: 2, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+    };
+    expect(computeTeamForm('PSG', matches)).toEqual(['L']);
+  });
+
+  it('returns L for an away loss', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'Lyon', awayTeam: 'PSG', homeGoals: 3, awayGoals: 1, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+    };
+    expect(computeTeamForm('PSG', matches)).toEqual(['L']);
+  });
+
+  it('returns only the last 5 results when there are more than 5 finished matches', () => {
+    const matches: Record<string, MatchResult> = {};
+    for (let md = 1; md <= 7; md++) {
+      matches[`m${md}`] = makeMatch({ homeTeam: 'PSG', awayTeam: 'Opp', homeGoals: md, awayGoals: 0, status: 'finished', matchday: md, date: `2025-01-0${md}T20:00:00Z` });
+    }
+    const form = computeTeamForm('PSG', matches);
+    expect(form).toHaveLength(5);
+  });
+
+  it('is ordered oldest→newest (left→right), i.e. matchday ascending', () => {
+    const matches = {
+      m3: makeMatch({ homeTeam: 'PSG', awayTeam: 'C', homeGoals: 0, awayGoals: 1, status: 'finished', matchday: 3, date: '2025-01-15T20:00:00Z' }),
+      m1: makeMatch({ homeTeam: 'PSG', awayTeam: 'A', homeGoals: 2, awayGoals: 0, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+      m2: makeMatch({ homeTeam: 'PSG', awayTeam: 'B', homeGoals: 1, awayGoals: 1, status: 'finished', matchday: 2, date: '2025-01-08T20:00:00Z' }),
+    };
+    // md1=W, md2=D, md3=L → oldest first
+    expect(computeTeamForm('PSG', matches)).toEqual(['W', 'D', 'L']);
+  });
+
+  it('with > 5 matches, the last 5 by matchday are returned oldest→newest', () => {
+    const matches = {
+      m1: makeMatch({ homeTeam: 'PSG', awayTeam: 'A', homeGoals: 1, awayGoals: 0, status: 'finished', matchday: 1, date: '2025-01-01T20:00:00Z' }),
+      m2: makeMatch({ homeTeam: 'PSG', awayTeam: 'B', homeGoals: 0, awayGoals: 1, status: 'finished', matchday: 2, date: '2025-01-08T20:00:00Z' }),
+      m3: makeMatch({ homeTeam: 'PSG', awayTeam: 'C', homeGoals: 1, awayGoals: 1, status: 'finished', matchday: 3, date: '2025-01-15T20:00:00Z' }),
+      m4: makeMatch({ homeTeam: 'PSG', awayTeam: 'D', homeGoals: 2, awayGoals: 0, status: 'finished', matchday: 4, date: '2025-01-22T20:00:00Z' }),
+      m5: makeMatch({ homeTeam: 'PSG', awayTeam: 'E', homeGoals: 0, awayGoals: 0, status: 'finished', matchday: 5, date: '2025-01-29T20:00:00Z' }),
+      m6: makeMatch({ homeTeam: 'PSG', awayTeam: 'F', homeGoals: 3, awayGoals: 1, status: 'finished', matchday: 6, date: '2025-02-05T20:00:00Z' }),
+    };
+    // Last 5: md2(L), md3(D), md4(W), md5(D), md6(W)
+    expect(computeTeamForm('PSG', matches)).toEqual(['L', 'D', 'W', 'D', 'W']);
   });
 });

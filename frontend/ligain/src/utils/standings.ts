@@ -142,6 +142,31 @@ export function resolveCurrentMatchday(
   return closestMatchday;
 }
 
+export type FormResult = 'W' | 'D' | 'L';
+
+// Returns the last `limit` finished match outcomes for a team, ordered oldest→newest
+// (suitable for left-to-right display).
+export function computeTeamForm(
+  teamName: string,
+  matches: Record<string, MatchResult>,
+  limit = 5
+): FormResult[] {
+  return Object.values(matches)
+    .filter(({ match }) =>
+      match.isFinished() &&
+      (match.getHomeTeamForLogo() === teamName || match.getAwayTeamForLogo() === teamName)
+    )
+    .sort((a, b) => a.match.getMatchday() - b.match.getMatchday())
+    .slice(-limit)
+    .map(({ match }) => {
+      if (match.isDraw()) return 'D';
+      const isHome = match.getHomeTeamForLogo() === teamName;
+      const teamGoals = isHome ? match.getHomeGoals() : match.getAwayGoals();
+      const oppGoals  = isHome ? match.getAwayGoals() : match.getHomeGoals();
+      return teamGoals > oppGoals ? 'W' : 'L';
+    });
+}
+
 // Returns a stable string that changes if and only if a new match becomes
 // finished in the given matchday.  Pass undefined to get an empty string.
 export function computeFingerprint(
