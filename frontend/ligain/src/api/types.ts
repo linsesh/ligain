@@ -60,6 +60,8 @@ export interface MatchData {
     status: string;
     homeGoals?: number;
     awayGoals?: number;
+    competitionCode?: string;
+    seasonCode?: string;
   };
   bet?: {
     prediction: string;

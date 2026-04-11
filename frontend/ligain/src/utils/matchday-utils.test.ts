@@ -33,6 +33,7 @@ const createTestMatchResult = (
   match,
   bets,
   scores,
+  playerBetStatuses: null,
 });
 
 // Helper function to format time (same as in the component)

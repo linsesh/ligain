@@ -45,6 +45,7 @@ describe('useMatchNotifications', () => {
         } 
       } : null,
       scores: null,
+      playerBetStatuses: null,
     };
   };
 
@@ -211,6 +212,7 @@ describe('useMatchNotifications', () => {
         match,
         bets: null, // No bets object
         scores: null,
+        playerBetStatuses: null,
       };
 
       const mockScheduleNotification = jest.fn().mockResolvedValue('notif-id');
