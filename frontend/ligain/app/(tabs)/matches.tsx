@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -7,7 +7,6 @@ import { useGames } from '../../src/contexts/GamesContext';
 import { useTranslation } from 'react-i18next';
 import MatchesList from '../../src/components/MatchesList';
 import { SeasonBanner } from '../../src/components/SeasonBanner';
-import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 import { useLocalSearchParams } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -16,9 +15,8 @@ import { useUIEvent } from '../../src/contexts/UIEventContext';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
-  const cellSize = useGridCellSize();
   const { games, selectedGameId, setSelectedGameId, bestGameId, loading } = useGames();
-  const { player, isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
   const { setOpenJoinOrCreate } = useUIEvent();
   const [showGamePicker, setShowGamePicker] = useState(false);
@@ -65,10 +63,16 @@ export default function MatchesTabScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Game title */}
-      <Text className="font-hk-extrabold text-center text-4xl mb-5">
-        {selectedGame ? selectedGame.name : t('games.selectGame')}
-      </Text>
+      {/* Game title — tappable to open game picker */}
+      <TouchableOpacity
+        onPress={() => setShowGamePicker(true)}
+        className="flex-row items-center justify-center mb-5 gap-2"
+      >
+        <Text className="font-hk-extrabold text-center text-4xl">
+          {selectedGame ? selectedGame.name : t('games.selectGame')}
+        </Text>
+        <Ionicons name="chevron-down" size={24} color={colors.text} />
+      </TouchableOpacity>
 
       {/* Season banner */}
       {selectedGame && (
@@ -88,17 +92,6 @@ export default function MatchesTabScreen() {
           />
         </View>
       )}
-
-      {/* Game selector — bottom */}
-      <TouchableOpacity
-        style={styles.gameSelector}
-        onPress={() => setShowGamePicker(true)}
-      >
-        <Text className="font-hk-semibold" style={styles.gameSelectorText}>
-          {selectedGame ? selectedGame.name : t('games.selectGame')}
-        </Text>
-        <Ionicons name="chevron-down" size={20} color={colors.text} />
-      </TouchableOpacity>
 
       {/* Game Picker Modal */}
       {showGamePicker && (
@@ -124,7 +117,7 @@ export default function MatchesTabScreen() {
                   key={game.gameId}
                   label={game.name}
                   value={game.gameId}
-                  color="#fff"
+                  color={colors.text}
                 />
               ))}
             </Picker>
@@ -139,19 +132,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  gameSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  gameSelectorText: {
-    color: colors.text,
-    fontSize: 16,
   },
   pickerOverlay: {
     position: 'absolute',
