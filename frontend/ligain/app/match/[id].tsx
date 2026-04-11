@@ -74,7 +74,7 @@ export default function MatchDetailScreen() {
       {/* Transparent grid zone — back button + header tags */}
       <TouchableOpacity
         onPress={() => router.back()}
-        style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize, marginTop: -cellSize }}
+        style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize }}
       >
         <Ionicons name="arrow-back" size={24} color={colors.text} />
       </TouchableOpacity>
