@@ -58,10 +58,10 @@ export class BetImpl implements Bet {
 
     getPredictedResult(): string {
         if (this.predictedHomeGoals > this.predictedAwayGoals) {
-            return this.match.getHomeTeam();
+            return this.match.homeTeamDisplayName();
         }
         if (this.predictedHomeGoals < this.predictedAwayGoals) {
-            return this.match.getAwayTeam();
+            return this.match.awayTeamDisplayName();
         }
         return 'Draw';
     }

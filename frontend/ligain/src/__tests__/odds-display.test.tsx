@@ -23,8 +23,8 @@ describe('Odds Display with Clear Favorite Indicators', () => {
     expect(match.getFavoriteTeam()).toBe('Manchester United');
     
     // Check that the correct indicators would be shown
-    const homeIsFavorite = match.getFavoriteTeam() === match.getHomeTeam();
-    const awayIsFavorite = match.getFavoriteTeam() === match.getAwayTeam();
+    const homeIsFavorite = match.getFavoriteTeam() === match.homeTeamDisplayName();
+    const awayIsFavorite = match.getFavoriteTeam() === match.awayTeamDisplayName();
     
     expect(homeIsFavorite).toBe(true);
     expect(awayIsFavorite).toBe(false);
@@ -51,8 +51,8 @@ describe('Odds Display with Clear Favorite Indicators', () => {
     expect(match.getFavoriteTeam()).toBe('Chelsea');
     
     // Check that the correct indicators would be shown
-    const homeIsFavorite = match.getFavoriteTeam() === match.getHomeTeam();
-    const awayIsFavorite = match.getFavoriteTeam() === match.getAwayTeam();
+    const homeIsFavorite = match.getFavoriteTeam() === match.homeTeamDisplayName();
+    const awayIsFavorite = match.getFavoriteTeam() === match.awayTeamDisplayName();
     
     expect(homeIsFavorite).toBe(false);
     expect(awayIsFavorite).toBe(true);

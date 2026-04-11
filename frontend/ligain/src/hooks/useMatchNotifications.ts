@@ -70,8 +70,8 @@ export const useMatchNotifications = (
     const notificationId = await scheduleMatchNotification(
       matchId,
       matchDate,
-      match.getHomeTeam(),
-      match.getAwayTeam()
+      match.homeTeamDisplayName(),
+      match.awayTeamDisplayName()
     );
 
     if (notificationId) {

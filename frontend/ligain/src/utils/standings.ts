@@ -39,8 +39,8 @@ export function computeLeagueStandings(
   for (const { match } of Object.values(matches)) {
     if (!match.isFinished()) continue;
 
-    const home = match.getHomeTeamForLogo();
-    const away = match.getAwayTeamForLogo();
+    const home = match.homeTeamName();
+    const away = match.awayTeamName();
     const hg = match.getHomeGoals();
     const ag = match.getAwayGoals();
 
@@ -154,13 +154,13 @@ export function computeTeamForm(
   return Object.values(matches)
     .filter(({ match }) =>
       match.isFinished() &&
-      (match.getHomeTeamForLogo() === teamName || match.getAwayTeamForLogo() === teamName)
+      (match.homeTeamName() === teamName || match.awayTeamName() === teamName)
     )
     .sort((a, b) => a.match.getMatchday() - b.match.getMatchday())
     .slice(-limit)
     .map(({ match }) => {
       if (match.isDraw()) return 'D';
-      const isHome = match.getHomeTeamForLogo() === teamName;
+      const isHome = match.homeTeamName() === teamName;
       const teamGoals = isHome ? match.getHomeGoals() : match.getAwayGoals();
       const oppGoals  = isHome ? match.getAwayGoals() : match.getHomeGoals();
       return teamGoals > oppGoals ? 'W' : 'L';

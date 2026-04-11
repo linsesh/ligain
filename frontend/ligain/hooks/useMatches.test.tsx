@@ -129,8 +129,8 @@ describe('useMatches', () => {
 
     // Verify the match data is processed correctly
     const matchResult = result.current.incomingMatches['match-1'];
-    expect(matchResult.match.getHomeTeam()).toBe('Team A');
-    expect(matchResult.match.getAwayTeam()).toBe('Team B');
+    expect(matchResult.match.homeTeamDisplayName()).toBe('Team A');
+    expect(matchResult.match.awayTeamDisplayName()).toBe('Team B');
     expect(matchResult.bets).toHaveProperty('player-1');
     expect(matchResult.bets!['player-1'].playerName).toBe('John Doe');
     expect(matchResult.bets!['player-1'].predictedHomeGoals).toBe(2);
