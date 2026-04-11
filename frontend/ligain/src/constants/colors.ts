@@ -23,4 +23,10 @@ export const colors = {
   loadingBackground: '#e4e9ef',
   gridLine: '#ccd2d7',
   darkSurface: '#2c2c2e',
+  resultWin: '#D4EDDA',
+  resultDraw: '#E9ECEF',
+  resultLoss: '#F8D7DA',
+  formWin: '#4CAF50',
+  formDraw: '#9E9E9E',
+  formLoss: '#F44336',
 } as const;

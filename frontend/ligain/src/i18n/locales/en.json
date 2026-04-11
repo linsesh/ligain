@@ -290,6 +290,8 @@
     "position": "{{position}}th",
     "points": "{{points}} pts",
     "matchHistory": "Match history",
-    "noMatchHistory": "No finished matches yet"
+    "noMatchHistory": "No finished matches yet",
+    "home": "Home",
+    "away": "Away"
   }
 } 
