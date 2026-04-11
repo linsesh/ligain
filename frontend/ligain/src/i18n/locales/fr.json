@@ -117,7 +117,9 @@
     "betReplicationFailedMessage": "Ta prédiction a été sauvegardée, mais n'a pas pu être copiée vers : {{gameNames}}. Vérifie ta connexion internet.",
     "homeWin": "Victoire dom.",
     "draw": "Nul",
-    "awayWin": "Victoire ext."
+    "awayWin": "Victoire ext.",
+    "clearFavoriteTeam": "Grand favori : {{team}}",
+    "doublePointsHint": "Tu peux doubler tes points en cas de victoire de {{team}} !"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

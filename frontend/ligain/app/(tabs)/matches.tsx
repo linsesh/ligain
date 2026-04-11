@@ -167,5 +167,6 @@ const styles = StyleSheet.create({
   },
   pickerItem: {
     color: colors.text,
+    fontFamily: 'HKGroteskWide-Regular',
   },
 }); 

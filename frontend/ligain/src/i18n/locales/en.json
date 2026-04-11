@@ -117,7 +117,9 @@
     "betReplicationFailedMessage": "Your bet was saved, but couldn't be copied to: {{gameNames}}. Please check your internet connection.",
     "homeWin": "Home win",
     "draw": "Draw",
-    "awayWin": "Away win"
+    "awayWin": "Away win",
+    "clearFavoriteTeam": "Clear favourite: {{team}}",
+    "doublePointsHint": "You can double your points if {{team}} wins!"
   },
   "profile": {
     "noUserInfo": "No user information available",
