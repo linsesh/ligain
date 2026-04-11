@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
 import { GridTag } from '../../src/components/ui/GridTag';
@@ -61,6 +62,9 @@ export default function MatchDetailScreen() {
   const awayOdds = awayTeamOdds ? parseFloat(awayTeamOdds) : undefined;
   const dOdds = drawOdds ? parseFloat(drawOdds) : undefined;
   const clearFavorite = hasClearFavorite === 'true';
+  const underdogTeam = clearFavorite
+    ? (favoriteTeam === homeTeam ? awayTeam || '' : homeTeam || '')
+    : '';
 
   useBetAutoSubmit(
     editable ? homeGoals : '',
@@ -101,6 +105,22 @@ export default function MatchDetailScreen() {
           favoriteTeam={favoriteTeam || ''}
         />
       </View>
+
+      {/* Favourite info zone — separated by a grid gap, only when clear favorite */}
+      {clearFavorite && (
+        <View style={{ backgroundColor: colors.background, marginTop: cellSize, padding: 24 }}>
+          <View style={{ backgroundColor: colors.link, borderRadius: 12, padding: 16 }}>
+            <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 22, textAlign: 'center' }}>
+              {t('games.clearFavoriteTeam', { team: favoriteTeam })}
+            </Text>
+          </View>
+          <View style={{ backgroundColor: colors.border, borderRadius: 12, padding: 16, marginTop: 12 }}>
+            <Text style={{ color: colors.text, fontSize: 12, textAlign: 'center' }}>
+              {t('games.doublePointsHint', { team: underdogTeam })}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
     </TouchableWithoutFeedback>
   );
