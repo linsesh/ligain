@@ -4,6 +4,8 @@ import { Text } from './ui/Text';
 import { getTeamLogo, isPngLogo } from '../utils/teamLogos';
 import { colors } from '../constants/colors';
 import { useTranslation } from 'react-i18next';
+import { FormResult } from '../utils/standings';
+import { FormSquares } from './ui/FormSquares';
 
 interface MatchBetCardProps {
   homeTeam: string;
@@ -20,6 +22,8 @@ interface MatchBetCardProps {
   favoriteTeam?: string;
   onHomeTeamPress?: () => void;
   onAwayTeamPress?: () => void;
+  homeTeamForm?: FormResult[];
+  awayTeamForm?: FormResult[];
 }
 
 function TeamLogo({ teamName }: { teamName: string }) {
@@ -127,6 +131,8 @@ export function MatchBetCard({
   favoriteTeam,
   onHomeTeamPress,
   onAwayTeamPress,
+  homeTeamForm,
+  awayTeamForm,
 }: MatchBetCardProps) {
   const showOdds =
     homeTeamOdds !== undefined &&
@@ -145,6 +151,7 @@ export function MatchBetCard({
         >
           <TeamLogo teamName={homeTeam} />
           <Text style={styles.teamName}>{homeTeam}</Text>
+          {homeTeamForm && <FormSquares form={homeTeamForm} />}
         </TouchableOpacity>
 
         {/* Score inputs */}
@@ -163,6 +170,7 @@ export function MatchBetCard({
         >
           <TeamLogo teamName={awayTeam} />
           <Text style={styles.teamName}>{awayTeam}</Text>
+          {awayTeamForm && <FormSquares form={awayTeamForm} />}
         </TouchableOpacity>
       </View>
 
