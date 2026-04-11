@@ -114,7 +114,10 @@
     "lastMonthWinner": "Last month winner",
     "cumulativePointsByMatchday": "Cumulative points by matchday",
     "betReplicationFailed": "Bet Saved",
-    "betReplicationFailedMessage": "Your bet was saved, but couldn't be copied to: {{gameNames}}. Please check your internet connection."
+    "betReplicationFailedMessage": "Your bet was saved, but couldn't be copied to: {{gameNames}}. Please check your internet connection.",
+    "homeWin": "Home win",
+    "draw": "Draw",
+    "awayWin": "Away win"
   },
   "profile": {
     "noUserInfo": "No user information available",
