@@ -62,20 +62,30 @@ export class SeasonMatch {
         return `${this.competitionCode}-${this.seasonCode}-${this.homeTeam}-${this.awayTeam}-${this.matchday}`;
     }
 
-    getHomeTeam(): string {
+    homeTeamDisplayName(): string {
         return getDisplayTeamName(this.homeTeam);
     }
 
-    getAwayTeam(): string {
+    awayTeamDisplayName(): string {
         return getDisplayTeamName(this.awayTeam);
     }
 
-    getHomeTeamForLogo(): string {
+    homeTeamName(): string {
         return this.homeTeam;
     }
 
-    getAwayTeamForLogo(): string {
+    awayTeamName(): string {
         return this.awayTeam;
+    }
+
+    wasHome(teamName: string): boolean {
+        return this.homeTeam === teamName;
+    }
+
+    outcomeFor(teamName: string): 'win' | 'draw' | 'loss' {
+        if (this.isDraw()) return 'draw';
+        const winner = this.homeGoals > this.awayGoals ? this.homeTeam : this.awayTeam;
+        return winner === teamName ? 'win' : 'loss';
     }
 
     getHomeGoals(): number {
@@ -112,10 +122,10 @@ export class SeasonMatch {
 
     getWinner(): string {
         if (this.homeGoals > this.awayGoals) {
-            return this.getHomeTeam();
+            return this.homeTeamDisplayName();
         }
         if (this.awayGoals > this.homeGoals) {
-            return this.getAwayTeam();
+            return this.awayTeamDisplayName();
         }
         return 'Draw';
     }
@@ -145,9 +155,9 @@ export class SeasonMatch {
             return '';
         }
         if (this.homeTeamOdds < this.awayTeamOdds) {
-            return this.getHomeTeam();
+            return this.homeTeamDisplayName();
         }
-        return this.getAwayTeam();
+        return this.awayTeamDisplayName();
     }
 
     finish(homeGoals: number, awayGoals: number): void {

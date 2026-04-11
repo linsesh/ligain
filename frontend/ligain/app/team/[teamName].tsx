@@ -1,43 +1,23 @@
 import { useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, TouchableOpacity, ScrollView, Image, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../src/components/ui/Text';
 import { colors } from '../../src/constants/colors';
 import { useGames } from '../../src/contexts/GamesContext';
-import { getTeamLogo, isPngLogo } from '../../src/utils/teamLogos';
 import { useTranslation } from 'react-i18next';
 import { useGridCellSize } from '../../src/hooks/useGridCellSize';
-import { SeasonMatch } from '../../src/types/match';
 import { computeTeamForm } from '../../src/utils/standings';
 import { FormSquares } from '../../src/components/ui/FormSquares';
+import { TeamLogo } from '../../src/components/ui/TeamLogo';
 
-// Result of a finished match from the perspective of a given team
 type MatchOutcome = 'win' | 'draw' | 'loss';
-
-function getOutcome(match: SeasonMatch, teamName: string): MatchOutcome {
-  if (match.isDraw()) return 'draw';
-  const winner = match.getHomeGoals() > match.getAwayGoals()
-    ? match.getHomeTeamForLogo()
-    : match.getAwayTeamForLogo();
-  return winner === teamName ? 'win' : 'loss';
-}
 
 const OUTCOME_COLORS: Record<MatchOutcome, string> = {
   win: colors.resultWin,
   draw: colors.resultDraw,
   loss: colors.resultLoss,
 };
-
-function TeamLogoDisplay({ teamName, size = 56 }: { teamName: string; size?: number }) {
-  const Logo = getTeamLogo(teamName);
-  if (!Logo) return <View style={{ width: size, height: size }} />;
-  return isPngLogo(Logo) ? (
-    <Image source={Logo} style={{ width: size, height: size }} resizeMode="contain" />
-  ) : (
-    <Logo width={size} height={size} />
-  );
-}
 
 export default function TeamDetailScreen() {
   const { teamName } = useLocalSearchParams<{ teamName: string }>();
@@ -53,13 +33,12 @@ export default function TeamDetailScreen() {
     [teamName, allMatchesForStandings]
   );
 
-  // Filter finished matches for this team, sorted by matchday descending
   const teamMatches = Object.values(allMatchesForStandings)
     .filter(({ match }) =>
       match.isFinished() &&
-      (match.getHomeTeamForLogo() === teamName || match.getAwayTeamForLogo() === teamName)
+      (match.homeTeamName() === teamName || match.awayTeamName() === teamName)
     )
-    .sort((a, b) => b.match.getMatchday() - a.match.getMatchday());
+    .sort((a, b) => b.match.getDate().getTime() - a.match.getDate().getTime());
 
   return (
     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -77,20 +56,20 @@ export default function TeamDetailScreen() {
         contentContainerStyle={{ paddingBottom: 32 }}
       >
         {/* Header: logo + team name + standing badge */}
-        <View style={styles.header}>
-          <TeamLogoDisplay teamName={teamName || ''} size={72} />
-          <Text className="font-hk-bold" style={styles.teamName}>
+        <View className="items-center py-6 px-6 gap-2">
+          <TeamLogo teamName={teamName || ''} size={72} />
+          <Text className="font-hk-bold text-[22px] text-foreground text-center">
             {teamName || ''}
           </Text>
           {standing && (
-            <View style={styles.badgeRow}>
-              <View style={styles.badge}>
-                <Text className="font-hk-bold" style={styles.badgeText}>
+            <View className="flex-row gap-2 mt-1">
+              <View className="bg-border rounded-lg px-3 py-1">
+                <Text className="font-hk-bold text-sm text-foreground">
                   {t('team.position', { position: standing.position })}
                 </Text>
               </View>
-              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                <Text className="font-hk-bold" style={[styles.badgeText, { color: colors.white }]}>
+              <View className="rounded-lg px-3 py-1" style={{ backgroundColor: colors.primary }}>
+                <Text className="font-hk-bold text-sm" style={{ color: colors.white }}>
                   {t('team.points', { points: standing.points })}
                 </Text>
               </View>
@@ -100,38 +79,37 @@ export default function TeamDetailScreen() {
         </View>
 
         {/* Match history */}
-        <View style={styles.section}>
-          <Text className="font-hk-bold" style={styles.sectionTitle}>
+        <View className="px-4 gap-2">
+          <Text className="font-hk-bold text-base text-foreground mb-1">
             {t('team.matchHistory')}
           </Text>
 
           {teamMatches.length === 0 ? (
-            <Text style={styles.emptyText}>{t('team.noMatchHistory')}</Text>
+            <Text className="text-sm text-foreground-secondary text-center py-4">
+              {t('team.noMatchHistory')}
+            </Text>
           ) : (
             teamMatches.map(({ match }) => {
-              const isHome = match.getHomeTeamForLogo() === teamName;
-              const opponentRaw = isHome
-                ? match.getAwayTeamForLogo()
-                : match.getHomeTeamForLogo();
-              const opponentDisplay = isHome
-                ? match.getAwayTeam()
-                : match.getHomeTeam();
-              const outcome = getOutcome(match, teamName || '');
+              const outcome = match.outcomeFor(teamName || '');
+              const isHome = match.wasHome(teamName || '');
+              const opponentName = isHome ? match.awayTeamName() : match.homeTeamName();
+              const opponentDisplay = isHome ? match.awayTeamDisplayName() : match.homeTeamDisplayName();
               const teamGoals = isHome ? match.getHomeGoals() : match.getAwayGoals();
               const opponentGoals = isHome ? match.getAwayGoals() : match.getHomeGoals();
 
               return (
                 <View
                   key={match.id()}
-                  style={[styles.matchCard, { backgroundColor: OUTCOME_COLORS[outcome] }]}
+                  className="rounded-xl p-3 gap-1"
+                  style={{ backgroundColor: OUTCOME_COLORS[outcome] }}
                 >
-                  <Text style={styles.matchdayLabel}>
+                  <Text className="text-[11px] text-foreground-secondary">
                     {t('games.matchdayShortPrefix')}{match.getMatchday()} · {isHome ? t('team.home') : t('team.away')}
                   </Text>
-                  <View style={styles.matchRow}>
-                    <TeamLogoDisplay teamName={opponentRaw} size={36} />
-                    <Text style={styles.opponentName}>{opponentDisplay}</Text>
-                    <Text className="font-hk-bold" style={styles.score}>
+                  <View className="flex-row items-center gap-2.5">
+                    <TeamLogo teamName={opponentName} size={36} />
+                    <Text className="flex-1 text-sm text-foreground">{opponentDisplay}</Text>
+                    <Text className="font-hk-bold text-lg text-foreground">
                       {isHome
                         ? `${teamGoals} – ${opponentGoals}`
                         : `${opponentGoals} – ${teamGoals}`}
@@ -146,70 +124,3 @@ export default function TeamDetailScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  teamName: {
-    fontSize: 22,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  badge: {
-    backgroundColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 14,
-    color: colors.text,
-  },
-  section: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
-  matchCard: {
-    borderRadius: 12,
-    padding: 12,
-    gap: 4,
-  },
-  matchdayLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  matchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  opponentName: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-  },
-  score: {
-    fontSize: 18,
-    color: colors.text,
-  },
-});

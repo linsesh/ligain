@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, TextInput, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from './ui/Text';
-import { getTeamLogo, isPngLogo } from '../utils/teamLogos';
 import { colors } from '../constants/colors';
+import { TeamLogo } from './ui/TeamLogo';
 import { useTranslation } from 'react-i18next';
 import { FormResult } from '../utils/standings';
 import { FormSquares } from './ui/FormSquares';
@@ -24,16 +24,6 @@ interface MatchBetCardProps {
   onAwayTeamPress?: () => void;
   homeTeamForm?: FormResult[];
   awayTeamForm?: FormResult[];
-}
-
-function TeamLogo({ teamName }: { teamName: string }) {
-  const Logo = getTeamLogo(teamName);
-  if (!Logo) return null;
-  return isPngLogo(Logo) ? (
-    <Image source={Logo} style={{ width: 56, height: 56 }} resizeMode="contain" />
-  ) : (
-    <Logo width={56} height={56} />
-  );
 }
 
 function ScoreInput({

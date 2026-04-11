@@ -246,7 +246,7 @@ describe('Match', () => {
             new Date('2024-01-01T15:00:00Z'),
             1
         );
-        expect(match.getHomeTeam()).toBe('Paris FC');
+        expect(match.homeTeamDisplayName()).toBe('Paris FC');
     });
 
     test('transforms Paris to Paris FC for away team', () => {
@@ -264,7 +264,7 @@ describe('Match', () => {
             new Date('2024-01-01T15:00:00Z'),
             1
         );
-        expect(match.getAwayTeam()).toBe('Paris FC');
+        expect(match.awayTeamDisplayName()).toBe('Paris FC');
     });
 
     test('does not transform other team names', () => {
@@ -282,7 +282,47 @@ describe('Match', () => {
             new Date('2024-01-01T15:00:00Z'),
             1
         );
-        expect(match.getHomeTeam()).toBe('Manchester United');
-        expect(match.getAwayTeam()).toBe('Liverpool');
+        expect(match.homeTeamDisplayName()).toBe('Manchester United');
+        expect(match.awayTeamDisplayName()).toBe('Liverpool');
+    });
+
+    describe('outcomeFor', () => {
+        test('returns win for the home team when home wins', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 2, 0);
+            expect(match.outcomeFor('Arsenal')).toBe('win');
+        });
+
+        test('returns loss for the away team when home wins', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 2, 0);
+            expect(match.outcomeFor('Chelsea')).toBe('loss');
+        });
+
+        test('returns win for the away team when away wins', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 0, 1);
+            expect(match.outcomeFor('Chelsea')).toBe('win');
+        });
+
+        test('returns loss for the home team when away wins', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 0, 1);
+            expect(match.outcomeFor('Arsenal')).toBe('loss');
+        });
+
+        test('returns draw for either team on a draw', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 1, 1);
+            expect(match.outcomeFor('Arsenal')).toBe('draw');
+            expect(match.outcomeFor('Chelsea')).toBe('draw');
+        });
+    });
+
+    describe('wasHome', () => {
+        test('returns true for the home team', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 2, 0);
+            expect(match.wasHome('Arsenal')).toBe(true);
+        });
+
+        test('returns false for the away team', () => {
+            const match = createMatch('Arsenal', 'Chelsea', 2, 0);
+            expect(match.wasHome('Chelsea')).toBe(false);
+        });
     });
 }); 

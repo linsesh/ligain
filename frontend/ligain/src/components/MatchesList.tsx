@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useTransition } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, Animated, Dimensions, Image, FlatList } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, Animated, Dimensions, FlatList } from 'react-native';
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -14,7 +14,7 @@ import StatusTag from './StatusTag';
 import ShareableMatchResult from './ShareableMatchResult';
 import { captureAndShareWithOptions, formatDateForShare } from '../utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
-import { getTeamLogo, isPngLogo } from '../utils/teamLogos';
+import { TeamLogo } from './ui/TeamLogo';
 
 function MatchCardSkeleton({ opacity }: { opacity: Animated.Value }) {
   return (
@@ -174,9 +174,6 @@ function MatchCard({ matchResult, gameId }: {
     matchResult.match.isFinished() ? styles.finishedMatchCard : null,
   ].filter(Boolean);
 
-  const HomeTeamLogo = getTeamLogo(matchResult.match.getHomeTeam());
-  const AwayTeamLogo = getTeamLogo(matchResult.match.getAwayTeam());
-
   return (
     <TouchableOpacity
       style={cardStyle}
@@ -187,10 +184,10 @@ function MatchCard({ matchResult, gameId }: {
           gameId,
           matchday: String(matchResult.match.getMatchday()),
           date: matchResult.match.getDate().toISOString(),
-          homeTeam: matchResult.match.getHomeTeam(),
-          awayTeam: matchResult.match.getAwayTeam(),
-          homeTeamRaw: matchResult.match.getHomeTeamForLogo(),
-          awayTeamRaw: matchResult.match.getAwayTeamForLogo(),
+          homeTeam: matchResult.match.homeTeamDisplayName(),
+          awayTeam: matchResult.match.awayTeamDisplayName(),
+          homeTeamRaw: matchResult.match.homeTeamName(),
+          awayTeamRaw: matchResult.match.awayTeamName(),
           betHomeGoals: player && matchResult.bets?.[player.id]
             ? String(matchResult.bets[player.id].predictedHomeGoals)
             : '',
@@ -224,14 +221,8 @@ function MatchCard({ matchResult, gameId }: {
       <View style={styles.bettingContainer}>
         {/* Home team */}
         <View style={styles.teamDisplay}>
-          {HomeTeamLogo && (
-            isPngLogo(HomeTeamLogo) ? (
-              <Image source={HomeTeamLogo} style={{ width: 56, height: 56, backgroundColor: 'transparent' }} resizeMode="contain" />
-            ) : (
-              <HomeTeamLogo width={56} height={56} />
-            )
-          )}
-          <Text style={styles.teamName}>{matchResult.match.getHomeTeam()}</Text>
+          <TeamLogo teamName={matchResult.match.homeTeamDisplayName()} />
+          <Text style={styles.teamName}>{matchResult.match.homeTeamDisplayName()}</Text>
         </View>
 
         {/* Center: VS, predicted score, or actual score */}
@@ -251,14 +242,8 @@ function MatchCard({ matchResult, gameId }: {
 
         {/* Away team */}
         <View style={styles.teamDisplay}>
-          {AwayTeamLogo && (
-            isPngLogo(AwayTeamLogo) ? (
-              <Image source={AwayTeamLogo} style={{ width: 56, height: 56, backgroundColor: 'transparent' }} resizeMode="contain" />
-            ) : (
-              <AwayTeamLogo width={56} height={56} />
-            )
-          )}
-          <Text style={styles.teamName}>{matchResult.match.getAwayTeam()}</Text>
+          <TeamLogo teamName={matchResult.match.awayTeamDisplayName()} />
+          <Text style={styles.teamName}>{matchResult.match.awayTeamDisplayName()}</Text>
         </View>
       </View>
 
@@ -273,8 +258,8 @@ function MatchCard({ matchResult, gameId }: {
         <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
           <ViewShot ref={shareableRef}>
             <ShareableMatchResult
-              homeTeam={matchResult.match.getHomeTeam()}
-              awayTeam={matchResult.match.getAwayTeam()}
+              homeTeam={matchResult.match.homeTeamDisplayName()}
+              awayTeam={matchResult.match.awayTeamDisplayName()}
               homeScore={matchResult.match.getHomeGoals()}
               awayScore={matchResult.match.getAwayGoals()}
               myHomeScore={player ? matchResult.bets?.[player.id]?.predictedHomeGoals : undefined}
