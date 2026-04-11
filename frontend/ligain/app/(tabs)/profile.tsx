@@ -8,14 +8,11 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
   Switch,
   Linking,
 } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
+import { SectionCard } from '../../src/components/ui/SectionCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -23,7 +20,7 @@ import { useGames } from '../../src/contexts/GamesContext';
 import { colors } from '../../src/constants/colors';
 import { useTranslation } from '../../src/hooks/useTranslation';
 import { formatShortDate } from '../../src/utils/dateUtils';
-import { API_CONFIG, getApiHeaders, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
+import { API_CONFIG, authenticatedFetch } from '../../src/config/api';
 import { mapPlayerFromBackend } from '../../src/api';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { useAutoReplicateBets } from '../../src/hooks/useAutoReplicateBets';
@@ -35,8 +32,6 @@ export default function ProfileScreen() {
   const { refresh: refreshGames } = useGames();
   const { t, isFrench } = useTranslation();
   const router = useRouter();
-  // Notification preferences management
-  // This hook provides permission status and toggle functionality
   const { preferences, setNotificationEnabled, requestPermissions } = useNotifications();
   const { enabled: autoReplicate, isLoading: autoReplicateLoading, toggle: toggleAutoReplicate } = useAutoReplicateBets();
   const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
@@ -50,6 +45,8 @@ export default function ProfileScreen() {
   const [showAvatarEditor, setShowAvatarEditor] = useState(false);
   const nameInputRef = React.useRef<TextInput>(null);
   const deleteInputRef = React.useRef<TextInput>(null);
+
+  const isGuest = !player?.email && !player?.provider;
 
   const handleEditDisplayName = () => {
     setNewDisplayName(player?.name || '');
@@ -79,7 +76,7 @@ export default function ProfileScreen() {
 
     try {
       setIsUpdating(true);
-      
+
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/players/me/display-name`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -94,18 +91,14 @@ export default function ProfileScreen() {
         throw new Error(data.error || 'Failed to update display name');
       }
 
-
-      // Update the auth context with the new player data
       if (setPlayer) {
         setPlayer(mapPlayerFromBackend(data.player));
       }
 
-      // Refresh games data to update player names in leaderboards and match lists
       refreshGames();
-
       setShowDisplayNameModal(false);
       setNewDisplayName('');
-    
+
     } catch (error) {
       console.error('Error updating display name:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -137,10 +130,7 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
-    // Check if this is a test account (guest account or test pattern)
-    const isTestAccount = !player?.email && !player?.provider;
-    
-    if (isTestAccount) {
+    if (isGuest) {
       Alert.alert(
         t('profile.deleteAccountTestAccount'),
         t('profile.deleteAccountTestAccountMessage'),
@@ -148,7 +138,6 @@ export default function ProfileScreen() {
       );
       return;
     }
-    
     setShowDeleteModal(true);
   };
 
@@ -159,7 +148,7 @@ export default function ProfileScreen() {
 
   const handleDeleteAccountFinal = async () => {
     const expectedText = isFrench ? 'SUPPRIMER' : 'DELETE';
-    
+
     if (deleteConfirmText.trim().toUpperCase() !== expectedText) {
       Alert.alert(t('errors.error'), `${t('profile.typeDeleteToConfirm')}`);
       return;
@@ -167,7 +156,7 @@ export default function ProfileScreen() {
 
     try {
       setIsDeleting(true);
-      
+
       const response = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/auth/account`, {
         method: 'DELETE',
       });
@@ -177,7 +166,6 @@ export default function ProfileScreen() {
         throw new Error(data.error || 'Failed to delete account');
       }
 
-      // Account deleted successfully - sign out the user
       Alert.alert(
         t('common.success'),
         t('profile.deleteAccountSuccess'),
@@ -188,17 +176,16 @@ export default function ProfileScreen() {
               try {
                 await signOut();
               } catch (error) {
-                // Even if signOut fails, the account is deleted, so we can ignore this error
                 console.warn('Failed to sign out after account deletion:', error);
               }
             },
           },
         ]
       );
-      
+
       setShowDeleteConfirmModal(false);
       setDeleteConfirmText('');
-    
+
     } catch (error) {
       console.error('Error deleting account:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -222,6 +209,7 @@ export default function ProfileScreen() {
     if (nameInputRef.current) nameInputRef.current.blur();
     setTimeout(() => handleUpdateDisplayName(), 50);
   };
+
   const handleModalCancel = () => {
     if (nameInputRef.current) nameInputRef.current.blur();
     setTimeout(() => {
@@ -238,7 +226,6 @@ export default function ProfileScreen() {
         if (granted) {
           await setNotificationEnabled(true);
         } else {
-          // Permission denied: Show alert with option to open settings
           Alert.alert(
             t('notifications.permissionDenied'),
             t('notifications.permissionDeniedMessage'),
@@ -266,228 +253,235 @@ export default function ProfileScreen() {
 
   if (!player) {
     return (
-      <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>
-          {t('profile.noUserInfo')}
-        </Text>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: 'transparent' }}>
+        <Text className="text-base text-foreground-secondary">{t('profile.noUserInfo')}</Text>
       </View>
     );
   }
 
   return (
     <>
-      <ScrollView style={[styles.container, { backgroundColor: 'transparent' }]}> 
-        <View style={styles.content}> 
-          {/* Guest Testing Banner */}
-          {!player.email && !player.provider && (
-            <View style={styles.guestBanner}>
-              <Ionicons name="warning" size={20} color="#FFA500" />
-                      <Text style={styles.guestBannerText}>
+      <ScrollView
+        className="flex-1"
+        style={{ backgroundColor: 'transparent' }}
+        contentContainerClassName="px-4 pb-8 gap-4"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Guest Banner */}
+        {isGuest && (
+          <View
+            className="flex-row items-center gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: colors.warning + '33' }}
+          >
+            <Ionicons name="warning" size={20} color={colors.warning} />
+            <Text className="flex-1 text-foreground text-sm font-hk-semibold">
               {t('profile.guestAccountBanner')}
             </Text>
+          </View>
+        )}
+
+        {/* Profile Header */}
+        <View className="bg-background rounded-2xl p-6 items-center">
+          <TouchableOpacity
+            onPress={() => setShowAvatarEditor(true)}
+            activeOpacity={0.7}
+            style={{ position: 'relative' }}
+          >
+            <PlayerAvatar player={player} displaySize="large" />
+            <View
+              className="absolute bottom-0 right-0 w-7 h-7 bg-secondary rounded-full items-center justify-center"
+              style={{ borderWidth: 2, borderColor: colors.background }}
+            >
+              <Ionicons name="pencil" size={12} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <Text className="text-2xl font-hk-bold text-foreground mt-4">{player.name}</Text>
+          {player.email && (
+            <Text className="text-sm text-foreground-secondary mt-1">{player.email}</Text>
+          )}
+          {player.created_at && (
+            <Text className="text-xs text-foreground-secondary mt-2">
+              {t('profile.memberSince')} {formatShortDate(new Date(player.created_at))}
+            </Text>
+          )}
+        </View>
+
+        {/* Account Info */}
+        <SectionCard title={t('profile.accountInfo')}>
+          <TouchableOpacity
+            className="flex-row items-center gap-3 py-3 border-b border-border"
+            onPress={handleEditDisplayName}
+            activeOpacity={0.6}
+          >
+            <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
+            <Text className="text-sm text-foreground-secondary font-hk-semibold w-28">
+              {t('profile.displayName')}:
+            </Text>
+            <Text className="flex-1 text-foreground text-sm">{player.name}</Text>
+            <Ionicons name="pencil" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {player.email && (
+            <View className="flex-row items-center gap-3 py-3">
+              <Ionicons name="mail-outline" size={18} color={colors.textSecondary} />
+              <Text className="text-sm text-foreground-secondary font-hk-semibold w-28">
+                {t('profile.email')}:
+              </Text>
+              <Text className="flex-1 text-foreground text-sm">{player.email}</Text>
+            </View>
+          )}
+        </SectionCard>
+
+        {/* Notifications & Settings */}
+        <SectionCard title={t('notifications.title')}>
+          <View className="flex-row items-center gap-3 py-3 border-b border-border">
+            <Ionicons name="notifications-outline" size={18} color={colors.textSecondary} />
+            <Text className="flex-1 text-sm text-foreground-secondary font-hk-semibold">
+              {t('notifications.enableNotifications')}
+            </Text>
+            <Switch
+              value={preferences.enabled}
+              onValueChange={handleNotificationToggle}
+              disabled={isTogglingNotifications}
+              trackColor={{ false: colors.border, true: colors.secondary }}
+              thumbColor={preferences.enabled ? colors.primary : colors.textSecondary}
+            />
+          </View>
+
+          {!preferences.permissionGranted && preferences.enabled && (
+            <View className="flex-row items-center gap-2 mt-2 px-2 py-2 bg-surface rounded-lg">
+              <Ionicons name="warning-outline" size={14} color={colors.warning} />
+              <Text className="flex-1 text-xs text-foreground-secondary">
+                {t('notifications.permissionWarning')}
+              </Text>
             </View>
           )}
 
-          {/* Profile Header */}
-          <View style={styles.profileHeader}>
-            <TouchableOpacity
-              onPress={() => setShowAvatarEditor(true)}
-              style={styles.avatarContainer}
-              activeOpacity={0.7}
-            >
-              <PlayerAvatar
-                player={player}
-                displaySize="large"
-              />
-              <View style={styles.editBadge}>
-                <Ionicons name="pencil" size={14} color="#fff" />
-              </View>
-            </TouchableOpacity>
-            <Text className="font-hk-bold" style={[styles.name, { color: colors.text }]}>{player.name}</Text>
-            {player.email && (
-              <Text style={[styles.email, { color: colors.textSecondary }]}>
-                {player.email}
-              </Text>
-            )}
-          </View>
-
-          {/* Account Information */}
-          <View style={styles.section}>
-            <Text className="font-hk-bold" style={[styles.sectionTitle, { color: colors.text }]}>{t('profile.accountInfo')}</Text>
-            
-            <TouchableOpacity
-              style={styles.infoRow}
-              onPress={handleEditDisplayName}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.displayName')}:</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>{player.name}</Text>
-              <Ionicons name="pencil" size={22} color={colors.textSecondary} style={styles.pencilIcon} />
-            </TouchableOpacity>
-
-            {player.email && (
-              <View style={styles.infoRow}>
-                <Ionicons name="mail-outline" size={20} color={colors.textSecondary} />
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.email')}:</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>{player.email}</Text>
-              </View>
-            )}
-
-
-
-            {player.created_at && (
-              <View style={styles.infoRow}>
-                <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t('profile.memberSince')}</Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {formatShortDate(new Date(player.created_at))}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <Text className="font-hk-bold" style={[styles.sectionTitle, { color: colors.text }]}>
-              {t('notifications.title')}
+          <View className="flex-row items-center gap-3 py-3">
+            <Ionicons name="copy-outline" size={18} color={colors.textSecondary} />
+            <Text className="flex-1 text-sm text-foreground-secondary font-hk-semibold">
+              {t('settings.autoReplicateBets')}
             </Text>
-            
-            <View style={styles.infoRow}>
-              <Ionicons name="notifications-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                {t('notifications.enableNotifications')}:
-              </Text>
-              <View style={{ flex: 0.7 }} />
-              <Switch
-                value={preferences.enabled}
-                onValueChange={handleNotificationToggle}
-                disabled={isTogglingNotifications}
-                trackColor={{ false: colors.border, true: colors.secondary }}
-                thumbColor={preferences.enabled ? colors.primary : colors.textSecondary}
-              />
-            </View>
-
-            {!preferences.permissionGranted && preferences.enabled && (
-              <View style={styles.permissionWarning}>
-                <Ionicons name="warning-outline" size={16} color={colors.warning} />
-                <Text style={[styles.permissionWarningText, { color: colors.textSecondary }]}>
-                  {t('notifications.permissionWarning')}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <Ionicons name="copy-outline" size={20} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                {t('settings.autoReplicateBets')}:
-              </Text>
-              <View style={{ flex: 0.7 }} />
-              <Switch
-                value={autoReplicate}
-                onValueChange={toggleAutoReplicate}
-                disabled={autoReplicateLoading}
-                trackColor={{ false: colors.border, true: colors.secondary }}
-                thumbColor={autoReplicate ? colors.primary : colors.textSecondary}
-              />
-            </View>
+            <Switch
+              value={autoReplicate}
+              onValueChange={toggleAutoReplicate}
+              disabled={autoReplicateLoading}
+              trackColor={{ false: colors.border, true: colors.secondary }}
+              thumbColor={autoReplicate ? colors.primary : colors.textSecondary}
+            />
           </View>
+        </SectionCard>
 
-          {/* Actions */}
-          <View style={styles.section}>
-            <Text className="font-hk-bold" style={[styles.sectionTitle, { color: colors.text }]}>{t('common.actions')}</Text>
-
-            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/about')}>
+        {/* Actions */}
+        <SectionCard title={t('common.actions')}>
+          <View className="gap-3">
+            <TouchableOpacity
+              className="flex-row items-center gap-3 px-4 py-4 bg-surface rounded-xl"
+              onPress={() => router.push('/about')}
+              activeOpacity={0.7}
+            >
               <Ionicons name="information-circle-outline" size={20} color={colors.text} />
-              <Text className="font-hk-semibold" style={[styles.actionButtonText, { color: colors.text }]}>{t('navigation.about')}</Text>
+              <Text className="flex-1 text-foreground text-base font-hk-semibold">
+                {t('navigation.about')}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton} onPress={handleSignOut}>
+            <TouchableOpacity
+              className="flex-row items-center gap-3 px-4 py-4 bg-surface rounded-xl"
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+            >
               <Ionicons name="log-out-outline" size={20} color={colors.text} />
-              <Text className="font-hk-semibold" style={[styles.actionButtonText, { color: colors.text }]}>{t('common.signOut')}</Text>
+              <Text className="flex-1 text-foreground text-base font-hk-semibold">
+                {t('common.signOut')}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[
-                styles.actionButton, 
-                styles.deleteButton,
-                (!player?.email && !player?.provider) && styles.disabledButton
-              ]} 
+            <TouchableOpacity
+              className={`flex-row items-center gap-3 px-4 py-4 rounded-xl border ${
+                isGuest ? 'opacity-50 border-border' : 'border-error'
+              }`}
               onPress={handleDeleteAccount}
               testID="delete-account-button"
-              disabled={!player?.email && !player?.provider}
+              disabled={isGuest}
+              activeOpacity={0.7}
             >
-              <Ionicons 
-                name="trash-outline" 
-                size={20} 
-                color={(!player?.email && !player?.provider) ? colors.textSecondary : colors.danger} 
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={isGuest ? colors.textSecondary : colors.danger}
               />
-              <Text style={[
-                styles.actionButtonText, 
-                styles.deleteButtonText,
-                (!player?.email && !player?.provider) && { color: colors.textSecondary }
-              ]}>
+              <Text className={`flex-1 text-base font-hk-semibold ${
+                isGuest ? 'text-foreground-secondary' : 'text-error'
+              }`}>
                 {t('profile.deleteAccount')}
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </SectionCard>
       </ScrollView>
+
       {/* Display Name Change Modal */}
       <Modal
         visible={showDisplayNameModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => {
-          setShowDisplayNameModal(false);
-        }}
+        onRequestClose={() => setShowDisplayNameModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}> 
-                <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.text }]}>
-                  {t('profile.editDisplayName')}
-                </Text>
-                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                  {t('profile.editDisplayNameSubtitle')}
-                </Text>
-                
-                <TextInput
-                  ref={nameInputRef}
-                  style={[styles.nameInput, { 
-                    backgroundColor: colors.background,
-                    color: colors.text,
-                    borderColor: colors.border
-                  }]}
-                  placeholder={t('auth.enterDisplayName')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={newDisplayName}
-                  onChangeText={setNewDisplayName}
-                  autoFocus={true}
-                  maxLength={20}
-                  autoCapitalize="words"
-                />
-                
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={handleModalCancel}
-                    disabled={isUpdating}
-                  >
-                    <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
-                  </TouchableOpacity>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View className="w-full gap-4">
+              <Text className="text-xl font-hk-bold text-foreground text-center">
+                {t('profile.editDisplayName')}
+              </Text>
+              <Text className="text-sm text-foreground-secondary text-center">
+                {t('profile.editDisplayNameSubtitle')}
+              </Text>
 
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.continueButton]}
-                    onPress={handleModalSave}
-                    disabled={isUpdating || !newDisplayName.trim()}
-                  >
-                    {isUpdating ? (
-                      <ActivityIndicator color={colors.primary} />
-                    ) : (
-                      <Text className="font-hk-semibold" style={styles.continueButtonText}>{t('common.save')}</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+              <TextInput
+                ref={nameInputRef}
+                className="w-full border border-border rounded-xl px-4 text-base text-foreground"
+                style={{ height: 50, backgroundColor: colors.background }}
+                placeholder={t('auth.enterDisplayName')}
+                placeholderTextColor={colors.textSecondary}
+                value={newDisplayName}
+                onChangeText={setNewDisplayName}
+                autoFocus={true}
+                maxLength={20}
+                autoCapitalize="words"
+              />
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className="flex-1 py-3 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: colors.border }}
+                  onPress={handleModalCancel}
+                  disabled={isUpdating}
+                >
+                  <Text className="text-base font-hk-semibold text-foreground">
+                    {t('common.cancel')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-1 py-3 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: colors.secondary, opacity: (!newDisplayName.trim() || isUpdating) ? 0.5 : 1 }}
+                  onPress={handleModalSave}
+                  disabled={isUpdating || !newDisplayName.trim()}
+                >
+                  {isUpdating ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text className="text-base font-hk-semibold text-white">
+                      {t('common.save')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </View>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -500,31 +494,39 @@ export default function ProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons name="warning" size={60} color={colors.danger} style={{ marginBottom: 20 }} />
-            <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.danger }]}>
-              {t('profile.deleteAccount')}
-            </Text>
-            <Text style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center' }]}>
-              {t('profile.deleteAccountWarning')}
-            </Text>
-            <Text className="font-hk-bold" style={[styles.modalSubtitle, { color: colors.text, textAlign: 'center', marginTop: 10 }]}>
-              {t('profile.deleteAccountConfirm')}
-            </Text>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={handleDeleteModalCancel}
-              >
-                <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
+            <View className="w-full gap-4 items-center">
+              <Ionicons name="warning" size={56} color={colors.danger} />
+              <Text className="text-xl font-hk-bold text-center" style={{ color: colors.danger }}>
+                {t('profile.deleteAccount')}
+              </Text>
+              <Text className="text-base text-foreground-secondary text-center">
+                {t('profile.deleteAccountWarning')}
+              </Text>
+              <Text className="text-base font-hk-bold text-foreground text-center">
+                {t('profile.deleteAccountConfirm')}
+              </Text>
 
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.danger }]}
-                onPress={handleDeleteAccountConfirm}
-              >
-                <Text className="font-hk-semibold" style={[styles.continueButtonText, { color: '#fff' }]}>{t('common.continue')}</Text>
-              </TouchableOpacity>
+              <View className="flex-row gap-3 w-full">
+                <TouchableOpacity
+                  className="flex-1 py-3 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: colors.border }}
+                  onPress={handleDeleteModalCancel}
+                >
+                  <Text className="text-base font-hk-semibold text-foreground">
+                    {t('common.cancel')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-1 py-3 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: colors.danger }}
+                  onPress={handleDeleteAccountConfirm}
+                >
+                  <Text className="text-base font-hk-semibold text-white">
+                    {t('common.continue')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -539,54 +541,62 @@ export default function ProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons name="alert-circle" size={60} color={colors.danger} style={{ marginBottom: 20 }} />
-            <Text className="font-hk-bold" style={[styles.modalTitle, { color: colors.danger }]}>
-              {t('profile.deleteAccountFinalConfirm')}
-            </Text>
-            
-            <TextInput
-              ref={deleteInputRef}
-              style={[styles.nameInput, { 
-                backgroundColor: colors.background,
-                color: colors.text,
-                borderColor: colors.border
-              }]}
-              placeholder={t('profile.typeDeleteToConfirm')}
-              placeholderTextColor={colors.textSecondary}
-              value={deleteConfirmText}
-              onChangeText={setDeleteConfirmText}
-              autoFocus={true}
-              autoCapitalize="characters"
-              autoComplete="off"
-              autoCorrect={false}
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={handleDeleteConfirmModalCancel}
-                disabled={isDeleting}
-              >
-                <Text className="font-hk-semibold" style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
+            <View className="w-full gap-4 items-center">
+              <Ionicons name="alert-circle" size={56} color={colors.danger} />
+              <Text className="text-xl font-hk-bold text-center" style={{ color: colors.danger }}>
+                {t('profile.deleteAccountFinalConfirm')}
+              </Text>
 
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.danger }]}
-                onPress={handleDeleteAccountFinal}
-                disabled={isDeleting || !deleteConfirmText.trim()}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text className="font-hk-semibold" style={[styles.continueButtonText, { color: '#fff' }]}>{t('profile.deleteAccount')}</Text>
-                )}
-              </TouchableOpacity>
+              <TextInput
+                ref={deleteInputRef}
+                className="w-full border border-border rounded-xl px-4 text-base text-foreground"
+                style={{ height: 50, backgroundColor: colors.background }}
+                placeholder={t('profile.typeDeleteToConfirm')}
+                placeholderTextColor={colors.textSecondary}
+                value={deleteConfirmText}
+                onChangeText={setDeleteConfirmText}
+                autoFocus={true}
+                autoCapitalize="characters"
+                autoComplete="off"
+                autoCorrect={false}
+              />
+
+              <View className="flex-row gap-3 w-full">
+                <TouchableOpacity
+                  className="flex-1 py-3 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: colors.border }}
+                  onPress={handleDeleteConfirmModalCancel}
+                  disabled={isDeleting}
+                >
+                  <Text className="text-base font-hk-semibold text-foreground">
+                    {t('common.cancel')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-1 py-3 rounded-xl items-center justify-center"
+                  style={{
+                    backgroundColor: colors.danger,
+                    opacity: (isDeleting || !deleteConfirmText.trim()) ? 0.5 : 1,
+                  }}
+                  onPress={handleDeleteAccountFinal}
+                  disabled={isDeleting || !deleteConfirmText.trim()}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text className="text-base font-hk-semibold text-white">
+                      {t('profile.deleteAccount')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Avatar Editor Modal */}
+      {/* Avatar Editor */}
       <AvatarEditor
         currentAvatarUrl={player?.avatarUrl || null}
         onSave={uploadAvatar}
@@ -599,102 +609,6 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingTop: 20,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  editBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.background,
-  },
-  name: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 16,
-    opacity: 0.8,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  infoLabel: {
-    fontSize: 16,
-    marginLeft: 12,
-    marginRight: 0,
-    minWidth: 120,
-    flexShrink: 0,
-  },
-  infoValue: {
-    fontSize: 16,
-    flex: 1,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  actionButtonText: {
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 50,
-  },
-  guestBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warning,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  guestBannerText: {
-    fontSize: 16,
-    color: colors.text,
-    marginLeft: 10,
-  },
-  editButton: {
-    marginLeft: 10,
-  },
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-start',
@@ -704,78 +618,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    minHeight: 320,
-    padding: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  nameInput: {
-    width: '100%',
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    fontSize: 18,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  modalButton: {
-    width: '45%',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    padding: 28,
+    borderRadius: 20,
     alignItems: 'center',
   },
-  cancelButton: {
-    backgroundColor: colors.border,
-  },
-  cancelButtonText: {
-    fontSize: 18,
-  },
-  continueButton: {
-    backgroundColor: colors.secondary,
-  },
-  continueButtonText: {
-    fontSize: 18,
-    color: '#fff',
-  },
-  pencilIcon: {
-    marginLeft: 10,
-  },
-  deleteButton: {
-    borderWidth: 1,
-    borderColor: colors.danger,
-    backgroundColor: 'transparent',
-  },
-  deleteButtonText: {
-    color: colors.danger,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  permissionWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingLeft: 32,
-  },
-  permissionWarningText: {
-    fontSize: 12,
-    marginLeft: 8,
-    flex: 1,
-  },
-}); 
+});
