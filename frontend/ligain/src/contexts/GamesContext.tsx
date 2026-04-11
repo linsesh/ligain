@@ -25,7 +25,7 @@
  * - Uses injected GamesApi via dependency injection - does not know if it's mock or real
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useGamesApi } from '../api';
 import { useTimeService } from './TimeServiceContext';
 import { useAuth } from './AuthContext';
@@ -35,6 +35,8 @@ import { useTranslation } from 'react-i18next';
 import { handleGameError, translateError } from '../utils/errorMessages';
 import { computeMonthlyAndMatchdayScores, computeTotalScores, AggregatedScore } from '../utils/aggregations';
 import { MatchesResponse } from '../api/types';
+import { SeasonMatch, MatchResult } from '../types/match';
+import { computeLeagueStandings, resolveCurrentMatchday, computeFingerprint, TeamStanding } from '../utils/standings';
 
 // Basic game data structure returned from the API
 // Contains core game information without any derived/calculated fields
@@ -75,9 +77,30 @@ interface GamesContextType {
   joinGame: (code: string) => Promise<void>; // Join existing game by code
   createGame: (name: string) => Promise<void>; // Create new game
   removeGame: (gameId: string) => void;     // Remove game from local state (after leaving)
+  // League standings computed once from the first game's match data (shared across all games,
+  // since all games in the same competition track the same underlying matches).
+  leagueStandings: TeamStanding[];
+  // All matches (incoming + past) from the representative game, as MatchResult objects.
+  // Used by the team detail page to show match history without an extra API call.
+  allMatchesForStandings: Record<string, MatchResult>;
 }
 
 const GamesContext = createContext<GamesContextType | undefined>(undefined);
+
+// Converts raw API match data into MatchResult objects (bets/scores not needed here).
+function apiMatchesToMatchResults(matchesData: MatchesResponse): Record<string, MatchResult> {
+  const result: Record<string, MatchResult> = {};
+  const allData = { ...matchesData.incomingMatches, ...matchesData.pastMatches };
+  for (const [key, data] of Object.entries(allData)) {
+    result[key] = {
+      match: SeasonMatch.fromJSON(data.match),
+      bets: null,
+      scores: null,
+      playerBetStatuses: null,
+    };
+  }
+  return result;
+}
 
 // Hook to access games context - throws error if used outside provider
 export const useGames = () => {
@@ -98,6 +121,12 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
   const [bestGameId, setBestGameId] = useState<string | null>(null);
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(true);
+  // Standings cache — survives re-renders, reset each refresh cycle inside fetchGames.
+  const standingsCacheRef = useRef<{ fingerprint: string; standings: TeamStanding[] } | null>(null);
+  const [leagueStandings, setLeagueStandings] = useState<TeamStanding[]>([]);
+  const [allMatchesForStandings, setAllMatchesForStandings] = useState<Record<string, MatchResult>>({});
+  // Captures the first game's raw match data during enrichGameWithMatches for standings use.
+  const representativeMatchDataRef = useRef<MatchesResponse | null>(null);
 
   // Track if component is mounted to prevent state updates after unmount
   useEffect(() => {
@@ -171,6 +200,12 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         totalLeaderboard: [],
       } as GameWithMatchInfo;
 
+      // Capture the first game's match data for standings computation.
+      // All games track the same underlying match results, so one is sufficient.
+      if (!representativeMatchDataRef.current) {
+        representativeMatchDataRef.current = matchesData;
+      }
+
       return await processGameWithMatches(game, matchesData);
     } catch {
       return {
@@ -209,6 +244,8 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     let didRetry = false;
     let lastError: any = null;
+    // Reset so the first game's data is re-captured each refresh cycle.
+    representativeMatchDataRef.current = null;
 
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -225,6 +262,26 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (!isMounted) return;
+
+        // Compute league standings once using the representative game's match data.
+        // The fingerprint guard skips recomputation when no match has newly finished
+        // in the current matchday.
+        if (representativeMatchDataRef.current) {
+          const allMatchResults = apiMatchesToMatchResults(representativeMatchDataRef.current);
+          const now = timeService.now();
+          const currentMatchday = resolveCurrentMatchday(allMatchResults, now);
+          const fp = computeFingerprint(allMatchResults, currentMatchday);
+
+          if (standingsCacheRef.current?.fingerprint !== fp) {
+            standingsCacheRef.current = {
+              fingerprint: fp,
+              standings: computeLeagueStandings(allMatchResults),
+            };
+          }
+
+          setLeagueStandings(standingsCacheRef.current.standings);
+          setAllMatchesForStandings(allMatchResults);
+        }
 
         setGames(gamesWithMatchInfo);
         const bestGame = determineBestGame(gamesWithMatchInfo);
@@ -325,6 +382,8 @@ export const GamesProvider = ({ children }: { children: React.ReactNode }) => {
         joinGame,
         createGame,
         removeGame,
+        leagueStandings,
+        allMatchesForStandings,
       }}
     >
       {children}

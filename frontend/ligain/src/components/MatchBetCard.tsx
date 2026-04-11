@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, Image, StyleSheet } from 'react-native';
+import { View, TextInput, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from './ui/Text';
 import { getTeamLogo, isPngLogo } from '../utils/teamLogos';
 import { colors } from '../constants/colors';
@@ -18,6 +18,8 @@ interface MatchBetCardProps {
   drawOdds?: number;
   hasClearFavorite?: boolean;
   favoriteTeam?: string;
+  onHomeTeamPress?: () => void;
+  onAwayTeamPress?: () => void;
 }
 
 function TeamLogo({ teamName }: { teamName: string }) {
@@ -123,6 +125,8 @@ export function MatchBetCard({
   drawOdds,
   hasClearFavorite,
   favoriteTeam,
+  onHomeTeamPress,
+  onAwayTeamPress,
 }: MatchBetCardProps) {
   const showOdds =
     homeTeamOdds !== undefined &&
@@ -133,10 +137,15 @@ export function MatchBetCard({
     <View style={{ paddingBottom: 24 }}>
       <View style={styles.row}>
         {/* Home team */}
-        <View style={styles.teamSide}>
+        <TouchableOpacity
+          style={styles.teamSide}
+          onPress={onHomeTeamPress}
+          disabled={!onHomeTeamPress}
+          activeOpacity={onHomeTeamPress ? 0.7 : 1}
+        >
           <TeamLogo teamName={homeTeam} />
           <Text style={styles.teamName}>{homeTeam}</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Score inputs */}
         <View style={styles.scoreCenter}>
@@ -146,10 +155,15 @@ export function MatchBetCard({
         </View>
 
         {/* Away team */}
-        <View style={styles.teamSide}>
+        <TouchableOpacity
+          style={styles.teamSide}
+          onPress={onAwayTeamPress}
+          disabled={!onAwayTeamPress}
+          activeOpacity={onAwayTeamPress ? 0.7 : 1}
+        >
           <TeamLogo teamName={awayTeam} />
           <Text style={styles.teamName}>{awayTeam}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {showOdds && (

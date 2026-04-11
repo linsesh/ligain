@@ -189,6 +189,8 @@ function MatchCard({ matchResult, gameId }: {
           date: matchResult.match.getDate().toISOString(),
           homeTeam: matchResult.match.getHomeTeam(),
           awayTeam: matchResult.match.getAwayTeam(),
+          homeTeamRaw: matchResult.match.getHomeTeamForLogo(),
+          awayTeamRaw: matchResult.match.getAwayTeamForLogo(),
           betHomeGoals: player && matchResult.bets?.[player.id]
             ? String(matchResult.bets[player.id].predictedHomeGoals)
             : '',

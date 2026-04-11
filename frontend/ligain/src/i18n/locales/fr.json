@@ -284,5 +284,11 @@
     "authenticationError": "Erreur d'authentification",
     "serverUnavailable": "Les serveurs Ligain ne sont pas disponibles pour le moment. Veuillez réessayer plus tard.",
     "missingAuthContext": "Contexte d'authentification manquant. Veuillez réessayer."
+  },
+  "team": {
+    "position": "{{position}}e",
+    "points": "{{points}} pts",
+    "matchHistory": "Historique",
+    "noMatchHistory": "Aucun match terminé"
   }
 } 

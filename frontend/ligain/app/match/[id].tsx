@@ -20,6 +20,8 @@ export default function MatchDetailScreen() {
     date,
     homeTeam,
     awayTeam,
+    homeTeamRaw,
+    awayTeamRaw,
     betHomeGoals,
     betAwayGoals,
     homeTeamOdds,
@@ -34,6 +36,8 @@ export default function MatchDetailScreen() {
     date: string;
     homeTeam: string;
     awayTeam: string;
+    homeTeamRaw: string;
+    awayTeamRaw: string;
     betHomeGoals: string;
     betAwayGoals: string;
     homeTeamOdds: string;
@@ -103,6 +107,8 @@ export default function MatchDetailScreen() {
           drawOdds={dOdds}
           hasClearFavorite={clearFavorite}
           favoriteTeam={favoriteTeam || ''}
+          onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[name]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
+          onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[name]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
         />
       </View>
 
