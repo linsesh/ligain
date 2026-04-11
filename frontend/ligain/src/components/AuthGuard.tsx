@@ -16,13 +16,13 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   useEffect(() => {    
     if (!isLoading) {
-      const inAllowedGroup = segments[0] === '(tabs)' || segments[0] === 'about' || segments[0] === 'game' || segments[0] === 'match';
+      const inAllowedGroup = segments[0] === '(tabs)' || segments[0] === 'about' || segments[0] === 'game' || segments[0] === 'match' || segments[0] === 'team';
 
       if (player && !inAllowedGroup) {
         console.log('✅ AuthGuard - User authenticated, navigating to /(tabs)');
         // User is authenticated but not in the main app, navigate to main app
         router.replace('/(tabs)');
-      } else if (!player && inAuthGroup) {
+      } else if (!player && inAllowedGroup) {
         console.log('❌ AuthGuard - User not authenticated, navigating to /signin');
         // User is not authenticated but in the main app, navigate to sign in
         router.replace('/signin');

@@ -70,6 +70,7 @@ const createTestMatchResult = (
   match,
   bets,
   scores,
+  playerBetStatuses: null,
 });
 
 // Mock data for testing
