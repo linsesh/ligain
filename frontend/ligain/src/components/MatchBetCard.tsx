@@ -228,7 +228,7 @@ const oddsStyles = StyleSheet.create({
   container: {
     backgroundColor: colors.border,
     borderRadius: 12,
-    padding: 16,
+    padding: 10,
     flexDirection: 'row',
     marginHorizontal: 24,
   },
@@ -239,15 +239,15 @@ const oddsStyles = StyleSheet.create({
   },
   label: {
     color: colors.textSecondary,
-    fontSize: 11,
+    fontSize: 10,
   },
   value: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   multiplier: {
     color: colors.secondary,
-    fontSize: 13,
+    fontSize: 11,
   },
 });
