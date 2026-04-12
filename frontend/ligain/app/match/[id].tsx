@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, Keyboard, Platform, LayoutAnimation, UIManager } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
@@ -14,6 +14,7 @@ import { useBetAutoSubmit } from '../../hooks/useBetAutoSubmit';
 import { useMatches } from '../../hooks/useMatches';
 import { useNextMatch } from '../../hooks/useNextMatch';
 import { useGames } from '../../src/contexts/GamesContext';
+import { usePostBetNavigation } from '../../hooks/usePostBetNavigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { computeTeamForm } from '../../src/utils/standings';
 import { PlayerBetsBar } from '../../src/components/PlayerBetsBar';
@@ -79,6 +80,28 @@ export default function MatchDetailScreen() {
   const [homeGoals, setHomeGoals] = useState(betHomeGoals || '');
   const [awayGoals, setAwayGoals] = useState(betAwayGoals || '');
   const [betConfirmed, setBetConfirmed] = useState(!!(betHomeGoals && betAwayGoals));
+  const [barVisible, setBarVisible] = useState(!!(betHomeGoals && betAwayGoals));
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const matchDate = date ? new Date(date) : null;
   const dateLabel = matchDate ? formatMatchHeaderDate(matchDate) : '';
@@ -128,11 +151,18 @@ export default function MatchDetailScreen() {
     });
   };
 
+  const { handlePress: handlePostBetPress, isLastMatch } = usePostBetNavigation(
+    remainingCount,
+    navigateToNextMatch,
+  );
+
   const handlePlaceBet = async (matchId: string, h: number, a: number) => {
+    setBarVisible(true);
     try {
       await placeBet(matchId, h, a);
       setBetConfirmed(true);
     } catch {
+      setBarVisible(false);
       // error state handled by useBetPlacement
     }
   };
@@ -173,8 +203,8 @@ export default function MatchDetailScreen() {
             awayTeam={awayTeam || ''}
             homeGoals={homeGoals}
             awayGoals={awayGoals}
-            onHomeGoalsChange={setHomeGoals}
-            onAwayGoalsChange={setAwayGoals}
+            onHomeGoalsChange={(v) => { setHomeGoals(v); setBetConfirmed(false); setBarVisible(false); }}
+            onAwayGoalsChange={(v) => { setAwayGoals(v); setBetConfirmed(false); setBarVisible(false); }}
             editable={editable}
             homeTeamOdds={homeOdds}
             awayTeamOdds={awayOdds}
@@ -221,16 +251,16 @@ export default function MatchDetailScreen() {
           {/* Push button to the bottom of the zone */}
           <View style={{ flex: 1 }} />
 
-          {/* Next match button */}
-          {editable && remainingCount > 0 && (
+          {/* Next match / view matches button */}
+          {editable && (remainingCount > 0 || betConfirmed) && (
             <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
               <TouchableOpacity
                 disabled={isSubmitting}
-                onPress={navigateToNextMatch}
+                onPress={handlePostBetPress}
                 style={{
                   backgroundColor: isSubmitting
                     ? colors.disabled
-                    : betConfirmed ? colors.primary : colors.text,
+                    : (betConfirmed && !isLastMatch) ? colors.primary : colors.text,
                   borderRadius: 999,
                   paddingVertical: 16,
                   paddingHorizontal: 40,
@@ -244,10 +274,10 @@ export default function MatchDetailScreen() {
                 ) : (
                   <>
                     <Text className="font-hk-bold" style={{
-                      color: betConfirmed ? colors.text : colors.white,
+                      color: (betConfirmed && !isLastMatch) ? colors.text : colors.white,
                       fontSize: 17,
                     }}>
-                      {t('games.nextMatch')}
+                      {isLastMatch ? t('games.viewMatches') : t('games.nextMatch')}
                     </Text>
                     {!betConfirmed && (
                       <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 3 }}>
@@ -257,7 +287,7 @@ export default function MatchDetailScreen() {
                   </>
                 )}
               </TouchableOpacity>
-              {!isSubmitting && (
+              {!isSubmitting && !isLastMatch && (
                 <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
                   {t('games.remainingMatchesInMatchday', { count: remainingCount, matchday })}
                 </Text>
@@ -266,6 +296,52 @@ export default function MatchDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Floating status bar — sits just above the keyboard */}
+      {editable && keyboardHeight > 0 && barVisible && (
+        <View style={{
+          position: 'absolute',
+          bottom: keyboardHeight,
+          left: 0,
+          right: 0,
+          backgroundColor: colors.background,
+          paddingHorizontal: 24,
+          paddingVertical: 10,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}>
+          {!betConfirmed ? (
+            <ActivityIndicator color={colors.textSecondary} style={{ alignSelf: 'center' }} />
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={() => { Keyboard.dismiss(); handlePostBetPress(); }}
+                style={{
+                  backgroundColor: isLastMatch ? colors.text : colors.primary,
+                  borderRadius: 999,
+                  paddingVertical: 16,
+                  paddingHorizontal: 40,
+                  alignItems: 'center',
+                  alignSelf: 'center',
+                  minWidth: '70%',
+                }}
+              >
+                <Text className="font-hk-bold" style={{
+                  color: isLastMatch ? colors.white : colors.text,
+                  fontSize: 17,
+                }}>
+                  {isLastMatch ? t('games.viewMatches') : t('games.nextMatch')}
+                </Text>
+              </TouchableOpacity>
+              {!isLastMatch && (
+                <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
+                  {t('games.remainingMatchesInMatchday', { count: remainingCount, matchday })}
+                </Text>
+              )}
+            </>
+          )}
+        </View>
+      )}
     </View>
   );
 }
