@@ -284,9 +284,10 @@ function MatchCard({ matchResult, gameId }: {
 interface MatchesListProps {
   gameId: string;
   initialMatchday?: number;
+  activeMatchday?: number;
 }
 
-export default function MatchesList({ gameId, initialMatchday }: MatchesListProps) {
+export default function MatchesList({ gameId, initialMatchday, activeMatchday }: MatchesListProps) {
   const { incomingMatches, pastMatches, loading: matchesLoading, refresh } = useMatches(gameId);
   useMatchNotifications(incomingMatches, gameId);
   const [refreshing, setRefreshing] = useState(false);
@@ -321,7 +322,7 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
       if (initialMatchday && sortedMatchdays.includes(initialMatchday)) {
         setCurrentMatchday(initialMatchday);
       } else {
-        setCurrentMatchday(sortedMatchdays[0]);
+        setCurrentMatchday(sortedMatchdays[sortedMatchdays.length - 1]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -411,16 +412,26 @@ export default function MatchesList({ gameId, initialMatchday }: MatchesListProp
           keyExtractor={(item) => String(item)}
           className="border-b border-border"
           contentContainerClassName="px-2 py-2"
-          onScrollToIndexFailed={() => {}}
+          getItemLayout={(_, index) => ({
+            length: itemWidth,
+            offset: itemWidth * index,
+            index,
+          })}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              matchdaySelectorRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+            }, 100);
+          }}
           renderItem={({ item }) => {
             const isSelected = item === currentMatchday;
+            const isActive = item === activeMatchday;
             return (
               <TouchableOpacity
                 onPress={() => startTransition(() => setCurrentMatchday(item))}
                 style={{ width: itemWidth }}
                 className="items-center py-1.5"
               >
-                <Text className={`text-lg ${isSelected ? 'font-hk-bold text-foreground' : 'font-hk-medium text-foreground-secondary'}`}>
+                <Text className={`text-lg ${isSelected ? `font-hk-bold ${isActive ? 'text-primary' : 'text-foreground'}` : isActive ? 'font-hk-medium text-primary' : 'font-hk-medium text-foreground-secondary'}`}>
                   {t('games.matchdayShortPrefix')}{item}
                 </Text>
                 <View className={`h-0.5 w-1/2 mt-0.5 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
