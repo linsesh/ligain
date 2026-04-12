@@ -89,6 +89,7 @@ export default function MatchesTabScreen() {
             key={selectedGameId}
             gameId={selectedGameId}
             initialMatchday={initialMatchday}
+            activeMatchday={selectedGame?.closestUnfinishedMatchday?.matchday}
           />
         </View>
       )}

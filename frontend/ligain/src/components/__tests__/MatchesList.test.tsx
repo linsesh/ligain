@@ -78,6 +78,12 @@ jest.mock('react-native', () => {
     Text: 'Text',
     TouchableOpacity: 'TouchableOpacity',
     ScrollView: 'ScrollView',
+    FlatList: ({ data, renderItem }: any) => {
+      const React = require('react');
+      return React.createElement('View', null, data?.map((item: any, index: number) =>
+        renderItem({ item, index, separators: {} })
+      ));
+    },
     ActivityIndicator: 'ActivityIndicator',
     RefreshControl: 'RefreshControl',
     Image: 'Image',
@@ -156,11 +162,11 @@ const mockUseAuth = useAuth as jest.Mock;
 const mockRefresh = jest.fn();
 
 // Helper to create a minimal SeasonMatch-like mock object
-function makeMatch(status: 'finished' | 'scheduled' | 'in-progress', daysFromNow = 0) {
+function makeMatch(status: 'finished' | 'scheduled' | 'in-progress', daysFromNow = 0, matchday = 19) {
   const date = new Date('2024-01-15T10:00:00Z');
   date.setDate(date.getDate() + daysFromNow);
   return {
-    id: () => `match-test-${status}`,
+    id: () => `match-test-${status}-${matchday}`,
     isFinished: () => status === 'finished',
     isInProgress: () => status === 'in-progress',
     hasStarted: () => status !== 'scheduled',
@@ -176,8 +182,8 @@ function makeMatch(status: 'finished' | 'scheduled' | 'in-progress', daysFromNow
     getAwayTeamOdds: () => 2.0,
     getDrawOdds: () => 3.2,
     getDate: () => date,
-    getMatchday: () => 19,
-    matchday: 19,
+    getMatchday: () => matchday,
+    matchday,
   };
 }
 
@@ -277,5 +283,84 @@ describe('MatchesList - points badge display', () => {
 
     render(<MatchesList gameId="game-1" />);
     await waitFor(() => expect(screen.queryByText('No prono')).toBeNull());
+  });
+});
+
+describe('MatchesList - matchday selector', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ player: { id: 'player-1', name: 'Test Player' }, token: 'test-token' });
+  });
+
+  it('defaults to the last matchday when no initialMatchday is provided', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-1': { match: makeMatch('scheduled', 1, 1), bets: null, scores: null, playerBetStatuses: null },
+        'match-5': { match: makeMatch('scheduled', 5, 5), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('M5').props.className).toContain('font-hk-bold');
+    });
+    expect(screen.getByText('M1').props.className).not.toContain('font-hk-bold');
+  });
+
+  it('uses initialMatchday when provided and valid', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-1': { match: makeMatch('scheduled', 1, 1), bets: null, scores: null, playerBetStatuses: null },
+        'match-5': { match: makeMatch('scheduled', 5, 5), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={1} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('M1').props.className).toContain('font-hk-bold');
+    });
+    expect(screen.getByText('M5').props.className).not.toContain('font-hk-bold');
+  });
+
+  it('highlights activeMatchday in primary color when not selected', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-1': { match: makeMatch('scheduled', 1, 1), bets: null, scores: null, playerBetStatuses: null },
+        'match-3': { match: makeMatch('scheduled', 3, 3), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={1} activeMatchday={3} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('M3').props.className).toContain('text-primary');
+    });
+  });
+
+  it('non-active non-selected tab has secondary color', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-1': { match: makeMatch('scheduled', 1, 1), bets: null, scores: null, playerBetStatuses: null },
+        'match-2': { match: makeMatch('scheduled', 2, 2), bets: null, scores: null, playerBetStatuses: null },
+        'match-3': { match: makeMatch('scheduled', 3, 3), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={1} activeMatchday={3} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('M2').props.className).toContain('text-foreground-secondary');
+    });
+    expect(screen.getByText('M2').props.className).not.toContain('text-primary');
   });
 });
