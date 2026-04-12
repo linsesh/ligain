@@ -8,6 +8,7 @@ export const useMatches = (gameId: string) => {
   const gamesApi = useGamesApi();
   const timeService = useTimeService();
   const [incomingMatches, setIncomingMatches] = useState<{ [key: string]: MatchResult }>({});
+  const [incomingByMatchday, setIncomingByMatchday] = useState<Record<number, MatchResult[]>>({});
   const [pastMatches, setPastMatches] = useState<{ [key: string]: MatchResult }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -74,7 +75,16 @@ export const useMatches = (gameId: string) => {
         return processed;
       };
 
-      setIncomingMatches(processMatches(data.incomingMatches));
+      const processedIncoming = processMatches(data.incomingMatches);
+      const byMatchday = Object.values(processedIncoming).reduce<Record<number, MatchResult[]>>((acc, mr) => {
+        const day = mr.match.getMatchday();
+        if (!acc[day]) acc[day] = [];
+        acc[day].push(mr);
+        return acc;
+      }, {});
+
+      setIncomingMatches(processedIncoming);
+      setIncomingByMatchday(byMatchday);
       setPastMatches(processMatches(data.pastMatches));
       setError(null);
     } catch (err) {
@@ -91,6 +101,7 @@ export const useMatches = (gameId: string) => {
 
   return {
     incomingMatches,
+    incomingByMatchday,
     pastMatches,
     loading,
     error,
