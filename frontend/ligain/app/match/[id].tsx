@@ -161,12 +161,13 @@ export default function MatchDetailScreen() {
       {/* Scrollable content zone */}
       <ScrollView
         style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <View style={{ backgroundColor: colors.background, paddingTop: 24, paddingBottom: 24 }}>
-          {/* Bet card */}
+        {/* Zone 1 — match card */}
+        <View style={{ backgroundColor: colors.background, paddingTop: 8, paddingBottom: 8 }}>
           <MatchBetCard
             homeTeam={homeTeam || ''}
             awayTeam={awayTeam || ''}
@@ -185,10 +186,16 @@ export default function MatchDetailScreen() {
             onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
             onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
           />
+        </View>
 
+        {/* Grid gap */}
+        <View style={{ height: cellSize }} />
+
+        {/* Zone 2 — secondary content */}
+        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 24, paddingBottom: 24 }}>
           {/* Clear favorite info */}
           {clearFavorite && (
-            <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
+            <View style={{ paddingHorizontal: 24 }}>
               <View style={{ backgroundColor: colors.link, borderRadius: 12, padding: 16 }}>
                 <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 22, textAlign: 'center' }}>
                   {t('games.clearFavoriteTeam', { team: favoriteTeam })}
@@ -207,9 +214,12 @@ export default function MatchDetailScreen() {
             <PlayerBetsBar
               players={gamePlayers}
               playerBetStatuses={matchBetStatuses}
-              style={{ marginTop: 24 }}
+              style={{ marginTop: clearFavorite ? 24 : 0 }}
             />
           )}
+
+          {/* Push button to the bottom of the zone */}
+          <View style={{ flex: 1 }} />
 
           {/* Next match button */}
           {editable && remainingCount > 0 && (
