@@ -325,6 +325,59 @@ describe('useMatches', () => {
     expect(match2.playerBetStatuses).toBeNull();
   });
 
+  it('should group incomingMatches by matchday in incomingByMatchday', async () => {
+    const mockResponse = {
+      incomingMatches: {
+        'match-md1': {
+          match: {
+            homeTeam: 'Team A', awayTeam: 'Team B',
+            homeGoals: 0, awayGoals: 0,
+            homeTeamOdds: 1.5, awayTeamOdds: 2.5, drawOdds: 3.0,
+            status: 'scheduled', seasonCode: '2024', competitionCode: 'L1',
+            date: '2025-04-20T15:00:00Z', matchday: 1,
+          },
+          bets: null, scores: null,
+        },
+        'match-md2a': {
+          match: {
+            homeTeam: 'Team C', awayTeam: 'Team D',
+            homeGoals: 0, awayGoals: 0,
+            homeTeamOdds: 2.0, awayTeamOdds: 2.0, drawOdds: 3.0,
+            status: 'scheduled', seasonCode: '2024', competitionCode: 'L1',
+            date: '2025-04-27T15:00:00Z', matchday: 2,
+          },
+          bets: null, scores: null,
+        },
+        'match-md2b': {
+          match: {
+            homeTeam: 'Team E', awayTeam: 'Team F',
+            homeGoals: 0, awayGoals: 0,
+            homeTeamOdds: 1.8, awayTeamOdds: 2.2, drawOdds: 3.2,
+            status: 'scheduled', seasonCode: '2024', competitionCode: 'L1',
+            date: '2025-04-27T17:00:00Z', matchday: 2,
+          },
+          bets: null, scores: null,
+        },
+      },
+      pastMatches: {},
+    };
+
+    mockGetGameMatches.mockResolvedValueOnce(mockResponse);
+
+    const { result } = renderHook(() => useMatches('test-game-id'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    const byMatchday = result.current.incomingByMatchday;
+    expect(Object.keys(byMatchday)).toHaveLength(2);
+    expect(byMatchday[1]).toHaveLength(1);
+    expect(byMatchday[2]).toHaveLength(2);
+    expect(byMatchday[1][0].match.getMatchday()).toBe(1);
+    expect(byMatchday[2].every(mr => mr.match.getMatchday() === 2)).toBe(true);
+  });
+
   it('should call refresh function', async () => {
     const mockResponse = {
       incomingMatches: {},

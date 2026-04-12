@@ -119,7 +119,10 @@
     "draw": "Draw",
     "awayWin": "Away win",
     "clearFavoriteTeam": "Clear favourite: {{team}}",
-    "doublePointsHint": "You can double your points if {{team}} wins!"
+    "doublePointsHint": "You can double your points if {{team}} wins!",
+    "nextMatch": "Next match",
+    "betNotRegistered": "Bet not registered",
+    "remainingMatchesInMatchday": "{{count}} match(es) left in MD{{matchday}}"
   },
   "profile": {
     "noUserInfo": "No user information available",

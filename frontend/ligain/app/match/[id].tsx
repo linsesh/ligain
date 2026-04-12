@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, ScrollView, TouchableOpacity } from 'react-native';
+import { View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/constants/colors';
@@ -12,7 +12,9 @@ import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 import { useBetPlacement } from '../../hooks/useBetPlacement';
 import { useBetAutoSubmit } from '../../hooks/useBetAutoSubmit';
 import { useMatches } from '../../hooks/useMatches';
+import { useNextMatch } from '../../hooks/useNextMatch';
 import { useGames } from '../../src/contexts/GamesContext';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { computeTeamForm } from '../../src/utils/standings';
 import { PlayerBetsBar } from '../../src/components/PlayerBetsBar';
 
@@ -54,9 +56,11 @@ export default function MatchDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const cellSize = useGridCellSize();
-  const { placeBet } = useBetPlacement(gameId);
+  const { placeBet, isSubmitting } = useBetPlacement(gameId);
   const { games, allMatchesForStandings } = useGames();
   const { incomingMatches } = useMatches(gameId || '');
+  const { player } = useAuth();
+  const playerId = typeof player === 'object' ? player.id : '';
 
   const gamePlayers = games.find(g => g.gameId === gameId)?.players ?? [];
   const matchBetStatuses = id
@@ -74,6 +78,7 @@ export default function MatchDetailScreen() {
 
   const [homeGoals, setHomeGoals] = useState(betHomeGoals || '');
   const [awayGoals, setAwayGoals] = useState(betAwayGoals || '');
+  const [betConfirmed, setBetConfirmed] = useState(!!(betHomeGoals && betAwayGoals));
 
   const matchDate = date ? new Date(date) : null;
   const dateLabel = matchDate ? formatMatchHeaderDate(matchDate) : '';
@@ -90,10 +95,52 @@ export default function MatchDetailScreen() {
     ? (favoriteTeam === homeTeam ? awayTeam || '' : homeTeam || '')
     : '';
 
+  const { remainingCount, nextMatch: nextMatchResult } = useNextMatch(
+    gameId || '',
+    id || '',
+    Number(matchday),
+    playerId,
+  );
+
+  const navigateToNextMatch = () => {
+    if (!nextMatchResult) return;
+    const m = nextMatchResult.match;
+    const bet = nextMatchResult.bets?.[playerId];
+    router.push({
+      pathname: '/match/[id]',
+      params: {
+        id: m.id(),
+        gameId: gameId || '',
+        matchday: String(m.getMatchday()),
+        date: m.getDate().toISOString(),
+        homeTeam: m.homeTeamDisplayName(),
+        awayTeam: m.awayTeamDisplayName(),
+        homeTeamRaw: m.homeTeamName(),
+        awayTeamRaw: m.awayTeamName(),
+        betHomeGoals: bet ? String(bet.predictedHomeGoals) : '',
+        betAwayGoals: bet ? String(bet.predictedAwayGoals) : '',
+        homeTeamOdds: String(m.getHomeTeamOdds()),
+        awayTeamOdds: String(m.getAwayTeamOdds()),
+        drawOdds: String(m.getDrawOdds()),
+        hasClearFavorite: String(m.hasClearFavorite()),
+        favoriteTeam: m.getFavoriteTeam() || '',
+      },
+    });
+  };
+
+  const handlePlaceBet = async (matchId: string, h: number, a: number) => {
+    try {
+      await placeBet(matchId, h, a);
+      setBetConfirmed(true);
+    } catch {
+      // error state handled by useBetPlacement
+    }
+  };
+
   useBetAutoSubmit(
     editable ? homeGoals : '',
     editable ? awayGoals : '',
-    (h, a) => placeBet(id, h, a),
+    (h, a) => handlePlaceBet(id, h, a),
   );
 
   return (
@@ -111,9 +158,15 @@ export default function MatchDetailScreen() {
         <GridTag label={matchdayLabel} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        {/* Opaque grey content zone — natural height so grid shows below */}
-        <View style={{ backgroundColor: colors.background }}>
+      {/* Scrollable content zone */}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <View style={{ backgroundColor: colors.background, paddingTop: 24, paddingBottom: 24 }}>
+          {/* Bet card */}
           <MatchBetCard
             homeTeam={homeTeam || ''}
             awayTeam={awayTeam || ''}
@@ -132,30 +185,76 @@ export default function MatchDetailScreen() {
             onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
             onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
           />
-        </View>
 
-        {/* Favourite info + player bets bar — share one background zone */}
-        {(clearFavorite || (editable && gamePlayers.length > 0)) && (
-          <View style={{ backgroundColor: colors.background, marginTop: cellSize }}>
-            {clearFavorite && (
-              <View style={{ padding: 24 }}>
-                <View style={{ backgroundColor: colors.link, borderRadius: 12, padding: 16 }}>
-                  <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 22, textAlign: 'center' }}>
-                    {t('games.clearFavoriteTeam', { team: favoriteTeam })}
-                  </Text>
-                </View>
-                <View style={{ backgroundColor: colors.border, borderRadius: 12, padding: 16, marginTop: 12 }}>
-                  <Text style={{ color: colors.text, fontSize: 12, textAlign: 'center' }}>
-                    {t('games.doublePointsHint', { team: underdogTeam })}
-                  </Text>
-                </View>
+          {/* Clear favorite info */}
+          {clearFavorite && (
+            <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
+              <View style={{ backgroundColor: colors.link, borderRadius: 12, padding: 16 }}>
+                <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 22, textAlign: 'center' }}>
+                  {t('games.clearFavoriteTeam', { team: favoriteTeam })}
+                </Text>
               </View>
-            )}
-            {editable && gamePlayers.length > 0 && (
-              <PlayerBetsBar players={gamePlayers} playerBetStatuses={matchBetStatuses} />
-            )}
-          </View>
-        )}
+              <View style={{ backgroundColor: colors.border, borderRadius: 12, padding: 16, marginTop: 12 }}>
+                <Text style={{ color: colors.text, fontSize: 12, textAlign: 'center' }}>
+                  {t('games.doublePointsHint', { team: underdogTeam })}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Player bets bar */}
+          {editable && gamePlayers.length > 0 && (
+            <PlayerBetsBar
+              players={gamePlayers}
+              playerBetStatuses={matchBetStatuses}
+              style={{ marginTop: 24 }}
+            />
+          )}
+
+          {/* Next match button */}
+          {editable && remainingCount > 0 && (
+            <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
+              <TouchableOpacity
+                disabled={isSubmitting}
+                onPress={navigateToNextMatch}
+                style={{
+                  backgroundColor: isSubmitting
+                    ? colors.disabled
+                    : betConfirmed ? colors.primary : colors.text,
+                  borderRadius: 999,
+                  paddingVertical: 16,
+                  paddingHorizontal: 40,
+                  alignItems: 'center',
+                  alignSelf: 'center',
+                  minWidth: '70%',
+                }}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.textSecondary} />
+                ) : (
+                  <>
+                    <Text className="font-hk-bold" style={{
+                      color: betConfirmed ? colors.text : colors.white,
+                      fontSize: 17,
+                    }}>
+                      {t('games.nextMatch')}
+                    </Text>
+                    {!betConfirmed && (
+                      <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 3 }}>
+                        {t('games.betNotRegistered')}
+                      </Text>
+                    )}
+                  </>
+                )}
+              </TouchableOpacity>
+              {!isSubmitting && (
+                <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
+                  {t('games.remainingMatchesInMatchday', { count: remainingCount, matchday })}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );

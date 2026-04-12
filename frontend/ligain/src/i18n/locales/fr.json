@@ -119,7 +119,10 @@
     "draw": "Nul",
     "awayWin": "Victoire ext.",
     "clearFavoriteTeam": "Grand favori : {{team}}",
-    "doublePointsHint": "Tu peux doubler tes points en cas de victoire de {{team}} !"
+    "doublePointsHint": "Tu peux doubler tes points si {{team}} gagne !",
+    "nextMatch": "Match suivant",
+    "betNotRegistered": "Pari non enregistré",
+    "remainingMatchesInMatchday": "{{count}} match(s) restant(s) en J{{matchday}}"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",
