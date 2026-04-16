@@ -11,6 +11,7 @@ import { I18nextProvider } from 'react-i18next';
 import i18n from '../src/i18n';
 import { UIEventProvider } from '../src/contexts/UIEventContext';
 import { GamesProvider } from '../src/contexts/GamesContext';
+import { MatchesProvider } from '../src/contexts/MatchesContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ApiProvider } from '../src/api';
 import { UpdateRequiredProvider } from '../src/contexts/UpdateRequiredContext';
@@ -56,6 +57,7 @@ export default function Layout() {
                 <AuthProvider>
                   <TimeServiceProvider service={new RealTimeService()}>
                     <GamesProvider>
+                    <MatchesProvider>
                       <AuthGuard>
                         <View style={{ flex: 1, backgroundColor: 'transparent', paddingTop: alignedTop }}>
                           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
@@ -68,6 +70,7 @@ export default function Layout() {
                           </Stack>
                         </View>
                       </AuthGuard>
+                    </MatchesProvider>
                     </GamesProvider>
                   </TimeServiceProvider>
                 </AuthProvider>
