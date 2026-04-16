@@ -1,4 +1,4 @@
-import { useMatches } from './useMatches';
+import { useMatches } from '../src/contexts/MatchesContext';
 import { MatchResult } from '../src/types/match';
 
 interface UseNextMatchResult {
@@ -6,20 +6,12 @@ interface UseNextMatchResult {
   nextMatch: MatchResult | null;
 }
 
-/**
- * Finds the next unbet upcoming match in the same matchday as the current match.
- *
- * "Unbet" means the current player has no bet recorded for that match.
- * Matches that have already started are excluded.
- * Results are sorted by date ascending so the earliest upcoming match comes first.
- */
 export function useNextMatch(
-  gameId: string,
   currentMatchId: string,
   matchday: number,
   playerId: string,
 ): UseNextMatchResult {
-  const { incomingByMatchday } = useMatches(gameId);
+  const { incomingByMatchday } = useMatches();
   const now = new Date();
 
   const unbetSiblings = (incomingByMatchday[matchday] ?? [])

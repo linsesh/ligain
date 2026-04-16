@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, 
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMatches } from '../../hooks/useMatches';
+import { useMatches } from '../contexts/MatchesContext';
 import { useMatchNotifications } from '../hooks/useMatchNotifications';
 import { useAuth } from '../contexts/AuthContext';
 import { useGames } from '../contexts/GamesContext';
@@ -288,7 +288,7 @@ interface MatchesListProps {
 }
 
 export default function MatchesList({ gameId, initialMatchday, activeMatchday }: MatchesListProps) {
-  const { incomingMatches, pastMatches, loading: matchesLoading, refresh } = useMatches(gameId);
+  const { incomingMatches, pastMatches, loading: matchesLoading, refresh } = useMatches();
   useMatchNotifications(incomingMatches, gameId);
   const [refreshing, setRefreshing] = useState(false);
   const [currentMatchday, setCurrentMatchday] = useState<number | null>(initialMatchday ?? null);

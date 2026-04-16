@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 import { useBetPlacement } from '../../hooks/useBetPlacement';
 import { useBetAutoSubmit } from '../../hooks/useBetAutoSubmit';
-import { useMatches } from '../../hooks/useMatches';
+import { useMatches } from '../../src/contexts/MatchesContext';
 import { useNextMatch } from '../../hooks/useNextMatch';
 import { useGames } from '../../src/contexts/GamesContext';
 import { usePostBetNavigation } from '../../hooks/usePostBetNavigation';
@@ -59,9 +59,9 @@ export default function MatchDetailScreen() {
   const cellSize = useGridCellSize();
   const { placeBet, isSubmitting } = useBetPlacement(gameId);
   const { games, allMatchesForStandings } = useGames();
-  const { incomingMatches } = useMatches(gameId || '');
+  const { incomingMatches } = useMatches();
   const { player } = useAuth();
-  const playerId = typeof player === 'object' ? player.id : '';
+  const playerId = player && typeof player === 'object' ? player.id : '';
 
   const gamePlayers = games.find(g => g.gameId === gameId)?.players ?? [];
   const matchBetStatuses = id
@@ -119,7 +119,6 @@ export default function MatchDetailScreen() {
     : '';
 
   const { remainingCount, nextMatch: nextMatchResult } = useNextMatch(
-    gameId || '',
     id || '',
     Number(matchday),
     playerId,

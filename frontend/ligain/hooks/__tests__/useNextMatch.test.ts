@@ -6,13 +6,12 @@ import { MatchResult } from '../../src/types/match';
 
 let mockIncomingByMatchday: Record<number, MatchResult[]> = {};
 
-jest.mock('../useMatches', () => ({
+jest.mock('../../src/contexts/MatchesContext', () => ({
   useMatches: () => ({ incomingByMatchday: mockIncomingByMatchday }),
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const GAME_ID = 'game-1';
 const PLAYER_ID = 'player-1';
 const MATCHDAY = 5;
 const NOW = new Date('2025-04-15T12:00:00Z');
@@ -71,7 +70,7 @@ describe('useNextMatch', () => {
 
   it('returns zero remaining and null nextMatch when no matches exist for the matchday', () => {
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(0);
@@ -83,7 +82,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [current] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(0);
@@ -97,7 +96,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [started] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(0);
@@ -111,7 +110,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [alreadyBet] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(0);
@@ -123,7 +122,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [sibling] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(1);
@@ -143,7 +142,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [late, early, mid] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(3);
@@ -162,7 +161,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [current, unbet, alreadyBet, started] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(1);
@@ -176,7 +175,7 @@ describe('useNextMatch', () => {
     mockIncomingByMatchday = { [MATCHDAY]: [sibling] };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(1);
@@ -191,7 +190,7 @@ describe('useNextMatch', () => {
     };
 
     const { result } = renderHook(() =>
-      useNextMatch(GAME_ID, 'current-match', MATCHDAY, PLAYER_ID),
+      useNextMatch('current-match', MATCHDAY, PLAYER_ID),
     );
 
     expect(result.current.remainingCount).toBe(0);

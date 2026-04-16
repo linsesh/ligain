@@ -1,11 +1,10 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import MatchesList from '../MatchesList';
-import { useMatches } from '../../../hooks/useMatches';
+import { useMatches } from '../../contexts/MatchesContext';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Mock the hooks - these are our boundaries
-jest.mock('../../../hooks/useMatches');
+jest.mock('../../contexts/MatchesContext');
 jest.mock('../../contexts/AuthContext');
 
 // Mock notification hooks
