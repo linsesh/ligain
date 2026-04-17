@@ -25,6 +25,7 @@ export function getTranslatedGameStatus(status: string, t: any): GameStatusInfo 
   const statusLower = status.toLowerCase();
   switch (statusLower) {
     case 'in progress':
+    case 'active':
       return { text: t('games.inProgressTag'), variant: 'warning' };
     case 'finished':
       return { text: t('games.finishedTag'), variant: 'success' };
@@ -45,6 +46,7 @@ export function getGameStatusVariant(status: string): 'warning' | 'success' | 'p
   const statusLower = status.toLowerCase();
   switch (statusLower) {
     case 'in progress':
+    case 'active':
       return 'warning';
     case 'finished':
       return 'success';

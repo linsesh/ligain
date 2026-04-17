@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, TouchableOpacity, ScrollView, RefreshControl, Alert } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -7,43 +7,62 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
-import { sharedStyles } from '../../src/constants/sharedStyles';
 import { useTranslation } from 'react-i18next';
-import Leaderboard from '../../src/components/Leaderboard';
 import { useGames } from '../../src/contexts/GamesContext';
+import { useMatches } from '../../src/contexts/MatchesContext';
 import { getTranslatedGameStatus } from '../../src/utils/gameStatusUtils';
-import StatusTag from '../../src/components/StatusTag';
-import { translateError } from '../../src/utils/errorMessages';
 import { Picker } from '@react-native-picker/picker';
-import { computeCumulativePointsByMatchday } from '../../src/utils/aggregations';
-import CumulativePointsChart from '../../src/components/CumulativePointsChart';
+import { SeasonBanner } from '../../src/components/SeasonBanner';
+import { PlayerAvatar } from '../../src/components/PlayerAvatar';
+import { GridTag } from '../../src/components/ui/GridTag';
+import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 import ShareableLeaderboard from '../../src/components/ShareableLeaderboard';
 import { captureAndShareWithOptions } from '../../src/utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
+
+const RANK_BORDER_COLORS = [
+  colors.secondary,
+  colors.silver,
+  colors.bronze,
+];
+
+function getRankBorderColor(rank: number): string {
+  return RANK_BORDER_COLORS[rank - 1] ?? colors.textSecondary;
+}
+
+function formatMonthLabel(key: string): string {
+  try {
+    const [y, m] = key.split('-').map(Number);
+    const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
+    const month = d.toLocaleString(undefined, { month: 'long' });
+    return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`;
+  } catch {
+    return key;
+  }
+}
 
 export default function GameOverviewScreen() {
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { player } = useAuth();
   const { t } = useTranslation();
-  const { games, loading, error, refresh } = useGames();
+  const { games, loading, error, refresh, selectedGameId } = useGames();
+  const { incomingByMatchday } = useMatches();
+  const cellSize = useGridCellSize();
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('general'); // 'general' or 'YYYY-MM'
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('general');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const shareableRef = useRef<ViewShot>(null);
 
   const gameDetails = games.find((g) => g.gameId === gameId);
 
-  // Move ALL hooks to the top before any conditional returns
   const availableMonths = useMemo(() => {
     if (!gameDetails) return [];
-    const keys = Object.keys(gameDetails.perMonthLeaderboard || {});
-    return keys.sort((a, b) => (a < b ? 1 : -1)); // Desc by YYYY-MM
+    return Object.keys(gameDetails.perMonthLeaderboard || {}).sort((a, b) => (a < b ? 1 : -1));
   }, [gameDetails?.perMonthLeaderboard]);
 
-  // Ensure selectedPeriod is valid when data changes
   useEffect(() => {
     if (selectedPeriod !== 'general' && !availableMonths.includes(selectedPeriod)) {
       setSelectedPeriod('general');
@@ -58,44 +77,44 @@ export default function GameOverviewScreen() {
     return source.map((p: any) => ({ id: p.PlayerID, name: p.PlayerName, totalScore: p.Points }));
   }, [gameDetails?.totalLeaderboard, gameDetails?.perMonthLeaderboard, selectedPeriod]);
 
-  const getCurrentMonthKey = () => {
+  const enrichedPlayers = useMemo(() => {
+    const playersMap = new Map(
+      (gameDetails?.players ?? []).map((p: any) => [p.id, p])
+    );
+    return sortedPlayers.map((p, index) => ({
+      ...p,
+      avatarUrl: playersMap.get(p.id)?.avatarUrl ?? null,
+      rank: index + 1,
+    }));
+  }, [sortedPlayers, gameDetails?.players]);
+
+  // Monthly winners: past months sorted desc, skip current month, take top 3
+  const monthlyWinners = useMemo(() => {
+    if (!gameDetails?.perMonthLeaderboard) return [];
     const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-  };
+    const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    return availableMonths
+      .filter(k => k !== currentMonthKey)
+      .slice(0, 3)
+      .map(k => {
+        const entries = gameDetails.perMonthLeaderboard![k] || [];
+        const top = entries[0];
+        if (!top || top.Points <= 0) return null;
+        return { monthKey: k, name: top.PlayerName, playerId: top.PlayerID, points: top.Points };
+      })
+      .filter(Boolean) as { monthKey: string; name: string; playerId: string; points: number }[];
+  }, [availableMonths, gameDetails?.perMonthLeaderboard]);
 
-  const getPreviousMonthKey = () => {
+  // Unbetted matches — only valid when viewing the currently selected game
+  const isSelectedGame = gameId === selectedGameId;
+  const closestMatchday = gameDetails?.closestUnfinishedMatchday?.matchday;
+  const unbettedMatches = useMemo(() => {
+    if (!isSelectedGame || !closestMatchday || !incomingByMatchday[closestMatchday]) return [];
     const now = new Date();
-    const y = now.getUTCFullYear();
-    const mIndex = now.getUTCMonth();
-    const prevDate = new Date(Date.UTC(y, mIndex - 1, 1));
-    const py = prevDate.getUTCFullYear();
-    const pm = String(prevDate.getUTCMonth() + 1).padStart(2, '0');
-    return `${py}-${pm}`;
-  };
-
-  const formatMonthLabel = (key: string) => {
-    // key is YYYY-MM
-    try {
-      const [y, m] = key.split('-').map(Number);
-      const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
-      const month = d.toLocaleString(undefined, { month: 'long' });
-      return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${y}`;
-    } catch {
-      return key;
-    }
-  };
-
-  const currentMonthKey = getCurrentMonthKey();
-  const lastMonthKey = getPreviousMonthKey();
-  const currentMonthTop = (gameDetails?.perMonthLeaderboard?.[currentMonthKey] || [])[0];
-  const lastMonthTop = (gameDetails?.perMonthLeaderboard?.[lastMonthKey] || [])[0];
-
-  const cumulativeData = useMemo(() => {
-    if (!gameDetails) return { series: [], matchdays: [] };
-    return computeCumulativePointsByMatchday(gameDetails.perMatchdayLeaderboard || {});
-  }, [gameDetails?.perMatchdayLeaderboard]);
+    return incomingByMatchday[closestMatchday]
+      .filter(mr => !mr.match.hasStarted(now) && !(mr.bets && mr.bets[player?.id ?? '']))
+      .sort((a, b) => a.match.getDate().getTime() - b.match.getDate().getTime());
+  }, [isSelectedGame, closestMatchday, incomingByMatchday, player?.id]);
 
   const copyToClipboard = async (text: string) => {
     if (copied) return;
@@ -103,25 +122,21 @@ export default function GameOverviewScreen() {
       await Clipboard.setStringAsync(text);
       setCopied(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => {
-        setCopied(false);
-      }, 3000);
-    } catch (err) {
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
       Alert.alert(t('common.error'), t('common.failedToCopyToClipboard'));
     }
   };
 
   const handleShareLeaderboard = async () => {
     if (isSharing) return;
-
     setIsSharing(true);
     try {
       await captureAndShareWithOptions(shareableRef, {
         title: t('share.shareTitle'),
         message: t('share.shareTitle'),
       });
-    } catch (error) {
-      console.error('Error sharing leaderboard:', error);
+    } catch {
       Alert.alert(t('share.shareFailed'), t('share.shareFailed'));
     } finally {
       setIsSharing(false);
@@ -134,6 +149,33 @@ export default function GameOverviewScreen() {
     setRefreshing(false);
   }, [refresh]);
 
+  const navigateToFirstUnbettedMatch = () => {
+    const mr = unbettedMatches[0];
+    if (!mr) return;
+    const m = mr.match;
+    const bet = mr.bets?.[player?.id ?? ''];
+    router.push({
+      pathname: '/match/[id]',
+      params: {
+        id: m.id(),
+        gameId: gameId || '',
+        matchday: String(m.getMatchday()),
+        date: m.getDate().toISOString(),
+        homeTeam: m.homeTeamDisplayName(),
+        awayTeam: m.awayTeamDisplayName(),
+        homeTeamRaw: m.homeTeamName(),
+        awayTeamRaw: m.awayTeamName(),
+        betHomeGoals: bet ? String(bet.predictedHomeGoals) : '',
+        betAwayGoals: bet ? String(bet.predictedAwayGoals) : '',
+        homeTeamOdds: String(m.getHomeTeamOdds()),
+        awayTeamOdds: String(m.getAwayTeamOdds()),
+        drawOdds: String(m.getDrawOdds()),
+        hasClearFavorite: String(m.hasClearFavorite()),
+        favoriteTeam: m.getFavoriteTeam() || '',
+      },
+    });
+  };
+
   const navigateToMatches = () => {
     router.push({
       pathname: '/(tabs)/matches',
@@ -141,52 +183,98 @@ export default function GameOverviewScreen() {
     });
   };
 
+  // Loading state
   if (loading && !refreshing) {
     return (
-      <View style={[styles.container]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize }}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-foreground-secondary">{t('common.loading')}</Text>
+        </View>
       </View>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <View style={styles.container}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize }}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={refresh}>
-            <Text style={styles.retryButtonText}>{t('games.retry')}</Text>
+        <View className="flex-1 items-center justify-center px-5">
+          <Text className="text-error text-center mb-5">{error}</Text>
+          <TouchableOpacity
+            className="bg-primary rounded-full px-6 py-3"
+            onPress={refresh}
+          >
+            <Text className="font-hk-bold text-foreground">{t('games.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
+  // Not found
   if (!gameDetails) {
     return (
-      <View style={styles.container}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize }}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.errorText}>{t('games.gameNotFound')}</Text>
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-error">{t('games.gameNotFound')}</Text>
+        </View>
       </View>
     );
   }
 
+  const hasUnbettedMatches = unbettedMatches.length > 0;
+
+  const { text: statusText, variant: statusVariant } = getTranslatedGameStatus(gameDetails.status || '', t);
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+      {/* Back button — grid-aligned like match detail */}
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={{ height: cellSize, justifyContent: 'center', paddingHorizontal: cellSize }}
+      >
         <Ionicons name="arrow-back" size={24} color={colors.text} />
       </TouchableOpacity>
+
+      {/* Title — same layout as matches tab */}
+      <View className="items-center justify-center mb-5">
+        <Text className="font-hk-extrabold text-center text-4xl">
+          {gameDetails.name}
+        </Text>
+      </View>
+
+      {/* Season banner — same as matches tab */}
+      <SeasonBanner
+        className="mb-4"
+        seasonYear={gameDetails.seasonYear}
+        competitionName={gameDetails.competitionName}
+      />
+
+      {/* Status badge — centered */}
+      <View className="items-center mb-3">
+        <GridTag label={statusText} backgroundColor={statusVariant === 'warning' ? colors.warning : statusVariant === 'success' ? colors.success : colors.textSecondary} rounded />
+      </View>
+
       <ScrollView
-        style={styles.scrollView}
+        style={{ flex: 1 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -197,392 +285,209 @@ export default function GameOverviewScreen() {
           />
         }
       >
-        <View style={styles.gameHeader}>
-          <Text className="font-hk-bold" style={styles.gameTitle}>{gameDetails.name}</Text>
-          <Text style={styles.gameSubtitle}>
-            {gameDetails.seasonYear} • {gameDetails.competitionName}
-          </Text>
-          <View style={styles.statusContainer}>
-            {(() => {
-              const { text, variant } = getTranslatedGameStatus(gameDetails.status || '', t);
-              return <StatusTag text={text} variant={variant} />;
-            })()}
+        {/* Grey zone: filter + leaderboard + monthly champions */}
+        <View style={{ backgroundColor: colors.background, marginTop: cellSize }}>
+          {/* Period selector + share button */}
+          <View className="flex-row items-center gap-3 px-5 pt-4 pb-2">
+            <TouchableOpacity
+              onPress={() => setShowPeriodPicker(true)}
+              className="flex-row items-center flex-1 rounded-full px-4 py-2.5"
+              style={{ borderWidth: 2, borderColor: colors.secondary }}
+            >
+              <Text className="font-hk-semibold text-foreground flex-1">
+                {selectedPeriod === 'general' ? t('games.general') : formatMonthLabel(selectedPeriod)}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleShareLeaderboard}
+              disabled={isSharing}
+            >
+              <Ionicons
+                name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
+                size={24}
+                color={isSharing ? colors.textSecondary : colors.text}
+              />
+            </TouchableOpacity>
           </View>
-        </View>
-        {gameDetails.code && (
-          <View style={styles.codeContainer}>
-            <Text className="font-hk-semibold" style={styles.codeLabel}>{t('games.gameCode')}</Text>
-            <View style={styles.codeDisplay}>
-              <Text className="font-hk-bold" style={styles.codeText}>{gameDetails.code}</Text>
-              <TouchableOpacity
-                style={styles.copyButton}
-                onPress={() => gameDetails.code && copyToClipboard(gameDetails.code)}
-                disabled={copied || !gameDetails.code}
+
+          {/* Leaderboard rows */}
+          {enrichedPlayers.map((p) => {
+            const isCurrentPlayer = player?.id === p.id;
+            return (
+              <View
+                key={p.id}
+                className="flex-row items-center py-3 border-b border-border"
+                style={{ paddingHorizontal: 20, backgroundColor: isCurrentPlayer ? colors.link : undefined }}
               >
-                <Ionicons name={copied ? "checkmark-circle" : "copy"} size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        {/* Period Selector (matches-like selector) */}
-        <View style={styles.periodSelectionContainer}>
-          <TouchableOpacity
-            style={styles.periodSelector}
-            onPress={() => setShowPeriodPicker(true)}
-          >
-            <Text style={styles.periodSelectorText}>
-              {selectedPeriod === 'general' ? t('games.general') : formatMonthLabel(selectedPeriod)}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-        {showPeriodPicker && (
-          <View style={styles.pickerOverlay}>
-            <View style={styles.pickerContainer}>
-              <View style={styles.pickerHeader}>
-                <Text className="font-hk-bold" style={styles.pickerTitle}>{t('games.selectPeriod')}</Text>
-                <TouchableOpacity onPress={() => setShowPeriodPicker(false)}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <Picker
-                selectedValue={selectedPeriod}
-                onValueChange={(itemValue) => {
-                  setSelectedPeriod(String(itemValue));
-                  setShowPeriodPicker(false);
-                }}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                <Picker.Item label={t('games.general')} value="general" color={colors.text} />
-                {availableMonths.map((k) => (
-                  <Picker.Item
-                    key={k}
-                    label={formatMonthLabel(k)}
-                    value={k}
-                    color={colors.text}
+                <View
+                  style={{
+                    borderWidth: 2.5,
+                    borderColor: getRankBorderColor(p.rank),
+                    borderRadius: 999,
+                    padding: 2,
+                  }}
+                >
+                  <PlayerAvatar
+                    player={{ name: p.name, avatarUrl: p.avatarUrl }}
+                    displaySize="medium"
                   />
-                ))}
-              </Picker>
+                </View>
+                <Text className="font-hk-semibold flex-1 ml-3" style={isCurrentPlayer ? { color: colors.white } : { color: colors.text }}>
+                  {p.name}
+                </Text>
+                <Text className="font-hk-bold text-lg" style={isCurrentPlayer ? { color: colors.white } : { color: colors.text }}>
+                  {p.totalScore.toLocaleString()}
+                </Text>
+              </View>
+            );
+          })}
+
+          {/* Monthly champions */}
+          {monthlyWinners.length > 0 && (
+            <View className="px-5 pt-4 pb-2">
+              <Text className="font-hk-semibold text-foreground-secondary text-xs tracking-widest uppercase mb-3">
+                {t('games.monthlyChampions')}
+              </Text>
+              {monthlyWinners.map((w) => {
+                const winnerPlayer = (gameDetails.players ?? []).find((p: any) => p.id === w.playerId);
+                return (
+                  <View key={w.monthKey} className="flex-row items-center py-2">
+                    <PlayerAvatar
+                      player={{ name: w.name, avatarUrl: winnerPlayer?.avatarUrl ?? null }}
+                      displaySize="small"
+                    />
+                    <Text className="font-hk-medium text-foreground ml-2 flex-1">
+                      {w.name}
+                    </Text>
+                    <Text className="font-hk-medium text-foreground-secondary text-sm">
+                      {formatMonthLabel(w.monthKey)}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
+          )}
+        </View>
+
+        {/* Game code card — blue like grand favori */}
+        {gameDetails.code && (
+          <View className="mx-5 mt-5 mb-6 rounded-2xl px-5 py-4 items-center" style={{ backgroundColor: colors.link }}>
+            <Text className="font-hk-medium text-sm mb-3" style={{ color: colors.white, opacity: 0.8 }}>
+              {t('games.inviteCodeLabel')}
+            </Text>
+            <TouchableOpacity
+              className="flex-row items-center"
+              onPress={() => gameDetails.code && copyToClipboard(gameDetails.code)}
+              disabled={copied || !gameDetails.code}
+            >
+              <Text className="font-hk-bold text-3xl mr-3" style={{ color: colors.white, letterSpacing: 4 }}>
+                {gameDetails.code}
+              </Text>
+              <Ionicons
+                name={copied ? 'checkmark-circle' : 'copy-outline'}
+                size={24}
+                color={colors.white}
+              />
+            </TouchableOpacity>
           </View>
         )}
-        <Leaderboard
-          players={sortedPlayers}
-          currentPlayerId={player?.id}
-          t={t}
-          onShare={handleShareLeaderboard}
-          isSharing={isSharing}
-        />
-        {/* Current Month Leader and Last Month Winner cards */}
-        {(currentMonthTop && currentMonthTop.Points > 0) && (
-          <View style={styles.cardContainer}>
-            <Text className="font-hk-semibold" style={styles.cardTitle}>{t('games.currentMonthLeader')}</Text>
-            <View style={styles.cardRow}>
-              <Text className="font-hk-bold" style={styles.cardPrimary}>{currentMonthTop.PlayerName}</Text>
-              <Text className="font-hk-medium" style={styles.cardSecondary}>{currentMonthTop.Points} {t('game.points')}</Text>
-            </View>
-          </View>
-        )}
-        {(lastMonthTop && lastMonthTop.Points > 0) && (
-          <View style={styles.cardContainer}>
-            <Text className="font-hk-semibold" style={styles.cardTitle}>{t('games.lastMonthWinner')}</Text>
-            <View style={styles.cardRow}>
-              <Text className="font-hk-bold" style={styles.cardPrimary}>{lastMonthTop.PlayerName}</Text>
-              <Text className="font-hk-medium" style={styles.cardSecondary}>{lastMonthTop.Points} {t('game.points')}</Text>
-            </View>
-          </View>
-        )}
-        {cumulativeData.series.length > 0 && cumulativeData.matchdays.length > 0 && (
-          <View style={styles.cardContainer}>
-            <Text className="font-hk-semibold" style={styles.cardTitle}>{t('games.cumulativePointsByMatchday')}</Text>
-            <CumulativePointsChart
-              matchdays={cumulativeData.matchdays}
-              series={cumulativeData.series.map(s => ({
-                playerId: s.playerId,
-                playerName: s.playerName,
-                values: s.values,
-              }))}
-            />
-          </View>
-        )}
-        <TouchableOpacity
-          style={styles.matchesButton}
-          onPress={navigateToMatches}
-        >
-          <Ionicons name="football" size={24} color={colors.text} />
-          <Text className="font-hk-bold" style={styles.matchesButtonText}>{t('games.viewMatches')}</Text>
-        </TouchableOpacity>
+
+        {/* CTA button */}
+        <View className="px-6 mb-8 items-center">
+          {hasUnbettedMatches ? (
+            <>
+              <TouchableOpacity
+                onPress={navigateToFirstUnbettedMatch}
+                className="rounded-full py-4 px-10 items-center self-center"
+                style={{ backgroundColor: colors.primary, minWidth: '70%' }}
+              >
+                <Text className="font-hk-bold text-foreground text-lg">
+                  {t('games.makeMyBets')}
+                </Text>
+              </TouchableOpacity>
+              <Text className="text-foreground-secondary text-xs mt-2 text-center">
+                {t('games.remainingThisWeek', { count: unbettedMatches.length })}
+              </Text>
+            </>
+          ) : (
+            <TouchableOpacity
+              onPress={navigateToMatches}
+              className="rounded-full py-4 px-10 items-center self-center"
+              style={{ backgroundColor: colors.text, minWidth: '70%' }}
+            >
+              <Text className="font-hk-bold text-lg" style={{ color: colors.white }}>
+                {t('games.viewMatches')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Hidden shareable component for image generation */}
         <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
           <ViewShot ref={shareableRef}>
             <ShareableLeaderboard
-              gameName={gameDetails?.name || 'Ligain Game'}
+              gameName={gameDetails.name || 'Ligain Game'}
               period={selectedPeriod === 'general' ? 'General' : formatMonthLabel(selectedPeriod)}
-              players={sortedPlayers.map((player, index) => ({
-                name: player.name,
-                points: player.totalScore,
-                rank: index + 1
+              players={sortedPlayers.map((p, index) => ({
+                name: p.name,
+                points: p.totalScore,
+                rank: index + 1,
               }))}
             />
           </ViewShot>
         </View>
       </ScrollView>
+
+      {/* Period picker modal */}
+      {showPeriodPicker && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
+        >
+          <View
+            className="rounded-xl"
+            style={{ backgroundColor: colors.card, width: '80%', maxHeight: '60%' }}
+          >
+            <View className="flex-row justify-between items-center p-4 border-b border-border">
+              <Text className="font-hk-bold text-foreground text-lg">
+                {t('games.selectPeriod')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowPeriodPicker(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Picker
+              selectedValue={selectedPeriod}
+              onValueChange={(itemValue) => {
+                setSelectedPeriod(String(itemValue));
+                setShowPeriodPicker(false);
+              }}
+              style={{ color: colors.text, width: '100%' }}
+              itemStyle={{ color: colors.text, fontSize: 16 }}
+            >
+              <Picker.Item label={t('games.general')} value="general" color={colors.text} />
+              {availableMonths.map((k) => (
+                <Picker.Item
+                  key={k}
+                  label={formatMonthLabel(k)}
+                  value={k}
+                  color={colors.text}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    padding: 16,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  gameHeader: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  gameTitle: {
-    fontSize: 28,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  gameSubtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  gameStatus: {
-    fontSize: 14,
-    color: colors.primary,
-    textAlign: 'center',
-  },
-  statusContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  periodSelectionContainer: {
-    paddingHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  periodSelectorText: {
-    color: colors.text,
-    fontSize: 16,
-  },
-  periodInfoText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  cardContainer: {
-    backgroundColor: colors.card,
-    padding: 20,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 12,
-    textAlign: 'left',
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardPrimary: {
-    fontSize: 18,
-    color: colors.text,
-  },
-  cardSecondary: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  codeContainer: {
-    backgroundColor: colors.card,
-    padding: 20,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  codeLabel: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  codeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    paddingHorizontal: 16,
-  },
-  codeText: {
-    fontSize: 28,
-    color: colors.primary,
-    marginRight: 12,
-    letterSpacing: 2,
-  },
-  copyButton: {
-    padding: 8,
-  },
-  pickerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  pickerContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    width: '80%',
-    maxHeight: '60%',
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  pickerTitle: {
-    color: colors.text,
-    fontSize: 18,
-  },
-  pickerWrapper: {
-    backgroundColor: colors.border,
-    borderRadius: 8,
-  },
-  picker: {
-    color: colors.text,
-    width: '100%',
-  },
-  pickerItem: {
-    color: colors.text,
-    fontSize: 16,
-  },
-  leaderboardContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 20,
-  },
-  leaderboardTitle: {
-    fontSize: 20,
-    color: colors.text,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  playerRank: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  rankText: {
-    fontSize: 16,
-    color: colors.card,
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  playerName: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  playerScore: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  currentPlayerIndicator: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  currentPlayerText: {
-    fontSize: 12,
-    color: colors.text,
-  },
-  matchesButton: {
-    backgroundColor: colors.secondary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    gap: 8,
-  },
-  matchesButtonText: {
-    fontSize: 18,
-    color: colors.text,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: colors.text,
-    fontSize: 16,
-  },
-});

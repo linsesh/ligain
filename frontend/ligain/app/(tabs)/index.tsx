@@ -1,33 +1,119 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Swipeable } from 'react-native-gesture-handler';
-
-// Local imports
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
-import { getHumanReadableError, handleApiError, handleGameError } from '../../src/utils/errorMessages';
+import { handleGameError } from '../../src/utils/errorMessages';
 import { useTranslation } from 'react-i18next';
-import Leaderboard from '../../src/components/Leaderboard';
 import { useGames } from '../../src/contexts/GamesContext';
 import { useUIEvent } from '../../src/contexts/UIEventContext';
-import { API_CONFIG, getAuthenticatedHeaders, authenticatedFetch } from '../../src/config/api';
+import { API_CONFIG, authenticatedFetch } from '../../src/config/api';
 import { getTranslatedGameStatus } from '../../src/utils/gameStatusUtils';
-import StatusTag from '../../src/components/StatusTag';
+import { GridTag } from '../../src/components/ui/GridTag';
+import { PlayerAvatar } from '../../src/components/PlayerAvatar';
+import { useGridCellSize } from '../../src/hooks/useGridCellSize';
 
-interface CreateGameResponse {
-  gameId: string;
-  code: string;
+const RANK_BORDER_COLORS = [
+  colors.secondary,
+  colors.silver,
+  colors.bronze,
+];
+
+function getRankBorderColor(rank: number): string {
+  return RANK_BORDER_COLORS[rank - 1] ?? colors.textSecondary;
 }
 
-interface JoinGameResponse {
-  gameId: string;
-  seasonYear: string;
-  competitionName: string;
-  message: string;
+function GameCard({ game, onPress, onLeave, disabled }: {
+  game: any;
+  onPress: () => void;
+  onLeave: () => void;
+  disabled: boolean;
+}) {
+  const { player } = useAuth();
+  const { t } = useTranslation();
+  const cellSize = useGridCellSize();
+  const { text: statusText, variant } = getTranslatedGameStatus(game.status || '', t);
+
+  const statusBg = variant === 'warning' ? colors.warning
+    : variant === 'success' ? colors.success
+    : colors.textSecondary;
+
+  const enrichedPlayers = useMemo(() => {
+    const playersMap = new Map(
+      (game.players ?? []).map((p: any) => [p.id, p])
+    );
+    return (game.totalLeaderboard || []).map((p: any, index: number) => ({
+      id: p.PlayerID,
+      name: p.PlayerName,
+      totalScore: p.Points,
+      avatarUrl: (playersMap.get(p.PlayerID) as any)?.avatarUrl ?? null,
+      rank: index + 1,
+    }));
+  }, [game.totalLeaderboard, game.players]);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      disabled={disabled}
+      style={{ backgroundColor: colors.background }}
+    >
+      {/* Header */}
+      <View className="p-4 pb-2">
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 mr-2">
+            <Text className="font-hk-bold text-foreground text-xl">
+              {game.name}
+            </Text>
+            <Text className="text-foreground-secondary text-sm mt-0.5">
+              {game.seasonYear} · {game.competitionName}
+            </Text>
+          </View>
+          <GridTag label={statusText} backgroundColor={statusBg} rounded />
+        </View>
+      </View>
+
+      {/* Leaderboard rows */}
+      {enrichedPlayers.length > 0 && (
+        <View className="px-4 pb-3">
+          {enrichedPlayers.map((p: any) => {
+            const isCurrentPlayer = player?.id === p.id;
+            return (
+              <View
+                key={p.id}
+                className="flex-row items-center py-2 border-b border-border"
+                style={{ paddingHorizontal: 16, backgroundColor: isCurrentPlayer ? colors.link : undefined }}
+              >
+                <View
+                  style={{
+                    borderWidth: 2,
+                    borderColor: getRankBorderColor(p.rank),
+                    borderRadius: 999,
+                    padding: 1.5,
+                  }}
+                >
+                  <PlayerAvatar
+                    player={{ name: p.name, avatarUrl: p.avatarUrl }}
+                    displaySize="small"
+                  />
+                </View>
+                <Text className="font-hk-medium flex-1 ml-2 text-sm" style={isCurrentPlayer ? { color: colors.white } : { color: colors.text }}>
+                  {p.name}
+                </Text>
+                <Text className="font-hk-bold text-sm" style={isCurrentPlayer ? { color: colors.white } : { color: colors.text }}>
+                  {p.totalScore.toLocaleString()}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 }
 
 function GamesList() {
@@ -44,7 +130,7 @@ function GamesList() {
   const [newGameName, setNewGameName] = useState('');
   const [showActionSheet, setShowActionSheet] = useState(false);
   const { openJoinOrCreate, setOpenJoinOrCreate } = useUIEvent();
-  const [isAnySwipeActive, setIsAnySwipeActive] = useState<boolean>(false);
+  const [isAnySwipeActive, setIsAnySwipeActive] = useState(false);
   const swipeableRefs = useRef<{ [key: string]: any }>({});
 
   useFocusEffect(
@@ -96,7 +182,6 @@ function GamesList() {
     }
   };
 
-  // Leave game handler
   const handleLeaveGame = async (gameId: string) => {
     Alert.alert(
       t('games.leaveGameTitle', 'Leave Game'),
@@ -108,7 +193,6 @@ function GamesList() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Call backend with proper headers and URL
               const res = await authenticatedFetch(`${API_CONFIG.BASE_URL}/api/games/${gameId}/leave`, {
                 method: 'DELETE',
               });
@@ -116,10 +200,8 @@ function GamesList() {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || t('games.failedToLeaveGame', 'Failed to leave game'));
               }
-              // Remove game from local state immediately
               removeGame(gameId);
               Alert.alert(t('games.leftGame', 'You have left the game.'));
-              // Still refresh to ensure consistency
               refresh();
             } catch (err: any) {
               Alert.alert(t('games.failedToLeaveGame', 'Failed to leave game'), err.message || String(err));
@@ -130,37 +212,15 @@ function GamesList() {
     );
   };
 
-  // Render right action for swipeable
   const renderRightActions = (gameId: string) => (
-    <View style={{
-      width: 75,
-      height: '100%',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'transparent',
-    }}>
+    <View className="w-[75] h-full justify-center items-center" style={{ backgroundColor: 'transparent' }}>
       <TouchableOpacity
-        style={{
-          backgroundColor: '#ff3b30',
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: 60,
-          height: 60,
-          borderRadius: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        }}
+        className="justify-center items-center w-[60] h-[60] rounded-lg"
+        style={{ backgroundColor: '#ff3b30' }}
         onPress={() => handleLeaveGame(gameId)}
       >
         <Ionicons name="exit-outline" size={20} color="#fff" />
-        <Text className="font-hk-semibold" style={{
-          color: colors.text,
-          fontSize: 11,
-          marginTop: 2
-        }}>
+        <Text className="font-hk-semibold text-foreground mt-0.5" style={{ fontSize: 11 }}>
           {t('games.leave', 'Leave')}
         </Text>
       </TouchableOpacity>
@@ -168,9 +228,7 @@ function GamesList() {
   );
 
   const handleGamePress = (gameId: string) => {
-    if (isAnySwipeActive) {
-      return;
-    }
+    if (isAnySwipeActive) return;
     router.push('/game/' + gameId);
   };
 
@@ -182,32 +240,36 @@ function GamesList() {
 
   if (loading && !refreshing) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (!games) {
-    return <Text style={{color: 'red'}}>{t('games.errorLoadingGames')}</Text>;
+    return <Text className="text-error">{t('games.errorLoadingGames')}</Text>;
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: 'transparent' }}
     >
-      <Text className="font-hk-bold" style={styles.title}>{t('games.myGames')}</Text>
+      <Text className="font-hk-extrabold text-foreground text-3xl mx-4 my-4">
+        {t('games.myGames')}
+      </Text>
+
       {!player?.email && !player?.provider && (
-        <View style={styles.guestBanner}>
+        <View className="flex-row items-center rounded-lg mx-4 mb-4 px-4 py-3" style={{ backgroundColor: colors.warning }}>
           <Ionicons name="warning" size={20} color="#FFA500" />
-          <Text className="font-hk-semibold" style={styles.guestBannerText}>
+          <Text className="font-hk-semibold text-foreground text-sm ml-2.5 flex-1">
             {t('games.guestModeBanner')}
           </Text>
         </View>
       )}
-      <ScrollView 
-        style={styles.scrollView}
+
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={
           <RefreshControl
@@ -221,192 +283,198 @@ function GamesList() {
         }
       >
         {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.refreshHint}>{t('games.pullToRefresh')}</Text>
+          <View className="items-center justify-center p-5" style={{ minHeight: 200 }}>
+            <Text className="text-error text-center text-base mb-5">{error}</Text>
+            <Text className="text-foreground-secondary text-center text-sm">{t('games.pullToRefresh')}</Text>
           </View>
         ) : games.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="game-controller-outline" size={64} color="#666" />
-            <Text style={styles.emptyText}>{t('games.noGames')}</Text>
-            <Text style={styles.emptySubtext}>{t('games.noGamesSubtext')}</Text>
+          <View className="items-center p-5" style={{ minHeight: 200 }}>
+            <Ionicons name="game-controller-outline" size={64} color={colors.textSecondary} />
+            <Text className="text-foreground-secondary text-xl mt-2.5">{t('games.noGames')}</Text>
+            <Text className="text-foreground-secondary text-sm mt-1">{t('games.noGamesSubtext')}</Text>
           </View>
         ) : (
-          games.map((game) => {
-
-            const { text, variant } = getTranslatedGameStatus(game.status || '', t);
-            
-            return (
+          games.map((game) => (
+            <View key={game.gameId} className="mx-4 mb-3 rounded-2xl overflow-hidden">
               <Swipeable
-                key={game.gameId}
                 ref={ref => { swipeableRefs.current[game.gameId] = ref; }}
                 renderRightActions={() => renderRightActions(game.gameId)}
                 overshootRight={false}
                 rightThreshold={40}
-                onSwipeableWillOpen={() => {
-                  setIsAnySwipeActive(true);
-                }}
-                onSwipeableClose={() => {
-                  setIsAnySwipeActive(false);
-                }}
+                onSwipeableWillOpen={() => setIsAnySwipeActive(true)}
+                onSwipeableClose={() => setIsAnySwipeActive(false)}
               >
-                <View pointerEvents={isAnySwipeActive ? 'none' : 'auto'}>
-                  <TouchableOpacity 
-                    style={[
-                      styles.gameCard,
-                      styles.gameCardWithTag
-                    ]}
-                    onPress={() => handleGamePress(game.gameId)}
-                    activeOpacity={0.2}
-                  >
-                    <StatusTag text={text} variant={variant} style={styles.statusTag} />
-                    <View style={styles.headerGroupAbsolute}>
-                      <Text className="font-hk-bold" style={styles.leagueNamePlain}>{game.name}</Text>
-                      <Text style={styles.gameSeasonPlain}>{game.seasonYear} • {game.competitionName}</Text>
-                    </View>
-                    {game.totalLeaderboard && game.totalLeaderboard.length > 0 && (
-                      <Leaderboard
-                        players={game.totalLeaderboard.map(p => ({ id: p.PlayerID, name: p.PlayerName, totalScore: p.Points }))}
-                        t={t}
-                        showTitle={false}
-                        align="left"
-                        showCurrentPlayerTag={true}
-                        currentPlayerId={player?.id}
-                        containerStyle={{ marginHorizontal: 0, alignItems: 'flex-start', paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 }}
-                      />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <GameCard
+                  game={game}
+                  onPress={() => handleGamePress(game.gameId)}
+                  onLeave={() => handleLeaveGame(game.gameId)}
+                  disabled={isAnySwipeActive}
+                />
               </Swipeable>
-            );
-          })
+            </View>
+          ))
         )}
       </ScrollView>
+
+      {/* Bottom join button */}
       {!showActionSheet && !showCreateModal && !showJoinModal && (
-        <View style={styles.bottomButtonContainer}>
+        <View className="absolute left-0 right-0 bottom-6 items-center" style={{ zIndex: 20 }}>
           <TouchableOpacity
-            style={styles.bigJoinButton}
+            className="flex-row items-center justify-center rounded-full py-4.5 px-10"
+            style={{
+              backgroundColor: colors.secondary,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 6,
+              elevation: 4,
+            }}
             onPress={() => setShowActionSheet(true)}
             activeOpacity={0.85}
           >
             <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 10 }} />
-            <Text className="font-hk-bold" style={styles.bigJoinButtonText}>{t('games.joinOrCreate')}</Text>
+            <Text className="font-hk-bold text-foreground text-xl">{t('games.joinOrCreate')}</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Action sheet overlay */}
       {showActionSheet && (
-        <View style={styles.actionSheetOverlay}>
-          <View style={styles.actionSheetButtonsContainer}>
+        <View
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            zIndex: 30,
+          }}
+        >
+          <View className="w-full px-6 pb-12 items-center">
             <TouchableOpacity
-              style={[styles.actionSheetButton, styles.actionSheetJoin]}
-              onPress={() => {
-                setShowActionSheet(false);
-                setShowJoinModal(true);
-              }}
+              className="flex-row items-center justify-center w-full py-4.5 rounded-2xl mb-4"
+              style={{ backgroundColor: colors.secondary }}
+              onPress={() => { setShowActionSheet(false); setShowJoinModal(true); }}
             >
-              <Ionicons name="people" size={22} color="#fff" style={styles.actionSheetButtonIcon} />
-              <Text className="font-hk-bold" style={styles.actionSheetButtonText}>{t('games.joinGame')}</Text>
+              <Ionicons name="people" size={22} color="#fff" style={{ marginRight: 12 }} />
+              <Text className="font-hk-bold text-foreground text-lg">{t('games.joinGame')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionSheetButton, styles.actionSheetCreate]}
-              onPress={() => {
-                setShowActionSheet(false);
-                setShowCreateModal(true);
-              }}
+              className="flex-row items-center justify-center w-full py-4.5 rounded-2xl mb-4"
+              style={{ backgroundColor: colors.success }}
+              onPress={() => { setShowActionSheet(false); setShowCreateModal(true); }}
             >
-              <Ionicons name="add-circle" size={22} color="#fff" style={styles.actionSheetButtonIcon} />
-              <Text className="font-hk-bold" style={styles.actionSheetButtonText}>{t('games.createGame')}</Text>
+              <Ionicons name="add-circle" size={22} color="#fff" style={{ marginRight: 12 }} />
+              <Text className="font-hk-bold text-foreground text-lg">{t('games.createGame')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.closeTextContainer}
-              onPress={() => {
-                setShowActionSheet(false);
-              }}
+              className="mt-2 items-center w-full py-2"
+              onPress={() => setShowActionSheet(false)}
             >
-              <Text className="font-hk-bold" style={styles.closeText}>✕ {t('common.close')}</Text>
+              <Text className="font-hk-bold text-foreground text-base" style={{ opacity: 0.7 }}>
+                ✕ {t('common.close')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
+
+      {/* Create modal */}
       {showCreateModal && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
         >
-          <View style={styles.modal}>
-            <Text className="font-hk-bold" style={styles.modalTitle}>{t('games.createNewGame')}</Text>
-            <Text style={styles.modalSubtitle}>{t('games.createGameSubtitle')}</Text>
+          <View className="rounded-xl p-5 items-center" style={{ backgroundColor: colors.card, width: '80%' }}>
+            <Text className="font-hk-bold text-foreground text-xl mb-1">{t('games.createNewGame')}</Text>
+            <Text className="text-foreground-secondary text-sm mb-4">{t('games.createGameSubtitle')}</Text>
             <TextInput
-              style={styles.gameNameInput}
+              className="w-full text-lg text-center mb-5 rounded-md p-3"
+              style={{ borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.border }}
               value={newGameName}
               onChangeText={setNewGameName}
               placeholder={t('games.gameNamePlaceholder')}
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textSecondary}
               maxLength={40}
               autoFocus
             />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
-                onPress={() => {
-                  setShowCreateModal(false);
-                  setNewGameName('');
-                }}
+            <View className="flex-row justify-around w-full">
+              <TouchableOpacity
+                className="flex-1 mr-2.5 rounded-md py-2.5 px-5"
+                style={{ backgroundColor: colors.textSecondary }}
+                onPress={() => { setShowCreateModal(false); setNewGameName(''); }}
               >
-                <Text className="font-hk-bold" style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                <Text className="font-hk-bold text-foreground text-base text-center">{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmCreateButton]}
+                className="flex-1 ml-2.5 rounded-md py-2.5 px-5"
+                style={{ backgroundColor: colors.success }}
                 onPress={handleCreateGame}
                 disabled={creatingGame}
               >
                 {creatingGame ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text className="font-hk-bold" style={styles.confirmButtonText}>{t('common.create')}</Text>
+                  <Text className="font-hk-bold text-foreground text-base text-center">{t('common.create')}</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       )}
+
+      {/* Join modal */}
       {showJoinModal && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
         >
-          <View style={styles.modal}>
-            <Text className="font-hk-bold" style={styles.modalTitle}>{t('games.joinGame')}</Text>
-            <Text style={styles.modalSubtitle}>{t('games.joinGameSubtitle')}</Text>
+          <View className="rounded-xl p-5 items-center" style={{ backgroundColor: colors.card, width: '80%' }}>
+            <Text className="font-hk-bold text-foreground text-xl mb-1">{t('games.joinGame')}</Text>
+            <Text className="text-foreground-secondary text-sm mb-4">{t('games.joinGameSubtitle')}</Text>
             <TextInput
-              style={styles.codeInput}
+              className="w-full text-lg text-center rounded-md p-3"
+              style={{ borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.border }}
               value={joinCode}
               onChangeText={setJoinCode}
               placeholder={t('games.gameCodePlaceholder')}
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textSecondary}
               maxLength={4}
               autoCapitalize="characters"
               autoFocus
             />
-            <View style={styles.modalButtons}>
+            <View className="flex-row justify-around w-full mt-5">
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowJoinModal(false);
-                  setJoinCode('');
-                }}
+                className="flex-1 mr-2.5 rounded-md py-2.5 px-5"
+                style={{ backgroundColor: colors.textSecondary }}
+                onPress={() => { setShowJoinModal(false); setJoinCode(''); }}
               >
-                <Text className="font-hk-bold" style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                <Text className="font-hk-bold text-foreground text-base text-center">{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmJoinButton]}
+                className="flex-1 ml-2.5 rounded-md py-2.5 px-5"
+                style={{ backgroundColor: colors.secondary }}
                 onPress={handleJoinGame}
                 disabled={joiningGame}
               >
                 {joiningGame ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text className="font-hk-bold" style={styles.confirmButtonText}>{t('common.join')}</Text>
+                  <Text className="font-hk-bold text-foreground text-base text-center">{t('common.join')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -418,25 +486,22 @@ function GamesList() {
 }
 
 export default function TabOneScreen() {
-  const { player, isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isAuthLoading } = useAuth();
   const { games, loading: isGamesLoading } = useGames();
   const router = useRouter();
 
-  // Auto-redirect to matches if user has games (only on initial app load)
   useEffect(() => {
     if (isAuthLoading || isGamesLoading) return;
     if (hasAttemptedInitialRedirectGlobal) return;
-    // Only perform the auto-redirect once after the app loads data
     hasAttemptedInitialRedirectGlobal = true;
     if (games.length > 0) {
-      console.log('🔄 Auto-redirecting to matches on initial load - user has games:', games.length);
       router.replace('/(tabs)/matches');
     }
   }, [isAuthLoading, isGamesLoading, games.length, router]);
 
   if (isAuthLoading || isGamesLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -445,351 +510,4 @@ export default function TabOneScreen() {
   return <GamesList />;
 }
 
-// Module-level flag to ensure auto-redirect triggers only once per app session
 let hasAttemptedInitialRedirectGlobal = false;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 24,
-    margin: 16,
-    color: colors.text,
-  },
-  guestBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e65100',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  guestBannerText: {
-    fontSize: 14,
-    color: colors.text,
-    marginLeft: 10,
-    flex: 1,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
-    flex: 1,
-  },
-  createButton: {
-    backgroundColor: '#4CAF50',
-    marginRight: 8,
-  },
-  joinButton: {
-    backgroundColor: colors.secondary,
-    marginLeft: 8,
-  },
-  actionButtonText: {
-    color: colors.text,
-    fontSize: 16,
-  },
-  codeContainer: {
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  codeLabel: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 8,
-  },
-  codeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.border,
-    borderRadius: 6,
-    padding: 8,
-  },
-  codeText: {
-    fontSize: 24,
-    color: colors.primary,
-    marginRight: 8,
-  },
-  copyButton: {
-    padding: 4,
-  },
-  errorContainer: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 200,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  refreshHint: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 20,
-    minHeight: 200,
-  },
-  emptyText: {
-    fontSize: 20,
-    color: colors.textSecondary,
-    marginTop: 10,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 5,
-  },
-  gameCard: {
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  gameCardWithTag: {
-    paddingTop: 64,
-  },
-  gameHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  leagueNamePlain: {
-    color: colors.text,
-    fontSize: 22,
-    textAlign: 'left',
-    marginTop: 0,
-    marginLeft: 0,
-    marginBottom: 0,
-  },
-  gameSeasonPlain: {
-    color: colors.textSecondary,
-    fontSize: 15,
-    textAlign: 'left',
-    marginLeft: 0,
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  gameTitle: {
-    fontSize: 18,
-    color: colors.text,
-  },
-  gameSeason: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  gameStatus: {
-    backgroundColor: colors.border,
-    padding: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 14,
-    color: colors.primary,
-  },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  modal: {
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 20,
-    width: '80%',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    color: colors.text,
-    marginBottom: 5,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 15,
-  },
-  gameNameInput: {
-    borderWidth: 1,
-    borderColor: '#666',
-    borderRadius: 6,
-    padding: 12,
-    width: '100%',
-    fontSize: 18,
-    color: colors.text,
-    backgroundColor: colors.border,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  codeInput: {
-    borderWidth: 1,
-    borderColor: '#666',
-    borderRadius: 6,
-    padding: 12,
-    width: '100%',
-    fontSize: 18,
-    color: colors.text,
-    backgroundColor: colors.border,
-    textAlign: 'center',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 20,
-  },
-  modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 6,
-  },
-  cancelButton: {
-    backgroundColor: colors.textSecondary,
-    flex: 1,
-    marginRight: 10,
-  },
-  cancelButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  confirmJoinButton: {
-    backgroundColor: colors.secondary,
-    flex: 1,
-    marginLeft: 10,
-  },
-  confirmCreateButton: {
-    backgroundColor: '#4CAF50',
-    flex: 1,
-    marginLeft: 10,
-  },
-  confirmButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  statusTag: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 1,
-  },
-  headerGroupAbsolute: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    width: '80%',
-    alignItems: 'flex-start',
-    zIndex: 2,
-  },
-  bottomButtonContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 24,
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  bigJoinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    borderRadius: 32,
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  bigJoinButtonText: {
-    color: colors.text,
-    fontSize: 20,
-  },
-  actionSheetOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    zIndex: 30,
-  },
-  actionSheetButtonsContainer: {
-    width: '100%',
-    paddingHorizontal: 24,
-    paddingBottom: 48,
-    alignItems: 'center',
-  },
-  actionSheetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingVertical: 18,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  actionSheetButtonIcon: {
-    marginRight: 12,
-  },
-  actionSheetJoin: {
-    backgroundColor: colors.secondary,
-  },
-  actionSheetCreate: {
-    backgroundColor: '#4CAF50',
-  },
-  actionSheetButtonText: {
-    color: colors.text,
-    fontSize: 18,
-  },
-  closeTextContainer: {
-    marginTop: 8,
-    alignItems: 'center',
-    width: '100%',
-  },
-  closeText: {
-    color: colors.text,
-    fontSize: 16,
-    opacity: 0.7,
-    paddingVertical: 8,
-  },
-});
