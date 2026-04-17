@@ -69,9 +69,11 @@ export default function MatchDetailScreen() {
   const playerId = player && typeof player === 'object' ? player.id : '';
 
   const gamePlayers = games.find(g => g.gameId === gameId)?.players ?? [];
-  const matchBetStatuses = id
-    ? Object.values(incomingMatches).find(r => r.match.id() === id)?.playerBetStatuses ?? null
+  const incomingMatchResult = id
+    ? Object.values(incomingMatches).find(r => r.match.id() === id) ?? null
     : null;
+  const matchBetStatuses = incomingMatchResult?.playerBetStatuses ?? null;
+  const isInProgress = incomingMatchResult?.match.isInProgress() ?? false;
   const pastMatchResult = id
     ? Object.values(pastMatches).find(r => r.match.id() === id) ?? null
     : null;
@@ -119,6 +121,12 @@ export default function MatchDetailScreen() {
   const matchdayLabel = matchday ? `${t('games.matchdayShortPrefix')}${matchday}` : '';
 
   const editable = matchDate ? matchDate > new Date() : false;
+
+  const hasBet = !!(betHomeGoals && betAwayGoals);
+  const badgeLabel = isInProgress
+    ? t('games.inProgressTag')
+    : (!isFinished && !hasBet ? t('games.noBet') : null);
+  const badgeColor = isInProgress ? colors.link : colors.primary;
 
   const homeOdds = homeTeamOdds && !isNaN(parseFloat(homeTeamOdds)) ? parseFloat(homeTeamOdds) : undefined;
   const awayOdds = awayTeamOdds && !isNaN(parseFloat(awayTeamOdds)) ? parseFloat(awayTeamOdds) : undefined;
@@ -191,10 +199,15 @@ export default function MatchDetailScreen() {
       >
         <Ionicons name="arrow-back" size={24} color={colors.text} />
       </TouchableOpacity>
-      <View style={{ flexDirection: 'row', marginLeft: cellSize, marginTop: cellSize }}>
-        <GridTag label={dateLabel} />
-        <GridTag label={timeLabel} backgroundColor={colors.textSecondary} />
-        <GridTag label={matchdayLabel} />
+      <View style={{ flexDirection: 'row', marginLeft: cellSize, marginRight: cellSize, marginTop: cellSize, justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row' }}>
+          <GridTag label={dateLabel} />
+          <GridTag label={timeLabel} backgroundColor={colors.textSecondary} />
+          <GridTag label={matchdayLabel} />
+        </View>
+        {badgeLabel && (
+          <GridTag label={badgeLabel} backgroundColor={badgeColor} rounded />
+        )}
       </View>
 
       {/* Scrollable content zone */}
@@ -224,6 +237,7 @@ export default function MatchDetailScreen() {
             awayTeamForm={awayForm}
             onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
             onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
+            showGoodResult={isFinished && (currentPlayerScore?.baseScore ?? 0) >= 300}
           />
         </View>
 
