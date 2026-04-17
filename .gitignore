@@ -102,4 +102,6 @@ infrastructure/ligain
 .claude/settings*
 .grepai/
 
-log*
+log/
+logs/
+*.log
