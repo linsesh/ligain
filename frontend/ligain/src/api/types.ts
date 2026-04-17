@@ -71,6 +71,11 @@ export interface MatchData {
     playerName: string;
     prediction: string;
     points?: number;
+    baseScore?: number;
+    riskMultiplier?: number;
+    clairvoyantMultiplier?: number;
+    predictedHomeGoals?: number;
+    predictedAwayGoals?: number;
   }[];
   playerBetStatuses?: {
     [playerId: string]: { playerId: string; playerName: string; hasBet: boolean };

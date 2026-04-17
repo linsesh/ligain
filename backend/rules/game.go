@@ -201,10 +201,8 @@ func (g *GameImpl) GetName() string {
 func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
 	results := make(map[string]*models.MatchResult)
 	for _, match := range g.pastMatches {
-		// Convert map[string]*models.Bet to map[models.Player]*models.Bet for NewScoredMatch
 		playerBets := make(map[models.Player]*models.Bet)
 		for playerID, bet := range g.bets[match.Id()] {
-			// Find the player by ID
 			for _, player := range g.players {
 				if player.GetID() == playerID {
 					playerBets[player] = bet
@@ -213,10 +211,8 @@ func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
 			}
 		}
 
-		// Convert map[string]int to map[models.Player]int for NewScoredMatch
 		playerScores := make(map[models.Player]int)
 		for playerID, score := range g.playersPoints[match.Id()] {
-			// Find the player by ID
 			for _, player := range g.players {
 				if player.GetID() == playerID {
 					playerScores[player] = score
@@ -225,7 +221,27 @@ func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
 			}
 		}
 
-		results[match.Id()] = models.NewScoredMatch(match, playerBets, playerScores)
+		// Compute breakdowns from scorer
+		betList := make([]*models.Bet, 0, len(g.players))
+		for _, player := range g.players {
+			bet, hasBet := g.bets[match.Id()][player.GetID()]
+			if hasBet {
+				betList = append(betList, bet)
+			} else {
+				betList = append(betList, nil)
+			}
+		}
+		scorerBreakdowns := g.scorer.ScoreWithBreakdown(match, betList)
+		playerBreakdowns := make(map[models.Player]models.ScoreBreakdown)
+		for i, player := range g.players {
+			playerBreakdowns[player] = models.ScoreBreakdown{
+				BaseScore:             scorerBreakdowns[i].BaseScore,
+				RiskMultiplier:        scorerBreakdowns[i].RiskMultiplier,
+				ClairvoyantMultiplier: scorerBreakdowns[i].ClairvoyantMultiplier,
+			}
+		}
+
+		results[match.Id()] = models.NewScoredMatchWithBreakdowns(match, playerBets, playerScores, playerBreakdowns)
 	}
 	return results
 }

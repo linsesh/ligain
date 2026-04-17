@@ -51,9 +51,12 @@ type SimplifiedBet struct {
 
 // SimplifiedScore represents a score with player information
 type SimplifiedScore struct {
-	PlayerID   string `json:"playerId"`
-	PlayerName string `json:"playerName"`
-	Points     int    `json:"points"`
+	PlayerID              string  `json:"playerId"`
+	PlayerName            string  `json:"playerName"`
+	Points                int     `json:"points"`
+	BaseScore             int     `json:"baseScore,omitempty"`
+	RiskMultiplier        float64 `json:"riskMultiplier,omitempty"`
+	ClairvoyantMultiplier float64 `json:"clairvoyantMultiplier,omitempty"`
 }
 
 // SimplifiedPlayerBetStatus represents whether a player has placed a bet
@@ -89,7 +92,7 @@ func (h *MatchHandler) convertMatchResultToJSON(matchResult *models.MatchResult,
 	}
 
 	if matchResult.Scores != nil {
-		result["scores"] = h.simplifyScores(matchResult.Scores, playerIDToName)
+		result["scores"] = h.simplifyScores(matchResult.Scores, matchResult.ScoreBreakdowns, playerIDToName)
 	} else {
 		result["scores"] = nil
 	}
@@ -116,14 +119,20 @@ func (h *MatchHandler) simplifyBets(bets map[string]*models.Bet, playerIDToName 
 	return simplifiedBets
 }
 
-func (h *MatchHandler) simplifyScores(scores map[string]int, playerIDToName map[string]string) map[string]SimplifiedScore {
+func (h *MatchHandler) simplifyScores(scores map[string]int, breakdowns map[string]models.ScoreBreakdown, playerIDToName map[string]string) map[string]SimplifiedScore {
 	simplifiedScores := make(map[string]SimplifiedScore)
 	for playerID, score := range scores {
-		simplifiedScores[playerID] = SimplifiedScore{
+		ss := SimplifiedScore{
 			PlayerID:   playerID,
 			PlayerName: playerIDToName[playerID],
 			Points:     score,
 		}
+		if bd, ok := breakdowns[playerID]; ok {
+			ss.BaseScore = bd.BaseScore
+			ss.RiskMultiplier = bd.RiskMultiplier
+			ss.ClairvoyantMultiplier = bd.ClairvoyantMultiplier
+		}
+		simplifiedScores[playerID] = ss
 	}
 	return simplifiedScores
 }

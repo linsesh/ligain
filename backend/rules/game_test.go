@@ -20,6 +20,15 @@ func (s *ScorerTest) Score(match models.Match, bets []*models.Bet) []int {
 	return scores
 }
 
+func (s *ScorerTest) ScoreWithBreakdown(match models.Match, bets []*models.Bet) []ScoreBreakdown {
+	scores := s.Score(match, bets)
+	breakdowns := make([]ScoreBreakdown, len(scores))
+	for i, score := range scores {
+		breakdowns[i] = ScoreBreakdown{BaseScore: score, RiskMultiplier: 1.0, ClairvoyantMultiplier: 1.0, Total: score}
+	}
+	return breakdowns
+}
+
 // testPlayer is a concrete implementation of models.Player for testing
 type testPlayer struct {
 	id   string

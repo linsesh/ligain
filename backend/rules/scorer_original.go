@@ -2,33 +2,57 @@ package rules
 
 import (
 	"ligain/backend/models"
-	"ligain/backend/utils"
 )
 
 // ScorerOriginal is a scorer that uses the original rules of the game, defined here: https://docs.google.com/document/d/1Gv2s6EqsL5583PT56y8efra2PkMNJAEFGBv8Al5jxfQ/edit?tab=t.0 (todo: link to an english version on the repository instead)
 type ScorerOriginal struct{}
 
 func (s *ScorerOriginal) Score(match models.Match, bets []*models.Bet) []int {
-	scores := make([]int, len(bets))
-	for i, bet := range bets {
-		otherBets := utils.SliceWithoutElementAtIndex(bets, i)
-		scores[i] = s.scoreBet(match, bet, otherBets)
+	breakdowns := s.ScoreWithBreakdown(match, bets)
+	scores := make([]int, len(breakdowns))
+	for i, bd := range breakdowns {
+		scores[i] = bd.Total
 	}
 	return scores
 }
 
-func (s *ScorerOriginal) scoreBet(match models.Match, bet *models.Bet, otherBets []*models.Bet) int {
+func (s *ScorerOriginal) ScoreWithBreakdown(match models.Match, bets []*models.Bet) []ScoreBreakdown {
+	breakdowns := make([]ScoreBreakdown, len(bets))
+	for i, bet := range bets {
+		breakdowns[i] = s.scoreBetWithBreakdown(match, bet, betsWithout(bets, i))
+	}
+	return breakdowns
+}
+
+func betsWithout(bets []*models.Bet, index int) []*models.Bet {
+	result := make([]*models.Bet, 0, len(bets)-1)
+	for i, b := range bets {
+		if i != index {
+			result = append(result, b)
+		}
+	}
+	return result
+}
+
+func (s *ScorerOriginal) scoreBetWithBreakdown(match models.Match, bet *models.Bet, otherBets []*models.Bet) ScoreBreakdown {
 	if bet == nil {
-		return -100
+		return ScoreBreakdown{BaseScore: -100, RiskMultiplier: 1.0, ClairvoyantMultiplier: 1.0, Total: -100}
 	}
 	if !isBetCorrectAgainstMatch(bet, match) {
-		return 0
+		return ScoreBreakdown{BaseScore: 0, RiskMultiplier: 1.0, ClairvoyantMultiplier: 1.0, Total: 0}
 	}
 
-	score := scoreBaseAgainstMatch(bet, match)
-	score = addBonusIfUnfavorableOdds(match, score)
-	score = addBonusDependingOnOtherBets(bet, otherBets, score)
-	return score
+	baseScore := scoreBaseAgainstMatch(bet, match)
+	riskMultiplier := getRiskMultiplier(match)
+	clairvoyantMultiplier := getClairvoyantMultiplier(bet, otherBets)
+	total := int(float64(baseScore) * riskMultiplier * clairvoyantMultiplier)
+
+	return ScoreBreakdown{
+		BaseScore:             baseScore,
+		RiskMultiplier:        riskMultiplier,
+		ClairvoyantMultiplier: clairvoyantMultiplier,
+		Total:                 total,
+	}
 }
 
 // isBetCorrectAgainstMatch checks if a bet is correct against a specific match
@@ -90,20 +114,18 @@ func absoluteGoalDifference(home, away int) int {
 	return away - home
 }
 
-// addBonusIfUnfavorableOdds adds a bonus if the odds are unfavorable
-// The odds are unfavorable if the difference between the home and away odds is greater or equal to 1.5
-// The bonus is * 1.5 in case of draw, * 2 in case of a win for the underdog.
-func addBonusIfUnfavorableOdds(match models.Match, score int) int {
+func getRiskMultiplier(match models.Match) float64 {
 	favorite := getFavorite(match)
-	if favorite != "" {
-		if match.IsDraw() {
-			return int(float64(score) * 1.5)
-		}
-		if match.GetWinner() != favorite {
-			return int(float64(score) * 2)
-		}
+	if favorite == "" {
+		return 1.0
 	}
-	return score
+	if match.IsDraw() {
+		return 1.5
+	}
+	if match.GetWinner() != favorite {
+		return 2.0
+	}
+	return 1.0
 }
 
 // getFavorite returns the favorite team of the match
@@ -118,11 +140,7 @@ func getFavorite(match models.Match) string {
 	return match.GetAwayTeam()
 }
 
-// addBonusDependingOnOtherBets adds a bonus depending on the other bets
-// The bonus is 25% of the score if there is at maximum 25% of the other bets with the same predicted result
-// The bonus is 10% of the score if there is at maximum 50% of the other bets with the same predicted result
-// Predicted result is "overall", we don't look at the precision here
-func addBonusDependingOnOtherBets(bet *models.Bet, otherBets []*models.Bet, score int) int {
+func getClairvoyantMultiplier(bet *models.Bet, otherBets []*models.Bet) float64 {
 	totalNumberOfBets := len(otherBets) + 1
 	numberOfBetsWithSameResult := 0
 	for _, otherBet := range otherBets {
@@ -132,10 +150,10 @@ func addBonusDependingOnOtherBets(bet *models.Bet, otherBets []*models.Bet, scor
 	}
 	portionOfBetsWithSameResult := float64(numberOfBetsWithSameResult+1) / float64(totalNumberOfBets)
 	if portionOfBetsWithSameResult <= 0.25 {
-		return int(float64(score) * 1.25)
+		return 1.25
 	}
 	if portionOfBetsWithSameResult <= 0.5 {
-		return int(float64(score) * 1.1)
+		return 1.1
 	}
-	return score
+	return 1.0
 }

@@ -212,6 +212,9 @@ export interface SimplifiedScore {
     playerId: string;
     playerName: string;
     points: number;
+    baseScore?: number;
+    riskMultiplier?: number;
+    clairvoyantMultiplier?: number;
 }
 
 export interface PlayerBetStatus {
