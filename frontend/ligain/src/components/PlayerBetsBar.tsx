@@ -13,7 +13,8 @@ interface Player {
 
 interface PlayerBetsBarProps {
   players: Player[];
-  playerBetStatuses: Record<string, { hasBet: boolean }> | null;
+  playerBetStatuses?: Record<string, { hasBet: boolean }> | null;
+  playerScores?: Record<string, { points: number }> | null;
   style?: ViewStyle;
 }
 
@@ -53,23 +54,60 @@ function PlayerBetsItem({ player, hasBet }: { player: Player; hasBet: boolean })
   );
 }
 
-export function PlayerBetsBar({ players, playerBetStatuses, style }: PlayerBetsBarProps) {
+function PlayerScoreItem({ player, points }: { player: Player; points: number }) {
+  const pointsColor = points > 0 ? colors.formWin : points < 0 ? colors.formLoss : colors.textSecondary;
+  const pointsLabel = points > 0 ? `+${points}` : String(points);
+
+  return (
+    <View style={{ alignItems: 'center', width: 64, marginHorizontal: 4 }}>
+      <PlayerAvatar player={player} displaySize="medium" />
+      <Text
+        numberOfLines={1}
+        className="font-hk-bold"
+        style={{ fontSize: 12, color: pointsColor, marginTop: 4, textAlign: 'center', width: 64 }}
+      >
+        {pointsLabel}
+      </Text>
+      <Text
+        numberOfLines={1}
+        className="font-hk-medium"
+        style={{ fontSize: 10, color: colors.textSecondary, textAlign: 'center', width: 64 }}
+      >
+        {player.name}
+      </Text>
+    </View>
+  );
+}
+
+export function PlayerBetsBar({ players, playerBetStatuses, playerScores, style }: PlayerBetsBarProps) {
   if (players.length === 0) return null;
+
+  const isScoresMode = !!playerScores;
+  const sortedPlayers = isScoresMode
+    ? [...players].sort((a, b) => (playerScores![b.id]?.points ?? -Infinity) - (playerScores![a.id]?.points ?? -Infinity))
+    : players;
 
   return (
     <FlatList
       horizontal
       showsHorizontalScrollIndicator={false}
-      data={players}
+      data={sortedPlayers}
       keyExtractor={(item) => item.id}
       style={[{ width: '100%' }, style]}
       contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
-      renderItem={({ item }) => (
-        <PlayerBetsItem
-          player={item}
-          hasBet={playerBetStatuses?.[item.id]?.hasBet ?? false}
-        />
-      )}
+      renderItem={({ item }) =>
+        isScoresMode ? (
+          <PlayerScoreItem
+            player={item}
+            points={playerScores![item.id]?.points ?? -100}
+          />
+        ) : (
+          <PlayerBetsItem
+            player={item}
+            hasBet={playerBetStatuses?.[item.id]?.hasBet ?? false}
+          />
+        )
+      }
     />
   );
 }

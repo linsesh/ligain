@@ -194,6 +194,8 @@ function MatchCard({ matchResult, gameId }: {
           betAwayGoals: player && matchResult.bets?.[player.id]
             ? String(matchResult.bets[player.id].predictedAwayGoals)
             : '',
+          homeGoals: matchResult.match.isFinished() ? String(matchResult.match.getHomeGoals()) : '',
+          awayGoals: matchResult.match.isFinished() ? String(matchResult.match.getAwayGoals()) : '',
           homeTeamOdds: String(matchResult.match.getHomeTeamOdds()),
           awayTeamOdds: String(matchResult.match.getAwayTeamOdds()),
           drawOdds: String(matchResult.match.getDrawOdds()),
