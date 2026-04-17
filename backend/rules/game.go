@@ -261,10 +261,10 @@ func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.M
 
 		if bets, exists := g.bets[match.Id()]; exists {
 			for playerID, bet := range bets {
-				if playerID == player.GetID() {
-					playerBets[playerID] = bet // requesting player: full bet
+				if playerID == player.GetID() || match.IsInProgress() {
+					playerBets[playerID] = bet
 				} else {
-					playerBetStatus[playerID] = true // others: just boolean
+					playerBetStatus[playerID] = true
 				}
 			}
 		}
