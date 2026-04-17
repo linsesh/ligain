@@ -76,6 +76,30 @@ jest.mock('../src/hooks/useNotifications', () => ({
   })),
 }));
 
+// Mock useMatches (MatchesContext)
+const mockMarkBetPlaced = jest.fn();
+jest.mock('../src/contexts/MatchesContext', () => ({
+  useMatches: () => ({
+    incomingMatches: {},
+    incomingByMatchday: {},
+    pastMatches: {},
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+    markBetPlaced: mockMarkBetPlaced,
+  }),
+}));
+
+// Mock useAuth (AuthContext)
+const mockPlayer = { id: 'player-1', name: 'Alice' };
+jest.mock('../src/contexts/AuthContext', () => {
+  const React = require('react');
+  return {
+    useAuth: () => ({ player: mockPlayer }),
+    AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  };
+});
+
 // Test wrapper component
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -90,6 +114,7 @@ describe('useBetSubmission', () => {
     jest.clearAllMocks();
     mockCancelMatchNotification.mockClear();
     mockPlaceBet.mockReset();
+    mockMarkBetPlaced.mockReset();
   });
 
   it('should submit bet successfully', async () => {
@@ -280,6 +305,59 @@ describe('useBetSubmission', () => {
       expect(result.current.isSubmitting).toBe(false);
       expect(result.current.error).toBe(null);
       expect(mockCancelMatchNotification).toHaveBeenCalledWith('match-123');
+    });
+  });
+
+  describe('Optimistic match context update', () => {
+    it('calls markBetPlaced on successful bet submission', async () => {
+      mockPlaceBet.mockResolvedValueOnce({
+        bet: { matchId: 'match-1', predictedHomeGoals: 2, predictedAwayGoals: 1 },
+      });
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-1', 2, 1);
+      });
+
+      expect(mockMarkBetPlaced).toHaveBeenCalledWith('match-1', 'player-1', 'Alice', 2, 1);
+      expect(mockMarkBetPlaced).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call markBetPlaced on failed bet submission', async () => {
+      mockPlaceBet.mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-1', 2, 1);
+      });
+
+      expect(mockMarkBetPlaced).not.toHaveBeenCalled();
+    });
+
+    it('handles markBetPlaced errors gracefully', async () => {
+      mockPlaceBet.mockResolvedValueOnce({
+        bet: { matchId: 'match-1', predictedHomeGoals: 2, predictedAwayGoals: 1 },
+      });
+      mockMarkBetPlaced.mockImplementationOnce(() => {
+        throw new Error('context update failed');
+      });
+
+      const { result } = renderHook(() => useBetSubmission('test-game-id'), {
+        wrapper: TestWrapper,
+      });
+
+      await act(async () => {
+        await result.current.submitBet('match-1', 2, 1);
+      });
+
+      expect(result.current.isSubmitting).toBe(false);
+      expect(result.current.error).toBe(null);
     });
   });
 });
