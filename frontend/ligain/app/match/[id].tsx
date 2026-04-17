@@ -271,6 +271,15 @@ export default function MatchDetailScreen() {
             />
           )}
 
+          {/* In-progress match — show each player's predicted score */}
+          {isInProgress && gamePlayers.length > 0 && (
+            <PlayerBetsBar
+              players={gamePlayers}
+              playerBets={incomingMatchResult?.bets ?? null}
+              style={{ marginTop: clearFavorite ? 24 : 0 }}
+            />
+          )}
+
           {/* Finished match — score breakdown + player scores + leaderboard button */}
           {isFinished && pastMatchResult && (
             <View style={{ marginTop: clearFavorite ? 24 : 0 }}>
