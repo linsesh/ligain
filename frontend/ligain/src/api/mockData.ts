@@ -127,21 +127,60 @@ function deterministicPrediction(matchId: string, playerId: string): 'home' | 'd
   return OUTCOMES[hash % 3];
 }
 
-// Appends bets for extra players to every past match, computing points from the actual result
 function enrichPastMatchesWithExtraPlayers(
   matches: Record<string, MatchData>,
   extraPlayers: { id: string; name: string }[]
 ): Record<string, MatchData> {
   const result: Record<string, MatchData> = {};
   for (const [id, matchData] of Object.entries(matches)) {
-    const { homeGoals = 0, awayGoals = 0 } = matchData.match;
-    const actualResult: 'home' | 'draw' | 'away' =
-      homeGoals > awayGoals ? 'home' : homeGoals < awayGoals ? 'away' : 'draw';
-    const extraBets = extraPlayers.map((p) => {
-      const prediction = deterministicPrediction(id, p.id);
-      return { playerId: p.id, playerName: p.name, prediction, points: prediction === actualResult ? 1 : 0 };
+    const { homeGoals = 0, awayGoals = 0, homeTeamOdds, drawOdds, awayTeamOdds } = matchData.match;
+    const score: [number, number] = [homeGoals, awayGoals];
+    const odds: [number, number, number] | undefined =
+      homeTeamOdds != null && drawOdds != null && awayTeamOdds != null
+        ? [homeTeamOdds, drawOdds, awayTeamOdds]
+        : undefined;
+
+    const existingPredictions = (matchData.allBets || []).map((b) => b.prediction as 'home' | 'draw' | 'away');
+    const extraPredictions = extraPlayers.map((p) => deterministicPrediction(id, p.id));
+    const allPredictions = [...existingPredictions, ...extraPredictions];
+
+    const extraBets = extraPlayers.map((p, i) => {
+      const prediction = extraPredictions[i];
+      const predictedGoals = deterministicGoals(id, p.id, prediction);
+      const breakdown = computeMockScoreBreakdown(prediction, predictedGoals, score, odds, allPredictions, existingPredictions.length + i);
+      return {
+        playerId: p.id,
+        playerName: p.name,
+        prediction,
+        points: breakdown.points,
+        baseScore: breakdown.baseScore,
+        riskMultiplier: breakdown.riskMultiplier,
+        clairvoyantMultiplier: breakdown.clairvoyantMultiplier,
+        predictedHomeGoals: predictedGoals[0],
+        predictedAwayGoals: predictedGoals[1],
+      };
     });
-    result[id] = { ...matchData, allBets: [...(matchData.allBets || []), ...extraBets] };
+
+    // Recompute core player scores with the full player list for correct clairvoyant bonuses
+    const recomputedCoreBets = (matchData.allBets || []).map((bet, i) => {
+      const prediction = bet.prediction as 'home' | 'draw' | 'away';
+      const predictedGoals: [number, number] = [
+        (bet as any).predictedHomeGoals ?? deterministicGoals(id, bet.playerId, prediction)[0],
+        (bet as any).predictedAwayGoals ?? deterministicGoals(id, bet.playerId, prediction)[1],
+      ];
+      const breakdown = computeMockScoreBreakdown(prediction, predictedGoals, score, odds, allPredictions, i);
+      return {
+        ...bet,
+        points: breakdown.points,
+        baseScore: breakdown.baseScore,
+        riskMultiplier: breakdown.riskMultiplier,
+        clairvoyantMultiplier: breakdown.clairvoyantMultiplier,
+        predictedHomeGoals: predictedGoals[0],
+        predictedAwayGoals: predictedGoals[1],
+      };
+    });
+
+    result[id] = { ...matchData, allBets: [...recomputedCoreBets, ...extraBets] };
   }
   return result;
 }
@@ -209,6 +248,75 @@ const createIncomingMatch = (
   bet: userBet ? { prediction: userBet } : undefined,
 });
 
+// Mirrors backend/rules/scorer_original.go scoring logic
+function computeMockScoreBreakdown(
+  prediction: 'home' | 'draw' | 'away',
+  predictedGoals: [number, number],
+  matchScore: [number, number],
+  odds: [number, number, number] | undefined,
+  allPredictions: ('home' | 'draw' | 'away' | null)[],
+  currentIndex: number,
+): { points: number; baseScore: number; riskMultiplier: number; clairvoyantMultiplier: number } {
+  const actualResult = matchScore[0] > matchScore[1] ? 'home' : matchScore[0] < matchScore[1] ? 'away' : 'draw';
+  if (prediction !== actualResult) {
+    return { points: 0, baseScore: 0, riskMultiplier: 1, clairvoyantMultiplier: 1 };
+  }
+
+  const [pH, pA] = predictedGoals;
+  const [mH, mA] = matchScore;
+
+  let baseScore: number;
+  if (pH === mH && pA === mA) {
+    baseScore = 500;
+  } else {
+    const betDiff = Math.abs(pH - pA);
+    const matchDiff = Math.abs(mH - mA);
+    const totalDiff = Math.abs((pH + pA) - (mH + mA));
+    if (betDiff === matchDiff && totalDiff <= 2) {
+      baseScore = 400;
+    } else {
+      baseScore = 300;
+    }
+  }
+
+  let riskMultiplier = 1;
+  if (odds) {
+    const oddsDiff = Math.abs(odds[0] - odds[2]);
+    if (oddsDiff >= 1.5) {
+      const favorite = odds[0] < odds[2] ? 'home' : 'away';
+      if (actualResult === 'draw') {
+        riskMultiplier = 1.5;
+      } else if (actualResult !== favorite) {
+        riskMultiplier = 2;
+      }
+    }
+  }
+
+  const totalBets = allPredictions.length;
+  const sameResultCount = allPredictions.filter((p) => p === prediction).length;
+  const portion = sameResultCount / totalBets;
+  let clairvoyantMultiplier = 1;
+  if (portion <= 0.25) {
+    clairvoyantMultiplier = 1.25;
+  } else if (portion <= 0.5) {
+    clairvoyantMultiplier = 1.1;
+  }
+
+  const points = Math.floor(baseScore * riskMultiplier * clairvoyantMultiplier);
+  return { points, baseScore, riskMultiplier, clairvoyantMultiplier };
+}
+
+// Generate plausible predicted goals from a prediction outcome + hash for determinism
+function deterministicGoals(matchId: string, playerId: string, prediction: 'home' | 'draw' | 'away'): [number, number] {
+  const hash = [...`${matchId}${playerId}goals`].reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const goalVariant = hash % 4;
+  switch (prediction) {
+    case 'home': return [[2, 0], [2, 1], [3, 1], [1, 0]][goalVariant] as [number, number];
+    case 'away': return [[0, 2], [1, 2], [1, 3], [0, 1]][goalVariant] as [number, number];
+    case 'draw': return [[1, 1], [0, 0], [2, 2], [1, 1]][goalVariant] as [number, number];
+  }
+}
+
 const createPastMatch = (
   id: string,
   homeTeam: string,
@@ -216,14 +324,24 @@ const createPastMatch = (
   date: Date,
   matchday: number,
   score: [number, number],
-  bets: { playerId: string; playerName: string; prediction: string }[]
+  bets: { playerId: string; playerName: string; prediction: string }[],
+  odds?: [number, number, number]
 ): MatchData => {
-  const actualResult =
-    score[0] > score[1] ? 'home' : score[0] < score[1] ? 'away' : 'draw';
-  const betsWithPoints = bets.map((bet) => ({
-    ...bet,
-    points: bet.prediction === actualResult ? 1 : 0,
-  }));
+  const allPredictions = bets.map((b) => b.prediction as 'home' | 'draw' | 'away');
+  const betsWithPoints = bets.map((bet, i) => {
+    const prediction = bet.prediction as 'home' | 'draw' | 'away';
+    const predictedGoals = deterministicGoals(id, bet.playerId, prediction);
+    const breakdown = computeMockScoreBreakdown(prediction, predictedGoals, score, odds, allPredictions, i);
+    return {
+      ...bet,
+      points: breakdown.points,
+      baseScore: breakdown.baseScore,
+      riskMultiplier: breakdown.riskMultiplier,
+      clairvoyantMultiplier: breakdown.clairvoyantMultiplier,
+      predictedHomeGoals: predictedGoals[0],
+      predictedAwayGoals: predictedGoals[1],
+    };
+  });
 
   return {
     match: {
@@ -231,6 +349,9 @@ const createPastMatch = (
       date: date.toISOString(),
       homeTeam,
       awayTeam,
+      homeTeamOdds: odds?.[0],
+      drawOdds: odds?.[1],
+      awayTeamOdds: odds?.[2],
       matchday,
       status: 'finished',
       homeGoals: score[0],
@@ -522,7 +643,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'home' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'away' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'home' },
-    ]
+    ],
+    [1.35, 5.0, 8.0] // PSG heavy favorite
   ),
   'match-19-2': createPastMatch(
     'match-19-2',
@@ -536,7 +658,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'home' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'draw' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'draw' },
-    ]
+    ],
+    [2.0, 3.5, 3.6] // Balanced
   ),
   'match-19-3': createPastMatch(
     'match-19-3',
@@ -550,7 +673,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'home' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'home' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'draw' },
-    ]
+    ],
+    [1.8, 3.6, 4.2] // Lille slight favorite but not clear (diff=2.4 > 1.5)
   ),
   'match-19-4': createPastMatch(
     'match-19-4',
@@ -564,7 +688,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'away' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'draw' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'away' },
-    ]
+    ],
+    [1.9, 3.4, 4.0] // Nice favored (diff=2.1 > 1.5), Rennes = underdog
   ),
   'match-19-5': createPastMatch(
     'match-19-5',
@@ -578,7 +703,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'draw' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'away' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'home' },
-    ]
+    ],
+    [2.3, 3.2, 3.0] // Balanced, no clear favorite
   ),
   'match-19-6': createPastMatch(
     'match-19-6',
@@ -592,7 +718,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'home' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'away' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'home' },
-    ]
+    ],
+    [2.4, 3.1, 3.0] // Balanced
   ),
   'match-19-7': createPastMatch(
     'match-19-7',
@@ -606,7 +733,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'away' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'home' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'draw' },
-    ]
+    ],
+    [2.8, 3.1, 2.5] // Balanced
   ),
   'match-19-8': createPastMatch(
     'match-19-8',
@@ -620,7 +748,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'home' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'away' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'home' },
-    ]
+    ],
+    [2.5, 3.2, 2.8] // Balanced
   ),
   'match-19-9': createPastMatch(
     'match-19-9',
@@ -634,7 +763,8 @@ const pastMatchesGame1: Record<string, MatchData> = {
       { playerId: 'mock-player-2', playerName: 'Marie', prediction: 'draw' },
       { playerId: 'mock-player-3', playerName: 'Lucas', prediction: 'away' },
       { playerId: 'mock-player-4', playerName: 'Sophie', prediction: 'draw' },
-    ]
+    ],
+    [2.1, 3.3, 3.4] // Balanced
   ),
 
   // ========== MATCHDAY 18 (14 days ago) ==========
@@ -1394,8 +1524,17 @@ export const MOCK_MATCHES_GAME_3: MatchesResponse = {
 // HELPER: Get matches for a game
 // ============================================================================
 
+// Deterministically decide if a non-current player has bet on a given match
+function deterministicHasBet(matchId: string, playerId: string): boolean {
+  const hash = [...`${matchId}${playerId}`].reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return hash % 3 !== 0; // ~66% of players appear to have already bet
+}
+
 // Transform allBets (mock format) → scores + bets (hook format expected by useMatches)
-function transformMatchesResponse(response: MatchesResponse): MatchesResponse {
+function transformMatchesResponse(
+  response: MatchesResponse,
+  players: { id: string; name: string }[]
+): MatchesResponse {
   const transformPast = (matches: Record<string, any>): Record<string, any> =>
     Object.fromEntries(
       Object.entries(matches).map(([id, matchData]) => {
@@ -1403,8 +1542,16 @@ function transformMatchesResponse(response: MatchesResponse): MatchesResponse {
         const scores: Record<string, any> = {};
         const bets: Record<string, any> = {};
         matchData.allBets.forEach((bet: any) => {
-          scores[bet.playerId] = { playerId: bet.playerId, playerName: bet.playerName, points: bet.points ?? 0 };
-          const [h, a] = bet.prediction === 'home' ? [2, 0] : bet.prediction === 'away' ? [0, 2] : [1, 1];
+          scores[bet.playerId] = {
+            playerId: bet.playerId,
+            playerName: bet.playerName,
+            points: bet.points ?? 0,
+            baseScore: bet.baseScore,
+            riskMultiplier: bet.riskMultiplier,
+            clairvoyantMultiplier: bet.clairvoyantMultiplier,
+          };
+          const h = bet.predictedHomeGoals ?? (bet.prediction === 'home' ? 2 : bet.prediction === 'away' ? 0 : 1);
+          const a = bet.predictedAwayGoals ?? (bet.prediction === 'home' ? 0 : bet.prediction === 'away' ? 2 : 1);
           bets[bet.playerId] = { playerId: bet.playerId, playerName: bet.playerName, predictedHomeGoals: h, predictedAwayGoals: a };
         });
         return [id, { ...matchData, scores, bets }];
@@ -1414,7 +1561,20 @@ function transformMatchesResponse(response: MatchesResponse): MatchesResponse {
   const transformIncoming = (matches: Record<string, any>): Record<string, any> =>
     Object.fromEntries(
       Object.entries(matches).map(([id, matchData]) => {
-        if (!matchData.bet) return [id, matchData];
+        const currentPlayerHasBet = !!matchData.bet;
+
+        // Build playerBetStatuses for all game players
+        const playerBetStatuses: Record<string, any> = {};
+        players.forEach((player) => {
+          const hasBet =
+            player.id === MOCK_CURRENT_PLAYER.id
+              ? currentPlayerHasBet
+              : deterministicHasBet(id, player.id);
+          playerBetStatuses[player.id] = { playerId: player.id, playerName: player.name, hasBet };
+        });
+
+        if (!currentPlayerHasBet) return [id, { ...matchData, playerBetStatuses }];
+
         // Expose the current player's bet so the "no bet" badge logic works
         const bets: Record<string, any> = {
           [MOCK_CURRENT_PLAYER.id]: {
@@ -1424,7 +1584,7 @@ function transformMatchesResponse(response: MatchesResponse): MatchesResponse {
             predictedAwayGoals: 0,
           },
         };
-        return [id, { ...matchData, bets }];
+        return [id, { ...matchData, bets, playerBetStatuses }];
       })
     );
 
@@ -1435,13 +1595,15 @@ function transformMatchesResponse(response: MatchesResponse): MatchesResponse {
 }
 
 export const getMockMatchesForGame = (gameId: string): MatchesResponse => {
+  const game = MOCK_GAMES.find(g => g.gameId === gameId);
+  const players = (game?.players ?? []) as { id: string; name: string }[];
   switch (gameId) {
     case 'game-1':
-      return transformMatchesResponse(MOCK_MATCHES_GAME_1);
+      return transformMatchesResponse(MOCK_MATCHES_GAME_1, players);
     case 'game-2':
-      return transformMatchesResponse(MOCK_MATCHES_GAME_2);
+      return transformMatchesResponse(MOCK_MATCHES_GAME_2, players);
     case 'game-3':
-      return transformMatchesResponse(MOCK_MATCHES_GAME_3);
+      return transformMatchesResponse(MOCK_MATCHES_GAME_3, players);
     default:
       return { incomingMatches: {}, pastMatches: {} };
   }

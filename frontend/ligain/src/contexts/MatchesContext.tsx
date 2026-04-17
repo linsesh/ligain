@@ -61,6 +61,9 @@ function processMatchesResponse(data: any): MatchesState {
               playerId: scoreData.playerId,
               playerName: scoreData.playerName,
               points: scoreData.points,
+              baseScore: scoreData.baseScore,
+              riskMultiplier: scoreData.riskMultiplier,
+              clairvoyantMultiplier: scoreData.clairvoyantMultiplier,
             };
             return acc;
           }, {})
