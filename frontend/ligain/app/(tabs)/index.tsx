@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -342,15 +343,9 @@ function GamesList() {
       {showActionSheet && (
         <Pressable
           onPress={() => setShowActionSheet(false)}
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            zIndex: 30,
-          }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 30 }}
         >
+          <BlurView intensity={60} tint="dark" style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
           <View className="w-full px-6 pb-12 items-center">
             <TouchableOpacity onPress={() => setShowActionSheet(false)} className="self-end mb-4">
               <View className="bg-white/20 rounded-full p-2">
@@ -374,6 +369,7 @@ function GamesList() {
               <Text className="font-hk-bold text-white text-xl">{t('games.createGame')}</Text>
             </TouchableOpacity>
           </View>
+          </BlurView>
         </Pressable>
       )}
 
@@ -381,15 +377,9 @@ function GamesList() {
       {showCreateModal && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10,
-          }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 }}
         >
+          <BlurView intensity={60} tint="dark" style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <View className="rounded-xl p-5 items-center" style={{ backgroundColor: colors.card, width: '80%' }}>
             <Text className="font-hk-bold text-foreground text-xl mb-1">{t('games.createNewGame')}</Text>
             <Text className="text-foreground-secondary text-sm mb-4">{t('games.createGameSubtitle')}</Text>
@@ -425,6 +415,7 @@ function GamesList() {
               </TouchableOpacity>
             </View>
           </View>
+          </BlurView>
         </KeyboardAvoidingView>
       )}
 
@@ -432,15 +423,9 @@ function GamesList() {
       {showJoinModal && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10,
-          }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 }}
         >
+          <BlurView intensity={60} tint="dark" style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <View className="rounded-xl p-5 items-center" style={{ backgroundColor: colors.card, width: '80%' }}>
             <Text className="font-hk-bold text-foreground text-xl mb-1">{t('games.joinGame')}</Text>
             <Text className="text-foreground-secondary text-sm mb-4">{t('games.joinGameSubtitle')}</Text>
@@ -477,6 +462,7 @@ function GamesList() {
               </TouchableOpacity>
             </View>
           </View>
+          </BlurView>
         </KeyboardAvoidingView>
       )}
     </KeyboardAvoidingView>
