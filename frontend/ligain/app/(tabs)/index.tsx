@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ActivityIndicator, TextInput, Keyboard, TouchableOpacity, Alert, ScrollView, RefreshControl, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -86,7 +86,7 @@ function GameCard({ game, onPress, onLeave, disabled }: {
               <View
                 key={p.id}
                 className="flex-row items-center py-2 border-b border-border"
-                style={{ paddingHorizontal: 16, backgroundColor: isCurrentPlayer ? colors.link : undefined }}
+                style={{ paddingHorizontal: 16, backgroundColor: isCurrentPlayer ? colors.link : undefined, borderRadius: isCurrentPlayer ? 12 : 0 }}
               >
                 <View
                   style={{
@@ -320,9 +320,9 @@ function GamesList() {
       {!showActionSheet && !showCreateModal && !showJoinModal && (
         <View className="absolute left-0 right-0 bottom-6 items-center" style={{ zIndex: 20 }}>
           <TouchableOpacity
-            className="flex-row items-center justify-center rounded-full py-4.5 px-10"
+            className="flex-row items-center justify-center rounded-2xl py-6 px-10"
             style={{
-              backgroundColor: colors.secondary,
+              backgroundColor: colors.primary,
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.2,
@@ -333,14 +333,15 @@ function GamesList() {
             activeOpacity={0.85}
           >
             <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 10 }} />
-            <Text className="font-hk-bold text-foreground text-xl">{t('games.joinOrCreate')}</Text>
+            <Text className="font-hk-bold text-white text-xl">{t('games.joinOrCreate')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {/* Action sheet overlay */}
       {showActionSheet && (
-        <View
+        <Pressable
+          onPress={() => setShowActionSheet(false)}
           style={{
             position: 'absolute',
             top: 0, left: 0, right: 0, bottom: 0,
@@ -351,32 +352,29 @@ function GamesList() {
           }}
         >
           <View className="w-full px-6 pb-12 items-center">
+            <TouchableOpacity onPress={() => setShowActionSheet(false)} className="self-end mb-4">
+              <View className="bg-white/20 rounded-full p-2">
+                <Ionicons name="close" size={20} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <TouchableOpacity
-              className="flex-row items-center justify-center w-full py-4.5 rounded-2xl mb-4"
-              style={{ backgroundColor: colors.secondary }}
+              className="flex-row items-center justify-center w-full py-6 rounded-2xl mb-4"
+              style={{ backgroundColor: colors.primary }}
               onPress={() => { setShowActionSheet(false); setShowJoinModal(true); }}
             >
-              <Ionicons name="people" size={22} color="#fff" style={{ marginRight: 12 }} />
-              <Text className="font-hk-bold text-foreground text-lg">{t('games.joinGame')}</Text>
+              <Ionicons name="people" size={28} color="#fff" style={{ marginRight: 12 }} />
+              <Text className="font-hk-bold text-white text-xl">{t('games.joinGame')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="flex-row items-center justify-center w-full py-4.5 rounded-2xl mb-4"
-              style={{ backgroundColor: colors.success }}
+              className="flex-row items-center justify-center w-full py-6 rounded-2xl"
+              style={{ backgroundColor: colors.link }}
               onPress={() => { setShowActionSheet(false); setShowCreateModal(true); }}
             >
-              <Ionicons name="add-circle" size={22} color="#fff" style={{ marginRight: 12 }} />
-              <Text className="font-hk-bold text-foreground text-lg">{t('games.createGame')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="mt-2 items-center w-full py-2"
-              onPress={() => setShowActionSheet(false)}
-            >
-              <Text className="font-hk-bold text-foreground text-base" style={{ opacity: 0.7 }}>
-                ✕ {t('common.close')}
-              </Text>
+              <Ionicons name="add-circle" size={28} color="#fff" style={{ marginRight: 12 }} />
+              <Text className="font-hk-bold text-white text-xl">{t('games.createGame')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Pressable>
       )}
 
       {/* Create modal */}

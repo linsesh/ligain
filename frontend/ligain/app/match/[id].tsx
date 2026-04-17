@@ -314,7 +314,7 @@ export default function MatchDetailScreen() {
                 ) : (
                   <>
                     <Text className="font-hk-bold" style={{
-                      color: (betConfirmed && !isLastMatch) ? colors.text : colors.white,
+                      color: colors.white,
                       fontSize: 17,
                     }}>
                       {isLastMatch ? t('games.viewMatches') : t('games.nextMatch')}
@@ -367,7 +367,7 @@ export default function MatchDetailScreen() {
                 }}
               >
                 <Text className="font-hk-bold" style={{
-                  color: isLastMatch ? colors.white : colors.text,
+                  color: colors.white,
                   fontSize: 17,
                 }}>
                   {isLastMatch ? t('games.viewMatches') : t('games.nextMatch')}

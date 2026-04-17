@@ -216,7 +216,7 @@ export default function GameOverviewScreen() {
             className="bg-primary rounded-full px-6 py-3"
             onPress={refresh}
           >
-            <Text className="font-hk-bold text-foreground">{t('games.retry')}</Text>
+            <Text className="font-hk-bold text-white">{t('games.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -402,7 +402,7 @@ export default function GameOverviewScreen() {
                 className="rounded-full py-4 px-10 items-center self-center"
                 style={{ backgroundColor: colors.primary, minWidth: '70%' }}
               >
-                <Text className="font-hk-bold text-foreground text-lg">
+                <Text className="font-hk-bold text-white text-lg">
                   {t('games.makeMyBets')}
                 </Text>
               </TouchableOpacity>
