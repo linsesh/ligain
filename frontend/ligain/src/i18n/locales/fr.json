@@ -122,7 +122,18 @@
     "doublePointsHint": "Tu peux doubler tes points si {{team}} gagne !",
     "nextMatch": "Match suivant",
     "betNotRegistered": "Pari non enregistré",
-    "remainingMatchesInMatchday": "{{count}} match(s) restant(s) en J{{matchday}}"
+    "remainingMatchesInMatchday": "{{count}} match(s) restant(s) en J{{matchday}}",
+    "scorePerfect": "SCORE PARFAIT",
+    "scoreClose": "SCORE PROCHE",
+    "scoreGoodResult": "BON RÉSULTAT",
+    "scoreBadResult": "MAUVAIS RÉSULTAT",
+    "scoreMissedBet": "PARI OUBLIÉ",
+    "scorePerfectLabel": "Score parfait",
+    "scoreCloseLabel": "Score proche",
+    "scoreGoodResultLabel": "Bon résultat",
+    "riskLabel": "Risque",
+    "clairvoyantLabel": "Clairvoyant",
+    "viewLeaderboard": "Voir classement"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

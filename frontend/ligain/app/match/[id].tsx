@@ -18,6 +18,7 @@ import { usePostBetNavigation } from '../../hooks/usePostBetNavigation';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { computeTeamForm } from '../../src/utils/standings';
 import { PlayerBetsBar } from '../../src/components/PlayerBetsBar';
+import { FinishedMatchScore } from '../../src/components/FinishedMatchScore';
 
 export default function MatchDetailScreen() {
   const {
@@ -31,6 +32,8 @@ export default function MatchDetailScreen() {
     awayTeamRaw,
     betHomeGoals,
     betAwayGoals,
+    homeGoals: homeGoalsParam,
+    awayGoals: awayGoalsParam,
     homeTeamOdds,
     awayTeamOdds,
     drawOdds,
@@ -47,6 +50,8 @@ export default function MatchDetailScreen() {
     awayTeamRaw: string;
     betHomeGoals: string;
     betAwayGoals: string;
+    homeGoals: string;
+    awayGoals: string;
     homeTeamOdds: string;
     awayTeamOdds: string;
     drawOdds: string;
@@ -59,7 +64,7 @@ export default function MatchDetailScreen() {
   const cellSize = useGridCellSize();
   const { placeBet, isSubmitting } = useBetPlacement(gameId);
   const { games, allMatchesForStandings } = useGames();
-  const { incomingMatches } = useMatches();
+  const { incomingMatches, pastMatches } = useMatches();
   const { player } = useAuth();
   const playerId = player && typeof player === 'object' ? player.id : '';
 
@@ -67,6 +72,10 @@ export default function MatchDetailScreen() {
   const matchBetStatuses = id
     ? Object.values(incomingMatches).find(r => r.match.id() === id)?.playerBetStatuses ?? null
     : null;
+  const pastMatchResult = id
+    ? Object.values(pastMatches).find(r => r.match.id() === id) ?? null
+    : null;
+  const currentPlayerScore = pastMatchResult?.scores?.[playerId] ?? null;
 
   const homeForm = useMemo(
     () => homeTeamRaw ? computeTeamForm(homeTeamRaw, allMatchesForStandings) : [],
@@ -77,8 +86,9 @@ export default function MatchDetailScreen() {
     [awayTeamRaw, allMatchesForStandings]
   );
 
-  const [homeGoals, setHomeGoals] = useState(betHomeGoals || '');
-  const [awayGoals, setAwayGoals] = useState(betAwayGoals || '');
+  const isFinished = !!(homeGoalsParam && awayGoalsParam);
+  const [homeGoals, setHomeGoals] = useState(isFinished ? homeGoalsParam : (betHomeGoals || ''));
+  const [awayGoals, setAwayGoals] = useState(isFinished ? awayGoalsParam : (betAwayGoals || ''));
   const [betConfirmed, setBetConfirmed] = useState(!!(betHomeGoals && betAwayGoals));
   const [barVisible, setBarVisible] = useState(!!(betHomeGoals && betAwayGoals));
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -110,9 +120,9 @@ export default function MatchDetailScreen() {
 
   const editable = matchDate ? matchDate > new Date() : false;
 
-  const homeOdds = homeTeamOdds ? parseFloat(homeTeamOdds) : undefined;
-  const awayOdds = awayTeamOdds ? parseFloat(awayTeamOdds) : undefined;
-  const dOdds = drawOdds ? parseFloat(drawOdds) : undefined;
+  const homeOdds = homeTeamOdds && !isNaN(parseFloat(homeTeamOdds)) ? parseFloat(homeTeamOdds) : undefined;
+  const awayOdds = awayTeamOdds && !isNaN(parseFloat(awayTeamOdds)) ? parseFloat(awayTeamOdds) : undefined;
+  const dOdds = drawOdds && !isNaN(parseFloat(drawOdds)) ? parseFloat(drawOdds) : undefined;
   const clearFavorite = hasClearFavorite === 'true';
   const underdogTeam = clearFavorite
     ? (favoriteTeam === homeTeam ? awayTeam || '' : homeTeam || '')
@@ -196,7 +206,7 @@ export default function MatchDetailScreen() {
         keyboardDismissMode="on-drag"
       >
         {/* Zone 1 — match card */}
-        <View style={{ backgroundColor: colors.background, paddingTop: 8, paddingBottom: 8 }}>
+        <View style={{ backgroundColor: colors.background }}>
           <MatchBetCard
             homeTeam={homeTeam || ''}
             awayTeam={awayTeam || ''}
@@ -221,9 +231,9 @@ export default function MatchDetailScreen() {
         <View style={{ height: cellSize }} />
 
         {/* Zone 2 — secondary content */}
-        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 24, paddingBottom: 24 }}>
-          {/* Clear favorite info */}
-          {clearFavorite && (
+        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: isFinished ? 0 : 24, paddingBottom: 24 }}>
+          {/* Clear favorite info — only for upcoming matches */}
+          {clearFavorite && !isFinished && (
             <View style={{ paddingHorizontal: 24 }}>
               <View style={{ backgroundColor: colors.link, borderRadius: 12, padding: 16 }}>
                 <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 22, textAlign: 'center' }}>
@@ -238,13 +248,44 @@ export default function MatchDetailScreen() {
             </View>
           )}
 
-          {/* Player bets bar */}
+          {/* Player bets bar — incoming matches */}
           {editable && gamePlayers.length > 0 && (
             <PlayerBetsBar
               players={gamePlayers}
               playerBetStatuses={matchBetStatuses}
               style={{ marginTop: clearFavorite ? 24 : 0 }}
             />
+          )}
+
+          {/* Finished match — score breakdown + player scores + leaderboard button */}
+          {isFinished && pastMatchResult && (
+            <View style={{ marginTop: clearFavorite ? 24 : 0 }}>
+              <FinishedMatchScore score={currentPlayerScore} />
+              {gamePlayers.length > 0 && (
+                <PlayerBetsBar
+                  players={gamePlayers}
+                  playerScores={pastMatchResult.scores}
+                />
+              )}
+              <View style={{ paddingHorizontal: 24, marginTop: 8 }}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/game/[id]', params: { id: gameId || '' } })}
+                  style={{
+                    backgroundColor: colors.text,
+                    borderRadius: 999,
+                    paddingVertical: 16,
+                    paddingHorizontal: 40,
+                    alignItems: 'center',
+                    alignSelf: 'center',
+                    minWidth: '70%',
+                  }}
+                >
+                  <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 17 }}>
+                    {t('games.viewLeaderboard')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
           {/* Push button to the bottom of the zone */}

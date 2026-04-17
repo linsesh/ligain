@@ -59,7 +59,7 @@ function OddsColumn({ label, odds, multiplier }: { label: string; odds: number; 
   return (
     <View style={oddsStyles.column}>
       <Text style={oddsStyles.label}>{label}</Text>
-      <Text style={oddsStyles.value}>{odds.toFixed(2)}</Text>
+      <Text style={oddsStyles.value}>{isNaN(odds) ? '-' : odds.toFixed(2)}</Text>
       {multiplier && <Text style={oddsStyles.multiplier}>{multiplier}</Text>}
     </View>
   );
