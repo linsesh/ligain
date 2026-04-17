@@ -16,6 +16,7 @@ interface MatchesContextType extends MatchesState {
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  markBetPlaced(matchId: string, playerId: string, playerName: string, homeGoals: number, awayGoals: number): void;
 }
 
 interface CacheEntry extends MatchesState {
@@ -174,8 +175,57 @@ export function MatchesProvider({ children }: { children: ReactNode }) {
     await fetchForGame(selectedGameId, true);
   }, [selectedGameId, fetchForGame]);
 
+  const markBetPlaced = useCallback((matchId: string, playerId: string, playerName: string, homeGoals: number, awayGoals: number) => {
+    setMatchesState(prev => {
+      const matchKey = Object.keys(prev.incomingMatches).find(
+        key => prev.incomingMatches[key].match.id() === matchId
+      );
+      if (!matchKey) return prev;
+
+      const mr = prev.incomingMatches[matchKey];
+      const newBet = {
+        playerId,
+        playerName,
+        predictedHomeGoals: homeGoals,
+        predictedAwayGoals: awayGoals,
+        isModifiable: () => true,
+      };
+
+      const updatedBets = { ...(mr.bets ?? {}), [playerId]: newBet };
+      const updatedStatuses = mr.playerBetStatuses
+        ? {
+            ...mr.playerBetStatuses,
+            ...(mr.playerBetStatuses[playerId]
+              ? { [playerId]: { ...mr.playerBetStatuses[playerId], hasBet: true } }
+              : {}),
+          }
+        : null;
+
+      const updatedMr = { ...mr, bets: updatedBets, playerBetStatuses: updatedStatuses };
+      const updatedIncoming = { ...prev.incomingMatches, [matchKey]: updatedMr };
+
+      const incomingByMatchday = Object.values(updatedIncoming).reduce<Record<number, MatchResult[]>>((acc, m) => {
+        const day = m.match.getMatchday();
+        if (!acc[day]) acc[day] = [];
+        acc[day].push(m);
+        return acc;
+      }, {});
+
+      const newState = { ...prev, incomingMatches: updatedIncoming, incomingByMatchday };
+
+      if (selectedGameId && cacheRef.current[selectedGameId]) {
+        cacheRef.current[selectedGameId] = {
+          ...newState,
+          fetchedAt: cacheRef.current[selectedGameId].fetchedAt,
+        };
+      }
+
+      return newState;
+    });
+  }, [selectedGameId]);
+
   return (
-    <MatchesContext.Provider value={{ ...matchesState, loading, error, refresh }}>
+    <MatchesContext.Provider value={{ ...matchesState, loading, error, refresh, markBetPlaced }}>
       {children}
     </MatchesContext.Provider>
   );

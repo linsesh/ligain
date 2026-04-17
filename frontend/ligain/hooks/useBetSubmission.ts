@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { useGamesApi } from '../src/api';
 import { translateError } from '../src/utils/errorMessages';
 import { useNotifications } from '../src/hooks/useNotifications';
+import { useMatches } from '../src/contexts/MatchesContext';
+import { useAuth } from '../src/contexts/AuthContext';
 
 export const useBetSubmission = (gameId: string, onFail?: (matchId: string) => void) => {
   const gamesApi = useGamesApi();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [lastFailedMatchId, setLastFailedMatchId] = useState<string | null>(null);
-  // Integration point: Get notification cancellation function
-  // This allows us to cancel match reminders when user places a bet
   const { cancelMatchNotification } = useNotifications();
+  const { markBetPlaced } = useMatches();
+  const { player } = useAuth();
 
   const submitBet = async (
     matchId: string,
@@ -25,10 +27,14 @@ export const useBetSubmission = (gameId: string, onFail?: (matchId: string) => v
       const data = await gamesApi.placeBet(gameId, matchId, homeGoals, awayGoals);
       console.log('Bet saved successfully:', data);
 
-      // Notification cancellation: Cancel reminder notification when bet is successfully placed
-      // Why we do this: User has already placed bet, no need to remind them anymore
-      // When this runs: Only on successful bet submission (not on errors)
-      // Integration point: This connects bet submission with notification system
+      try {
+        if (player) {
+          markBetPlaced(matchId, player.id, player.name, homeGoals, awayGoals);
+        }
+      } catch (updateError) {
+        console.warn('Failed to update match context after bet submission:', updateError);
+      }
+
       try {
         await cancelMatchNotification(matchId);
       } catch (notificationError) {
