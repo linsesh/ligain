@@ -27,12 +27,12 @@ describe('getMockMatchesForGame - allBets transformation', () => {
       });
     });
 
-    it('maps home prediction to 2-0 goals', () => {
+    it('maps home prediction to deterministic goals', () => {
       const result = getMockMatchesForGame('game-1');
-      // match-19-1: TestPlayer predicted 'home'
+      // match-19-1: TestPlayer predicted 'home' → deterministicGoals yields [3, 1]
       const match = (result.pastMatches as any)['match-19-1'];
-      expect(match.bets['mock-player-1'].predictedHomeGoals).toBe(2);
-      expect(match.bets['mock-player-1'].predictedAwayGoals).toBe(0);
+      expect(match.bets['mock-player-1'].predictedHomeGoals).toBe(3);
+      expect(match.bets['mock-player-1'].predictedAwayGoals).toBe(1);
     });
 
     it('maps draw prediction to 1-1 goals', () => {
@@ -51,11 +51,11 @@ describe('getMockMatchesForGame - allBets transformation', () => {
       expect(match.bets['mock-player-1'].predictedAwayGoals).toBe(2);
     });
 
-    it('assigns 1 point when prediction matches result', () => {
+    it('assigns points when prediction matches result', () => {
       const result = getMockMatchesForGame('game-1');
-      // match-19-1: PSG 3-1 OM, TestPlayer predicted 'home' → 1 point
+      // match-19-1: PSG 3-1 OM, TestPlayer predicted 'home' with [3,1] (exact score) → 500 points
       const match = (result.pastMatches as any)['match-19-1'];
-      expect(match.scores['mock-player-1'].points).toBe(1);
+      expect(match.scores['mock-player-1'].points).toBe(500);
     });
 
     it('assigns 0 points when prediction does not match result', () => {
