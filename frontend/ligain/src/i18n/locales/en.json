@@ -122,7 +122,11 @@
     "doublePointsHint": "You can double your points if {{team}} wins!",
     "nextMatch": "Next match",
     "betNotRegistered": "Bet not registered",
-    "remainingMatchesInMatchday": "{{count}} match(es) left in MD{{matchday}}"
+    "remainingMatchesInMatchday": "{{count}} match(es) left in MD{{matchday}}",
+    "makeMyBets": "Make my guesses",
+    "remainingThisWeek": "{{count}} missing this week",
+    "inviteCodeLabel": "Send this code to invite friends",
+    "monthlyChampions": "Monthly Champions"
   },
   "profile": {
     "noUserInfo": "No user information available",
