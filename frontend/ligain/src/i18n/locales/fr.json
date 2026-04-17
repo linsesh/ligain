@@ -133,7 +133,11 @@
     "scoreGoodResultLabel": "Bon résultat",
     "riskLabel": "Risque",
     "clairvoyantLabel": "Clairvoyant",
-    "viewLeaderboard": "Voir classement"
+    "viewLeaderboard": "Voir classement",
+    "makeMyBets": "Faire mes pronos",
+    "remainingThisWeek": "{{count}} manquant(s) cette semaine",
+    "inviteCodeLabel": "Envoie ce code pour inviter des amis",
+    "monthlyChampions": "Champions du mois"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",
