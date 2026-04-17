@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ligain/backend/models"
+	"sort"
 	"sync"
 )
 
@@ -76,6 +77,10 @@ func (r *InMemoryGamePlayerRepository) GetPlayersInGame(ctx context.Context, gam
 			players = append(players, player)
 		}
 	}
+
+	sort.Slice(players, func(i, j int) bool {
+		return players[i].GetName() < players[j].GetName()
+	})
 
 	return players, nil
 }
