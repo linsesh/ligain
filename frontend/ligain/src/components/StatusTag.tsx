@@ -5,7 +5,7 @@ import { colors } from '../constants/colors';
 
 export interface StatusTagProps {
   text: string;
-  variant: 'warning' | 'success' | 'primary' | 'finished' | 'negative';
+  variant: 'warning' | 'success' | 'primary' | 'finished' | 'negative' | 'live';
   style?: any;
   textStyle?: any;
 }
@@ -33,6 +33,9 @@ export default function StatusTag({ text, variant, style, textStyle }: StatusTag
       break;
     case 'negative':
       variantStyle = styles.negativeTag;
+      break;
+    case 'live':
+      variantStyle = styles.liveTag;
       break;
   }
   
@@ -68,5 +71,8 @@ const styles = StyleSheet.create({
   },
   negativeTag: {
     backgroundColor: '#ff6b6b',
+  },
+  liveTag: {
+    backgroundColor: colors.link,
   },
 }); 

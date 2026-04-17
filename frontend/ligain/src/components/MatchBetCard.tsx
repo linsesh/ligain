@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Text } from './ui/Text';
 import { colors } from '../constants/colors';
 import { TeamLogo } from './ui/TeamLogo';
@@ -24,6 +24,7 @@ interface MatchBetCardProps {
   onAwayTeamPress?: () => void;
   homeTeamForm?: FormResult[];
   awayTeamForm?: FormResult[];
+  showGoodResult?: boolean;
 }
 
 function ScoreInput({
@@ -123,6 +124,7 @@ export function MatchBetCard({
   onAwayTeamPress,
   homeTeamForm,
   awayTeamForm,
+  showGoodResult,
 }: MatchBetCardProps) {
   const showOdds =
     homeTeamOdds !== undefined &&
@@ -149,6 +151,14 @@ export function MatchBetCard({
           <ScoreInput value={homeGoals} onChange={onHomeGoalsChange} editable={editable} />
           <Text className="font-hk-bold" style={styles.vs}>VS</Text>
           <ScoreInput value={awayGoals} onChange={onAwayGoalsChange} editable={editable} />
+          {showGoodResult && (
+            <Image
+              source={require('../../assets/images/good_result.png')}
+              style={styles.goodResultCircle}
+              resizeMode="contain"
+              pointerEvents="none"
+            />
+          )}
         </View>
 
         {/* Away team */}
@@ -199,6 +209,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    position: 'relative',
+  },
+  goodResultCircle: {
+    position: 'absolute',
+    width: 180,
+    height: 90,
+    alignSelf: 'center',
+    left: -16,
+    right: -16,
+    top: -24,
+    pointerEvents: 'none',
   },
   scoreBox: {
     width: 56,

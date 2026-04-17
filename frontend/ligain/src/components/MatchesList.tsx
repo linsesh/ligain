@@ -146,10 +146,10 @@ function MatchCard({ matchResult, gameId }: {
 
   // Tag logic
   let tagText: string | null = null;
-  let tagVariant: 'warning' | 'success' | 'negative' | 'finished' | 'primary' | null = null;
+  let tagVariant: 'warning' | 'success' | 'negative' | 'finished' | 'primary' | 'live' | null = null;
   if (matchResult.match.isInProgress()) {
     tagText = t('games.inProgressTag');
-    tagVariant = 'primary';
+    tagVariant = 'live';
   } else if (matchResult.match.isFinished() && player) {
     if (matchResult.scores && matchResult.scores[player.id]) {
       const points = matchResult.scores[player.id].points;
