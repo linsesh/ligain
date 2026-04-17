@@ -82,11 +82,16 @@ func (s *GameQueryService) GetPlayerGames(player models.Player) ([]PlayerGame, e
 					scoresByMatch[matchID] = score
 				}
 			}
+			var avatarURL *string
+			if pd, ok := p.(*models.PlayerData); ok {
+				avatarURL = pd.AvatarSignedURL
+			}
 			playerInfos = append(playerInfos, PlayerGameInfo{
 				ID:            p.GetID(),
 				Name:          p.GetName(),
 				TotalScore:    total,
 				ScoresByMatch: scoresByMatch,
+				AvatarURL:     avatarURL,
 			})
 		}
 

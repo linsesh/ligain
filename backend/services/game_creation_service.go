@@ -62,6 +62,7 @@ type PlayerGameInfo struct {
 	Name          string         `json:"name"`
 	TotalScore    int            `json:"totalScore"`
 	ScoresByMatch map[string]int `json:"scoresByMatch"`
+	AvatarURL     *string        `json:"avatarUrl,omitempty"`
 }
 
 type PlayerGame struct {
