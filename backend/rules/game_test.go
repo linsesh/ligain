@@ -642,24 +642,21 @@ func TestGetIncomingMatchesPlayerBetStatus(t *testing.T) {
 	}
 
 	// --- In-progress match ---
+	// All bets are visible once the match has started (bets are locked)
 	inProgressResult := incomingMatches[inProgressMatch.Id()]
 	if inProgressResult == nil {
 		t.Fatal("Expected in-progress match result to be non-nil")
 	}
 
-	// Requesting player (Player1) not in PlayerBetStatus
-	if _, exists := inProgressResult.PlayerBetStatus[player1.GetID()]; exists {
-		t.Error("Requesting player (Player1) should NOT be in PlayerBetStatus for in-progress match")
+	if inProgressResult.Bets[player2.GetID()] != bet2InProgress {
+		t.Errorf("Expected player2 full bet visible in in-progress match Bets")
 	}
-
-	// Player2 has bet → true
-	if status, exists := inProgressResult.PlayerBetStatus[player2.GetID()]; !exists || !status {
-		t.Errorf("Expected Player2 to have hasBet=true in in-progress PlayerBetStatus, got exists=%v status=%v", exists, status)
+	if inProgressResult.Bets[player3.GetID()] != bet3InProgress {
+		t.Errorf("Expected player3 full bet visible in in-progress match Bets")
 	}
-
-	// Player3 has bet → true
-	if status, exists := inProgressResult.PlayerBetStatus[player3.GetID()]; !exists || !status {
-		t.Errorf("Expected Player3 to have hasBet=true in in-progress PlayerBetStatus, got exists=%v status=%v", exists, status)
+	// Player1 has no bet — should not appear
+	if _, exists := inProgressResult.Bets[player1.GetID()]; exists {
+		t.Errorf("Player1 has no bet, should not appear in Bets for in-progress match")
 	}
 }
 
@@ -700,5 +697,34 @@ func TestRemovePlayer_AfterGameStarted(t *testing.T) {
 	pastResults := game.GetPastResults()
 	if len(pastResults) != 1 {
 		t.Errorf("Expected 1 past result, got %d", len(pastResults))
+	}
+}
+
+func TestGetIncomingMatchesInProgressShowsAllBets(t *testing.T) {
+	player1 := newTestPlayer("Player1")
+	player2 := newTestPlayer("Player2")
+	player3 := newTestPlayer("Player3")
+	players := []models.Player{player1, player2, player3}
+
+	inProgressMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Ligue 1", testTime.Add(-1*time.Hour), 1)
+	inProgressMatch.Start()
+	game := NewFreshGame("2024", "Ligue 1", "Test", players, []models.Match{inProgressMatch}, &ScorerTest{})
+
+	bet1 := models.NewBet(inProgressMatch, 2, 0)
+	bet2 := models.NewBet(inProgressMatch, 1, 1)
+	game.AddPlayerBet(player1, bet1)
+	game.AddPlayerBet(player2, bet2)
+	// player3 has no bet
+
+	result := game.GetIncomingMatches(player1)[inProgressMatch.Id()]
+
+	if result.Bets[player1.GetID()] != bet1 {
+		t.Errorf("expected player1 bet in result")
+	}
+	if result.Bets[player2.GetID()] != bet2 {
+		t.Errorf("expected player2 bet visible for in-progress match, got nil")
+	}
+	if _, exists := result.Bets[player3.GetID()]; exists {
+		t.Errorf("player3 has no bet, should not appear in Bets")
 	}
 }
