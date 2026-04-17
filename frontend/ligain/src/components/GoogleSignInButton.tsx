@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useTranslation } from '../hooks/useTranslation';
 import { translateError } from '../utils/errorMessages';
+import { colors } from '../constants/colors';
 
 interface GoogleSignInButtonProps {
   onSignInSuccess?: (result: any) => void;
@@ -128,7 +129,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       disabled={disabled}
     >
       <View style={styles.contentRow}>
-        <Ionicons name="logo-google" size={24} color="#4285F4" style={{ marginRight: 10 }} />
+        <Ionicons name="logo-google" size={24} color="#ffffff" style={{ marginRight: 10 }} />
         <Text className="font-hk-semibold" style={styles.buttonText}>{t('auth.continueWithGoogleButton')}</Text>
       </View>
     </TouchableOpacity>
@@ -137,12 +138,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 9999,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -152,7 +151,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#333333',
+    color: '#ffffff',
     fontSize: 16,
   },
   contentRow: {

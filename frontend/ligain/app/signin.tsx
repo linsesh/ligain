@@ -163,17 +163,18 @@ export default function SignInScreen() {
   return (
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text className="font-hk-bold" style={[styles.title, { color: colors.text }]}>{t('auth.welcome')}</Text>
-          <Text style={[styles.subtitle, { color: colors.text }]}>
-            {t('auth.signInSubtitle')}
-          </Text>
-        </View>
+        <View className="rounded-2xl bg-background p-6 gap-6">
+          <View style={styles.header}>
+            <Text className="text-6xl font-hk-extrabold text-primary">LIGAIN</Text>
+            <Text style={[styles.subtitle, { color: colors.text }]}>
+              {t('auth.signInSubtitle')}
+            </Text>
+          </View>
 
-        <View style={styles.buttonContainer}>
-          {/* Google Sign In */}
-          {availableProviders.includes('google') && (
-            <GoogleSignInButton
+          <View style={styles.buttonContainer}>
+            {/* Google Sign In */}
+            {availableProviders.includes('google') && (
+              <GoogleSignInButton
               onSignInSuccess={(result) => {
                 console.log('Google Sign-In success for existing user:', result);
               }}
@@ -258,13 +259,14 @@ export default function SignInScreen() {
               disabled={isLoading}
             />
           )}
-        </View>
-        <View style={styles.footer}>
-          <TouchableOpacity onPress={() => setShowPrivacyTermsModal(true)}>
-            <Text style={[styles.footerText, { color: colors.link }]}>
-              {t('auth.termsAgreement')}
-            </Text>
-          </TouchableOpacity>
+          </View>
+          <View style={styles.footer}>
+            <TouchableOpacity onPress={() => setShowPrivacyTermsModal(true)}>
+              <Text style={[styles.footerText, { color: colors.link }]}>
+                {t('auth.termsAgreement')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
