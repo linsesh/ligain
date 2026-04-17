@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
-  newArchEnabled: false,
+  newArchEnabled: true,
   scheme: 'ligain',
   plugins: [
     'expo-router',
