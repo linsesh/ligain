@@ -41,6 +41,7 @@ yarn-error.*
 
 # iOS
 ios/Pods/
+ios/Podfile.lock
 ios/build/
 ios/*.xcworkspace/xcshareddata/
 # Allow shared schemes for CI/CD
