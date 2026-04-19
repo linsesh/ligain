@@ -89,8 +89,13 @@ export default function MatchDetailScreen() {
   );
 
   const isFinished = !!(homeGoalsParam && awayGoalsParam);
-  const [homeGoals, setHomeGoals] = useState(isFinished ? homeGoalsParam : (betHomeGoals || ''));
-  const [awayGoals, setAwayGoals] = useState(isFinished ? awayGoalsParam : (betAwayGoals || ''));
+  const actualOutcome: 'home' | 'draw' | 'away' | undefined = isFinished && homeGoalsParam && awayGoalsParam
+    ? (parseInt(homeGoalsParam) > parseInt(awayGoalsParam) ? 'home'
+      : parseInt(homeGoalsParam) < parseInt(awayGoalsParam) ? 'away'
+      : 'draw')
+    : undefined;
+  const [homeGoals, setHomeGoals] = useState(betHomeGoals || (isFinished ? homeGoalsParam : '') || '');
+  const [awayGoals, setAwayGoals] = useState(betAwayGoals || (isFinished ? awayGoalsParam : '') || '');
   const [betConfirmed, setBetConfirmed] = useState(!!(betHomeGoals && betAwayGoals));
   const [barVisible, setBarVisible] = useState(!!(betHomeGoals && betAwayGoals));
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -238,6 +243,10 @@ export default function MatchDetailScreen() {
             onHomeTeamPress={homeTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: homeTeamRaw, gameId: gameId || '' } }) : undefined}
             onAwayTeamPress={awayTeamRaw ? () => router.push({ pathname: '/team/[teamName]', params: { teamName: awayTeamRaw, gameId: gameId || '' } }) : undefined}
             showGoodResult={isFinished && (currentPlayerScore?.baseScore ?? 0) >= 300}
+            showBadResult={isFinished && (currentPlayerScore?.points ?? -1) <= 0}
+            actualOutcome={actualOutcome}
+            actualHomeGoals={homeGoalsParam}
+            actualAwayGoals={awayGoalsParam}
           />
         </View>
 
