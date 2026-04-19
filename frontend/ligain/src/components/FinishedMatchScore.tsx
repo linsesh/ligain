@@ -47,7 +47,7 @@ function AnimatedPoints({ points }: { points: number }) {
 
   const isPositive = points > 0;
   const bgColor = isPositive ? '#4a5d23' : colors.formLoss;
-  const prefix = displayValue >= 0 ? '+ ' : '- ';
+  const prefix = displayValue > 0 ? '+ ' : displayValue < 0 ? '- ' : '';
   const label = `${prefix}${Math.abs(displayValue)} ${t('game.points')}`;
 
   return (
