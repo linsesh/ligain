@@ -43,7 +43,7 @@ function MatchCardSkeleton({ opacity }: { opacity: Animated.Value }) {
   );
 }
 
-function MatchesListSkeleton() {
+export function MatchesListSkeleton() {
   const opacity = useRef(new Animated.Value(0.4)).current;
   const itemWidth = Dimensions.get('window').width / 6;
 

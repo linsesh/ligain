@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '../../src/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { colors } from '../../src/constants/colors';
 import { useUIEvent } from '../../src/contexts/UIEventContext';
+import { MatchesScreenSkeleton } from '../../src/components/MatchesScreenSkeleton';
 
 export default function MatchesTabScreen() {
   const { t } = useTranslation();
@@ -33,11 +34,7 @@ export default function MatchesTabScreen() {
   }, [params.gameId, games, setSelectedGameId, selectedGameId, bestGameId]);
 
   if (isAuthLoading || loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <MatchesScreenSkeleton />;
   }
 
   // If user has no games, show a message and a button to go to Games

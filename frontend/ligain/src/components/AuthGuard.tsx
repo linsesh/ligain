@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
-import { colors } from '../constants/colors';
+import { MatchesScreenSkeleton } from './MatchesScreenSkeleton';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -31,20 +30,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   }, [player, isLoading, segments, router]);
 
   if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: 'transparent' }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <MatchesScreenSkeleton />;
   }
 
   return <>{children}</>;
 };
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-}); 
