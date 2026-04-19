@@ -289,7 +289,7 @@ export default function MatchDetailScreen() {
             />
           )}
 
-          {/* Finished match — score breakdown + player scores + leaderboard button */}
+          {/* Finished match — score breakdown + player scores */}
           {isFinished && pastMatchResult && (
             <View style={{ marginTop: clearFavorite ? 24 : 0 }}>
               <FinishedMatchScore score={currentPlayerScore} />
@@ -299,29 +299,34 @@ export default function MatchDetailScreen() {
                   playerScores={pastMatchResult.scores}
                 />
               )}
-              <View style={{ paddingHorizontal: 24, marginTop: 8 }}>
-                <TouchableOpacity
-                  onPress={() => router.push({ pathname: '/game/[id]', params: { id: gameId || '' } })}
-                  style={{
-                    backgroundColor: colors.text,
-                    borderRadius: 999,
-                    paddingVertical: 16,
-                    paddingHorizontal: 40,
-                    alignItems: 'center',
-                    alignSelf: 'center',
-                    minWidth: '70%',
-                  }}
-                >
-                  <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 17 }}>
-                    {t('games.viewLeaderboard')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
           )}
 
           {/* Push button to the bottom of the zone */}
           <View style={{ flex: 1 }} />
+
+          {/* Leaderboard button — finished matches */}
+          {isFinished && pastMatchResult && (
+            <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/game/[id]', params: { id: gameId || '' } })}
+                style={{
+                  backgroundColor: colors.text,
+                  borderRadius: 999,
+                  paddingVertical: 16,
+                  paddingHorizontal: 40,
+                  alignItems: 'center',
+                  alignSelf: 'center',
+                  minWidth: '70%',
+                }}
+              >
+                <Text className="font-hk-bold" style={{ color: colors.white, fontSize: 17 }}>
+                  {t('games.viewLeaderboard')}
+                </Text>
+              </TouchableOpacity>
+              <View style={{ minHeight: 22 }} />
+            </View>
+          )}
 
           {/* Next match / view matches button */}
           {editable && (remainingCount > 0 || betConfirmed) && (
@@ -359,11 +364,13 @@ export default function MatchDetailScreen() {
                   </>
                 )}
               </TouchableOpacity>
-              {!isSubmitting && !isLastMatch && (
-                <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
-                  {t('games.remainingMatchesInMatchday', { count: remainingCount, matchday })}
-                </Text>
-              )}
+              <View style={{ minHeight: 22 }}>
+                {!isSubmitting && !isLastMatch && (
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10 }}>
+                    {t('games.remainingMatchesInMatchday', { count: remainingCount, matchday })}
+                  </Text>
+                )}
+              </View>
             </View>
           )}
         </View>
