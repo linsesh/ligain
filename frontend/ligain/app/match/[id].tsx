@@ -151,7 +151,7 @@ export default function MatchDetailScreen() {
     if (!nextMatchResult) return;
     const m = nextMatchResult.match;
     const bet = nextMatchResult.bets?.[playerId];
-    router.push({
+    router.replace({
       pathname: '/match/[id]',
       params: {
         id: m.id(),
