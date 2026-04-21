@@ -372,6 +372,10 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
 
   const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
   const sortedDateTimeKeys = Object.keys(currentMatchdayMatches).sort((a, b) => {
+    const aAllFinished = currentMatchdayMatches[a].every((mr: any) => mr.match.isFinished());
+    const bAllFinished = currentMatchdayMatches[b].every((mr: any) => mr.match.isFinished());
+    if (aAllFinished !== bAllFinished) return aAllFinished ? 1 : -1;
+
     const dateTimeA = a.split(' - ');
     const dateTimeB = b.split(' - ');
     if (dateTimeA.length !== 2 || dateTimeB.length !== 2) {

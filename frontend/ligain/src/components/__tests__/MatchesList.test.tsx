@@ -363,3 +363,56 @@ describe('MatchesList - matchday selector', () => {
     expect(screen.getByText('M2').props.className).not.toContain('text-primary');
   });
 });
+
+describe('MatchesList - match ordering within a matchday', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ player: { id: 'player-1', name: 'Test Player' }, token: 'test-token' });
+  });
+
+  it('displays non-finished matches before finished matches even when the finished match has an earlier kick-off time', async () => {
+    // finished match at 14:00 UTC, scheduled match at 16:00 UTC — same matchday
+    const finishedMatch = {
+      ...makeMatch('finished', 0, 19),
+      id: () => 'match-finished-14h',
+      getDate: () => new Date('2024-01-15T14:00:00Z'),
+      getMatchday: () => 19,
+      matchday: 19,
+      homeTeamDisplayName: () => 'Finished Home FC',
+      homeTeamName: () => 'Finished Home FC',
+    };
+    const scheduledMatch = {
+      ...makeMatch('scheduled', 0, 19),
+      id: () => 'match-scheduled-16h',
+      getDate: () => new Date('2024-01-15T16:00:00Z'),
+      getMatchday: () => 19,
+      matchday: 19,
+      homeTeamDisplayName: () => 'Scheduled Home FC',
+      homeTeamName: () => 'Scheduled Home FC',
+    };
+
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-scheduled-16h': { match: scheduledMatch, bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {
+        'match-finished-14h': { match: finishedMatch, bets: null, scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 3 } }, playerBetStatuses: null },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={19} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scheduled Home FC')).toBeTruthy();
+      expect(screen.getByText('Finished Home FC')).toBeTruthy();
+    });
+
+    // The scheduled match (16:00) must appear before the finished match (14:00)
+    // Use the DOM order: the element that comes earlier in the tree has a lower position
+    const allTexts = screen.getAllByText(/Home FC/);
+    const idxScheduled = allTexts.findIndex(el => el.props.children === 'Scheduled Home FC');
+    const idxFinished = allTexts.findIndex(el => el.props.children === 'Finished Home FC');
+    expect(idxScheduled).toBeLessThan(idxFinished);
+  });
+});
