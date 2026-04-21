@@ -103,7 +103,7 @@ export function MatchesProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
 
   const [matchesState, setMatchesState] = useState<MatchesState>(emptyState);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {

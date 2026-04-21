@@ -119,6 +119,7 @@ export function PlayerBetsBar({ players, playerBetStatuses, playerScores, player
       showsHorizontalScrollIndicator={false}
       data={sortedPlayers}
       keyExtractor={(item) => item.id}
+      onContentSizeChange={(w, h) => console.log('[PlayerBetsBar] contentLength:', w)}
       style={[{ width: '100%' }, style]}
       contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
       renderItem={({ item }) =>
