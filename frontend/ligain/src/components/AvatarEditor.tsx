@@ -85,10 +85,15 @@ export function AvatarEditor({
         return;
       }
 
-      const imageUri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const imageUri = asset.uri;
 
-      // Validate the image
-      const validation = await validateAvatarImage(imageUri);
+      // Validate the image using metadata from the picker (avoids unreliable file system reads on device)
+      const validation = await validateAvatarImage(imageUri, {
+        fileSize: (asset as any).fileSize,
+        width: asset.width,
+        height: asset.height,
+      });
       if (!validation.valid) {
         Alert.alert(t('errors.error'), getErrorMessage(validation.error!));
         return;
@@ -96,7 +101,7 @@ export function AvatarEditor({
 
       setSelectedImage(imageUri);
     } catch (error) {
-      console.error('Error picking image:', error);
+      console.error('[Avatar] Error picking image:', error);
       Alert.alert(t('errors.error'), t('avatar.error.invalidImage'));
     }
   };
@@ -240,7 +245,7 @@ export function AvatarEditor({
 
             {selectedImage && (
               <TouchableOpacity
-                style={[styles.bottomButton, { backgroundColor: colors.secondary }]}
+                style={[styles.bottomButton, { backgroundColor: colors.primary }]}
                 onPress={handleSave}
                 disabled={isUploading}
               >
