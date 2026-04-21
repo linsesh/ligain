@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useTransition, Profiler } from 'react';
+import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, Animated, Dimensions, FlatList } from 'react-native';
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,18 +111,11 @@ function MatchdayContentSkeleton() {
   );
 }
 
-function onMatchCardProfile(id: string, phase: string, actualDuration: number) {
-  console.log(`[Perf:MatchCard] ${id} ${phase} ${actualDuration.toFixed(1)}ms`);
-}
-
 function MatchCard({ matchResult, gameId }: {
   matchResult: any;
   gameId: string;
 }) {
-  const renderCount = useRef(0);
-  renderCount.current += 1;
   const matchId = matchResult.match.id();
-  console.log(`[Perf:MatchCard] ${matchId} render #${renderCount.current}`);
 
   const { player } = useAuth();
   const { games } = useGames();
@@ -184,7 +177,6 @@ function MatchCard({ matchResult, gameId }: {
   ].filter(Boolean);
 
   return (
-    <Profiler id={`MatchCard-${matchId}`} onRender={onMatchCardProfile}>
     <TouchableOpacity
       style={cardStyle}
       onPress={() => router.push({
@@ -290,7 +282,6 @@ function MatchCard({ matchResult, gameId }: {
         </View>
       )}
     </TouchableOpacity>
-    </Profiler>
   );
 }
 
@@ -300,15 +291,7 @@ interface MatchesListProps {
   activeMatchday?: number;
 }
 
-function onMatchesListProfile(_id: string, phase: string, actualDuration: number) {
-  console.log(`[Perf:MatchesList] ${phase} ${actualDuration.toFixed(1)}ms`);
-}
-
 export default function MatchesList({ gameId, initialMatchday, activeMatchday }: MatchesListProps) {
-  const listRenderCount = useRef(0);
-  listRenderCount.current += 1;
-  console.log(`[Perf:MatchesList] render #${listRenderCount.current}`);
-
   const { incomingMatches, pastMatches, loading: matchesLoading, refresh } = useMatches();
   useMatchNotifications(incomingMatches, gameId);
   const [refreshing, setRefreshing] = useState(false);
@@ -320,7 +303,6 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
   const matchdaySelectorRef = useRef<FlatList>(null);
 
   // Combine incoming and past matches
-  console.time('[Perf:MatchesList] grouping+sorting');
   const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
 
   // Group matches by matchday
@@ -337,7 +319,6 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
   const sortedMatchdays = Object.keys(matchesByMatchday)
     .map(Number)
     .sort((a, b) => a - b);
-  console.timeEnd('[Perf:MatchesList] grouping+sorting');
 
   // Set initial matchday if not set
   useEffect(() => {
@@ -389,7 +370,6 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
     return <MatchesListSkeleton />;
   }
 
-  console.time('[Perf:MatchesList] getMatchesByTime+sort');
   const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
   const sortedDateTimeKeys = Object.keys(currentMatchdayMatches).sort((a, b) => {
     const dateTimeA = a.split(' - ');
@@ -410,10 +390,7 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
     const timeBNum = parseInt(timeB.replace(':', ''));
     return timeANum - timeBNum;
   });
-  console.timeEnd('[Perf:MatchesList] getMatchesByTime+sort');
-
   return (
-    <Profiler id="MatchesList" onRender={onMatchesListProfile}>
     <View style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
@@ -436,7 +413,6 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
           showsHorizontalScrollIndicator={false}
           data={sortedMatchdays}
           keyExtractor={(item) => String(item)}
-          onContentSizeChange={(w, h) => console.log('[MatchdaySelector] contentLength:', w)}
           className="border-b border-border"
           contentContainerClassName="px-2 py-2"
           getItemLayout={(_, index) => ({
@@ -500,7 +476,6 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
         </View>
       </ScrollView>
     </View>
-    </Profiler>
   );
 }
 
