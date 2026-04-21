@@ -5,7 +5,16 @@ import * as Notifications from 'expo-notifications';
 import { getItem, setItem } from '../utils/storage';
 
 // Mock dependencies
-jest.mock('expo-notifications');
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
+  scheduleNotificationAsync: jest.fn(),
+  getAllScheduledNotificationsAsync: jest.fn(),
+  cancelScheduledNotificationAsync: jest.fn(),
+  cancelAllScheduledNotificationsAsync: jest.fn(),
+  SchedulableTriggerInputTypes: { DATE: 'date' },
+}));
 jest.mock('../utils/storage');
 jest.mock('./useTranslation', () => ({
   useTranslation: () => ({
@@ -300,7 +309,7 @@ describe('useNotifications', () => {
             body: 'Team A vs Team B starts in 1 hour! Don\'t forget to place your bet.',
             data: { matchId: 'match-123', type: 'match_reminder' },
           }),
-          trigger: expect.anything(), // Date or DateTrigger object
+          trigger: expect.objectContaining({ type: 'date', date: expect.any(Date) }),
         })
       );
     });

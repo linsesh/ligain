@@ -361,16 +361,16 @@ export const useNotifications = () => {
         return null;
       }
 
-      // Schedule the notification
-      // Store matchId in notification data for easy cancellation later
-      // Pass Date directly - expo-notifications accepts Date objects for scheduling
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
           title: t('notifications.reminderTitle'),
           body: t('notifications.reminderBody', { homeTeam, awayTeam }),
           data: { matchId, type: 'match_reminder' },
         },
-        trigger: notificationTime as any, // Date is accepted but TypeScript types are strict
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: notificationTime,
+        },
       });
 
       return identifier;
