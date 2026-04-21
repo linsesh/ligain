@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { MatchesScreenSkeleton } from './MatchesScreenSkeleton';
+import { useFirstInstallNotificationPrompt } from '../hooks/useFirstInstallNotificationPrompt';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const { player, isLoading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  useFirstInstallNotificationPrompt();
 
 
   useEffect(() => {    

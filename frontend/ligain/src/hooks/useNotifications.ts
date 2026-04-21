@@ -12,6 +12,28 @@ import { useTranslation } from './useTranslation';
 const NOTIFICATION_PREFERENCE_KEY = 'notification_preferences_enabled';
 const NOTIFICATION_PERMISSION_KEY = 'notification_permission_requested';
 
+export const requestNotificationPermissionIfNeeded = async (): Promise<void> => {
+  try {
+    const alreadyRequested = await getItem(NOTIFICATION_PERMISSION_KEY);
+    if (alreadyRequested) return;
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let granted = existingStatus === 'granted';
+
+    if (!granted) {
+      const { status } = await Notifications.requestPermissionsAsync();
+      granted = status === 'granted';
+    }
+
+    await setItem(NOTIFICATION_PERMISSION_KEY, 'true');
+    if (granted) {
+      await setItem(NOTIFICATION_PREFERENCE_KEY, 'true');
+    }
+  } catch (error) {
+    console.error('Error requesting notification permission on first install:', error);
+  }
+};
+
 /**
  * Configure notification handler behavior.
  * This determines how notifications are displayed when the app is in foreground.
