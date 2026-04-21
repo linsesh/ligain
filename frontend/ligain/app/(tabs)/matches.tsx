@@ -66,7 +66,7 @@ export default function MatchesTabScreen() {
         className="flex-row items-center justify-center mb-5 gap-2"
       >
         <Text className="font-hk-extrabold text-center text-4xl">
-          {selectedGame ? selectedGame.name : t('games.selectGame')}
+          {selectedGame ? (selectedGame.name.length > 12 ? selectedGame.name.slice(0, 12) + '…' : selectedGame.name) : t('games.selectGame')}
         </Text>
         <Ionicons name="chevron-down" size={24} color={colors.text} />
       </TouchableOpacity>
