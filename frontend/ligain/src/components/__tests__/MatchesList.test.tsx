@@ -125,6 +125,7 @@ jest.mock('../../hooks/useTranslation', () => ({
         'games.drawBonus': 'Draw Bonus',
         'games.outsiderWinBonus': 'Outsider Win',
         'games.matchdayShortPrefix': 'J',
+        'games.delayedMatch': 'Delayed match',
       };
       let result = translations[key] || key;
       if (params) {
@@ -414,5 +415,90 @@ describe('MatchesList - match ordering within a matchday', () => {
     const idxScheduled = allTexts.findIndex(el => el.props.children === 'Scheduled Home FC');
     const idxFinished = allTexts.findIndex(el => el.props.children === 'Finished Home FC');
     expect(idxScheduled).toBeLessThan(idxFinished);
+  });
+});
+
+describe('MatchesList - delayed match tag', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ player: { id: 'player-1', name: 'Test Player' }, token: 'test-token' });
+  });
+
+  it('shows "Delayed match" tag on a scheduled match when a later matchday has finished matches', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-26': { match: makeMatch('scheduled', 3, 26), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {
+        'match-32': {
+          match: makeMatch('finished', 0, 32),
+          bets: null,
+          scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 3 } },
+          playerBetStatuses: null,
+        },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={26} />);
+    await waitFor(() => expect(screen.getByText('Delayed match')).toBeTruthy());
+  });
+
+  it('does not show "Delayed match" tag when no later matchday has finished matches', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-26': { match: makeMatch('scheduled', 3, 26), bets: null, scores: null, playerBetStatuses: null },
+        'match-27': { match: makeMatch('scheduled', 4, 27), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {},
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={26} />);
+    await waitFor(() => expect(screen.queryByText('Delayed match')).toBeNull());
+  });
+
+  it('does not show "Delayed match" tag on a finished match even when later finished matchdays exist', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {},
+      pastMatches: {
+        'match-26': {
+          match: makeMatch('finished', 0, 26),
+          bets: null,
+          scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 3 } },
+          playerBetStatuses: null,
+        },
+        'match-30': {
+          match: makeMatch('finished', 0, 30),
+          bets: null,
+          scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 3 } },
+          playerBetStatuses: null,
+        },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={26} />);
+    await waitFor(() => expect(screen.queryByText('Delayed match')).toBeNull());
+  });
+
+  it('does not show "Delayed match" tag on an in-progress match even when later finished matchdays exist', async () => {
+    mockUseMatches.mockReturnValue({
+      incomingMatches: {
+        'match-26': { match: makeMatch('in-progress', 0, 26), bets: null, scores: null, playerBetStatuses: null },
+      },
+      pastMatches: {
+        'match-30': {
+          match: makeMatch('finished', 0, 30),
+          bets: null,
+          scores: { 'player-1': { playerId: 'player-1', playerName: 'Test Player', points: 3 } },
+          playerBetStatuses: null,
+        },
+      },
+      loading: false, error: null, refresh: mockRefresh,
+    });
+
+    render(<MatchesList gameId="game-1" initialMatchday={26} />);
+    await waitFor(() => expect(screen.queryByText('Delayed match')).toBeNull());
   });
 });

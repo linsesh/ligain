@@ -137,7 +137,8 @@
     "makeMyBets": "Faire mes pronos",
     "remainingThisWeek": "{{count}} manquant(s) cette semaine",
     "inviteCodeLabel": "Envoie ce code pour inviter des amis",
-    "monthlyChampions": "Champions du mois"
+    "monthlyChampions": "Champions du mois",
+    "delayedMatch": "Match en retard"
   },
   "profile": {
     "noUserInfo": "Aucune information utilisateur disponible",

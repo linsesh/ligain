@@ -137,7 +137,8 @@
     "makeMyBets": "Make my guesses",
     "remainingThisWeek": "{{count}} missing this week",
     "inviteCodeLabel": "Send this code to invite friends",
-    "monthlyChampions": "Monthly Champions"
+    "monthlyChampions": "Monthly Champions",
+    "delayedMatch": "Delayed match"
   },
   "profile": {
     "noUserInfo": "No user information available",

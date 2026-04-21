@@ -111,9 +111,10 @@ function MatchdayContentSkeleton() {
   );
 }
 
-function MatchCard({ matchResult, gameId }: {
+function MatchCard({ matchResult, gameId, isDelayed }: {
   matchResult: any;
   gameId: string;
+  isDelayed?: boolean;
 }) {
   const matchId = matchResult.match.id();
 
@@ -257,6 +258,12 @@ function MatchCard({ matchResult, gameId }: {
         </View>
       )}
 
+      {isDelayed && (
+        <View style={styles.tagCenterContainer}>
+          <StatusTag text={t('games.delayedMatch')} variant="info" style={styles.statusTagWide} />
+        </View>
+      )}
+
       {/* Hidden shareable component for image generation */}
       {matchResult.match.isFinished() && (
         <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
@@ -370,6 +377,21 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
     return <MatchesListSkeleton />;
   }
 
+  const matchdaysWithFinishedMatches = new Set<number>(
+    matches
+      .filter(mr => mr.match.isFinished())
+      .map(mr => mr.match.getMatchday())
+  );
+
+  const isDelayedMatch = (matchResult: any): boolean => {
+    if (matchResult.match.isFinished() || matchResult.match.isInProgress()) return false;
+    const md = matchResult.match.getMatchday();
+    for (const finishedMd of matchdaysWithFinishedMatches) {
+      if (finishedMd > md) return true;
+    }
+    return false;
+  };
+
   const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
   const sortedDateTimeKeys = Object.keys(currentMatchdayMatches).sort((a, b) => {
     const aAllFinished = currentMatchdayMatches[a].every((mr: any) => mr.match.isFinished());
@@ -469,6 +491,7 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
                         key={matchResult.match.id()}
                         matchResult={matchResult}
                         gameId={gameId}
+                        isDelayed={isDelayedMatch(matchResult)}
                       />
                     ))}
                   </View>
