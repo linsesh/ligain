@@ -121,7 +121,7 @@ export function PlayerBetsBar({ players, playerBetStatuses, playerScores, player
       keyExtractor={(item) => item.id}
       onContentSizeChange={(w, h) => console.log('[PlayerBetsBar] contentLength:', w)}
       style={[{ width: '100%' }, style]}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, flexGrow: 1, justifyContent: 'center' }}
       renderItem={({ item }) =>
         isScoresMode ? (
           <PlayerScoreItem
