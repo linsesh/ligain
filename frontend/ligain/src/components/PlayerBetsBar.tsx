@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, FlatList, ViewStyle, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Portal } from '@rn-primitives/portal';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './ui/Text';
@@ -133,7 +134,7 @@ export function PlayerBetsBar({ players, playerBetStatuses, playerScores, player
         renderItem={({ item }) =>
           isScoresMode ? (
             <Pressable
-              onLongPress={() => setSelectedPlayerId(item.id)}
+              onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSelectedPlayerId(item.id); }}
               onPressOut={() => setSelectedPlayerId(null)}
               delayLongPress={300}
             >
