@@ -269,7 +269,7 @@ export default function GameOverviewScreen() {
         }
       >
         {/* Grey zone: filter + leaderboard */}
-        <View style={{ backgroundColor: colors.background, marginTop: cellSize }}>
+        <View style={{ backgroundColor: colors.background, marginTop: cellSize, paddingBottom: 16 }}>
           {/* Period selector + share button */}
           <View className="flex-row items-center gap-3 px-5 pt-4 pb-2">
             <TouchableOpacity
@@ -387,10 +387,11 @@ export default function GameOverviewScreen() {
             <ShareableLeaderboard
               gameName={gameDetails.name || 'Ligain Game'}
               period={selectedPeriod === 'general' ? 'General' : formatMonthLabel(selectedPeriod)}
-              players={sortedPlayers.map((p, index) => ({
+              players={enrichedPlayers.map(p => ({
                 name: p.name,
                 points: p.totalScore,
-                rank: index + 1,
+                rank: p.rank,
+                avatarUrl: p.avatarUrl,
               }))}
             />
           </ViewShot>
