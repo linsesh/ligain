@@ -88,23 +88,6 @@ export default function GameOverviewScreen() {
     }));
   }, [sortedPlayers, gameDetails?.players]);
 
-  // Monthly winners: past months sorted desc, skip current month, take top 3
-  const monthlyWinners = useMemo(() => {
-    if (!gameDetails?.perMonthLeaderboard) return [];
-    const now = new Date();
-    const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-    return availableMonths
-      .filter(k => k !== currentMonthKey)
-      .slice(0, 3)
-      .map(k => {
-        const entries = gameDetails.perMonthLeaderboard![k] || [];
-        const top = entries[0];
-        if (!top || top.Points <= 0) return null;
-        return { monthKey: k, name: top.PlayerName, playerId: top.PlayerID, points: top.Points };
-      })
-      .filter(Boolean) as { monthKey: string; name: string; playerId: string; points: number }[];
-  }, [availableMonths, gameDetails?.perMonthLeaderboard]);
-
   // Unbetted matches — only valid when viewing the currently selected game
   const isSelectedGame = gameId === selectedGameId;
   const closestMatchday = gameDetails?.closestUnfinishedMatchday?.matchday;
@@ -285,7 +268,7 @@ export default function GameOverviewScreen() {
           />
         }
       >
-        {/* Grey zone: filter + leaderboard + monthly champions */}
+        {/* Grey zone: filter + leaderboard */}
         <View style={{ backgroundColor: colors.background, marginTop: cellSize }}>
           {/* Period selector + share button */}
           <View className="flex-row items-center gap-3 px-5 pt-4 pb-2">
@@ -343,31 +326,6 @@ export default function GameOverviewScreen() {
             );
           })}
 
-          {/* Monthly champions */}
-          {monthlyWinners.length > 0 && (
-            <View className="px-5 pt-4 pb-2">
-              <Text className="font-hk-semibold text-foreground-secondary text-xs tracking-widest uppercase mb-3">
-                {t('games.monthlyChampions')}
-              </Text>
-              {monthlyWinners.map((w) => {
-                const winnerPlayer = (gameDetails.players ?? []).find((p: any) => p.id === w.playerId);
-                return (
-                  <View key={w.monthKey} className="flex-row items-center py-2">
-                    <PlayerAvatar
-                      player={{ name: w.name, avatarUrl: winnerPlayer?.avatarUrl ?? null }}
-                      displaySize="small"
-                    />
-                    <Text className="font-hk-medium text-foreground ml-2 flex-1">
-                      {w.name}
-                    </Text>
-                    <Text className="font-hk-medium text-foreground-secondary text-sm">
-                      {formatMonthLabel(w.monthKey)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
         </View>
 
         {/* Game code card — blue like grand favori */}
