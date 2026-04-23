@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, FlatList, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { View, FlatList, ViewStyle, Pressable } from 'react-native';
+import { Portal } from '@rn-primitives/portal';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './ui/Text';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerBetDetailsOverlay } from './PlayerBetDetailsOverlay';
 import { colors } from '../constants/colors';
 
 interface Player {
@@ -14,8 +16,10 @@ interface Player {
 interface PlayerBetsBarProps {
   players: Player[];
   playerBetStatuses?: Record<string, { hasBet: boolean }> | null;
-  playerScores?: Record<string, { points: number }> | null;
+  playerScores?: Record<string, { points: number; baseScore?: number; riskMultiplier?: number; clairvoyantMultiplier?: number }> | null;
   playerBets?: Record<string, { predictedHomeGoals: number; predictedAwayGoals: number }> | null;
+  homeTeam?: string;
+  awayTeam?: string;
   style?: ViewStyle;
 }
 
@@ -104,7 +108,9 @@ function PlayerScoreItem({ player, points }: { player: Player; points: number })
   );
 }
 
-export function PlayerBetsBar({ players, playerBetStatuses, playerScores, playerBets, style }: PlayerBetsBarProps) {
+export function PlayerBetsBar({ players, playerBetStatuses, playerScores, playerBets, homeTeam, awayTeam, style }: PlayerBetsBarProps) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+
   if (players.length === 0) return null;
 
   const isScoresMode = !!playerScores;
@@ -113,34 +119,54 @@ export function PlayerBetsBar({ players, playerBetStatuses, playerScores, player
     ? [...players].sort((a, b) => (playerScores![b.id]?.points ?? -Infinity) - (playerScores![a.id]?.points ?? -Infinity))
     : players;
 
+  const selectedPlayer = selectedPlayerId ? sortedPlayers.find(p => p.id === selectedPlayerId) : null;
+
   return (
-    <FlatList
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      data={sortedPlayers}
-      keyExtractor={(item) => item.id}
-      onContentSizeChange={(w, h) => console.log('[PlayerBetsBar] contentLength:', w)}
-      style={[{ width: '100%' }, style]}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, flexGrow: 1, justifyContent: 'center' }}
-      renderItem={({ item }) =>
-        isScoresMode ? (
-          <PlayerScoreItem
-            player={item}
-            points={playerScores![item.id]?.points ?? -100}
+    <>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={sortedPlayers}
+        keyExtractor={(item) => item.id}
+        style={[{ width: '100%' }, style]}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, flexGrow: 1, justifyContent: 'center' }}
+        renderItem={({ item }) =>
+          isScoresMode ? (
+            <Pressable
+              onLongPress={() => setSelectedPlayerId(item.id)}
+              onPressOut={() => setSelectedPlayerId(null)}
+              delayLongPress={300}
+            >
+              <PlayerScoreItem
+                player={item}
+                points={playerScores![item.id]?.points ?? -100}
+              />
+            </Pressable>
+          ) : isBetsMode ? (
+            <PlayerBetPredictionItem
+              player={item}
+              homeGoals={playerBets![item.id]?.predictedHomeGoals ?? null}
+              awayGoals={playerBets![item.id]?.predictedAwayGoals ?? null}
+            />
+          ) : (
+            <PlayerBetsItem
+              player={item}
+              hasBet={playerBetStatuses?.[item.id]?.hasBet ?? false}
+            />
+          )
+        }
+      />
+      {isScoresMode && selectedPlayer && (
+        <Portal name="player-bet-details">
+          <PlayerBetDetailsOverlay
+            player={selectedPlayer}
+            bet={playerBets?.[selectedPlayer.id] ?? null}
+            score={playerScores![selectedPlayer.id] ?? { points: -100 }}
+            homeTeam={homeTeam ?? ''}
+            awayTeam={awayTeam ?? ''}
           />
-        ) : isBetsMode ? (
-          <PlayerBetPredictionItem
-            player={item}
-            homeGoals={playerBets![item.id]?.predictedHomeGoals ?? null}
-            awayGoals={playerBets![item.id]?.predictedAwayGoals ?? null}
-          />
-        ) : (
-          <PlayerBetsItem
-            player={item}
-            hasBet={playerBetStatuses?.[item.id]?.hasBet ?? false}
-          />
-        )
-      }
-    />
+        </Portal>
+      )}
+    </>
   );
 }

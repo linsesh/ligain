@@ -297,6 +297,9 @@ export default function MatchDetailScreen() {
                 <PlayerBetsBar
                   players={gamePlayers}
                   playerScores={pastMatchResult.scores}
+                  playerBets={pastMatchResult.bets}
+                  homeTeam={homeTeam || ''}
+                  awayTeam={awayTeam || ''}
                 />
               )}
             </View>
