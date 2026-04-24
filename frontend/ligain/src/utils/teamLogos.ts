@@ -85,36 +85,3 @@ export const isPngLogo = (logo: TeamLogo): logo is number => {
 export const hasTeamLogo = (teamName: string): boolean => {
   return teamName in TEAM_LOGOS;
 };
-
-// PNG-only logos for use in react-native-view-shot share captures.
-// SVG components crash drawViewHierarchyInRect on iOS when rendered off-screen.
-const SHARE_LOGOS: { [key: string]: number } = {
-  'Angers SCO': require('@assets/images/logo_angers_share.png'),
-  'Auxerre': require('@assets/images/logo_auxerre_share.png'),
-  'Brest': require('@assets/images/logo_brest_share.png'),
-  'Le Havre': require('@assets/images/logo_le_havre_share.png'),
-  'Lens': require('@assets/images/logo_lens_share.png'),
-  'LOSC Lille': require('@assets/images/logo_lille_share.png'),
-  'Lorient': require('@assets/images/logo_lorient_share.png'),
-  'Metz': require('@assets/images/logo_metz_share.png'),
-  'Monaco': require('@assets/images/logo_monaco_share.png'),
-  'Nantes': require('@assets/images/logo_nantes_share.png'),
-  'Nice': require('@assets/images/logo_nice_share.png'),
-  'Olympique Lyonnais': require('@assets/images/logo_ol_share.png'),
-  'Olympique Marseille': require('@assets/images/logo_om_share.png'),
-  'Paris': require('@assets/images/logo_pfc_share.png'),
-  'Paris Saint Germain': require('@assets/images/logo_psg_share.png'),
-  'Rennes': require('@assets/images/logo_rennes_share.png'),
-  'Strasbourg': require('@assets/images/logo_strasbourg_share.png'),
-  'Toulouse': require('@assets/images/logo_toulouse_share.png'),
-  'Angers': require('@assets/images/logo_angers_share.png'),
-  'Lille': require('@assets/images/logo_lille_share.png'),
-  'Lyon': require('@assets/images/logo_ol_share.png'),
-  'Marseille': require('@assets/images/logo_om_share.png'),
-  'Paris FC': require('@assets/images/logo_pfc_share.png'),
-  'PSG': require('@assets/images/logo_psg_share.png'),
-};
-
-export const getShareTeamLogo = (teamName: string): number | null => {
-  return SHARE_LOGOS[teamName] || null;
-};
