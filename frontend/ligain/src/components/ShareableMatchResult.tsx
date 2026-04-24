@@ -3,17 +3,37 @@ import { View, StyleSheet, Image } from 'react-native';
 import { Text } from './ui/Text';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../constants/colors';
-import { getShareTeamLogo } from '../utils/teamLogos';
 import { getColorForName, getInitials } from './PlayerAvatar';
 import { ShareableGridBackground } from './ShareableGridBackground';
+import { TeamLogo } from './ui/TeamLogo';
 
-// Instagram Stories dimensions (9:16 aspect ratio)
 const SHARE_WIDTH = 1080;
 
-function TeamLogoInline({ teamName, size }: { teamName: string; size: number }) {
-  const logo = getShareTeamLogo(teamName);
-  if (!logo) return null;
-  return <Image source={logo} style={{ width: size, height: size }} resizeMode="contain" />;
+const DIGIT_IMAGES: Record<string, ReturnType<typeof require>> = {
+  '0': require('../../assets/images/0.png'),
+  '1': require('../../assets/images/1.png'),
+  '2': require('../../assets/images/2.png'),
+  '3': require('../../assets/images/3.png'),
+  '4': require('../../assets/images/4.png'),
+  '5': require('../../assets/images/5.png'),
+  '6': require('../../assets/images/6.png'),
+  '7': require('../../assets/images/7.png'),
+  '8': require('../../assets/images/8.png'),
+  '9': require('../../assets/images/9.png'),
+};
+
+function HandDrawnScore({ homeGoals, awayGoals }: { homeGoals: string; awayGoals: string }) {
+  const renderDigits = (n: string) =>
+    n.split('').map((d, i) => (
+      <Image key={i} source={DIGIT_IMAGES[d] ?? DIGIT_IMAGES['0']} style={{ width: 76, height: 112 }} resizeMode="contain" />
+    ));
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+      {renderDigits(homeGoals)}
+      <Text style={{ color: colors.text, fontSize: 36, marginHorizontal: 12 }}>-</Text>
+      {renderDigits(awayGoals)}
+    </View>
+  );
 }
 
 interface ShareableMatchResultProps {
@@ -23,7 +43,8 @@ interface ShareableMatchResultProps {
   awayScore: number;
   myHomeScore?: number;
   myAwayScore?: number;
-  date: string;
+  showGoodResult?: boolean;
+  date?: string;
   players: Array<{
     name: string;
     points: number;
@@ -40,20 +61,17 @@ export default function ShareableMatchResult({
   awayScore,
   myHomeScore,
   myAwayScore,
-  date,
+  showGoodResult,
   players,
 }: ShareableMatchResultProps) {
   const { t } = useTranslation();
 
-  // Sort players by points (descending) then by name (ascending)
   const sortedPlayers = [...players].sort((a, b) => {
-    // First sort by points (highest first)
-    if (b.points !== a.points) {
-      return b.points - a.points;
-    }
-    // If points are equal, sort by name (alphabetical)
+    if (b.points !== a.points) return b.points - a.points;
     return a.name.localeCompare(b.name);
   });
+
+  const hasBet = myHomeScore !== undefined && myAwayScore !== undefined;
 
   return (
     <View style={styles.container}>
@@ -64,63 +82,63 @@ export default function ShareableMatchResult({
         <Text className="font-hk-extrabold" style={styles.ligainTitle}>LIGAIN</Text>
       </View>
 
-      {/* Match result */}
-      <View style={styles.matchContainer}>
-        <View style={styles.teamContainer}>
-          <TeamLogoInline teamName={homeTeam} size={90} />
-          <Text className="font-hk-semibold" style={styles.teamName}>{homeTeam}</Text>
-          <Text className="font-hk-bold" style={styles.score}>{homeScore}</Text>
-        </View>
-
-        <View style={styles.vsContainer}>
-          <Text className="font-hk-bold" style={styles.vsText}>vs</Text>
-          <Text style={styles.dateText}>{date}</Text>
-        </View>
-
-        <View style={styles.teamContainer}>
-          <TeamLogoInline teamName={awayTeam} size={90} />
-          <Text className="font-hk-semibold" style={styles.teamName}>{awayTeam}</Text>
-          <Text className="font-hk-bold" style={styles.score}>{awayScore}</Text>
-        </View>
-      </View>
-
-      {/* Your bet */}
-      <View style={styles.betSection}>
-        <Text className="font-hk-bold" style={styles.betTitle}>{t('share.yourBet')}</Text>
-        <View style={styles.matchContainer}>
-          <View style={styles.teamContainer}>
-            <TeamLogoInline teamName={homeTeam} size={70} />
-            <Text style={styles.teamName}>{homeTeam}</Text>
-            <Text style={styles.score}>{myHomeScore}</Text>
+      {/* Match card */}
+      <View style={styles.matchCard}>
+        {/* Teams + Score on same row */}
+        <View style={styles.matchRow}>
+          <View style={styles.teamSide}>
+            <TeamLogo teamName={homeTeam} size={180} />
+            <Text className="font-hk-semibold" style={styles.teamName}>{homeTeam}</Text>
           </View>
 
-          <View style={styles.vsContainer}>
-            <Text className="font-hk-bold" style={styles.vsText}>vs</Text>
-            <Text style={styles.dateText}>{date}</Text>
+          <View style={styles.scoreCenter}>
+            <View style={styles.scoreRow}>
+              <View style={styles.scoreBox}>
+                <Text className="font-hk-bold" style={styles.scoreText}>{homeScore}</Text>
+              </View>
+              <Text className="font-hk-bold" style={styles.vsText}>VS</Text>
+              <View style={styles.scoreBox}>
+                <Text className="font-hk-bold" style={styles.scoreText}>{awayScore}</Text>
+              </View>
+              {showGoodResult && (
+                <Image
+                  source={require('../../assets/images/good_result.png')}
+                  style={styles.goodResultOverlay}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
           </View>
 
-          <View style={styles.teamContainer}>
-            <TeamLogoInline teamName={awayTeam} size={70} />
-            <Text style={styles.teamName}>{awayTeam}</Text>
-            <Text style={styles.score}>{myAwayScore}</Text>
+          <View style={styles.teamSide}>
+            <TeamLogo teamName={awayTeam} size={180} />
+            <Text className="font-hk-semibold" style={styles.teamName}>{awayTeam}</Text>
           </View>
         </View>
+
+        {/* My bet as hand-drawn digits — only when not a good result */}
+        {hasBet && !showGoodResult && (
+          <View style={styles.betSection}>
+            <Text className="font-hk-semibold" style={styles.betLabel}>{t('share.yourBet')}</Text>
+            <HandDrawnScore homeGoals={String(myHomeScore)} awayGoals={String(myAwayScore)} />
+          </View>
+        )}
       </View>
 
       {/* Players results */}
       <View style={styles.playersContainer}>
         <Text className="font-hk-bold" style={styles.playersTitle}>{t('share.playersResults')}</Text>
         {sortedPlayers.map((player, index) => (
-          <View key={index} style={styles.playerRow}>
+          <View key={index} style={[
+            styles.playerRow,
+            index === sortedPlayers.length - 1 && { borderBottomWidth: 0 },
+          ]}>
             <View style={[
               styles.playerAvatar,
-              { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) }
+              { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) },
             ]}>
               {player.avatarUrl ? (
-                <Image
-                  source={{ uri: player.avatarUrl }}
-                  style={styles.playerAvatarImage}
-                />
+                <Image source={{ uri: player.avatarUrl }} style={styles.playerAvatarImage} />
               ) : (
                 <Text className="font-hk-semibold" style={styles.playerAvatarInitials}>
                   {getInitials(player.name)}
@@ -129,15 +147,12 @@ export default function ShareableMatchResult({
             </View>
             <View style={styles.playerInfo}>
               <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
-              {player.bet && (
-                <Text style={styles.playerBet}>{t('share.predicted')}: {player.bet}</Text>
-              )}
             </View>
             <View style={styles.pointsContainer}>
               <Text className="font-hk-bold" style={[
                 styles.points,
                 player.points > 0 ? styles.positivePoints :
-                player.points < 0 ? styles.negativePoints : styles.zeroPoints
+                player.points < 0 ? styles.negativePoints : styles.zeroPoints,
               ]}>
                 {player.points > 0 ? '+' : ''}{player.points}
               </Text>
@@ -171,57 +186,83 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textAlign: 'center',
   },
-  matchContainer: {
+
+  // Match card
+  matchCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 30,
+    padding: 50,
+    marginBottom: 50,
+  },
+  matchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    padding: 60,
-    borderRadius: 30,
-    marginBottom: 60,
   },
-  teamContainer: {
+  teamSide: {
     flex: 1,
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   teamName: {
-    fontSize: 42,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  score: {
-    fontSize: 72,
-    color: colors.primary,
-  },
-  vsContainer: {
-    alignItems: 'center',
-    marginHorizontal: 30,
-  },
-  vsText: {
-    fontSize: 36,
-    color: colors.textSecondary,
-    marginBottom: 15,
-  },
-  dateText: {
-    fontSize: 28,
-    color: colors.textSecondary,
-  },
-  betSection: {
-    marginBottom: 40,
-  },
-  betTitle: {
     fontSize: 32,
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 20,
   },
+  scoreCenter: {
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    position: 'relative',
+  },
+  scoreBox: {
+    width: 120,
+    height: 120,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreText: {
+    fontSize: 64,
+    color: colors.text,
+  },
+  vsText: {
+    fontSize: 40,
+    color: colors.textSecondary,
+  },
+  goodResultOverlay: {
+    position: 'absolute',
+    width: 360,
+    height: 180,
+    alignSelf: 'center',
+    left: 10,
+    right: -50,
+    top: -45,
+  },
+
+  // Bet
+  betSection: {
+    alignItems: 'center',
+    marginTop: 30,
+    gap: 12,
+  },
+  betLabel: {
+    fontSize: 30,
+    color: colors.textSecondary,
+  },
+
+  // Players
   playersContainer: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.surface,
     padding: 50,
     borderRadius: 30,
     marginBottom: 60,
-    flexGrow: 1, // Allow it to grow with content
+    flexGrow: 1,
   },
   playersTitle: {
     fontSize: 42,
@@ -231,29 +272,28 @@ const styles = StyleSheet.create({
   },
   playerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 25,
     borderBottomWidth: 2,
     borderBottomColor: colors.border,
   },
   playerAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 20,
     overflow: 'hidden',
   },
   playerAvatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     resizeMode: 'cover',
   },
   playerAvatarInitials: {
-    fontSize: 20,
+    fontSize: 24,
     color: '#FFFFFF',
   },
   playerInfo: {
@@ -262,11 +302,6 @@ const styles = StyleSheet.create({
   playerName: {
     fontSize: 32,
     color: colors.text,
-    marginBottom: 8,
-  },
-  playerBet: {
-    fontSize: 24,
-    color: colors.textSecondary,
   },
   pointsContainer: {
     alignItems: 'center',

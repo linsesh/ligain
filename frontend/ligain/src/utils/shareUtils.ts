@@ -43,11 +43,12 @@ export const captureComponentAsImage = async (
       quality = 1,
     } = options;
 
-    // Let react-native-view-shot determine the natural size
     const uri = await captureRef(ref, {
       format,
       quality,
-      // Remove width/height to let it use natural dimensions
+      // renderInContext works reliably for off-screen views on iOS,
+      // unlike drawViewHierarchyInRect which fails for views positioned off-screen.
+      useRenderInContext: true,
     });
 
     return uri;

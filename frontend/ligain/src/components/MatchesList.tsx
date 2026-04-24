@@ -12,7 +12,7 @@ import { formatTime, formatDate } from '../utils/dateUtils';
 import { colors } from '../constants/colors';
 import StatusTag from './StatusTag';
 import ShareableMatchResult from './ShareableMatchResult';
-import { captureAndShareWithOptions, formatDateForShare } from '../utils/shareUtils';
+import { captureAndShareWithOptions } from '../utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
 import { TeamLogo } from './ui/TeamLogo';
 
@@ -129,7 +129,9 @@ function MatchCard({ matchResult, gameId, isDelayed }: {
   const userBet = player && matchResult.bets ? matchResult.bets[player.id] : undefined;
 
   const game = games.find(g => g.gameId === gameId);
-  const gameName = game?.name || 'Ligain Game';
+  const playersMap = new Map(
+    (game?.players ?? []).map((p: any) => [p.id, p])
+  );
 
   const handleShareMatch = async () => {
     if (!matchResult.match.isFinished() || isSharing) return;
@@ -275,15 +277,12 @@ function MatchCard({ matchResult, gameId, isDelayed }: {
               awayScore={matchResult.match.getAwayGoals()}
               myHomeScore={player ? matchResult.bets?.[player.id]?.predictedHomeGoals : undefined}
               myAwayScore={player ? matchResult.bets?.[player.id]?.predictedAwayGoals : undefined}
-              date={formatDateForShare(matchResult.match.getDate())}
+              showGoodResult={player ? (matchResult.scores?.[player.id]?.baseScore ?? 0) >= 300 : false}
               players={Object.entries(matchResult.scores || {}).map(([playerId, scoreData]: [string, any]) => ({
                 name: scoreData.playerName,
                 points: scoreData.points,
-                bet: matchResult.bets?.[playerId] ?
-                  `${matchResult.bets[playerId].predictedHomeGoals}-${matchResult.bets[playerId].predictedAwayGoals}` :
-                  undefined
+                avatarUrl: playersMap.get(playerId)?.avatarUrl ?? null,
               }))}
-              gameName={gameName}
             />
           </ViewShot>
         </View>
