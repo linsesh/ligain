@@ -115,44 +115,41 @@ export default function ShareableLeaderboard({
         <Text className="font-hk-extrabold" style={styles.ligainTitle}>LIGAIN</Text>
       </View>
 
-      {/* Podium for top 3 */}
-      {podiumPlayers.length > 0 && <Podium players={podiumPlayers} />}
+      {/* Leaderboard card (podium + remaining players) */}
+      <View style={styles.leaderboardContainer}>
+        {podiumPlayers.length > 0 && <Podium players={podiumPlayers} />}
 
-      {/* Remaining players list */}
-      {listPlayers.length > 0 && (
-        <View style={styles.leaderboardContainer}>
-          {listPlayers.map((player, index) => (
-            <View key={index} style={[
-              styles.playerRow,
-              index === listPlayers.length - 1 && { borderBottomWidth: 0 },
+        {listPlayers.length > 0 && listPlayers.map((player, index) => (
+          <View key={index} style={[
+            styles.playerRow,
+            index === listPlayers.length - 1 && { borderBottomWidth: 0 },
+          ]}>
+            <View style={[
+              styles.avatar,
+              { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) },
             ]}>
-              <View style={[
-                styles.avatar,
-                { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) },
-              ]}>
-                {player.avatarUrl ? (
-                  <Image source={{ uri: player.avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <Text className="font-hk-semibold" style={styles.avatarInitials}>
-                    {getInitials(player.name)}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.playerInfo}>
-                <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
-              </View>
-
-              <View style={styles.pointsContainer}>
-                <Text className="font-hk-bold" style={styles.points}>
-                  {formatPoints(player.points)}
+              {player.avatarUrl ? (
+                <Image source={{ uri: player.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text className="font-hk-semibold" style={styles.avatarInitials}>
+                  {getInitials(player.name)}
                 </Text>
-                <Text style={styles.pointsLabel}>{t('share.points')}</Text>
-              </View>
+              )}
             </View>
-          ))}
-        </View>
-      )}
+
+            <View style={styles.playerInfo}>
+              <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
+            </View>
+
+            <View style={styles.pointsContainer}>
+              <Text className="font-hk-bold" style={styles.points}>
+                {formatPoints(player.points)}
+              </Text>
+              <Text style={styles.pointsLabel}>{t('share.points')}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -167,6 +164,7 @@ const styles = StyleSheet.create({
     width: SHARE_WIDTH,
     padding: 80,
     minHeight: 1200,
+    backgroundColor: colors.background,
   },
   header: {
     alignItems: 'center',
@@ -181,7 +179,10 @@ const styles = StyleSheet.create({
 
   // Podium
   podiumContainer: {
-    marginBottom: 60,
+    marginBottom: 40,
+    paddingBottom: 40,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
     alignItems: 'center',
   },
   podiumRow: {
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
 
   // Player list (4th+)
   leaderboardContainer: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.surface,
     padding: 50,
     borderRadius: 30,
     marginBottom: 60,
