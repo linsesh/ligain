@@ -23,7 +23,7 @@ interface ShareableLeaderboardProps {
 
 const getRankColor = (rank: number) => {
   switch (rank) {
-    case 1: return colors.primary;
+    case 1: return colors.gold;
     case 2: return colors.silver;
     case 3: return colors.bronze;
     default: return '#666666';
@@ -180,9 +180,6 @@ const styles = StyleSheet.create({
   // Podium
   podiumContainer: {
     marginBottom: 40,
-    paddingBottom: 40,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.border,
     alignItems: 'center',
   },
   podiumRow: {

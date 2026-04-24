@@ -21,7 +21,7 @@ import { captureAndShareWithOptions } from '../../src/utils/shareUtils';
 import ViewShot from 'react-native-view-shot';
 
 const RANK_BORDER_COLORS = [
-  colors.secondary,
+  colors.gold,
   colors.silver,
   colors.bronze,
 ];

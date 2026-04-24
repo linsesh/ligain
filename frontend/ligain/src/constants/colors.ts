@@ -18,8 +18,9 @@ export const colors = {
   surface: '#eef1f4',
   cardFinished: '#AEAEB2',
   secondary: '#e9a317',
-  silver: '#C0C0C0', // Silver for 2nd place
-  bronze: '#CD7F32', // Bronze for 3rd place
+  gold: '#DAA520',
+  silver: '#C0C0C0',
+  bronze: '#CD7F32',
   loadingBackground: '#e4e9ef',
   gridLine: '#ccd2d7',
   darkSurface: '#2c2c2e',
