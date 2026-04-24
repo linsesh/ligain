@@ -30,6 +30,9 @@ const getRankColor = (rank: number) => {
   }
 };
 
+const formatPoints = (pts: number): string =>
+  new Intl.NumberFormat('fr-FR', { useGrouping: true }).format(pts);
+
 const PODIUM_HEIGHTS = { 1: 160, 2: 130, 3: 110 } as const;
 
 function PodiumAvatar({ player, size }: { player: Player; size: number }) {
@@ -63,7 +66,7 @@ function PodiumBlock({ player, height }: { player: Player; height: number }) {
         <Text className="font-hk-extrabold" style={styles.podiumRank}>{player.rank}</Text>
       </View>
       <Text className="font-hk-bold" style={[styles.podiumPoints, { color }]}>
-        {player.points} pts
+        {formatPoints(player.points)} pts
       </Text>
     </View>
   );
@@ -132,13 +135,6 @@ export default function ShareableLeaderboard({
               index === listPlayers.length - 1 && { borderBottomWidth: 0 },
             ]}>
               <View style={[
-                styles.rankBadge,
-                { backgroundColor: getRankColor(player.rank) },
-              ]}>
-                <Text className="font-hk-bold" style={styles.rankText}>{player.rank}</Text>
-              </View>
-
-              <View style={[
                 styles.avatar,
                 { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) },
               ]}>
@@ -157,7 +153,7 @@ export default function ShareableLeaderboard({
 
               <View style={styles.pointsContainer}>
                 <Text className="font-hk-bold" style={styles.points}>
-                  {player.points}
+                  {formatPoints(player.points)}
                 </Text>
                 <Text style={styles.pointsLabel}>{t('share.points')}</Text>
               </View>
@@ -263,18 +259,6 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     borderBottomWidth: 2,
     borderBottomColor: colors.border,
-  },
-  rankBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 20,
-  },
-  rankText: {
-    fontSize: 28,
-    color: '#FFFFFF',
   },
   avatar: {
     width: 74,
