@@ -3,33 +3,98 @@ import { View, StyleSheet, Image } from 'react-native';
 import { Text } from './ui/Text';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../constants/colors';
+import { getColorForName, getInitials } from './PlayerAvatar';
+import { ShareableGridBackground } from './ShareableGridBackground';
 
-// Instagram Stories dimensions (9:16 aspect ratio)
 const SHARE_WIDTH = 1080;
+
+interface Player {
+  name: string;
+  points: number;
+  rank: number;
+  avatarUrl?: string | null;
+}
 
 interface ShareableLeaderboardProps {
   gameName: string;
   period: string;
-  players: Array<{
-    name: string;
-    points: number;
-    rank: number;
-  }>;
+  players: Player[];
 }
 
-// Helper function to get rank-based background colors (same as Leaderboard.tsx)
-const getRankBackgroundColor = (rank: number) => {
+const getRankColor = (rank: number) => {
   switch (rank) {
-    case 1: // 1st place
-      return colors.primary; // Gold/Yellow
-    case 2: // 2nd place
-      return colors.silver; // Silver
-    case 3: // 3rd place
-      return colors.bronze; // Bronze
-    default: // 4th place onwards
-      return '#666666'; // Neutral grey
+    case 1: return colors.primary;
+    case 2: return colors.silver;
+    case 3: return colors.bronze;
+    default: return '#666666';
   }
 };
+
+const PODIUM_HEIGHTS = { 1: 160, 2: 130, 3: 110 } as const;
+
+function PodiumAvatar({ player, size }: { player: Player; size: number }) {
+  const half = size / 2;
+  return (
+    <View style={[
+      styles.podiumAvatar,
+      { width: size, height: size, borderRadius: half, borderColor: getRankColor(player.rank) },
+      !player.avatarUrl && { backgroundColor: getColorForName(player.name) },
+    ]}>
+      {player.avatarUrl ? (
+        <Image source={{ uri: player.avatarUrl }} style={{ width: size - 8, height: size - 8, borderRadius: (size - 8) / 2 }} resizeMode="cover" />
+      ) : (
+        <Text className="font-hk-semibold" style={{ fontSize: size * 0.35, color: '#FFFFFF' }}>
+          {getInitials(player.name)}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function PodiumBlock({ player, height }: { player: Player; height: number }) {
+  const color = getRankColor(player.rank);
+  return (
+    <View style={styles.podiumColumn}>
+      <PodiumAvatar player={player} size={player.rank === 1 ? 100 : 80} />
+      <Text className="font-hk-bold" style={[styles.podiumName, { color }]} numberOfLines={1}>
+        {player.name}
+      </Text>
+      <View style={[styles.podiumBlock, { height, backgroundColor: color }]}>
+        <Text className="font-hk-extrabold" style={styles.podiumRank}>{player.rank}</Text>
+      </View>
+      <Text className="font-hk-bold" style={[styles.podiumPoints, { color }]}>
+        {player.points} pts
+      </Text>
+    </View>
+  );
+}
+
+function Podium({ players }: { players: Player[] }) {
+  const byRank = (r: number) => players.find(p => p.rank === r);
+  const first = byRank(1);
+  const second = byRank(2);
+  const third = byRank(3);
+
+  if (!first) return null;
+
+  return (
+    <View style={styles.podiumContainer}>
+      <View style={styles.podiumRow}>
+        {second ? (
+          <PodiumBlock player={second} height={PODIUM_HEIGHTS[2]} />
+        ) : (
+          <View style={styles.podiumColumn} />
+        )}
+        <PodiumBlock player={first} height={PODIUM_HEIGHTS[1]} />
+        {third ? (
+          <PodiumBlock player={third} height={PODIUM_HEIGHTS[3]} />
+        ) : (
+          <View style={styles.podiumColumn} />
+        )}
+      </View>
+    </View>
+  );
+}
 
 export default function ShareableLeaderboard({
   gameName,
@@ -37,17 +102,16 @@ export default function ShareableLeaderboard({
   players,
 }: ShareableLeaderboardProps) {
   const { t } = useTranslation();
+  const podiumPlayers = players.filter(p => p.rank <= 3);
+  const listPlayers = players.filter(p => p.rank > 3);
 
   return (
     <View style={styles.container}>
-      {/* Header with Ligain branding */}
+      <ShareableGridBackground height={2400} />
+
+      {/* Header */}
       <View style={styles.header}>
-        <Image 
-          source={require('../../assets/images/icon.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text className="font-hk-bold" style={styles.ligainTitle}>Ligain</Text>
+        <Text className="font-hk-extrabold" style={styles.ligainTitle}>LIGAIN</Text>
       </View>
 
       {/* Game name and period */}
@@ -56,33 +120,51 @@ export default function ShareableLeaderboard({
         <Text style={styles.period}>{period}</Text>
       </View>
 
-      {/* Leaderboard */}
-      <View style={styles.leaderboardContainer}>
-        {players.map((player, index) => (
-          <View key={index} style={styles.playerRow}>
-            <View style={[
-              styles.rankBadge,
-              { backgroundColor: getRankBackgroundColor(player.rank) }
+      {/* Podium for top 3 */}
+      {podiumPlayers.length > 0 && <Podium players={podiumPlayers} />}
+
+      {/* Remaining players list */}
+      {listPlayers.length > 0 && (
+        <View style={styles.leaderboardContainer}>
+          {listPlayers.map((player, index) => (
+            <View key={index} style={[
+              styles.playerRow,
+              index === listPlayers.length - 1 && { borderBottomWidth: 0 },
             ]}>
-              <Text className="font-hk-bold" style={styles.rankText}>{player.rank}</Text>
-            </View>
-
-            <View style={styles.playerInfo}>
-              <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
-            </View>
-
-            <View style={styles.pointsContainer}>
-              <Text className="font-hk-bold" style={[
-                styles.points,
-                { color: getRankBackgroundColor(player.rank) }
+              <View style={[
+                styles.rankBadge,
+                { backgroundColor: getRankColor(player.rank) },
               ]}>
-                {player.points}
-              </Text>
-              <Text style={styles.pointsLabel}>{t('share.points')}</Text>
+                <Text className="font-hk-bold" style={styles.rankText}>{player.rank}</Text>
+              </View>
+
+              <View style={[
+                styles.avatar,
+                { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) },
+              ]}>
+                {player.avatarUrl ? (
+                  <Image source={{ uri: player.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text className="font-hk-semibold" style={styles.avatarInitials}>
+                    {getInitials(player.name)}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.playerInfo}>
+                <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
+              </View>
+
+              <View style={styles.pointsContainer}>
+                <Text className="font-hk-bold" style={styles.points}>
+                  {player.points}
+                </Text>
+                <Text style={styles.pointsLabel}>{t('share.points')}</Text>
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -95,20 +177,13 @@ export default function ShareableLeaderboard({
 const styles = StyleSheet.create({
   container: {
     width: SHARE_WIDTH,
-    backgroundColor: colors.background,
     padding: 80,
-    minHeight: 1200, // Minimum height for Instagram Stories
+    minHeight: 1200,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 60,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    marginRight: 30,
   },
   ligainTitle: {
     fontSize: 72,
@@ -130,12 +205,57 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+
+  // Podium
+  podiumContainer: {
+    marginBottom: 60,
+    alignItems: 'center',
+  },
+  podiumRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  podiumColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 10,
+  },
+  podiumAvatar: {
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  podiumName: {
+    fontSize: 28,
+    textAlign: 'center',
+    maxWidth: 250,
+  },
+  podiumBlock: {
+    width: '80%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  podiumRank: {
+    fontSize: 48,
+    color: '#FFFFFF',
+  },
+  podiumPoints: {
+    fontSize: 30,
+    marginTop: 8,
+  },
+
+  // Player list (4th+)
   leaderboardContainer: {
     backgroundColor: colors.card,
     padding: 50,
     borderRadius: 30,
     marginBottom: 60,
-    flexGrow: 1, // Allow it to grow with content
+    flexGrow: 1,
   },
   playerRow: {
     flexDirection: 'row',
@@ -145,16 +265,35 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   rankBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 30,
+    marginRight: 20,
   },
   rankText: {
-    fontSize: 36,
-    color: colors.background,
+    fontSize: 28,
+    color: '#FFFFFF',
+  },
+  avatar: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginRight: 25,
+  },
+  avatarImage: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    resizeMode: 'cover',
+  },
+  avatarInitials: {
+    fontSize: 30,
+    color: '#FFFFFF',
   },
   playerInfo: {
     flex: 1,
@@ -169,6 +308,7 @@ const styles = StyleSheet.create({
   },
   points: {
     fontSize: 42,
+    color: colors.text,
   },
   pointsLabel: {
     fontSize: 24,

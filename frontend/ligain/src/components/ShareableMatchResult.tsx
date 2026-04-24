@@ -3,9 +3,18 @@ import { View, StyleSheet, Image } from 'react-native';
 import { Text } from './ui/Text';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../constants/colors';
+import { getShareTeamLogo } from '../utils/teamLogos';
+import { getColorForName, getInitials } from './PlayerAvatar';
+import { ShareableGridBackground } from './ShareableGridBackground';
 
 // Instagram Stories dimensions (9:16 aspect ratio)
 const SHARE_WIDTH = 1080;
+
+function TeamLogoInline({ teamName, size }: { teamName: string; size: number }) {
+  const logo = getShareTeamLogo(teamName);
+  if (!logo) return null;
+  return <Image source={logo} style={{ width: size, height: size }} resizeMode="contain" />;
+}
 
 interface ShareableMatchResultProps {
   homeTeam: string;
@@ -19,6 +28,7 @@ interface ShareableMatchResultProps {
     name: string;
     points: number;
     bet?: string;
+    avatarUrl?: string | null;
   }>;
   gameName: string;
 }
@@ -48,14 +58,11 @@ export default function ShareableMatchResult({
 
   return (
     <View style={styles.container}>
+      <ShareableGridBackground height={2400} />
+
       {/* Header with Ligain branding */}
       <View style={styles.header}>
-        <Image 
-          source={require('../../assets/images/icon.png')} 
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text className="font-hk-bold" style={styles.ligainTitle}>Ligain</Text>
+        <Text className="font-hk-extrabold" style={styles.ligainTitle}>LIGAIN</Text>
       </View>
 
       {/* Game name */}
@@ -64,16 +71,18 @@ export default function ShareableMatchResult({
       {/* Match result */}
       <View style={styles.matchContainer}>
         <View style={styles.teamContainer}>
+          <TeamLogoInline teamName={homeTeam} size={90} />
           <Text className="font-hk-semibold" style={styles.teamName}>{homeTeam}</Text>
           <Text className="font-hk-bold" style={styles.score}>{homeScore}</Text>
         </View>
-        
+
         <View style={styles.vsContainer}>
           <Text className="font-hk-bold" style={styles.vsText}>vs</Text>
           <Text style={styles.dateText}>{date}</Text>
         </View>
-        
+
         <View style={styles.teamContainer}>
+          <TeamLogoInline teamName={awayTeam} size={90} />
           <Text className="font-hk-semibold" style={styles.teamName}>{awayTeam}</Text>
           <Text className="font-hk-bold" style={styles.score}>{awayScore}</Text>
         </View>
@@ -84,16 +93,18 @@ export default function ShareableMatchResult({
         <Text className="font-hk-bold" style={styles.betTitle}>{t('share.yourBet')}</Text>
         <View style={styles.matchContainer}>
           <View style={styles.teamContainer}>
+            <TeamLogoInline teamName={homeTeam} size={70} />
             <Text style={styles.teamName}>{homeTeam}</Text>
             <Text style={styles.score}>{myHomeScore}</Text>
           </View>
-          
+
           <View style={styles.vsContainer}>
             <Text className="font-hk-bold" style={styles.vsText}>vs</Text>
             <Text style={styles.dateText}>{date}</Text>
           </View>
-          
+
           <View style={styles.teamContainer}>
+            <TeamLogoInline teamName={awayTeam} size={70} />
             <Text style={styles.teamName}>{awayTeam}</Text>
             <Text style={styles.score}>{myAwayScore}</Text>
           </View>
@@ -105,6 +116,21 @@ export default function ShareableMatchResult({
         <Text className="font-hk-bold" style={styles.playersTitle}>{t('share.playersResults')}</Text>
         {sortedPlayers.map((player, index) => (
           <View key={index} style={styles.playerRow}>
+            <View style={[
+              styles.playerAvatar,
+              { backgroundColor: player.avatarUrl ? 'transparent' : getColorForName(player.name) }
+            ]}>
+              {player.avatarUrl ? (
+                <Image
+                  source={{ uri: player.avatarUrl }}
+                  style={styles.playerAvatarImage}
+                />
+              ) : (
+                <Text className="font-hk-semibold" style={styles.playerAvatarInitials}>
+                  {getInitials(player.name)}
+                </Text>
+              )}
+            </View>
             <View style={styles.playerInfo}>
               <Text className="font-hk-semibold" style={styles.playerName}>{player.name}</Text>
               {player.bet && (
@@ -136,20 +162,13 @@ export default function ShareableMatchResult({
 const styles = StyleSheet.create({
   container: {
     width: SHARE_WIDTH,
-    backgroundColor: colors.background,
     padding: 80,
-    minHeight: 1200, // Minimum height for Instagram Stories
+    minHeight: 1200,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 60,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    marginRight: 30,
   },
   ligainTitle: {
     fontSize: 72,
@@ -174,12 +193,12 @@ const styles = StyleSheet.create({
   teamContainer: {
     flex: 1,
     alignItems: 'center',
+    gap: 10,
   },
   teamName: {
     fontSize: 42,
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 15,
   },
   score: {
     fontSize: 72,
@@ -227,6 +246,25 @@ const styles = StyleSheet.create({
     paddingVertical: 25,
     borderBottomWidth: 2,
     borderBottomColor: colors.border,
+  },
+  playerAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 20,
+    overflow: 'hidden',
+  },
+  playerAvatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    resizeMode: 'cover',
+  },
+  playerAvatarInitials: {
+    fontSize: 20,
+    color: '#FFFFFF',
   },
   playerInfo: {
     flex: 1,
