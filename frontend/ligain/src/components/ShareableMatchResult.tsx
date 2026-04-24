@@ -30,7 +30,7 @@ interface ShareableMatchResultProps {
     bet?: string;
     avatarUrl?: string | null;
   }>;
-  gameName: string;
+  gameName?: string;
 }
 
 export default function ShareableMatchResult({
@@ -42,7 +42,6 @@ export default function ShareableMatchResult({
   myAwayScore,
   date,
   players,
-  gameName,
 }: ShareableMatchResultProps) {
   const { t } = useTranslation();
 
@@ -60,13 +59,10 @@ export default function ShareableMatchResult({
     <View style={styles.container}>
       <ShareableGridBackground height={2400} />
 
-      {/* Header with Ligain branding */}
+      {/* Header */}
       <View style={styles.header}>
         <Text className="font-hk-extrabold" style={styles.ligainTitle}>LIGAIN</Text>
       </View>
-
-      {/* Game name */}
-      <Text className="font-hk-semibold" style={styles.gameName}>{gameName}</Text>
 
       {/* Match result */}
       <View style={styles.matchContainer}>
@@ -171,15 +167,9 @@ const styles = StyleSheet.create({
     marginBottom: 60,
   },
   ligainTitle: {
-    fontSize: 72,
+    fontSize: 96,
     color: colors.primary,
     textAlign: 'center',
-  },
-  gameName: {
-    fontSize: 48,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 60,
   },
   matchContainer: {
     flexDirection: 'row',

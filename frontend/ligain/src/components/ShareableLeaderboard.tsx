@@ -16,8 +16,8 @@ interface Player {
 }
 
 interface ShareableLeaderboardProps {
-  gameName: string;
-  period: string;
+  gameName?: string;
+  period?: string;
   players: Player[];
 }
 
@@ -100,8 +100,6 @@ function Podium({ players }: { players: Player[] }) {
 }
 
 export default function ShareableLeaderboard({
-  gameName,
-  period,
   players,
 }: ShareableLeaderboardProps) {
   const { t } = useTranslation();
@@ -115,12 +113,6 @@ export default function ShareableLeaderboard({
       {/* Header */}
       <View style={styles.header}>
         <Text className="font-hk-extrabold" style={styles.ligainTitle}>LIGAIN</Text>
-      </View>
-
-      {/* Game name and period */}
-      <View style={styles.titleContainer}>
-        <Text className="font-hk-semibold" style={styles.gameName}>{gameName}</Text>
-        <Text style={styles.period}>{period}</Text>
       </View>
 
       {/* Podium for top 3 */}
@@ -182,23 +174,8 @@ const styles = StyleSheet.create({
     marginBottom: 60,
   },
   ligainTitle: {
-    fontSize: 72,
+    fontSize: 96,
     color: colors.primary,
-    textAlign: 'center',
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 60,
-  },
-  gameName: {
-    fontSize: 48,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  period: {
-    fontSize: 36,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
 
