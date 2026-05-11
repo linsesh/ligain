@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"ligain/backend/models"
 	"ligain/backend/repositories"
 	"time"
@@ -84,25 +86,35 @@ func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) er
 		return err
 	}
 
+	var updateErrors []error
 	for _, match := range updates {
 		log.Infof("Handling update for match %v", match.Id())
 		lastMatchState, err := game.GetMatchById(match.Id())
 		if err != nil {
 			log.Errorf("Error getting last match state: %v", err)
-			return err
+			updateErrors = append(updateErrors, fmt.Errorf("match %s: get last match state: %w", match.Id(), err))
+			continue
 		}
 		match = g.adjustOdds(match, lastMatchState)
+		if match.IsFinished() && !hasUsableOdds(match) {
+			err := fmt.Errorf("match %s: missing odds for finished match", match.Id())
+			log.Errorf("Error handling score update: %v", err)
+			updateErrors = append(updateErrors, err)
+			continue
+		}
 		err = game.UpdateMatch(match)
 		if err != nil {
 			log.Errorf("Error updating match: %v", err)
-			return err
+			updateErrors = append(updateErrors, fmt.Errorf("match %s: update match: %w", match.Id(), err))
+			continue
 		}
 		if match.IsFinished() {
 			log.Infof("Match %v is finished with score %d - %d, handling score update", match.Id(), match.GetHomeGoals(), match.GetAwayGoals())
 			err = g.handleScoreUpdate(match)
 			if err != nil {
 				log.Errorf("Error handling score update: %v", err)
-				return err
+				updateErrors = append(updateErrors, fmt.Errorf("match %s: handle score update: %w", match.Id(), err))
+				continue
 			}
 		}
 	}
@@ -115,11 +127,11 @@ func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) er
 		err := g.gameRepo.SaveWithId(g.gameId, game)
 		if err != nil {
 			log.Errorf("Error saving finished game status: %v", err)
-			return err
+			updateErrors = append(updateErrors, fmt.Errorf("save finished game status: %w", err))
 		}
 	}
 
-	return nil
+	return errors.Join(updateErrors...)
 }
 
 // GetGameID implements GameUpdateHandler interface
@@ -272,4 +284,8 @@ func (g *GameServiceImpl) adjustOdds(match models.Match, lastMatchState models.M
 		match.SetDrawOdds(lastMatchState.GetDrawOdds())
 	}
 	return match
+}
+
+func hasUsableOdds(match models.Match) bool {
+	return match.GetHomeTeamOdds() > 0 && match.GetAwayTeamOdds() > 0 && match.GetDrawOdds() > 0
 }

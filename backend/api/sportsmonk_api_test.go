@@ -132,7 +132,7 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 			description:  "Should use Bet365 (ID 2) when Betclic and Unibet not available",
 		},
 		{
-			name: "Error when only unsupported bookmaker available",
+			name: "Planned match with only unsupported bookmaker is treated as no odds available",
 			fixture: sportmonksFixture{
 				ID: 12347,
 				Participants: []participant{
@@ -159,11 +159,13 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 				StateID:    1,
 				HasOdds:    true,
 			},
-			wantErr:     true,
-			description: "Should return error when HasOdds is true but no supported bookmaker has odds",
+			expectedHome: 0,
+			expectedDraw: 0,
+			expectedAway: 0,
+			description:  "Should treat planned matches with no supported bookmaker odds as no-odds matches",
 		},
 		{
-			name: "No odds available",
+			name: "Planned match with no odds is treated as no odds available",
 			fixture: sportmonksFixture{
 				ID: 12348,
 				Participants: []participant{
@@ -186,8 +188,10 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 				StateID:    1,
 				HasOdds:    true,
 			},
-			wantErr:     true,
-			description: "Should return error when HasOdds is true but odds list is empty",
+			expectedHome: 0,
+			expectedDraw: 0,
+			expectedAway: 0,
+			description:  "Should treat planned matches with no usable odds as no-odds matches",
 		},
 	}
 
@@ -221,6 +225,41 @@ func TestToMatch_BookmakerPreference(t *testing.T) {
 
 			t.Logf("Test: %s - %s", tt.name, tt.description)
 			t.Logf("Result: Home=%.2f, Draw=%.2f, Away=%.2f", homeOdds, drawOdds, awayOdds)
+		})
+	}
+}
+
+func TestToMatch_NonPlannedMatchRequiresSupportedOdds(t *testing.T) {
+	tests := []struct {
+		name    string
+		stateID int
+	}{
+		{name: "in-progress match without supported odds", stateID: 2},
+		{name: "finished match without supported odds", stateID: 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := sportmonksFixture{
+				ID:           12349,
+				Participants: testParticipants("Home Team", "Away Team"),
+				Odds: []odd{
+					{BookmakerID: 5, MarketID: 1, Label: "Home", Value: "1.9"},
+					{BookmakerID: 5, MarketID: 1, Label: "Draw", Value: "3.1"},
+					{BookmakerID: 5, MarketID: 1, Label: "Away", Value: "4.1"},
+				},
+				StartingAt: "2025-01-01 15:00:00",
+				Season:     season{Name: "2024/2025"},
+				League:     league{Name: "Ligue 1"},
+				Round:      round{Name: "1"},
+				StateID:    tt.stateID,
+				HasOdds:    true,
+			}
+
+			_, err := fixture.toMatch()
+			if err == nil {
+				t.Fatalf("toMatch() expected error for non-planned match without supported odds")
+			}
 		})
 	}
 }
@@ -1967,5 +2006,104 @@ func TestGetFixturesInfos_SendsBookmakerFilter(t *testing.T) {
 	}
 	if match.GetAwayTeamOdds() != 2.9 {
 		t.Errorf("away odds = %f, want 2.9", match.GetAwayTeamOdds())
+	}
+}
+
+func TestGetFixturesInfos_SkipsNonPlannedFixturesWithoutSupportedOdds(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fixturesResponse{Data: []sportmonksFixture{
+			{
+				ID:           100,
+				StateID:      1, // Not started
+				StartingAt:   "2025-08-16 17:00:00",
+				HasOdds:      true,
+				League:       league{Name: "Ligue 1"},
+				Season:       season{Name: "2024/2025"},
+				Round:        round{Name: "1"},
+				Participants: testParticipants("Planned Home", "Planned Away"),
+				Odds: []odd{
+					{BookmakerID: 5, MarketID: 1, Label: "Home", Value: "1.9"},
+					{BookmakerID: 5, MarketID: 1, Label: "Draw", Value: "3.1"},
+					{BookmakerID: 5, MarketID: 1, Label: "Away", Value: "4.1"},
+				},
+			},
+			{
+				ID:           101,
+				StateID:      1, // Not started
+				StartingAt:   "2025-08-16 19:00:00",
+				HasOdds:      true,
+				League:       league{Name: "Ligue 1"},
+				Season:       season{Name: "2024/2025"},
+				Round:        round{Name: "1"},
+				Participants: testParticipants("Valid Home", "Valid Away"),
+				Odds: []odd{
+					{BookmakerID: 23, MarketID: 1, Label: "Home", Value: "2.5"},
+					{BookmakerID: 23, MarketID: 1, Label: "Draw", Value: "3.1"},
+					{BookmakerID: 23, MarketID: 1, Label: "Away", Value: "2.9"},
+				},
+			},
+			{
+				ID:           102,
+				StateID:      5, // Finished
+				StartingAt:   "2025-08-16 21:00:00",
+				HasOdds:      true,
+				League:       league{Name: "Ligue 1"},
+				Season:       season{Name: "2024/2025"},
+				Round:        round{Name: "1"},
+				Participants: testParticipants("Finished Home", "Finished Away"),
+				Odds: []odd{
+					{BookmakerID: 5, MarketID: 1, Label: "Home", Value: "1.9"},
+					{BookmakerID: 5, MarketID: 1, Label: "Draw", Value: "3.1"},
+					{BookmakerID: 5, MarketID: 1, Label: "Away", Value: "4.1"},
+				},
+			},
+		}})
+	}))
+	defer server.Close()
+
+	api := &SportsmonkAPIImpl{
+		apiToken: "test-token",
+		baseURL:  server.URL + "/",
+	}
+
+	matches, err := api.GetFixturesInfos([]int{100, 101, 102})
+	if err != nil {
+		t.Fatalf("GetFixturesInfos failed: %v", err)
+	}
+
+	if _, ok := matches[102]; ok {
+		t.Fatalf("expected finished fixture without supported odds to be skipped")
+	}
+
+	plannedMatch, ok := matches[100]
+	if !ok {
+		t.Fatalf("expected planned fixture without supported odds to be returned")
+	}
+	if plannedMatch.GetHomeTeamOdds() != 0 || plannedMatch.GetDrawOdds() != 0 || plannedMatch.GetAwayTeamOdds() != 0 {
+		t.Fatalf("planned fixture odds = home %.2f draw %.2f away %.2f, want all zero", plannedMatch.GetHomeTeamOdds(), plannedMatch.GetDrawOdds(), plannedMatch.GetAwayTeamOdds())
+	}
+
+	validMatch, ok := matches[101]
+	if !ok {
+		t.Fatalf("expected valid fixture with supported odds to be returned")
+	}
+	if validMatch.GetHomeTeamOdds() != 2.5 || validMatch.GetDrawOdds() != 3.1 || validMatch.GetAwayTeamOdds() != 2.9 {
+		t.Fatalf("valid fixture odds = home %.2f draw %.2f away %.2f, want 2.5/3.1/2.9", validMatch.GetHomeTeamOdds(), validMatch.GetDrawOdds(), validMatch.GetAwayTeamOdds())
+	}
+}
+
+func testParticipants(homeTeam, awayTeam string) []participant {
+	return []participant{
+		{Name: homeTeam, Meta: struct {
+			Location string `json:"location"`
+			Winner   *bool  `json:"winner"`
+			Position int    `json:"position"`
+		}{Location: "home"}},
+		{Name: awayTeam, Meta: struct {
+			Location string `json:"location"`
+			Winner   *bool  `json:"winner"`
+			Position int    `json:"position"`
+		}{Location: "away"}},
 	}
 }

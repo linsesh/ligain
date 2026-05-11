@@ -1496,8 +1496,8 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	gameIDs := []string{gameID}
 
 	// Create a real game with matches that will be finished
-	match1 := models.NewSeasonMatch("Team1", "Team2", "2025/2026", "Ligue 1", testTime, 1)
-	match2 := models.NewSeasonMatch("Team3", "Team4", "2025/2026", "Ligue 1", testTime.Add(1*time.Hour), 2)
+	match1 := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2025/2026", "Ligue 1", testTime, 1, 1.0, 2.0, 3.0)
+	match2 := models.NewSeasonMatchWithKnownOdds("Team3", "Team4", "2025/2026", "Ligue 1", testTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
 	matches := []models.Match{match1, match2}
 
 	// Create a real game with the matches

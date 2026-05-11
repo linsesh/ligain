@@ -345,8 +345,13 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 		}
 	}
 
-	if f.HasOdds && !(homeOdd > 0 && drawOdd > 0 && awayOdd > 0) {
-		return nil, fmt.Errorf("fixture %d has odds but none from supported bookmakers (Betclic:37, Unibet:23, Bet365:2)", f.ID)
+	hasSupportedOdds := homeOdd > 0 && drawOdd > 0 && awayOdd > 0
+	isPlanned := f.StateID == 1
+	if f.HasOdds && !hasSupportedOdds {
+		if !isPlanned {
+			return nil, fmt.Errorf("fixture %d is not planned and has no supported odds (Betclic:37, Unibet:23, Bet365:2)", f.ID)
+		}
+		log.Warnf("Fixture %d has odds but none from supported bookmakers (Betclic:37, Unibet:23, Bet365:2); treating planned match as no-odds", f.ID)
 	}
 
 	// Extract the matchday
@@ -362,7 +367,7 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 	switch f.StateID {
 	// Pre-match states
 	case 1: // Not Started (NS)
-		if f.HasOdds {
+		if hasSupportedOdds {
 			return models.NewSeasonMatchWithKnownOdds(
 				homeTeam.Name,
 				awayTeam.Name,
@@ -435,7 +440,7 @@ func (f *sportmonksFixture) toMatch() (models.Match, error) {
 
 	// Special states that are scheduled
 	case 16, 17, 19: // Postponed, Cancelled, Abandoned
-		if f.HasOdds {
+		if hasSupportedOdds {
 			return models.NewSeasonMatchWithKnownOdds(
 				homeTeam.Name,
 				awayTeam.Name,
@@ -608,8 +613,8 @@ func (s *SportsmonkAPIImpl) fetchSeasonFixtures(seasonId int, ctx context.Contex
 		for _, fixture := range responseBody.Data {
 			match, err := fixture.toMatch()
 			if err != nil {
-				errChan <- err
-				return
+				log.Warnf("Skipping fixture %d while fetching season %d: %v", fixture.ID, seasonId, err)
+				continue
 			}
 
 			matchId := match.Id()
@@ -698,7 +703,8 @@ func (s *SportsmonkAPIImpl) fetchFixturesBatch(fixtureIds []int) (map[int]models
 	for _, fixture := range fixturesResp.Data {
 		match, err := fixture.toMatch()
 		if err != nil {
-			return nil, err
+			log.Warnf("Skipping fixture %d while fetching fixture infos: %v", fixture.ID, err)
+			continue
 		}
 		fixtureIdToMatch[fixture.ID] = match
 	}
