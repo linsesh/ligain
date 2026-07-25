@@ -22,7 +22,7 @@ const (
 	// Ligue 1 competition ID from Sportsmonk API
 	ligue1CompetitionId = 301
 	// Season code for 2025/2026
-	seasonCode = "2025/2026"
+	seasonCode = "2026/2027"
 )
 
 func main() {

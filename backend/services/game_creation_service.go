@@ -77,7 +77,7 @@ type PlayerGame struct {
 
 var (
 	ErrInvalidCompetition = errors.New("only 'Ligue 1' is supported as competition name")
-	ErrInvalidSeasonYear  = errors.New("only '2025/2026' is supported as season year")
+	ErrInvalidSeasonYear  = errors.New("only '2026/2027' is supported as season year")
 	ErrPlayerNotInGame    = errors.New("player is not in the game")
 	ErrPlayerGameLimit    = errors.New("player has reached the maximum limit of 5 games")
 )
@@ -132,7 +132,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		return nil, ErrInvalidCompetition
 	}
 	// Validate season year - only 2025/2026 is supported
-	if req.SeasonYear != "2025/2026" {
+	if req.SeasonYear != "2026/2027" {
 		return nil, ErrInvalidSeasonYear
 	}
 	// Validate name - must not be empty

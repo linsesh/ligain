@@ -170,7 +170,7 @@ export class MockGamesApi implements GamesApi {
     const newGame: Game = {
       gameId: `game-${this.nextGameIndex++}`,
       name: name.trim(),
-      seasonYear: '2025/2026',
+      seasonYear: '2026/2027',
       competitionName: 'Ligue 1',
       status: 'active',
       code: this.generateCode(),

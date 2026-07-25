@@ -207,7 +207,7 @@ export class RealGamesApi implements GamesApi {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        seasonYear: '2025/2026',
+        seasonYear: '2026/2027',
         competitionName: 'Ligue 1',
         name: name.trim(),
       }),
