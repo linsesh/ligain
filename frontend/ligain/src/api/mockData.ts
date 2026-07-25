@@ -193,7 +193,7 @@ export const MOCK_GAMES: Game[] = [
   {
     gameId: 'game-1',
     name: 'Entre potes',
-    seasonYear: '2025/2026',
+    seasonYear: '2026/2027',
     competitionName: 'Ligue 1',
     status: 'active',
     code: 'ABCD',
@@ -202,7 +202,7 @@ export const MOCK_GAMES: Game[] = [
   {
     gameId: 'game-2',
     name: 'Family League',
-    seasonYear: '2025/2026',
+    seasonYear: '2026/2027',
     competitionName: 'Ligue 1',
     status: 'active',
     code: 'EFGH',
@@ -211,7 +211,7 @@ export const MOCK_GAMES: Game[] = [
   {
     gameId: 'game-3',
     name: 'Work Buddies',
-    seasonYear: '2025/2026',
+    seasonYear: '2026/2027',
     competitionName: 'Ligue 1',
     status: 'active',
     code: 'IJKL',
@@ -243,7 +243,7 @@ const createIncomingMatch = (
     matchday,
     status: 'scheduled',
     competitionCode: 'L1',
-    seasonCode: '2425',
+    seasonCode: '2526',
   },
   bet: userBet ? { prediction: userBet } : undefined,
 });
@@ -357,7 +357,7 @@ const createPastMatch = (
       homeGoals: score[0],
       awayGoals: score[1],
       competitionCode: 'L1',
-      seasonCode: '2425',
+      seasonCode: '2526',
     },
     allBets: betsWithPoints,
   };

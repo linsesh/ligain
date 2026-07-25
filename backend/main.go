@@ -87,7 +87,7 @@ func main() {
 			gamePlayerRepo = postgres.NewPostgresGamePlayerRepository(db)
 			uow = postgres.NewUnitOfWork(db)
 
-			matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2025/2026")
+			matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2026/2027")
 			log.Infof("Got %d matches", len(matches))
 			if err != nil {
 				log.Fatal("Failed to get matches:", err)
@@ -115,14 +115,14 @@ func main() {
 			uow = repositories.NewNoopUnitOfWork()
 
 			fakeSeasonMatches := []models.SeasonMatch{
-				*models.NewSeasonMatchWithKnownOdds("PSG", "Lyon", "2025/2026", "Ligue 1", time.Now().Add(1*time.Hour), 1, 1.5, 4.0, 3.5),
-				*models.NewSeasonMatchWithKnownOdds("Marseille", "Nice", "2025/2026", "Ligue 1", time.Now().Add(2*time.Hour), 1, 2.0, 3.0, 3.0),
-				*models.NewSeasonMatchWithKnownOdds("Monaco", "Rennes", "2025/2026", "Ligue 1", time.Now().Add(3*time.Hour), 1, 1.8, 3.5, 3.2),
-				*models.NewSeasonMatchWithKnownOdds("Lens", "Lille", "2025/2026", "Ligue 1", time.Now().Add(4*time.Hour), 2, 2.5, 2.8, 3.1),
-				*models.NewSeasonMatchWithKnownOdds("Strasbourg", "Nantes", "2025/2026", "Ligue 1", time.Now().Add(5*time.Hour), 2, 2.2, 2.9, 3.2),
-				*models.NewSeasonMatchWithKnownOdds("Toulouse", "Brest", "2025/2026", "Ligue 1", time.Now().Add(6*time.Hour), 2, 2.4, 2.7, 3.3),
-				*models.NewSeasonMatchWithKnownOdds("Montpellier", "Metz", "2025/2026", "Ligue 1", time.Now().Add(7*time.Hour), 3, 2.1, 3.1, 3.2),
-				*models.NewSeasonMatchWithKnownOdds("Auxerre", "Reims", "2025/2026", "Ligue 1", time.Now().Add(8*time.Hour), 3, 2.3, 3.0, 3.0),
+				*models.NewSeasonMatchWithKnownOdds("PSG", "Lyon", "2026/2027", "Ligue 1", time.Now().Add(1*time.Hour), 1, 1.5, 4.0, 3.5),
+				*models.NewSeasonMatchWithKnownOdds("Marseille", "Nice", "2026/2027", "Ligue 1", time.Now().Add(2*time.Hour), 1, 2.0, 3.0, 3.0),
+				*models.NewSeasonMatchWithKnownOdds("Monaco", "Rennes", "2026/2027", "Ligue 1", time.Now().Add(3*time.Hour), 1, 1.8, 3.5, 3.2),
+				*models.NewSeasonMatchWithKnownOdds("Lens", "Lille", "2026/2027", "Ligue 1", time.Now().Add(4*time.Hour), 2, 2.5, 2.8, 3.1),
+				*models.NewSeasonMatchWithKnownOdds("Strasbourg", "Nantes", "2026/2027", "Ligue 1", time.Now().Add(5*time.Hour), 2, 2.2, 2.9, 3.2),
+				*models.NewSeasonMatchWithKnownOdds("Toulouse", "Brest", "2026/2027", "Ligue 1", time.Now().Add(6*time.Hour), 2, 2.4, 2.7, 3.3),
+				*models.NewSeasonMatchWithKnownOdds("Montpellier", "Metz", "2026/2027", "Ligue 1", time.Now().Add(7*time.Hour), 3, 2.1, 3.1, 3.2),
+				*models.NewSeasonMatchWithKnownOdds("Auxerre", "Reims", "2026/2027", "Ligue 1", time.Now().Add(8*time.Hour), 3, 2.3, 3.0, 3.0),
 			}
 			matchesMap := make(map[string]models.Match)
 			for i := range fakeSeasonMatches {
@@ -138,7 +138,7 @@ func main() {
 				allFakeMatches = append(allFakeMatches, &fakeSeasonMatches[i])
 			}
 			for i := 1; i <= 3; i++ {
-				game := rules.NewFreshGame("2025/2026", "Ligue 1", fmt.Sprintf("Fake Game %d", i), []models.Player{}, allFakeMatches, &rules.ScorerOriginal{})
+				game := rules.NewFreshGame("2026/2027", "Ligue 1", fmt.Sprintf("Fake Game %d", i), []models.Player{}, allFakeMatches, &rules.ScorerOriginal{})
 				if _, err := gameRepo.CreateGame(game); err != nil {
 					log.Fatalf("Failed to seed fake game %d: %v", i, err)
 				}
@@ -173,7 +173,7 @@ func main() {
 		gamePlayerRepo = postgres.NewPostgresGamePlayerRepository(db)
 		uow = postgres.NewUnitOfWork(db)
 
-		matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2025/2026")
+		matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2026/2027")
 		log.Infof("Got %d matches", len(matches))
 		if err != nil {
 			log.Fatal("Failed to get matches:", err)

@@ -73,7 +73,7 @@ func TestCreateGame_QueryServiceSeesNewGame(t *testing.T) {
 
 	// Setup ALL mocks upfront - first call returns empty, subsequent calls return the game
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil).Once()
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("game1", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "game1", "player1").Return(nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -82,7 +82,7 @@ func TestCreateGame_QueryServiceSeesNewGame(t *testing.T) {
 
 	// Create game
 	createResp, err := creationService.CreateGame(&CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}, player)
@@ -350,7 +350,7 @@ func TestCreateAndJoin_ConcurrentAccess(t *testing.T) {
 
 	// Setup mocks for game creation by player A - first GetPlayerGames returns empty
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "playerA").Return([]string{}, nil).Once()
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("game1", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "game1", "playerA").Return(nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
@@ -359,7 +359,7 @@ func TestCreateAndJoin_ConcurrentAccess(t *testing.T) {
 
 	// Player A creates game
 	createResp, err := creationService.CreateGame(&CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}, playerA)

@@ -218,7 +218,7 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, mockWatcher)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -231,7 +231,7 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
 	// Execute
@@ -262,7 +262,7 @@ func TestGameCreationService_CreateGame_GameCreationFails(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -272,7 +272,7 @@ func TestGameCreationService_CreateGame_GameCreationFails(t *testing.T) {
 	// Mock expectations
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("", errors.New("database error"))
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 
 	// Execute
 	response, err := service.CreateGame(request, player)
@@ -297,7 +297,7 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -309,7 +309,7 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(true, nil).Times(10)
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 
 	// Execute
 	response, err := service.CreateGame(request, player)
@@ -336,7 +336,7 @@ func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -348,7 +348,7 @@ func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("test-game-id", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, errors.New("database error"))
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 
 	// Execute
 	response, err := service.CreateGame(request, player)
@@ -375,7 +375,7 @@ func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -388,7 +388,7 @@ func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(errors.New("database error"))
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 
 	// Execute
 	response, err := service.CreateGame(request, player)
@@ -462,7 +462,7 @@ func TestGameCreationService_CreateGame_InvalidCompetition(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Premier League",
 		Name:            "Test Game",
 	}
@@ -482,7 +482,7 @@ func TestGameCreationService_CreateGame_InvalidSeasonYear(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2024/2025",
+		SeasonYear:      "2025/2026",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -503,7 +503,7 @@ func TestGameCreationService_CreateGame_MatchLoadingFails(t *testing.T) {
 	service := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
 
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -512,7 +512,7 @@ func TestGameCreationService_CreateGame_MatchLoadingFails(t *testing.T) {
 
 	// Mock expectations - match loading fails
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil)
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return(nil, errors.New("database error"))
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return(nil, errors.New("database error"))
 
 	// Execute
 	response, err := service.CreateGame(request, player)
@@ -545,7 +545,7 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	}
 
 	// Create a real game instead of using a mock
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
 
 	// Mock expectations
 	mockGameCodeRepo.On("GetGameCodeByCode", code).Return(gameCode, nil)
@@ -564,7 +564,7 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, response)
 	assert.Equal(t, "game1", response.GameID)
-	assert.Equal(t, "2025/2026", response.SeasonYear)
+	assert.Equal(t, "2026/2027", response.SeasonYear)
 	assert.Equal(t, "Ligue 1", response.CompetitionName)
 	assert.Equal(t, "Successfully joined the game", response.Message)
 
@@ -586,7 +586,7 @@ func (m *SimpleMockGame) GetPastResults() map[string]*models.MatchResult {
 }
 
 func (m *SimpleMockGame) GetSeasonYear() string {
-	return "2025/2026"
+	return "2026/2027"
 }
 
 func (m *SimpleMockGame) GetCompetitionName() string {
@@ -764,8 +764,8 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	gameIDs := []string{"game1", "game2"}
 
 	// Create real games instead of using mocks
-	realGame1 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 1", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
-	realGame2 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 2", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame1 := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game 1", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame2 := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game 2", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
 
 	// Mock expectations
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
@@ -786,7 +786,7 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	assert.Len(t, playerGames, 2)
 	assert.Equal(t, "game1", playerGames[0].GameID)
 	assert.Equal(t, "game2", playerGames[1].GameID)
-	assert.Equal(t, "2025/2026", playerGames[0].SeasonYear)
+	assert.Equal(t, "2026/2027", playerGames[0].SeasonYear)
 	assert.Equal(t, "Ligue 1", playerGames[0].CompetitionName)
 
 	// Verify mocks
@@ -863,7 +863,7 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	gameIDs := []string{"game1"}
 
 	// Create a real game instead of using a mock
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
 
 	mockPlayers := []models.Player{player1, player2}
 	mockScores := map[string]map[string]int{
@@ -944,7 +944,7 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 
 	// Create a game first
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -956,7 +956,7 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
 	response, err := service.CreateGame(request, player)
@@ -976,7 +976,7 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	}, nil)
 
 	// Create a real game instead of using a mock
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player, secondPlayer}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game", []models.Player{player, secondPlayer}, []models.Match{}, &rules.ScorerOriginal{})
 	mockGameRepo.On("GetGame", "test-game-id").Return(realGame, nil)
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player2").Return([]string{}, nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player2").Return(nil)
@@ -1098,7 +1098,7 @@ func TestGameCreationService_LeaveGame_LastPlayerFinishesGame(t *testing.T) {
 	// No players left after removal
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, gameID).Return([]models.Player{}, nil)
 	// Game loaded for finishing
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
 	mockGameRepo.On("GetGame", gameID).Return(realGame, nil)
 	// SaveWithId called to persist finished status
 	mockGameRepo.On("SaveWithId", gameID, realGame).Return(nil)
@@ -1156,7 +1156,7 @@ func (m *SimpleMockGameFinished) GetIncomingMatches(player models.Player) map[st
 func (m *SimpleMockGameFinished) GetPastResults() map[string]*models.MatchResult {
 	return make(map[string]*models.MatchResult)
 }
-func (m *SimpleMockGameFinished) GetSeasonYear() string            { return "2025/2026" }
+func (m *SimpleMockGameFinished) GetSeasonYear() string            { return "2026/2027" }
 func (m *SimpleMockGameFinished) GetCompetitionName() string       { return "Ligue 1" }
 func (m *SimpleMockGameFinished) GetGameStatus() models.GameStatus { return models.GameStatusFinished }
 func (m *SimpleMockGameFinished) GetName() string                  { return "Test Game" }
@@ -1239,7 +1239,7 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 
 	// Step 1: Create game and join as player1
 	request := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -1249,7 +1249,7 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "test-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 
 	createResp, err := service.CreateGame(request, player)
@@ -1261,7 +1261,7 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	// Step 2: Leave the game as player1
 	// Create a real game with the player for the cached game service to use when removing player
 	otherPlayer := &models.PlayerData{ID: "other", Name: "Other Player"}
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player, otherPlayer}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game", []models.Player{player, otherPlayer}, []models.Match{}, &rules.ScorerOriginal{})
 	// GetGame is called multiple times during leave and rejoin operations
 	mockGameRepo.On("GetGame", gameID).Return(realGame, nil)
 	mockGameRepo.On("SaveWithId", gameID, realGame).Return(nil)
@@ -1310,7 +1310,7 @@ func TestGameCreationService_CreateGame_PlayerGameLimitReached(t *testing.T) {
 
 	// Test data
 	req := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -1343,7 +1343,7 @@ func TestGameCreationService_CreateGame_PlayerGameLimitCheckFails(t *testing.T) 
 
 	// Test data
 	req := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -1452,7 +1452,7 @@ func TestGameCreationService_CreateGame_PlayerCanCreateFifthGame(t *testing.T) {
 
 	// Test data
 	req := &CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -1460,7 +1460,7 @@ func TestGameCreationService_CreateGame_PlayerCanCreateFifthGame(t *testing.T) {
 
 	// Mock expectations - player has exactly 4 games (should allow 5th)
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{"game1", "game2", "game3", "game4"}, nil)
-	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2025/2026").Return([]models.Match{}, nil)
+	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("new-game-id", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "new-game-id", "player1").Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
@@ -1496,12 +1496,12 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	gameIDs := []string{gameID}
 
 	// Create a real game with matches that will be finished
-	match1 := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2025/2026", "Ligue 1", testTime, 1, 1.0, 2.0, 3.0)
-	match2 := models.NewSeasonMatchWithKnownOdds("Team3", "Team4", "2025/2026", "Ligue 1", testTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
+	match1 := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2026/2027", "Ligue 1", testTime, 1, 1.0, 2.0, 3.0)
+	match2 := models.NewSeasonMatchWithKnownOdds("Team3", "Team4", "2026/2027", "Ligue 1", testTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
 	matches := []models.Match{match1, match2}
 
 	// Create a real game with the matches
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, matches, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2026/2027", "Ligue 1", "Test Game", []models.Player{player}, matches, &rules.ScorerOriginal{})
 
 	// Create a game service to interact with the game
 	gameService := NewGameService(gameID, mockGameRepo, mockBetRepo, &MockGamePlayerRepository{})
@@ -1516,8 +1516,8 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	realGame.AddPlayerBet(player, bet2)
 
 	// Create finished matches
-	finishedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2025/2026", "Ligue 1", testTime, 1, 1.0, 2.0, 3.0)
-	finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 1, 0, "2025/2026", "Ligue 1", testTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
+	finishedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2026/2027", "Ligue 1", testTime, 1, 1.0, 2.0, 3.0)
+	finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 1, 0, "2026/2027", "Ligue 1", testTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
 
 	// Handle match updates through the game service (this is what happens in production)
 	updates := map[string]models.Match{

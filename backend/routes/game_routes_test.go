@@ -264,7 +264,7 @@ func TestCreateGame_Success(t *testing.T) {
 
 	// Setup test data
 	requestBody := services.CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -378,7 +378,7 @@ func TestCreateGame_MissingCompetitionName(t *testing.T) {
 
 	// Setup test data with missing competitionName
 	requestBody := map[string]string{
-		"seasonYear": "2025/2026",
+		"seasonYear": "2026/2027",
 	}
 
 	// Mock expectations
@@ -415,7 +415,7 @@ func TestCreateGame_ServiceError(t *testing.T) {
 
 	// Setup test data
 	requestBody := services.CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -455,7 +455,7 @@ func TestCreateGame_Unauthorized(t *testing.T) {
 
 	// Setup test data
 	requestBody := services.CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Ligue 1",
 		Name:            "Test Game",
 	}
@@ -491,7 +491,7 @@ func TestCreateGame_InvalidCompetitionName(t *testing.T) {
 
 	// Setup test data with invalid competition name
 	requestBody := services.CreateGameRequest{
-		SeasonYear:      "2025/2026",
+		SeasonYear:      "2026/2027",
 		CompetitionName: "Premier League",
 		Name:            "Test Game",
 	}
@@ -559,7 +559,7 @@ func TestCreateGame_InvalidSeasonYear(t *testing.T) {
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, "only '2025/2026' is supported as season year", response["error"])
+	assert.Equal(t, "only '2026/2027' is supported as season year", response["error"])
 
 	// Verify mocks
 	mockGameCreationService.AssertExpectations(t)
@@ -578,13 +578,13 @@ func TestGetPlayerGames_Success(t *testing.T) {
 	expectedGames := []services.PlayerGame{
 		{
 			GameID:          "game-1",
-			SeasonYear:      "2025/2026",
+			SeasonYear:      "2026/2027",
 			CompetitionName: "Ligue 1",
 			Status:          "active",
 		},
 		{
 			GameID:          "game-2",
-			SeasonYear:      "2025/2026",
+			SeasonYear:      "2026/2027",
 			CompetitionName: "Ligue 1",
 			Status:          "in progress",
 		},
@@ -619,14 +619,14 @@ func TestGetPlayerGames_Success(t *testing.T) {
 	// Verify first game
 	game1 := games[0].(map[string]interface{})
 	assert.Equal(t, "game-1", game1["gameId"])
-	assert.Equal(t, "2025/2026", game1["seasonYear"])
+	assert.Equal(t, "2026/2027", game1["seasonYear"])
 	assert.Equal(t, "Ligue 1", game1["competitionName"])
 	assert.Equal(t, "active", game1["status"])
 
 	// Verify second game
 	game2 := games[1].(map[string]interface{})
 	assert.Equal(t, "game-2", game2["gameId"])
-	assert.Equal(t, "2025/2026", game2["seasonYear"])
+	assert.Equal(t, "2026/2027", game2["seasonYear"])
 	assert.Equal(t, "Ligue 1", game2["competitionName"])
 	assert.Equal(t, "in progress", game2["status"])
 
@@ -845,7 +845,7 @@ func TestGetPlayerGamesAPIStatusInconsistency(t *testing.T) {
 	initialGames := []services.PlayerGame{
 		{
 			GameID:          "game-1",
-			SeasonYear:      "2025/2026",
+			SeasonYear:      "2026/2027",
 			CompetitionName: "Ligue 1",
 			Name:            "Test Game",
 			Status:          "in progress",
@@ -858,7 +858,7 @@ func TestGetPlayerGamesAPIStatusInconsistency(t *testing.T) {
 	updatedGames := []services.PlayerGame{
 		{
 			GameID:          "game-1",
-			SeasonYear:      "2025/2026",
+			SeasonYear:      "2026/2027",
 			CompetitionName: "Ligue 1",
 			Name:            "Test Game",
 			Status:          "finished",

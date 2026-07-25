@@ -52,7 +52,7 @@ describe('useBetPlacement', () => {
   const CURRENT_GAME = {
     gameId: GAME_ID,
     name: 'My Game',
-    seasonYear: '2025/2026',
+    seasonYear: '2026/2027',
     competitionName: 'Ligue 1',
     status: 'active',
   };
@@ -60,7 +60,7 @@ describe('useBetPlacement', () => {
   const SIBLING_GAME = {
     gameId: 'game-2',
     name: 'Friends Game',
-    seasonYear: '2025/2026',
+    seasonYear: '2026/2027',
     competitionName: 'Ligue 1',
     status: 'active',
   };
@@ -68,7 +68,7 @@ describe('useBetPlacement', () => {
   const ANOTHER_SIBLING = {
     gameId: 'game-3',
     name: 'Work Game',
-    seasonYear: '2025/2026',
+    seasonYear: '2026/2027',
     competitionName: 'Ligue 1',
     status: 'active',
   };
@@ -199,7 +199,7 @@ describe('useBetPlacement', () => {
     const differentLeagueGame = {
       gameId: 'game-other',
       name: 'Other League',
-      seasonYear: '2024/2025',
+      seasonYear: '2025/2026',
       competitionName: 'Ligue 1',
       status: 'active',
     };
