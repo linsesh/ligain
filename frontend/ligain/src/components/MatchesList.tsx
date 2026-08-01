@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, Animated, Dimensions, FlatList } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -291,6 +292,87 @@ function MatchCard({ matchResult, gameId, isDelayed }: {
   );
 }
 
+const MatchdayPage = React.memo(function MatchdayPage({ matchday, gameId, matchesByMatchday, refreshing, onRefresh, matchesLoading, isDelayedMatch }: {
+  matchday: number;
+  gameId: string;
+  matchesByMatchday: { [key: number]: any[] };
+  refreshing: boolean;
+  onRefresh: () => void;
+  matchesLoading: boolean;
+  isDelayedMatch: (mr: any) => boolean;
+}) {
+  const matchdayMatches = matchesByMatchday[matchday] || [];
+  const sortedMatches = [...matchdayMatches].sort((a, b) =>
+    a.match.getDate().getTime() - b.match.getDate().getTime()
+  );
+  const groupedByDateTime = sortedMatches.reduce((acc, matchResult) => {
+    const date = matchResult.match.getDate();
+    const dateKey = formatDate(date);
+    const timeKey = formatTime(date);
+    const dateTimeKey = `${dateKey} - ${timeKey}`;
+    if (!acc[dateTimeKey]) acc[dateTimeKey] = [];
+    acc[dateTimeKey].push(matchResult);
+    return acc;
+  }, {} as { [key: string]: any[] });
+
+  const dateTimeKeys = Object.keys(groupedByDateTime).sort((a, b) => {
+    const aAllFinished = groupedByDateTime[a].every((mr: any) => mr.match.isFinished());
+    const bAllFinished = groupedByDateTime[b].every((mr: any) => mr.match.isFinished());
+    if (aAllFinished !== bAllFinished) return aAllFinished ? 1 : -1;
+    const dateTimeA = a.split(' - ');
+    const dateTimeB = b.split(' - ');
+    if (dateTimeA.length !== 2 || dateTimeB.length !== 2) return a.localeCompare(b);
+    if (dateTimeA[0] !== dateTimeB[0]) return new Date(dateTimeA[0]).getTime() - new Date(dateTimeB[0]).getTime();
+    return parseInt(dateTimeA[1].replace(':', '')) - parseInt(dateTimeB[1].replace(':', ''));
+  });
+
+  return (
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+          progressBackgroundColor={colors.background}
+          progressViewOffset={20}
+        />
+      }
+    >
+      {matchesLoading ? (
+        <MatchdayContentSkeleton />
+      ) : (
+        <View style={styles.matchesContainer}>
+          {dateTimeKeys.map((dateTimeKey: string) => {
+            const matchesAtTime = groupedByDateTime[dateTimeKey];
+            const dateTimeParts = dateTimeKey.split(' - ');
+            const dateDisplay = dateTimeParts[0] || '';
+            const timeDisplay = dateTimeParts[1] || '';
+            return (
+              <View key={dateTimeKey} style={styles.timeGroup}>
+                <View style={styles.timeHeaderContainer}>
+                  <Text className="font-hk-bold" style={styles.timeHeader}>{timeDisplay}</Text>
+                  <Text style={styles.dayHeader}>{dateDisplay}</Text>
+                </View>
+                {matchesAtTime.map((matchResult: any) => (
+                  <MatchCard
+                    key={matchResult.match.id()}
+                    matchResult={matchResult}
+                    gameId={gameId}
+                    isDelayed={isDelayedMatch(matchResult)}
+                  />
+                ))}
+              </View>
+            );
+          })}
+        </View>
+      )}
+      <View style={{ height: 100 }} />
+    </ScrollView>
+  );
+});
+
 interface MatchesListProps {
   gameId: string;
   initialMatchday?: number;
@@ -302,29 +384,31 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
   useMatchNotifications(incomingMatches, gameId);
   const [refreshing, setRefreshing] = useState(false);
   const [currentMatchday, setCurrentMatchday] = useState<number | null>(initialMatchday ?? null);
-  const [isPending, startTransition] = useTransition();
   const { t } = useTranslation();
-  const scrollViewRef = React.useRef<ScrollView>(null);
   const itemWidth = Dimensions.get('window').width / 6;
   const matchdaySelectorRef = useRef<FlatList>(null);
 
   // Combine incoming and past matches
-  const matches = [...Object.values(incomingMatches), ...Object.values(pastMatches)];
+  const matches = useMemo(
+    () => [...Object.values(incomingMatches), ...Object.values(pastMatches)],
+    [incomingMatches, pastMatches]
+  );
 
   // Group matches by matchday
-  const matchesByMatchday = matches.reduce((acc, matchResult) => {
+  const matchesByMatchday = useMemo(() => matches.reduce((acc, matchResult) => {
     const matchday = matchResult.match.getMatchday();
     if (!acc[matchday]) {
       acc[matchday] = [];
     }
     acc[matchday].push(matchResult);
     return acc;
-  }, {} as { [key: number]: any[] });
+  }, {} as { [key: number]: any[] }), [matches]);
 
   // Sort matchdays
-  const sortedMatchdays = Object.keys(matchesByMatchday)
-    .map(Number)
-    .sort((a, b) => a - b);
+  const sortedMatchdays = useMemo(
+    () => Object.keys(matchesByMatchday).map(Number).sort((a, b) => a - b),
+    [matchesByMatchday]
+  );
 
   // Set initial matchday if not set
   useEffect(() => {
@@ -337,26 +421,6 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedMatchdays]);
-
-  // Group matches by date and time within the current matchday
-  const getMatchesByTime = (matchday: number) => {
-    const matchdayMatches = matchesByMatchday[matchday] || [];
-    const sortedMatches = matchdayMatches.sort((a, b) =>
-      a.match.getDate().getTime() - b.match.getDate().getTime()
-    );
-    const groupedByDateTime = sortedMatches.reduce((acc, matchResult) => {
-      const date = matchResult.match.getDate();
-      const dateKey = formatDate(date);
-      const timeKey = formatTime(date);
-      const dateTimeKey = `${dateKey} - ${timeKey}`;
-      if (!acc[dateTimeKey]) {
-        acc[dateTimeKey] = [];
-      }
-      acc[dateTimeKey].push(matchResult);
-      return acc;
-    }, {} as { [key: string]: any[] });
-    return groupedByDateTime;
-  };
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -372,135 +436,105 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
     }
   }, [currentMatchday, sortedMatchdays]);
 
-  if (matchesLoading && !refreshing) {
-    return <MatchesListSkeleton />;
-  }
+  const pagerRef = useRef<PagerView>(null);
+  const pagerPageRef = useRef(currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0);
 
-  const matchdaysWithFinishedMatches = new Set<number>(
+  const onPageSelected = useCallback((e: any) => {
+    const pageIndex = e.nativeEvent.position;
+    pagerPageRef.current = pageIndex;
+    if (sortedMatchdays[pageIndex]) {
+      setCurrentMatchday(sortedMatchdays[pageIndex]);
+    }
+  }, [sortedMatchdays]);
+
+  useEffect(() => {
+    if (currentMatchday == null || !pagerRef.current) return;
+    const index = sortedMatchdays.indexOf(currentMatchday);
+    if (index >= 0 && index !== pagerPageRef.current) {
+      pagerPageRef.current = index;
+      pagerRef.current.setPage(index);
+    }
+  }, [currentMatchday, sortedMatchdays]);
+
+  const matchdaysWithFinishedMatches = useMemo(() => new Set<number>(
     matches
       .filter(mr => mr.match.isFinished())
       .map(mr => mr.match.getMatchday())
-  );
+  ), [matches]);
 
-  const isDelayedMatch = (matchResult: any): boolean => {
+  const isDelayedMatch = useCallback((matchResult: any): boolean => {
     if (matchResult.match.isFinished() || matchResult.match.isInProgress()) return false;
     const md = matchResult.match.getMatchday();
     for (const finishedMd of matchdaysWithFinishedMatches) {
       if (finishedMd > md) return true;
     }
     return false;
-  };
+  }, [matchdaysWithFinishedMatches]);
 
-  const currentMatchdayMatches = currentMatchday ? getMatchesByTime(currentMatchday) : {};
-  const sortedDateTimeKeys = Object.keys(currentMatchdayMatches).sort((a, b) => {
-    const aAllFinished = currentMatchdayMatches[a].every((mr: any) => mr.match.isFinished());
-    const bAllFinished = currentMatchdayMatches[b].every((mr: any) => mr.match.isFinished());
-    if (aAllFinished !== bAllFinished) return aAllFinished ? 1 : -1;
+  if (matchesLoading && !refreshing) {
+    return <MatchesListSkeleton />;
+  }
 
-    const dateTimeA = a.split(' - ');
-    const dateTimeB = b.split(' - ');
-    if (dateTimeA.length !== 2 || dateTimeB.length !== 2) {
-      return a.localeCompare(b);
-    }
-    const dateA = dateTimeA[0];
-    const timeA = dateTimeA[1];
-    const dateB = dateTimeB[0];
-    const timeB = dateTimeB[1];
-    if (dateA !== dateB) {
-      const dateAObj = new Date(dateA);
-      const dateBObj = new Date(dateB);
-      return dateAObj.getTime() - dateBObj.getTime();
-    }
-    const timeANum = parseInt(timeA.replace(':', ''));
-    const timeBNum = parseInt(timeB.replace(':', ''));
-    return timeANum - timeBNum;
-  });
   return (
     <View style={styles.container}>
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-            progressBackgroundColor={colors.background}
-            progressViewOffset={20}
-          />
-        }
+      {/* Matchday Selector — fixed at top */}
+      <FlatList
+        ref={matchdaySelectorRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={sortedMatchdays}
+        keyExtractor={(item) => String(item)}
+        className="border-b border-border"
+        contentContainerClassName="px-2 py-2"
+        style={{ flexGrow: 0 }}
+        getItemLayout={(_, index) => ({
+          length: itemWidth,
+          offset: itemWidth * index,
+          index,
+        })}
+        onScrollToIndexFailed={(info) => {
+          setTimeout(() => {
+            matchdaySelectorRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+          }, 100);
+        }}
+        renderItem={({ item }) => {
+          const isSelected = item === currentMatchday;
+          const isActive = item === activeMatchday;
+          return (
+            <TouchableOpacity
+              onPress={() => setCurrentMatchday(item)}
+              style={{ width: itemWidth }}
+              className="items-center py-1.5"
+            >
+              <Text className={`text-lg ${isSelected ? `font-hk-bold ${isActive ? 'text-primary' : 'text-foreground'}` : isActive ? 'font-hk-medium text-primary' : 'font-hk-medium text-foreground-secondary'}`}>
+                {t('games.matchdayShortPrefix')}{item}
+              </Text>
+              <View className={`h-0.5 w-1/2 mt-0.5 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
+            </TouchableOpacity>
+          );
+        }}
+      />
+      {/* Swipeable matchday pages */}
+      <PagerView
+        ref={pagerRef}
+        style={{ flex: 1, backgroundColor: colors.background }}
+        initialPage={currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0}
+        onPageSelected={onPageSelected}
       >
-        {/* Matchday Selector */}
-        <FlatList
-          ref={matchdaySelectorRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={sortedMatchdays}
-          keyExtractor={(item) => String(item)}
-          className="border-b border-border"
-          contentContainerClassName="px-2 py-2"
-          getItemLayout={(_, index) => ({
-            length: itemWidth,
-            offset: itemWidth * index,
-            index,
-          })}
-          onScrollToIndexFailed={(info) => {
-            setTimeout(() => {
-              matchdaySelectorRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
-            }, 100);
-          }}
-          renderItem={({ item }) => {
-            const isSelected = item === currentMatchday;
-            const isActive = item === activeMatchday;
-            return (
-              <TouchableOpacity
-                onPress={() => startTransition(() => setCurrentMatchday(item))}
-                style={{ width: itemWidth }}
-                className="items-center py-1.5"
-              >
-                <Text className={`text-lg ${isSelected ? `font-hk-bold ${isActive ? 'text-primary' : 'text-foreground'}` : isActive ? 'font-hk-medium text-primary' : 'font-hk-medium text-foreground-secondary'}`}>
-                  {t('games.matchdayShortPrefix')}{item}
-                </Text>
-                <View className={`h-0.5 w-1/2 mt-0.5 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
-              </TouchableOpacity>
-            );
-          }}
-        />
-        {/* Background panel: covers grid from below matchday selector */}
-        <View style={{ backgroundColor: colors.background, flexGrow: 1 }}>
-          {isPending ? (
-            <MatchdayContentSkeleton />
-          ) : (
-            /* Matches for current matchday */
-            <View style={styles.matchesContainer}>
-              {sortedDateTimeKeys.map((dateTimeKey: string) => {
-                const matchesAtTime = currentMatchdayMatches[dateTimeKey];
-                const dateTimeParts = dateTimeKey.split(' - ');
-                const dateDisplay = dateTimeParts[0] || '';
-                const timeDisplay = dateTimeParts[1] || '';
-                return (
-                  <View key={dateTimeKey} style={styles.timeGroup}>
-                    <View style={styles.timeHeaderContainer}>
-                      <Text className="font-hk-bold" style={styles.timeHeader}>{timeDisplay}</Text>
-                      <Text style={styles.dayHeader}>{dateDisplay}</Text>
-                    </View>
-                    {matchesAtTime.map((matchResult: any) => (
-                      <MatchCard
-                        key={matchResult.match.id()}
-                        matchResult={matchResult}
-                        gameId={gameId}
-                        isDelayed={isDelayedMatch(matchResult)}
-                      />
-                    ))}
-                  </View>
-                );
-              })}
-            </View>
-          )}
-          <View style={{ height: 100 }} />
-        </View>
-      </ScrollView>
+        {sortedMatchdays.map((matchday) => (
+          <View key={matchday} collapsable={false}>
+            <MatchdayPage
+              matchday={matchday}
+              gameId={gameId}
+              matchesByMatchday={matchesByMatchday}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              matchesLoading={matchesLoading}
+              isDelayedMatch={isDelayedMatch}
+            />
+          </View>
+        ))}
+      </PagerView>
     </View>
   );
 }
