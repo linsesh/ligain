@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, RefreshControl, Animated, Dimensions, FlatList } from 'react-native';
-import PagerView from 'react-native-pager-view';
+import PagerView, { PagerViewOnPageScrollEvent } from 'react-native-pager-view';
+import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, SharedValue } from 'react-native-reanimated';
 import { Text } from './ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -373,6 +374,40 @@ const MatchdayPage = React.memo(function MatchdayPage({ matchday, gameId, matche
   );
 });
 
+function MatchdayTab({ index, matchday, isActive, activeMatchday, scrollPosition, itemWidth, onPress, prefix }: {
+  index: number;
+  matchday: number;
+  isActive: boolean;
+  activeMatchday?: number;
+  scrollPosition: SharedValue<number>;
+  itemWidth: number;
+  onPress: (matchday: number) => void;
+  prefix: string;
+}) {
+  const isActiveMatchday = matchday === activeMatchday;
+  const underlineStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scrollPosition.value,
+      [index - 1, index, index + 1],
+      [0, 1, 0],
+      'clamp'
+    ),
+  }));
+
+  return (
+    <TouchableOpacity
+      onPress={() => onPress(matchday)}
+      style={{ width: itemWidth }}
+      className="items-center py-1.5"
+    >
+      <Text className={`text-lg ${isActive ? `font-hk-bold ${isActiveMatchday ? 'text-primary' : 'text-foreground'}` : isActiveMatchday ? 'font-hk-medium text-primary' : 'font-hk-medium text-foreground-secondary'}`}>
+        {prefix}{matchday}
+      </Text>
+      <Reanimated.View className="h-0.5 w-1/2 mt-0.5 rounded-full bg-primary" style={underlineStyle} />
+    </TouchableOpacity>
+  );
+}
+
 interface MatchesListProps {
   gameId: string;
   initialMatchday?: number;
@@ -438,6 +473,11 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
 
   const pagerRef = useRef<PagerView>(null);
   const pagerPageRef = useRef(currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0);
+  const scrollPosition = useSharedValue(currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0);
+
+  const onPageScroll = useCallback((e: PagerViewOnPageScrollEvent) => {
+    scrollPosition.value = e.nativeEvent.position + e.nativeEvent.offset;
+  }, []);
 
   const onPageSelected = useCallback((e: any) => {
     const pageIndex = e.nativeEvent.position;
@@ -497,28 +537,25 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
             matchdaySelectorRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
           }, 100);
         }}
-        renderItem={({ item }) => {
-          const isSelected = item === currentMatchday;
-          const isActive = item === activeMatchday;
-          return (
-            <TouchableOpacity
-              onPress={() => setCurrentMatchday(item)}
-              style={{ width: itemWidth }}
-              className="items-center py-1.5"
-            >
-              <Text className={`text-lg ${isSelected ? `font-hk-bold ${isActive ? 'text-primary' : 'text-foreground'}` : isActive ? 'font-hk-medium text-primary' : 'font-hk-medium text-foreground-secondary'}`}>
-                {t('games.matchdayShortPrefix')}{item}
-              </Text>
-              <View className={`h-0.5 w-1/2 mt-0.5 rounded-full ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item, index }) => (
+          <MatchdayTab
+            index={index}
+            matchday={item}
+            isActive={item === currentMatchday}
+            activeMatchday={activeMatchday}
+            scrollPosition={scrollPosition}
+            itemWidth={itemWidth}
+            onPress={setCurrentMatchday}
+            prefix={t('games.matchdayShortPrefix')}
+          />
+        )}
       />
       {/* Swipeable matchday pages */}
       <PagerView
         ref={pagerRef}
         style={{ flex: 1, backgroundColor: colors.background }}
         initialPage={currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0}
+        onPageScroll={onPageScroll}
         onPageSelected={onPageSelected}
       >
         {sortedMatchdays.map((matchday) => (
