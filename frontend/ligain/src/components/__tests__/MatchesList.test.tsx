@@ -7,6 +7,31 @@ import { useAuth } from '../../contexts/AuthContext';
 jest.mock('../../contexts/MatchesContext');
 jest.mock('../../contexts/AuthContext');
 
+// Mock react-native-pager-view
+jest.mock('react-native-pager-view', () => {
+  const React = require('react');
+  const PagerView = React.forwardRef(({ children, onPageSelected }: any, ref: any) => {
+    React.useImperativeHandle(ref, () => ({ setPage: jest.fn() }));
+    return React.createElement('View', null, children);
+  });
+  PagerView.displayName = 'PagerView';
+  return { __esModule: true, default: PagerView };
+});
+
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: { View: View },
+    useSharedValue: (v: any) => ({ value: v }),
+    useAnimatedStyle: (fn: any) => fn(),
+    interpolate: () => 1,
+    SharedValue: {},
+  };
+});
+
 // Mock notification hooks
 jest.mock('../../hooks/useNotifications', () => ({
   useNotifications: jest.fn(() => ({
