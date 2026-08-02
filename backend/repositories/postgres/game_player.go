@@ -55,7 +55,7 @@ func (r *PostgresGamePlayerRepository) RemovePlayerFromGame(ctx context.Context,
 
 func (r *PostgresGamePlayerRepository) GetPlayersInGame(ctx context.Context, gameID string) ([]models.Player, error) {
 	query := `
-		SELECT p.id, p.name, p.avatar_signed_url
+		SELECT p.id, p.name, p.avatar_object_key, p.avatar_signed_url, p.avatar_signed_url_expires_at
 		FROM game_player gp
 		JOIN player p ON gp.player_id = p.id
 		WHERE gp.game_id = $1
@@ -71,7 +71,7 @@ func (r *PostgresGamePlayerRepository) GetPlayersInGame(ctx context.Context, gam
 	var players []models.Player
 	for rows.Next() {
 		var player models.PlayerData
-		err := rows.Scan(&player.ID, &player.Name, &player.AvatarSignedURL)
+		err := rows.Scan(&player.ID, &player.Name, &player.AvatarObjectKey, &player.AvatarSignedURL, &player.AvatarSignedURLExpiresAt)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning player row: %v", err)
 		}

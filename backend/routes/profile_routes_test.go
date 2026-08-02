@@ -73,6 +73,9 @@ func (m *MockProfileService) GetPlayerProfile(ctx context.Context, playerID stri
 	return m.getPlayerResult, nil
 }
 
+func (m *MockProfileService) RefreshAvatarURLIfNeeded(ctx context.Context, player *models.PlayerData) {
+}
+
 // Helper to create a test JPEG image for upload tests
 func createTestJPEGForUpload(width, height int) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))

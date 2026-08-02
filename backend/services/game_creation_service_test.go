@@ -196,7 +196,7 @@ func setupCreationTestService(t *testing.T, mockGameRepo *MockGameRepository, mo
 	require.NoError(t, err)
 
 	membershipService := NewGameMembershipService(&creationTestUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, watcher)
-	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return testTime })
 
 	return NewGameCreationServiceWithServices(

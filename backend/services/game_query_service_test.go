@@ -5,6 +5,7 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/rules"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,7 +18,7 @@ func TestGameQueryService_GetPlayerGames_Success(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1", "game2"}
@@ -63,7 +64,7 @@ func TestGameQueryService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	player2 := &models.PlayerData{ID: "player2", Name: "Other Player"}
@@ -120,7 +121,7 @@ func TestGameQueryService_GetPlayerGames_EmptyList(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -144,7 +145,7 @@ func TestGameQueryService_GetPlayerGames_RepositoryError(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -169,7 +170,7 @@ func TestGameQueryService_GetPlayerGames_GracefulDegradation(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1", "game2"}
@@ -204,7 +205,7 @@ func TestGameQueryService_GetGame_Success(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
@@ -231,7 +232,7 @@ func TestGameQueryService_GetGame_NotFound(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	// Mock expectations
 	mockGameRepo.On("GetGame", "nonexistent").Return(nil, errors.New("game not found"))
@@ -253,7 +254,7 @@ func TestGameQueryService_GetPlayerGames_FinishedStatus(t *testing.T) {
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo)
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1"}
@@ -279,4 +280,120 @@ func TestGameQueryService_GetPlayerGames_FinishedStatus(t *testing.T) {
 
 	mockGamePlayerRepo.AssertExpectations(t)
 	mockGameRepo.AssertExpectations(t)
+}
+
+func TestGameQueryService_GetPlayerGames_RefreshesStaleAvatarURL(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	// Setup profile service with mock storage that will generate a fresh URL
+	mockStorage := NewMockStorageServiceForProfile()
+	mockStorage.GeneratedURL = "https://storage.example.com/fresh-signed-url"
+	mockImageProc := NewMockImageProcessorForProfile()
+	mockPlayerRepo := NewMockPlayerRepoForProfile()
+
+	avatarKey := "avatars/player2/pic.webp"
+	staleURL := "https://storage.example.com/stale-expired-url"
+	expiresAt := time.Now().Add(12 * time.Hour) // Within 24h refresh threshold = stale
+
+	player2 := &models.PlayerData{
+		ID:                       "player2",
+		Name:                     "Other Player",
+		AvatarObjectKey:          &avatarKey,
+		AvatarSignedURL:          &staleURL,
+		AvatarSignedURLExpiresAt: &expiresAt,
+	}
+	mockPlayerRepo.players["player2"] = player2
+
+	profileService := NewProfileService(mockStorage, mockImageProc, mockPlayerRepo)
+
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, profileService)
+
+	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	gameIDs := []string{"game1"}
+
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+
+	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
+	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{player1, player2}, nil)
+	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(map[string]map[string]int{}, nil)
+	mockGameCodeRepo.On("GetGameCodeByGameID", "game1").Return(&models.GameCode{Code: "ABC1"}, nil)
+
+	playerGames, err := service.GetPlayerGames(player1)
+
+	assert.NoError(t, err)
+	assert.Len(t, playerGames, 1)
+
+	// Find player2 in results and verify their avatar URL was refreshed
+	var foundPlayer2 bool
+	for _, p := range playerGames[0].Players {
+		if p.ID == "player2" {
+			foundPlayer2 = true
+			assert.NotNil(t, p.AvatarURL)
+			assert.Equal(t, "https://storage.example.com/fresh-signed-url", *p.AvatarURL)
+		}
+	}
+	assert.True(t, foundPlayer2, "player2 should be in the game results")
+
+	// Verify the DB was updated with fresh URL
+	assert.Equal(t, "https://storage.example.com/fresh-signed-url", mockPlayerRepo.lastUpdatedSignedURL)
+}
+
+func TestGameQueryService_GetPlayerGames_DoesNotRefreshValidAvatarURL(t *testing.T) {
+	mockGameRepo := new(MockGameRepository)
+	mockGamePlayerRepo := new(MockGamePlayerRepository)
+	mockGameCodeRepo := new(MockGameCodeRepository)
+	mockBetRepo := new(MockBetRepository)
+
+	mockStorage := NewMockStorageServiceForProfile()
+	mockStorage.GeneratedURL = "https://storage.example.com/should-not-be-called"
+	mockImageProc := NewMockImageProcessorForProfile()
+	mockPlayerRepo := NewMockPlayerRepoForProfile()
+
+	avatarKey := "avatars/player2/pic.webp"
+	validURL := "https://storage.example.com/still-valid-url"
+	expiresAt := time.Now().Add(48 * time.Hour) // Well beyond 24h threshold = valid
+
+	player2 := &models.PlayerData{
+		ID:                       "player2",
+		Name:                     "Other Player",
+		AvatarObjectKey:          &avatarKey,
+		AvatarSignedURL:          &validURL,
+		AvatarSignedURLExpiresAt: &expiresAt,
+	}
+	mockPlayerRepo.players["player2"] = player2
+
+	profileService := NewProfileService(mockStorage, mockImageProc, mockPlayerRepo)
+
+	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, profileService)
+
+	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
+	gameIDs := []string{"game1"}
+
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+
+	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
+	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
+	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{player1, player2}, nil)
+	mockBetRepo.On("GetScoresByMatchAndPlayer", "game1").Return(map[string]map[string]int{}, nil)
+	mockGameCodeRepo.On("GetGameCodeByGameID", "game1").Return(&models.GameCode{Code: "ABC1"}, nil)
+
+	playerGames, err := service.GetPlayerGames(player1)
+
+	assert.NoError(t, err)
+	assert.Len(t, playerGames, 1)
+
+	for _, p := range playerGames[0].Players {
+		if p.ID == "player2" {
+			assert.NotNil(t, p.AvatarURL)
+			// URL should remain unchanged — no refresh needed
+			assert.Equal(t, "https://storage.example.com/still-valid-url", *p.AvatarURL)
+		}
+	}
+
+	// DB should NOT have been updated
+	assert.Empty(t, mockPlayerRepo.lastUpdatedSignedURL)
 }

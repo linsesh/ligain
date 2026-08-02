@@ -14,12 +14,14 @@ import (
 )
 
 type AuthHandler struct {
-	authService services.AuthServiceInterface
+	authService    services.AuthServiceInterface
+	profileService services.ProfileService
 }
 
-func NewAuthHandler(authService services.AuthServiceInterface) *AuthHandler {
+func NewAuthHandler(authService services.AuthServiceInterface, profileService services.ProfileService) *AuthHandler {
 	return &AuthHandler{
-		authService: authService,
+		authService:    authService,
+		profileService: profileService,
 	}
 }
 
@@ -170,6 +172,10 @@ func (h *AuthHandler) GetCurrentPlayer(c *gin.Context) {
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid player data"})
 		return
+	}
+
+	if h.profileService != nil {
+		h.profileService.RefreshAvatarURLIfNeeded(c.Request.Context(), playerData)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"player": toPlayerResponse(playerData)})

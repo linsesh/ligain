@@ -23,6 +23,7 @@ type GameQueryService struct {
 	gamePlayerRepo repositories.GamePlayerRepository
 	gameCodeRepo   repositories.GameCodeRepository
 	betRepo        repositories.BetRepository
+	profileService ProfileService
 }
 
 // NewGameQueryService creates a new GameQueryService instance
@@ -31,12 +32,14 @@ func NewGameQueryService(
 	gamePlayerRepo repositories.GamePlayerRepository,
 	gameCodeRepo repositories.GameCodeRepository,
 	betRepo repositories.BetRepository,
+	profileService ProfileService,
 ) *GameQueryService {
 	return &GameQueryService{
 		gameRepo:       gameRepo,
 		gamePlayerRepo: gamePlayerRepo,
 		gameCodeRepo:   gameCodeRepo,
 		betRepo:        betRepo,
+		profileService: profileService,
 	}
 }
 
@@ -84,6 +87,9 @@ func (s *GameQueryService) GetPlayerGames(player models.Player) ([]PlayerGame, e
 			}
 			var avatarURL *string
 			if pd, ok := p.(*models.PlayerData); ok {
+				if s.profileService != nil {
+					s.profileService.RefreshAvatarURLIfNeeded(ctx, pd)
+				}
 				avatarURL = pd.AvatarSignedURL
 			}
 			playerInfos = append(playerInfos, PlayerGameInfo{

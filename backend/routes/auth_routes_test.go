@@ -459,7 +459,7 @@ func TestSignInHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new Gin router
 			router := gin.New()
-			authHandler := NewAuthHandler(tt.authService)
+			authHandler := NewAuthHandler(tt.authService, nil)
 
 			// Add API key middleware if requested
 			if tt.includeAPIKey {
@@ -551,7 +551,7 @@ func TestSignOutHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new Gin router
 			router := gin.New()
-			authHandler := NewAuthHandler(tt.authService)
+			authHandler := NewAuthHandler(tt.authService, nil)
 			router.POST("/signout", authHandler.SignOut)
 
 			// Create request
@@ -626,7 +626,7 @@ func TestCurrentUserHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new Gin router
 			router := gin.New()
-			authHandler := NewAuthHandler(tt.authService)
+			authHandler := NewAuthHandler(tt.authService, nil)
 			router.GET("/me", middleware.PlayerAuth(tt.authService), authHandler.GetCurrentPlayer)
 
 			// Create request
@@ -703,7 +703,7 @@ func TestSignInGuestHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
-			authHandler := NewAuthHandler(tt.authService)
+			authHandler := NewAuthHandler(tt.authService, nil)
 			router.POST("/signin/guest", authHandler.SignInGuest)
 
 			req, err := http.NewRequest("POST", "/signin/guest", strings.NewReader(tt.requestBody))

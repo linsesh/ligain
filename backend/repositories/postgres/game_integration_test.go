@@ -783,7 +783,7 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
 		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
-		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, nil)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
 			gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
@@ -873,7 +873,7 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
 		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
-		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, nil)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
 			gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
@@ -963,7 +963,7 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
 		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
-		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo)
+		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, nil)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
 			gameRepo, gameCodeRepo, gamePlayerRepo, matchRepo,
