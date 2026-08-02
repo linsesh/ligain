@@ -135,20 +135,31 @@ function MatchCard({ matchResult, gameId, isDelayed }: {
     (game?.players ?? []).map((p: any) => [p.id, p])
   );
 
-  const handleShareMatch = async () => {
+  const pendingShareRef = useRef(false);
+
+  useEffect(() => {
+    if (!isSharing || !pendingShareRef.current) return;
+    pendingShareRef.current = false;
+    const timeout = setTimeout(async () => {
+      try {
+        await captureAndShareWithOptions(shareableRef, {
+          title: t('share.shareTitle'),
+          message: t('share.shareTitle'),
+        });
+      } catch (error) {
+        console.error('Error sharing match:', error);
+        Alert.alert(t('share.shareFailed'), t('share.shareFailed'));
+      } finally {
+        setIsSharing(false);
+      }
+    }, 100);
+    return () => clearTimeout(timeout);
+  }, [isSharing]);
+
+  const handleShareMatch = () => {
     if (!matchResult.match.isFinished() || isSharing) return;
+    pendingShareRef.current = true;
     setIsSharing(true);
-    try {
-      await captureAndShareWithOptions(shareableRef, {
-        title: t('share.shareTitle'),
-        message: t('share.shareTitle'),
-      });
-    } catch (error) {
-      console.error('Error sharing match:', error);
-      Alert.alert(t('share.shareFailed'), t('share.shareFailed'));
-    } finally {
-      setIsSharing(false);
-    }
   };
 
   // Tag logic
@@ -268,8 +279,8 @@ function MatchCard({ matchResult, gameId, isDelayed }: {
         </View>
       )}
 
-      {/* Hidden shareable component for image generation */}
-      {matchResult.match.isFinished() && (
+      {/* Hidden shareable component — only mounted when sharing */}
+      {isSharing && (
         <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
           <ViewShot ref={shareableRef}>
             <ShareableMatchResult
@@ -293,7 +304,7 @@ function MatchCard({ matchResult, gameId, isDelayed }: {
   );
 }
 
-const MatchdayPage = React.memo(function MatchdayPage({ matchday, gameId, matchesByMatchday, refreshing, onRefresh, matchesLoading, isDelayedMatch }: {
+const MatchdayPage = React.memo(function MatchdayPage({ matchday, gameId, matchesByMatchday, refreshing, onRefresh, matchesLoading, isDelayedMatch, isNearby }: {
   matchday: number;
   gameId: string;
   matchesByMatchday: { [key: number]: any[] };
@@ -301,7 +312,9 @@ const MatchdayPage = React.memo(function MatchdayPage({ matchday, gameId, matche
   onRefresh: () => void;
   matchesLoading: boolean;
   isDelayedMatch: (mr: any) => boolean;
+  isNearby: boolean;
 }) {
+  if (!isNearby) return <View style={{ flex: 1 }} />;
   const matchdayMatches = matchesByMatchday[matchday] || [];
   const sortedMatches = [...matchdayMatches].sort((a, b) =>
     a.match.getDate().getTime() - b.match.getDate().getTime()
@@ -511,6 +524,8 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
     return false;
   }, [matchdaysWithFinishedMatches]);
 
+  const currentIdx = currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0;
+
   if (matchesLoading && !refreshing) {
     return <MatchesListSkeleton />;
   }
@@ -555,10 +570,11 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
         ref={pagerRef}
         style={{ flex: 1, backgroundColor: colors.background }}
         initialPage={currentMatchday ? sortedMatchdays.indexOf(currentMatchday) : 0}
+        offscreenPageLimit={1}
         onPageScroll={onPageScroll}
         onPageSelected={onPageSelected}
       >
-        {sortedMatchdays.map((matchday) => (
+        {sortedMatchdays.map((matchday, idx) => (
           <View key={matchday} collapsable={false}>
             <MatchdayPage
               matchday={matchday}
@@ -568,6 +584,7 @@ export default function MatchesList({ gameId, initialMatchday, activeMatchday }:
               onRefresh={onRefresh}
               matchesLoading={matchesLoading}
               isDelayedMatch={isDelayedMatch}
+              isNearby={Math.abs(idx - currentIdx) <= 1}
             />
           </View>
         ))}
