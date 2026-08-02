@@ -80,7 +80,7 @@ func TestAuthHandler_DeleteAccount_Success(t *testing.T) {
 
 	// Setup
 	mockAuthService := new(MockAuthServiceForDelete)
-	handler := NewAuthHandler(mockAuthService)
+	handler := NewAuthHandler(mockAuthService, nil)
 
 	// Create test player
 	testPlayer := &models.PlayerData{
@@ -117,7 +117,7 @@ func TestAuthHandler_DeleteAccount_NoPlayerInContext(t *testing.T) {
 
 	// Setup
 	mockAuthService := new(MockAuthServiceForDelete)
-	handler := NewAuthHandler(mockAuthService)
+	handler := NewAuthHandler(mockAuthService, nil)
 
 	// Setup router without setting player in context
 	router := gin.New()
@@ -140,7 +140,7 @@ func TestAuthHandler_DeleteAccount_InvalidPlayerType(t *testing.T) {
 
 	// Setup
 	mockAuthService := new(MockAuthServiceForDelete)
-	handler := NewAuthHandler(mockAuthService)
+	handler := NewAuthHandler(mockAuthService, nil)
 
 	// Setup router with invalid player type in context
 	router := gin.New()
@@ -167,7 +167,7 @@ func TestAuthHandler_DeleteAccount_PlayerNotFound(t *testing.T) {
 
 	// Setup
 	mockAuthService := new(MockAuthServiceForDelete)
-	handler := NewAuthHandler(mockAuthService)
+	handler := NewAuthHandler(mockAuthService, nil)
 
 	// Create test player
 	testPlayer := &models.PlayerData{
@@ -205,7 +205,7 @@ func TestAuthHandler_DeleteAccount_ServiceError(t *testing.T) {
 
 	// Setup
 	mockAuthService := new(MockAuthServiceForDelete)
-	handler := NewAuthHandler(mockAuthService)
+	handler := NewAuthHandler(mockAuthService, nil)
 
 	// Create test player
 	testPlayer := &models.PlayerData{

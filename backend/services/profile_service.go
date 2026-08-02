@@ -42,6 +42,10 @@ type ProfileService interface {
 
 	// GetPlayerProfile retrieves a player's profile with refreshed signed URL if needed
 	GetPlayerProfile(ctx context.Context, playerID string) (*models.PlayerData, error)
+
+	// RefreshAvatarURLIfNeeded regenerates the signed URL if it's near expiry.
+	// Mutates player in place. Non-fatal: logs and returns on error.
+	RefreshAvatarURLIfNeeded(ctx context.Context, player *models.PlayerData)
 }
 
 // ProfileServiceImpl implements ProfileService
@@ -189,4 +193,21 @@ func (s *ProfileServiceImpl) refreshSignedURL(ctx context.Context, player *model
 	}
 
 	return url, expiresAt, nil
+}
+
+// RefreshAvatarURLIfNeeded regenerates the signed URL if near expiry. Mutates player in place.
+func (s *ProfileServiceImpl) RefreshAvatarURLIfNeeded(ctx context.Context, player *models.PlayerData) {
+	if player.AvatarObjectKey == nil {
+		return
+	}
+	if !s.needsSignedURLRefresh(player) {
+		return
+	}
+	newURL, expiresAt, err := s.refreshSignedURL(ctx, player)
+	if err != nil {
+		log.Warnf("RefreshAvatarURLIfNeeded - failed for player %s: %v", player.ID, err)
+		return
+	}
+	player.AvatarSignedURL = &newURL
+	player.AvatarSignedURLExpiresAt = &expiresAt
 }
