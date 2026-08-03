@@ -19,12 +19,10 @@ import OLLogoSvg from '@assets/images/logo_ol.svg';
 import OMLogoSvg from '@assets/images/logo_om.svg';
 // Use PNG for Paris FC, Le Mans, Troyes due to SVG unavailability
 import PFCLogoPng from '@assets/images/logo_pfc.png';
-import LeMansLogoPng from '@assets/images/logo_le_mans.png';
-import TroyesLogoPng from '@assets/images/logo_troyes.png';
 // Type assertion to ensure PNG is treated as number (React Native image source)
 const PFCLogoPngSource = PFCLogoPng as number;
-const LeMansLogoPngSource = LeMansLogoPng as number;
-const TroyesLogoPngSource = TroyesLogoPng as number;
+import LeMansLogoSvg from '@assets/images/logo_le_mans.svg';
+import TroyesLogoSvg from '@assets/images/logo_troyes.svg';
 import PSGLogoSvg from '@assets/images/logo_psg.svg';
 import RennesLogoSvg from '@assets/images/logo_rennes.svg';
 import StrasbourgLogoSvg from '@assets/images/logo_strasbourg.svg';
@@ -50,14 +48,14 @@ export const TEAM_LOGOS: { [key: string]: TeamLogo } = {
   'Olympique Marseille': OMLogoSvg,
   'Paris': PFCLogoPngSource, // Using PNG instead of SVG due to color issues
   'Paris Saint Germain': PSGLogoSvg,
-  'Troyes': TroyesLogoPngSource,
+  'Troyes': TroyesLogoSvg,
   'Rennes': RennesLogoSvg,
   'Strasbourg': StrasbourgLogoSvg,
   'Toulouse': ToulouseLogoSvg,
   
   // Display names (shortened versions)
   'Angers': AngersLogoSvg,
-  'Le Mans': LeMansLogoPngSource,
+  'Le Mans': LeMansLogoSvg,
   'Lille': LilleLogoSvg,
   'Lyon': OLLogoSvg,
   'Marseille': OMLogoSvg,
