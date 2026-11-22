@@ -12,7 +12,7 @@ type ScorerTest struct{}
 func (s *ScorerTest) Score(match models.Match, bets []*models.Bet) []int {
 	scores := make([]int, len(bets))
 	for i, bet := range bets {
-		if bet.IsBetCorrect() {
+		if bet.IsBetCorrect(match) {
 			scores[i] = 500
 		} else {
 			scores[i] = 0
@@ -114,7 +114,7 @@ func TestCheckPlayerBetValidity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := game.CheckPlayerBetValidity(tt.player, tt.bet, tt.checkTime)
+			err := game.CheckPlayerBetValidity(tt.player, tt.bet, match, tt.checkTime)
 			if (err != nil) != tt.expectedError {
 				t.Errorf("CheckPlayerBetValidity() error = %v, expectedError %v", err, tt.expectedError)
 			}
@@ -191,7 +191,7 @@ func TestCheckPlayerBetValidityWithMixedPlayerSources(t *testing.T) {
 			// Create a new bet for testing
 			testBet := models.NewBet(match, 0, 0)
 
-			err := game.CheckPlayerBetValidity(tt.player, testBet, testTime.Add(-1*time.Hour))
+			err := game.CheckPlayerBetValidity(tt.player, testBet, match, testTime.Add(-1*time.Hour))
 
 			if (err != nil) != tt.expectedError {
 				t.Errorf("%s: CheckPlayerBetValidity() error = %v, expectedError %v",

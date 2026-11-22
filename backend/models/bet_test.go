@@ -9,7 +9,7 @@ func TestBet_HomeTeamWins(t *testing.T) {
 	match := NewFinishedSeasonMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bet := NewBet(match, 1, 0)
-	if !bet.IsBetCorrect() {
+	if !bet.IsBetCorrect(match) {
 		t.Errorf("Expected bet to be correct")
 	}
 }
@@ -18,7 +18,7 @@ func TestBet_AwayTeamWins(t *testing.T) {
 	match := NewFinishedSeasonMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bet := NewBet(match, 0, 2)
-	if !bet.IsBetCorrect() {
+	if !bet.IsBetCorrect(match) {
 		t.Errorf("Expected bet to be correct")
 	}
 }
@@ -27,7 +27,7 @@ func TestBet_Draw(t *testing.T) {
 	match := NewFinishedSeasonMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bet := NewBet(match, 0, 0)
-	if !bet.IsBetCorrect() {
+	if !bet.IsBetCorrect(match) {
 		t.Errorf("Expected bet to be correct")
 	}
 }
@@ -36,7 +36,7 @@ func TestBet_HomeTeamWinsButPredictedWrong(t *testing.T) {
 	match := NewFinishedSeasonMatch("Manchester United", "Liverpool", 3, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bet := NewBet(match, 0, 2)
-	if bet.IsBetCorrect() {
+	if bet.IsBetCorrect(match) {
 		t.Errorf("Expected bet to be incorrect")
 	}
 }
@@ -45,7 +45,7 @@ func TestBet_AwayTeamWinsButPredictedWrong(t *testing.T) {
 	match := NewFinishedSeasonMatch("Arsenal", "Chelsea", 0, 2, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bet := NewBet(match, 2, 0)
-	if bet.IsBetCorrect() {
+	if bet.IsBetCorrect(match) {
 		t.Errorf("Expected bet to be incorrect")
 	}
 }
@@ -54,7 +54,7 @@ func TestBet_DrawButPredictedWrong(t *testing.T) {
 	match := NewFinishedSeasonMatch("Tottenham", "West Ham", 1, 1, "2024", "Premier League", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 1.0, 2.0, 3.0)
 
 	bet := NewBet(match, 2, 0)
-	if bet.IsBetCorrect() {
+	if bet.IsBetCorrect(match) {
 		t.Errorf("Expected bet to be incorrect")
 	}
 }
@@ -96,7 +96,7 @@ func TestBetIsModifiable(t *testing.T) {
 	// Run test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := bet.IsModifiable(tt.now); got != tt.expected {
+			if got := bet.IsModifiable(match, tt.now); got != tt.expected {
 				t.Errorf("Bet.IsModifiable() = %v, want %v", got, tt.expected)
 			}
 		})
@@ -106,7 +106,7 @@ func TestBetIsModifiable(t *testing.T) {
 	match = NewSeasonMatch("Home", "Away", "2024", "Premier League", referenceTime.Add(-time.Hour), 1)
 	match.Start()
 	bet = NewBet(match, 2, 1)
-	if bet.IsModifiable(referenceTime) {
+	if bet.IsModifiable(match, referenceTime) {
 		t.Error("Bet should not be modifiable when match is in progress")
 	}
 
@@ -115,7 +115,7 @@ func TestBetIsModifiable(t *testing.T) {
 	earlyMatch := NewSeasonMatch("Home", "Away", "2024", "Premier League", referenceTime.Add(time.Hour), 1)
 	earlyMatch.Start() // API updated status early
 	earlyBet := NewBet(earlyMatch, 2, 1)
-	if !earlyBet.IsModifiable(referenceTime) {
+	if !earlyBet.IsModifiable(earlyMatch, referenceTime) {
 		t.Error("Bet should be modifiable when API set in-progress early but scheduled date not yet reached")
 	}
 }

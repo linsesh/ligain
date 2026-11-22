@@ -50,7 +50,7 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create bet with actual match UUID
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := newTestPlayer("TestPlayer")
+				player := &models.PlayerData{ID: "123e4567-e89b-12d3-a456-426614174001", Name: "TestPlayer"}
 
 				// Use repository SaveBet method instead of raw SQL
 				_, _, err = betRepo.SaveBet("123e4567-e89b-12d3-a456-426614174000", bet, player)
@@ -97,8 +97,8 @@ func TestBetRepository_Integration(t *testing.T) {
 				match := models.NewSeasonMatch("Liverpool", "Man City", "2024", "Premier League", betTestTime, 1)
 				bet1 := models.NewBet(match, 2, 1)
 				bet2 := models.NewBet(match, 1, 1)
-				player1 := newTestPlayer("Player1")
-				player2 := newTestPlayer("Player2")
+				player1 := &models.PlayerData{ID: "223e4567-e89b-12d3-a456-426614174001", Name: "Player1"}
+				player2 := &models.PlayerData{ID: "223e4567-e89b-12d3-a456-426614174002", Name: "Player2"}
 				_, _, err = betRepo.SaveBet("223e4567-e89b-12d3-a456-426614174000", bet1, player1)
 				if err != nil {
 					t.Errorf("Failed to save bet1: %v", err)
@@ -141,11 +141,45 @@ func TestBetRepository_Integration(t *testing.T) {
 				// Create match with proper UUID
 				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
 				bet := models.NewBet(match, 2, 1)
-				player := newTestPlayer("TestPlayer")
+				player := &models.PlayerData{ID: "323e4567-e89b-12d3-a456-426614174001", Name: "TestPlayer"}
 
 				// Try to save bet
 				_, _, err = betRepo.SaveBet("323e4567-e89b-12d3-a456-426614174000", bet, player)
 				require.NoError(t, err)
+			})
+		})
+
+		t.Run("Two players with the same display name keep their own bets", func(t *testing.T) {
+			testDB.withTransaction(t, func(tx *sql.Tx) {
+				betRepo := NewPostgresBetRepository(tx)
+				_, err := tx.Exec(`
+					INSERT INTO game (id, season_year, competition_name, status, game_name)
+					VALUES ('523e4567-e89b-12d3-a456-426614174000', '2024', 'Premier League', 'started', 'Test Game');
+					INSERT INTO player (id, name) VALUES
+						('523e4567-e89b-12d3-a456-426614174001', 'Same Name'),
+						('523e4567-e89b-12d3-a456-426614174002', 'Same Name');`)
+				require.NoError(t, err)
+				_, err = tx.Exec(`
+					INSERT INTO match (id, local_id, home_team_id, away_team_id, match_date, match_status, season_code, competition_code, matchday)
+					VALUES ('523e4567-e89b-12d3-a456-426614174003', 'Premier League-2024-Arsenal-Chelsea-1', 'Arsenal', 'Chelsea', $1, 'scheduled', '2024', 'Premier League', 1)`, betTestTime)
+				require.NoError(t, err)
+				match := models.NewSeasonMatch("Arsenal", "Chelsea", "2024", "Premier League", betTestTime, 1)
+				first := &models.PlayerData{ID: "523e4567-e89b-12d3-a456-426614174001", Name: "Same Name"}
+				second := &models.PlayerData{ID: "523e4567-e89b-12d3-a456-426614174002", Name: "Same Name"}
+
+				_, _, err = betRepo.SaveBet("523e4567-e89b-12d3-a456-426614174000", models.NewBet(match, 2, 1), first)
+				require.NoError(t, err)
+				_, _, err = betRepo.SaveBet("523e4567-e89b-12d3-a456-426614174000", models.NewBet(match, 0, 3), second)
+				require.NoError(t, err)
+
+				firstBets, err := betRepo.GetBets("523e4567-e89b-12d3-a456-426614174000", first)
+				require.NoError(t, err)
+				require.Len(t, firstBets, 1)
+				require.Equal(t, 2, firstBets[0].PredictedHomeGoals)
+				secondBets, err := betRepo.GetBets("523e4567-e89b-12d3-a456-426614174000", second)
+				require.NoError(t, err)
+				require.Len(t, secondBets, 1)
+				require.Equal(t, 3, secondBets[0].PredictedAwayGoals)
 			})
 		})
 

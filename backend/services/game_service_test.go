@@ -53,7 +53,7 @@ func (s *scorerMock) Score(match models.Match, bets []*models.Bet) []int {
 		}
 		// Create a new bet with the same predictions but the finished match
 		finishedBet := models.NewBet(match, bet.PredictedHomeGoals, bet.PredictedAwayGoals)
-		if finishedBet.IsBetCorrect() {
+		if finishedBet.IsBetCorrect(match) {
 			scores[i] = 500
 		} else {
 			scores[i] = 0
@@ -120,8 +120,9 @@ func setupTestGameService() (*GameServiceImpl, models.Match, []models.Player) {
 		gamePlayerRepo.AddPlayerToGame(context.Background(), "test-game", player.GetID())
 	}
 
-	mockMatchService := new(MockMatchService)
-	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo, mockMatchService)
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	_ = matchRepo.SaveMatch(match)
+	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo, NewMatchService(matchRepo))
 	return service, match, players
 }
 

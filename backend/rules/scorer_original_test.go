@@ -13,10 +13,10 @@ func TestScorerOriginal_ScoreWithBreakdown(t *testing.T) {
 	t.Run("Perfect score, no risk, no clairvoyant", func(t *testing.T) {
 		match := models.NewFinishedSeasonMatch("Team A", "Team B", 2, 1, "2024", "L1", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 2.0, 3.0, 2.5)
 		bets := []*models.Bet{
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 1},
 		}
 		breakdowns := scorer.ScoreWithBreakdown(match, bets)
 		bd := breakdowns[0]
@@ -38,10 +38,10 @@ func TestScorerOriginal_ScoreWithBreakdown(t *testing.T) {
 		// Bastia (8.0) vs Real Madrid (1.1) — Real Madrid is favorite, Bastia is underdog
 		match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 2, 0, "2024", "L1", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 		bets := []*models.Bet{
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 0},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 4},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 5},
-			{Match: match, PredictedHomeGoals: 1, PredictedAwayGoals: 4},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 0},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 4},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 5},
+			{MatchID: match.Id(), PredictedHomeGoals: 1, PredictedAwayGoals: 4},
 		}
 		breakdowns := scorer.ScoreWithBreakdown(match, bets)
 		bd := breakdowns[0]
@@ -62,10 +62,10 @@ func TestScorerOriginal_ScoreWithBreakdown(t *testing.T) {
 	t.Run("Close score with draw bonus (risk x1.5)", func(t *testing.T) {
 		match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 2, 2, "2024", "L1", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 		bets := []*models.Bet{
-			{Match: match, PredictedHomeGoals: 1, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 4},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 5},
-			{Match: match, PredictedHomeGoals: 1, PredictedAwayGoals: 4},
+			{MatchID: match.Id(), PredictedHomeGoals: 1, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 4},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 5},
+			{MatchID: match.Id(), PredictedHomeGoals: 1, PredictedAwayGoals: 4},
 		}
 		breakdowns := scorer.ScoreWithBreakdown(match, bets)
 		bd := breakdowns[0]
@@ -86,7 +86,7 @@ func TestScorerOriginal_ScoreWithBreakdown(t *testing.T) {
 	t.Run("Wrong prediction returns zero breakdown", func(t *testing.T) {
 		match := models.NewFinishedSeasonMatch("Team A", "Team B", 2, 1, "2024", "L1", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 2.0, 3.0, 2.5)
 		bets := []*models.Bet{
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 2},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 2},
 		}
 		breakdowns := scorer.ScoreWithBreakdown(match, bets)
 		bd := breakdowns[0]
@@ -111,10 +111,10 @@ func TestScorerOriginal_ScoreWithBreakdown(t *testing.T) {
 	t.Run("Backward compatibility - Score still returns same ints", func(t *testing.T) {
 		match := models.NewFinishedSeasonMatch("Bastia", "Real Madrid", 2, 0, "2024", "L1", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 8.0, 1.1, 6.0)
 		bets := []*models.Bet{
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 0},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 4},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 5},
-			{Match: match, PredictedHomeGoals: 1, PredictedAwayGoals: 4},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 0},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 4},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 5},
+			{MatchID: match.Id(), PredictedHomeGoals: 1, PredictedAwayGoals: 4},
 		}
 		scores := scorer.Score(match, bets)
 		expected := []int{1250, 0, 0, 0}
@@ -126,10 +126,10 @@ func TestScorerOriginal_ScoreWithBreakdown(t *testing.T) {
 	t.Run("Good result with clairvoyant x1.1 (50 percent or less same result)", func(t *testing.T) {
 		match := models.NewFinishedSeasonMatch("Team A", "Team B", 2, 1, "2024", "L1", time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC), 1, 2.0, 3.0, 2.5)
 		bets := []*models.Bet{
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 2, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 1},
-			{Match: match, PredictedHomeGoals: 0, PredictedAwayGoals: 0},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 2, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 1},
+			{MatchID: match.Id(), PredictedHomeGoals: 0, PredictedAwayGoals: 0},
 		}
 		breakdowns := scorer.ScoreWithBreakdown(match, bets)
 		bd := breakdowns[0]
@@ -155,22 +155,22 @@ func TestScorerOriginal_ScoreClassAllPerfect(t *testing.T) {
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
@@ -191,22 +191,22 @@ func TestScorerOriginal_ScoreClassHalfPerfectHalfWrong(t *testing.T) {
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 0,
 		},
@@ -227,22 +227,22 @@ func TestScorerOriginal_ScoreClassOneQuarterPerfectOthersWrong(t *testing.T) {
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 0,
 		},
@@ -263,22 +263,22 @@ func TestScorerOriginal_ScoreClassAllPerfectWithFavoriteBeaten(t *testing.T) {
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 0,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 0,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 0,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 0,
 		},
@@ -299,22 +299,22 @@ func TestScorerOriginal_ScoreClassOnePerfectOthersWrongWithFavoriteLosing(t *tes
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 0,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 4,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 5,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 4,
 		},
@@ -335,22 +335,22 @@ func TestScorerOriginal_ScoreClassOneCloseScoretOthersWrongWithFavoriteDraw(t *t
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 4,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 5,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 4,
 		},
@@ -371,22 +371,22 @@ func TestScorerOriginal_ScoreClassTwoPerfectOneCloseScoreOthersWrongWithFavorite
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 2,
 			PredictedAwayGoals: 4,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 3,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 3,
 		},
@@ -407,22 +407,22 @@ func TestScorerOriginal_ScoreClassAllPossibleOutcomes(t *testing.T) {
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 1,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 2,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 3,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 6,
 		},
@@ -443,22 +443,22 @@ func TestScorerOriginal_ScoreClassTwoCloseTwoOk(t *testing.T) {
 
 	bets := []*models.Bet{
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 1,
 			PredictedAwayGoals: 3,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 3,
 			PredictedAwayGoals: 5,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 0,
 			PredictedAwayGoals: 2,
 		},
 		{
-			Match:              match,
+			MatchID:            match.Id(),
 			PredictedHomeGoals: 3,
 			PredictedAwayGoals: 4,
 		},
@@ -488,13 +488,13 @@ func TestScorerOriginal_ScoreForgottenBets(t *testing.T) {
 	t.Run("One player forgot to bet", func(t *testing.T) {
 		bets := []*models.Bet{
 			{
-				Match:              match,
+				MatchID:            match.Id(),
 				PredictedHomeGoals: 1,
 				PredictedAwayGoals: 0,
 			},
 			nil,
 			{
-				Match:              match,
+				MatchID:            match.Id(),
 				PredictedHomeGoals: 0,
 				PredictedAwayGoals: 2,
 			},
@@ -510,12 +510,12 @@ func TestScorerOriginal_ScoreForgottenBets(t *testing.T) {
 		bets := []*models.Bet{
 			nil,
 			{
-				Match:              match,
+				MatchID:            match.Id(),
 				PredictedHomeGoals: 1,
 				PredictedAwayGoals: 0,
 			},
 			{
-				Match:              match,
+				MatchID:            match.Id(),
 				PredictedHomeGoals: 0,
 				PredictedAwayGoals: 1,
 			},

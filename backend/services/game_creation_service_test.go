@@ -652,7 +652,7 @@ func (m *SimpleMockGame) GetName() string {
 	return "Test Game"
 }
 
-func (m *SimpleMockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
+func (m *SimpleMockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, match models.Match, datetime time.Time) error {
 	return nil
 }
 
@@ -1209,7 +1209,7 @@ func (m *SimpleMockGameFinished) GetSeasonYear() string            { return "202
 func (m *SimpleMockGameFinished) GetCompetitionName() string       { return "Ligue 1" }
 func (m *SimpleMockGameFinished) GetGameStatus() models.GameStatus { return models.GameStatusFinished }
 func (m *SimpleMockGameFinished) GetName() string                  { return "Test Game" }
-func (m *SimpleMockGameFinished) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
+func (m *SimpleMockGameFinished) CheckPlayerBetValidity(player models.Player, bet *models.Bet, match models.Match, datetime time.Time) error {
 	return nil
 }
 func (m *SimpleMockGameFinished) AddPlayerBet(player models.Player, bet *models.Bet) error {

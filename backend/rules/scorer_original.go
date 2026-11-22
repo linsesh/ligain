@@ -140,6 +140,7 @@ func getFavorite(match models.Match) string {
 	return match.GetAwayTeam()
 }
 
+// getClairvoyantMultiplier calculates a multiplier based on how many bets predicted the same result
 func getClairvoyantMultiplier(bet *models.Bet, otherBets []*models.Bet) float64 {
 	totalNumberOfBets := len(otherBets) + 1
 	numberOfBetsWithSameResult := 0

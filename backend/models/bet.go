@@ -4,44 +4,50 @@ import (
 	"time"
 )
 
-// Match represents a bet made by one player
+// Bet represents a bet made by one player on a match
+// It holds only the match ID + predicted goals, not an embedded copy of the match
 type Bet struct {
-	Match              Match
-	PredictedHomeGoals int
-	PredictedAwayGoals int
+	MatchID            string `json:"matchId"`
+	PredictedHomeGoals int    `json:"predictedHomeGoals"`
+	PredictedAwayGoals int    `json:"predictedAwayGoals"`
 }
 
-// NewBet creates a new Bet instance
+// NewBet creates a new Bet instance from a match and predicted goals
+// For convenience, it extracts the match ID from the passed match
 func NewBet(match Match, predictedHomeGoals int, predictedAwayGoals int) *Bet {
 	return &Bet{
-		Match:              match,
+		MatchID:            match.Id(),
 		PredictedHomeGoals: predictedHomeGoals,
 		PredictedAwayGoals: predictedAwayGoals,
 	}
 }
 
-// IsBetCorrect only checks if the predicted team won when the bet isn't a draw, or checks the draw the draw if it was predicted
-func (b *Bet) IsBetCorrect() bool {
-	if b.Match.GetHomeGoals() > b.Match.GetAwayGoals() {
+// IsBetCorrect checks if the predicted result matches the actual match result
+// The match must be passed because bets no longer embed a copy
+func (b *Bet) IsBetCorrect(match Match) bool {
+	if match.GetHomeGoals() > match.GetAwayGoals() {
 		return b.PredictedHomeGoals > b.PredictedAwayGoals
 	}
-	if b.Match.GetHomeGoals() < b.Match.GetAwayGoals() {
+	if match.GetHomeGoals() < match.GetAwayGoals() {
 		return b.PredictedHomeGoals < b.PredictedAwayGoals
 	}
 	return b.PredictedHomeGoals == b.PredictedAwayGoals
 }
 
+// GetPredictedResult returns "home", "away", or "draw" based on predicted goals
+// This is a stable value that doesn't depend on the match state
 func (b *Bet) GetPredictedResult() string {
 	if b.PredictedHomeGoals > b.PredictedAwayGoals {
-		return b.Match.GetHomeTeam()
+		return "home"
 	}
 	if b.PredictedHomeGoals < b.PredictedAwayGoals {
-		return b.Match.GetAwayTeam()
+		return "away"
 	}
-	return "Draw"
+	return "draw"
 }
 
 // IsModifiable checks if the bet can be modified based on the match's state and time
-func (b *Bet) IsModifiable(now time.Time) bool {
-	return !b.Match.IsFinished() && now.Before(b.Match.GetDate())
+// The match must be passed because bets no longer embed a copy
+func (b *Bet) IsModifiable(match Match, now time.Time) bool {
+	return !match.IsFinished() && now.Before(match.GetDate())
 }

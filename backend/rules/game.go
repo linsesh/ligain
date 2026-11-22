@@ -129,17 +129,17 @@ func containsPlayerByID(players []models.Player, player models.Player) bool {
 	return false
 }
 
-func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
+func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet, match models.Match, datetime time.Time) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	if !g.hasIncomingMatchID(bet.Match.Id()) {
-		return fmt.Errorf("match %v not found", bet.Match.Id())
+	if !g.hasIncomingMatchID(bet.MatchID) {
+		return fmt.Errorf("match %v not found", bet.MatchID)
 	}
 	if !containsPlayerByID(g.players, player) {
 		return fmt.Errorf("player %v not found", player)
 	}
-	if datetime.After(bet.Match.GetDate()) {
-		return fmt.Errorf("too late to bet on match %v", bet.Match.Id())
+	if datetime.After(match.GetDate()) {
+		return fmt.Errorf("too late to bet on match %v", bet.MatchID)
 	}
 	return nil
 }
@@ -177,13 +177,13 @@ func (g *GameImpl) finishMatch(match models.Match) {
 func (g *GameImpl) AddPlayerBet(player models.Player, bet *models.Bet) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if !g.hasIncomingMatchID(bet.Match.Id()) {
+	if !g.hasIncomingMatchID(bet.MatchID) {
 		return fmt.Errorf("match not found")
 	}
-	if _, exists := g.bets[bet.Match.Id()]; !exists {
-		g.bets[bet.Match.Id()] = make(map[string]*models.Bet)
+	if _, exists := g.bets[bet.MatchID]; !exists {
+		g.bets[bet.MatchID] = make(map[string]*models.Bet)
 	}
-	g.bets[bet.Match.Id()][player.GetID()] = bet
+	g.bets[bet.MatchID][player.GetID()] = bet
 	return nil
 }
 
