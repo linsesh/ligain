@@ -142,13 +142,14 @@ func main() {
 }
 
 func adjustOdds(match models.Match) models.Match {
+	seasonMatch := match.(*models.SeasonMatch)
 	randomFloat := 1.0 + rand.Float64()*(4.0-1.0)
-	match.SetHomeTeamOdds(randomFloat)
+	seasonMatch.SetHomeTeamOdds(randomFloat)
 	randomFloat = 1.0 + rand.Float64()*(4.0-1.0)
-	match.SetAwayTeamOdds(randomFloat)
+	seasonMatch.SetAwayTeamOdds(randomFloat)
 	randomFloat = 1.0 + rand.Float64()*(4.0-1.0)
-	match.SetDrawOdds(randomFloat)
-	return match
+	seasonMatch.SetDrawOdds(randomFloat)
+	return seasonMatch
 }
 
 func getDatabaseURL() string {

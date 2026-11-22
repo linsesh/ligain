@@ -28,9 +28,6 @@ type Match interface {
 	GetHomeTeamOdds() float64
 	GetAwayTeamOdds() float64
 	GetDrawOdds() float64
-	SetHomeTeamOdds(odds float64)
-	SetAwayTeamOdds(odds float64)
-	SetDrawOdds(odds float64)
 	AbsoluteGoalDifference() int
 	IsDraw() bool
 	TotalGoals() int

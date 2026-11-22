@@ -234,7 +234,7 @@ func (m *MockWatcher) Start(ctx context.Context) error { return nil }
 func (m *MockWatcher) Stop() error                     { return nil }
 
 // setupCreationTestService creates a GameCreationService for tests
-func setupCreationTestService(t *testing.T, mockGameRepo *MockGameRepository, mockGameCodeRepo *MockGameCodeRepository, mockGamePlayerRepo *MockGamePlayerRepository, mockBetRepo *MockBetRepository, mockMatchRepo *MockMatchRepository, watcher MatchWatcherService) (GameCreationServiceInterface, *MockMatchService) {
+func setupCreationTestService(t *testing.T, mockGameRepo *MockGameRepository, mockGameCodeRepo *MockGameCodeRepository, mockGamePlayerRepo *MockGamePlayerRepository, mockBetRepo *MockBetRepository, mockMatchRepo *MockMatchRepository) (GameCreationServiceInterface, *MockMatchService) {
 	// Constructor calls loadAll, so we need to mock GetAllGames
 	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
 
@@ -247,7 +247,7 @@ func setupCreationTestService(t *testing.T, mockGameRepo *MockGameRepository, mo
 	registry, err := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
 	require.NoError(t, err)
 
-	membershipService := NewGameMembershipService(&creationTestUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&creationTestUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return testTime })
 
@@ -267,7 +267,7 @@ func TestGameCreationService_CreateGame_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, mockMatchService := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, mockMatchService := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -310,7 +310,7 @@ func TestGameCreationService_CreateGame_GameCreationFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -345,7 +345,7 @@ func TestGameCreationService_CreateGame_CodeGenerationFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -384,7 +384,7 @@ func TestGameCreationService_CreateGame_CodeExistsCheckFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -423,7 +423,7 @@ func TestGameCreationService_CreateGame_GameCodeCreationFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -463,7 +463,7 @@ func TestGameCreationService_CleanupExpiredCodes(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Mock expectations
 	mockGameCodeRepo.On("DeleteExpiredCodes").Return(nil)
@@ -486,7 +486,7 @@ func TestGameCreationService_CleanupExpiredCodes_Fails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Mock expectations
 	mockGameCodeRepo.On("DeleteExpiredCodes").Return(errors.New("database error"))
@@ -510,7 +510,7 @@ func TestGameCreationService_CreateGame_InvalidCompetition(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -530,7 +530,7 @@ func TestGameCreationService_CreateGame_InvalidSeasonYear(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2025/2026",
@@ -551,7 +551,7 @@ func TestGameCreationService_CreateGame_MatchLoadingFails(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	request := &CreateGameRequest{
 		SeasonYear:      "2026/2027",
@@ -585,7 +585,7 @@ func TestGameCreationService_JoinGame_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -717,7 +717,7 @@ func TestGameCreationService_JoinGame_InvalidCode(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "INVALID"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -745,7 +745,7 @@ func TestGameCreationService_JoinGame_ExpiredCode(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -778,7 +778,7 @@ func TestGameCreationService_JoinGame_GameNotFound(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -813,7 +813,7 @@ func TestGameCreationService_GetPlayerGames_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1", "game2"}
@@ -859,7 +859,7 @@ func TestGameCreationService_GetPlayerGames_EmptyList(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -885,7 +885,7 @@ func TestGameCreationService_GetPlayerGames_RepositoryError(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -911,7 +911,7 @@ func TestGameCreationService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 	mockMatchRepo := new(MockMatchRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	player2 := &models.PlayerData{ID: "player2", Name: "Other Player"}
@@ -994,7 +994,7 @@ func TestGameCreationService_PlayerJoinCacheIssue(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Create a game first
 	request := &CreateGameRequest{
@@ -1075,7 +1075,7 @@ func TestGameCreationService_LeaveGame_Success(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1097,7 +1097,7 @@ func TestGameCreationService_LeaveGame_NotInGame(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1117,7 +1117,7 @@ func TestGameCreationService_LeaveGame_RepoError(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1139,7 +1139,7 @@ func TestGameCreationService_LeaveGame_LastPlayerFinishesGame(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	gameID := "game1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1171,7 +1171,7 @@ func TestGameCreationService_JoinGame_FinishedGame(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	code := "ABC1"
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1286,7 +1286,7 @@ func TestGameCreationService_Join_Leave_Rejoin_Pattern(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Step 1: Create game and join as player1
 	request := &CreateGameRequest{
@@ -1354,7 +1354,7 @@ func TestGameCreationService_CreateGame_PlayerGameLimitReached(t *testing.T) {
 	mockBetRepo := &MockBetRepository{}
 	mockMatchRepo := &MockMatchRepository{}
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Test data
 	req := &CreateGameRequest{
@@ -1386,7 +1386,7 @@ func TestGameCreationService_CreateGame_PlayerGameLimitCheckFails(t *testing.T) 
 	mockBetRepo := &MockBetRepository{}
 	mockMatchRepo := &MockMatchRepository{}
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Test data
 	req := &CreateGameRequest{
@@ -1418,7 +1418,7 @@ func TestGameCreationService_JoinGame_PlayerGameLimitReached(t *testing.T) {
 	mockBetRepo := &MockBetRepository{}
 	mockMatchRepo := &MockMatchRepository{}
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Test data
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1455,7 +1455,7 @@ func TestGameCreationService_JoinGame_PlayerGameLimitCheckFails(t *testing.T) {
 	mockBetRepo := &MockBetRepository{}
 	mockMatchRepo := &MockMatchRepository{}
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Test data
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
@@ -1492,7 +1492,7 @@ func TestGameCreationService_CreateGame_PlayerCanCreateFifthGame(t *testing.T) {
 	mockBetRepo := &MockBetRepository{}
 	mockMatchRepo := &MockMatchRepository{}
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	// Test data
 	req := &CreateGameRequest{
@@ -1531,7 +1531,7 @@ func TestGameCreationService_GetPlayerGames_FinishedGameStatus(t *testing.T) {
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
 
-	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, _ := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameID := "game1"
@@ -1611,7 +1611,7 @@ func TestGameCreationService_CreateGame_TheCreatedGameReadsMatchesFromTheMatchSe
 	mockGamePlayerRepo := new(MockGamePlayerRepository)
 	mockMatchRepo := new(MockMatchRepository)
 	mockBetRepo := new(MockBetRepository)
-	service, mockMatchService := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo, nil)
+	service, mockMatchService := setupCreationTestService(t, mockGameRepo, mockGameCodeRepo, mockGamePlayerRepo, mockBetRepo, mockMatchRepo)
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	scheduled := models.NewSeasonMatchWithKnownOdds("Lens", "Toulouse", "2026/2027", "Ligue 1", time.Now().Add(time.Hour), 1, 2.1, 3.2, 3.3)
 	started := scheduled.Clone()

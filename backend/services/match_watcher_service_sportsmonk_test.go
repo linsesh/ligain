@@ -90,37 +90,19 @@ func NewMockGameService(gameID string) *MockGameService {
 }
 
 // newTestWatcher builds a watcher over a real MatchService and an in-memory match repository holding the given matches
-func newTestWatcher(t *testing.T, sportsmonk *SportsmonkRepositoryMock, now func() time.Time, matches ...models.Match) (*MatchWatcherServiceSportsmonk, repositories.MatchRepository) {
+func newTestWatcher(t *testing.T, sportsmonk *SportsmonkRepositoryMock, now func() time.Time, matches ...models.Match) (*MatchWatcherServiceSportsmonk, repositories.MatchRepository, MatchService) {
 	matchRepo := repositories.NewInMemoryMatchRepository()
 	for _, m := range matches {
 		require.NoError(t, matchRepo.SaveMatch(m))
 	}
 	matchService := NewMatchServiceWithTime(matchRepo, now)
-	return NewMatchWatcherServiceSportsmonkWithOptions(sportsmonk, matchService, 30*time.Second), matchRepo
+	return NewMatchWatcherServiceSportsmonk(sportsmonk, matchService, 30*time.Second), matchRepo, matchService
 }
 
 func fixedTime(t time.Time) func() time.Time { return func() time.Time { return t } }
 
-func TestMatchWatcherServiceSportsmonk_Subscribe(t *testing.T) {
-	service, _ := newTestWatcher(t, &SportsmonkRepositoryMock{}, fixedTime(time.Now()))
-	handler := NewMockGameService("game1")
-
-	require.NoError(t, service.Subscribe(handler))
-	// Subscribing again with the same handler should not error
-	require.NoError(t, service.Subscribe(handler))
-}
-
-func TestMatchWatcherServiceSportsmonk_Unsubscribe(t *testing.T) {
-	service, _ := newTestWatcher(t, &SportsmonkRepositoryMock{}, fixedTime(time.Now()))
-	require.NoError(t, service.Subscribe(NewMockGameService("game1")))
-
-	require.NoError(t, service.Unsubscribe("game1"))
-	// Unsubscribing again should not error
-	require.NoError(t, service.Unsubscribe("game1"))
-}
-
 func TestMatchWatcherServiceSportsmonk_StartStop(t *testing.T) {
-	service, _ := newTestWatcher(t, &SportsmonkRepositoryMock{}, fixedTime(time.Now()))
+	service, _, _ := newTestWatcher(t, &SportsmonkRepositoryMock{}, fixedTime(time.Now()))
 
 	ctx := context.Background()
 	require.NoError(t, service.Start(ctx))
@@ -140,9 +122,9 @@ func TestMatchWatcherServiceSportsmonk_FinishedMatchIsSavedAndSentToGames(t *tes
 	initial := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
 	finished := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{initial.Id(): finished}}}
-	service, matchRepo := newTestWatcher(t, sportsmonk, fixedTime(time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)), initial)
+	service, matchRepo, matchService := newTestWatcher(t, sportsmonk, fixedTime(time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)), initial)
 	handler := NewMockGameService("game1")
-	require.NoError(t, service.Subscribe(handler))
+	require.NoError(t, matchService.Subscribe(handler))
 
 	pollOnce(service)
 
@@ -157,9 +139,9 @@ func TestMatchWatcherServiceSportsmonk_NothingChangedNothingSent(t *testing.T) {
 	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{match.Id(): match.Clone()}}}
-	service, _ := newTestWatcher(t, sportsmonk, fixedTime(time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)), match)
+	service, _, matchService := newTestWatcher(t, sportsmonk, fixedTime(time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)), match)
 	handler := NewMockGameService("game1")
-	require.NoError(t, service.Subscribe(handler))
+	require.NoError(t, matchService.Subscribe(handler))
 
 	pollOnce(service)
 
@@ -170,9 +152,9 @@ func TestMatchWatcherServiceSportsmonk_ProviderErrorChangesNothing(t *testing.T)
 	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
 	sportsmonk := &SportsmonkRepositoryMock{err: errors.New("API error")}
-	service, _ := newTestWatcher(t, sportsmonk, fixedTime(time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)), match)
+	service, _, matchService := newTestWatcher(t, sportsmonk, fixedTime(time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)), match)
 	handler := NewMockGameService("game1")
-	require.NoError(t, service.Subscribe(handler))
+	require.NoError(t, matchService.Subscribe(handler))
 
 	pollOnce(service)
 
@@ -208,9 +190,9 @@ func TestMatchWatcherServiceSportsmonk_WhatChangesIsSentToGames(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			initial := odds(1.5, 2.0, 3.0)
 			sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{initial.Id(): tt.reported}}}
-			service, _ := newTestWatcher(t, sportsmonk, now, initial)
+			service, _, matchService := newTestWatcher(t, sportsmonk, now, initial)
 			handler := NewMockGameService("game1")
-			require.NoError(t, service.Subscribe(handler))
+			require.NoError(t, matchService.Subscribe(handler))
 
 			pollOnce(service)
 
@@ -248,9 +230,9 @@ func TestMatchWatcherServiceSportsmonk_PreMatchOddsAreKeptOnceMatchIsAboutToStar
 		t.Run(tt.name, func(t *testing.T) {
 			initial := preMatch()
 			sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{initial.Id(): tt.reported}}}
-			service, matchRepo := newTestWatcher(t, sportsmonk, fixedTime(tt.now), initial)
+			service, matchRepo, matchService := newTestWatcher(t, sportsmonk, fixedTime(tt.now), initial)
 			handler := NewMockGameService("game1")
-			require.NoError(t, service.Subscribe(handler))
+			require.NoError(t, matchService.Subscribe(handler))
 
 			pollOnce(service)
 
@@ -267,9 +249,9 @@ func TestMatchWatcherServiceSportsmonk_FinishedMatchWithoutUsableOddsIsRejected(
 	initial := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1) // never had odds
 	finishedWithoutOdds := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 0, 0, 0)
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{initial.Id(): finishedWithoutOdds}}}
-	service, matchRepo := newTestWatcher(t, sportsmonk, fixedTime(matchTime.Add(3*time.Hour)), initial)
+	service, matchRepo, matchService := newTestWatcher(t, sportsmonk, fixedTime(matchTime.Add(3*time.Hour)), initial)
 	handler := NewMockGameService("game1")
-	require.NoError(t, service.Subscribe(handler))
+	require.NoError(t, matchService.Subscribe(handler))
 
 	pollOnce(service)
 
@@ -285,7 +267,7 @@ func TestMatchWatcherService_OnlyQueriesMatchesWithinTwoWeeks(t *testing.T) {
 	matchEdge := models.NewSeasonMatch("Team3", "Team4", "2025", "Ligue 1", now.Add(13*24*time.Hour), 1)   // 13 days away
 	matchBeyond := models.NewSeasonMatch("Team5", "Team6", "2025", "Ligue 1", now.Add(21*24*time.Hour), 1) // 21 days away
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{}}}
-	service, _ := newTestWatcher(t, sportsmonk, fixedTime(now), matchWithin, matchEdge, matchBeyond)
+	service, _, _ := newTestWatcher(t, sportsmonk, fixedTime(now), matchWithin, matchEdge, matchBeyond)
 
 	pollOnce(service)
 
@@ -306,7 +288,7 @@ func TestMatchWatcherService_MatchBecomesRelevantAsTimeAdvances(t *testing.T) {
 		{nearMatch.Id(): finishedNearMatch},
 		{farMatch.Id(): farMatch},
 	}}
-	service, _ := newTestWatcher(t, sportsmonk, func() time.Time { return currentTime }, nearMatch, farMatch)
+	service, _, _ := newTestWatcher(t, sportsmonk, func() time.Time { return currentTime }, nearMatch, farMatch)
 
 	// First poll: only the near match (5 days away) is within the 2-week window; it finishes
 	pollOnce(service)
@@ -328,7 +310,7 @@ func TestMatchWatcherService_QueriesPastMatchesThatMayBeRescheduled(t *testing.T
 	futureMatch := models.NewSeasonMatch("Team3", "Team4", "2025", "Ligue 1", now.Add(7*24*time.Hour), 2)     // 7 days ahead (control: included)
 	farFutureMatch := models.NewSeasonMatch("Team5", "Team6", "2025", "Ligue 1", now.Add(21*24*time.Hour), 3) // 21 days ahead (control: excluded)
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{}}}
-	service, _ := newTestWatcher(t, sportsmonk, fixedTime(now), pastMatch, futureMatch, farFutureMatch)
+	service, _, _ := newTestWatcher(t, sportsmonk, fixedTime(now), pastMatch, futureMatch, farFutureMatch)
 
 	pollOnce(service)
 
@@ -345,9 +327,9 @@ func TestMatchWatcherService_DetectsRescheduleOfPastMatch(t *testing.T) {
 	pastMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2025", "Ligue 1", now.Add(-21*24*time.Hour), 1, 1.5, 2.0, 3.0)
 	rescheduledMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2025", "Ligue 1", rescheduledDate, 1, 1.5, 2.0, 3.0)
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{pastMatch.Id(): rescheduledMatch}}}
-	service, matchRepo := newTestWatcher(t, sportsmonk, fixedTime(now), pastMatch)
+	service, matchRepo, matchService := newTestWatcher(t, sportsmonk, fixedTime(now), pastMatch)
 	handler := NewMockGameService("game1")
-	require.NoError(t, service.Subscribe(handler))
+	require.NoError(t, matchService.Subscribe(handler))
 
 	pollOnce(service)
 
@@ -368,7 +350,7 @@ func TestMatchWatcherService_OnlyQueriesTheConfiguredCompetitionAndSeason(t *tes
 		require.NoError(t, matchRepo.SaveMatch(m))
 	}
 	matchService := NewMatchServiceWithTime(matchRepo, fixedTime(now), WatchOnly("Ligue 1", "2026/2027"))
-	service := NewMatchWatcherServiceSportsmonkWithOptions(sportsmonk, matchService, 30*time.Second)
+	service := NewMatchWatcherServiceSportsmonk(sportsmonk, matchService, 30*time.Second)
 
 	pollOnce(service)
 
@@ -386,9 +368,9 @@ func TestMatchWatcherServiceSportsmonk_OddsNoiseAfterKickoffIsNotAnUpdate(t *tes
 	settled := models.NewSeasonMatchWithKnownOdds("Lens", "Toulouse", "2026/2027", "Ligue 1", kickoff, 11, 4.35, 9, 1.35)
 	settled.Start()
 	sportsmonk := &SportsmonkRepositoryMock{lastMatchInfos: []map[string]models.Match{{started.Id(): settled}}}
-	service, matchRepo := newTestWatcher(t, sportsmonk, fixedTime(kickoff.Add(time.Hour)), started)
+	service, matchRepo, matchService := newTestWatcher(t, sportsmonk, fixedTime(kickoff.Add(time.Hour)), started)
 	handler := NewMockGameService("game1")
-	require.NoError(t, service.Subscribe(handler))
+	require.NoError(t, matchService.Subscribe(handler))
 
 	pollOnce(service)
 

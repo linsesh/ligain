@@ -93,7 +93,7 @@ func (f *removedPlayerFixture) router(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	registry, err := services.NewGameServiceRegistry(f.gameRepo, f.betRepo, f.gamePlayerRepo, f.matchService)
 	assert.NoError(t, err)
-	membershipService := services.NewGameMembershipService(repositories.NewNoopUnitOfWork(), f.gamePlayerRepo, f.gameRepo, nil, registry, nil)
+	membershipService := services.NewGameMembershipService(repositories.NewNoopUnitOfWork(), f.gamePlayerRepo, f.gameRepo, nil, registry)
 	authService := services.NewAuthService(f.playerRepo, services.WithPlayerGamesRemover(membershipService))
 	for _, p := range []*models.PlayerData{f.player1, f.leaver} {
 		assert.NoError(t, f.playerRepo.CreateAuthToken(f.ctx, &models.AuthToken{

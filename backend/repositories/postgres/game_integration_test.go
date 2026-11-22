@@ -790,7 +790,7 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		// Create game creation service with all dependencies
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
-		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry)
 		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, nil)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
@@ -880,7 +880,7 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		// Create game creation service with all dependencies
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
-		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry)
 		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, nil)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
@@ -968,7 +968,7 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		// Create game creation service with all dependencies
 		registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, nil)
 		require.NoError(t, err)
-		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(NewUnitOfWork(testDB.db), gamePlayerRepo, gameRepo, gameCodeRepo, registry)
 		queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, nil)
 		joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 		gameCreationService := services.NewGameCreationServiceWithServices(
@@ -1141,7 +1141,7 @@ func TestUnitOfWork_RollbackOnCacheFailure(t *testing.T) {
 
 		// Create membership service with real UnitOfWork
 		uow := NewUnitOfWork(testDB.db)
-		membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry, nil)
+		membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry)
 
 		// Attempt to remove player
 		// - DB removal will succeed (player is in game_player table)

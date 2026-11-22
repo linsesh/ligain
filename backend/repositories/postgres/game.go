@@ -12,21 +12,18 @@ import (
 
 type PostgresGameRepository struct {
 	*PostgresRepository
-	matchRepo repositories.MatchRepository
-	betRepo   repositories.BetRepository
-	cache     repositories.GameRepository // In-memory cache
+	betRepo repositories.BetRepository
+	cache   repositories.GameRepository // In-memory cache
 	// matchReader is where the games it loads read their matches (the MatchService in production)
 	matchReader rules.MatchReader
 }
 
 func NewPostgresGameRepository(db *sql.DB, matchReader rules.MatchReader) (repositories.GameRepository, error) {
 	baseRepo := NewPostgresRepository(db)
-	matchRepo := NewPostgresMatchRepository(db)
 	betRepo := NewPostgresBetRepository(db)
 	cache := repositories.NewInMemoryGameRepository()
 	return &PostgresGameRepository{
 		PostgresRepository: baseRepo,
-		matchRepo:          matchRepo,
 		betRepo:            betRepo,
 		cache:              cache,
 		matchReader:        matchReader,

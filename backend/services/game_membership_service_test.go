@@ -40,7 +40,7 @@ func TestGameMembershipService_AddPlayerToGame_Success(t *testing.T) {
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -64,7 +64,7 @@ func TestGameMembershipService_AddPlayerToGame_AlreadyInGame(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -89,7 +89,7 @@ func TestGameMembershipService_AddPlayerToGame_RepositoryError(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -114,7 +114,7 @@ func TestGameMembershipService_RemovePlayerFromGame_Success(t *testing.T) {
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	otherPlayer := &models.PlayerData{ID: "player2", Name: "Other Player"}
@@ -141,7 +141,7 @@ func TestGameMembershipService_RemovePlayerFromGame_NotInGame(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -166,7 +166,7 @@ func TestGameMembershipService_RemovePlayerFromGame_LastPlayerDeletesGame(t *tes
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -204,7 +204,7 @@ func TestGameMembershipService_IsPlayerInGame_True(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	// Mock expectations
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(true, nil)
@@ -226,7 +226,7 @@ func TestGameMembershipService_IsPlayerInGame_False(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	// Mock expectations
 	mockGamePlayerRepo.On("IsPlayerInGame", mock.Anything, "game1", "player1").Return(false, nil)
@@ -248,7 +248,7 @@ func TestGameMembershipService_GetPlayersInGame_Success(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player1 := &models.PlayerData{ID: "player1", Name: "Player 1"}
 	player2 := &models.PlayerData{ID: "player2", Name: "Player 2"}
@@ -274,7 +274,7 @@ func TestGameMembershipService_GetPlayersInGame_RepositoryError(t *testing.T) {
 	mockBetRepo := new(MockBetRepository)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, nil)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	// Mock expectations
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return(nil, errors.New("database error"))
@@ -297,7 +297,7 @@ func TestGameMembershipService_LeaveGame_Success(t *testing.T) {
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	otherPlayer := &models.PlayerData{ID: "player2", Name: "Other Player"}
@@ -325,7 +325,7 @@ func TestGameMembershipService_LeaveGame_UnregistersFromRegistry(t *testing.T) {
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -374,7 +374,7 @@ func TestGameMembershipService_AddPlayerToGame_UpdatesCachedGameService(t *testi
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
@@ -409,7 +409,7 @@ func TestGameMembershipService_RemovePlayerFromGame_UpdatesCachedGameService(t *
 	mockMatchService := new(MockMatchService)
 
 	registry := setupMembershipTestRegistry(t, mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	service := NewGameMembershipService(&PassThroughUnitOfWork{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 
 	player1 := &models.PlayerData{ID: "player1", Name: "Player 1"}
 	player2 := &models.PlayerData{ID: "player2", Name: "Player 2"}
@@ -584,7 +584,6 @@ func TestGameMembershipService_RemovePlayerFromGame_RollsBackOnCacheFailure(t *t
 		mockGameRepo,
 		mockGameCodeRepo,
 		mockRegistry,
-		nil, // no watcher needed for this test
 	)
 
 	// Act

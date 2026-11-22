@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -58,7 +59,7 @@ func main() {
 		gamePlayerRepo repositories.GamePlayerRepository
 		uow            repositories.UnitOfWork
 		matchService   services.MatchService
-		watcher        services.MatchWatcherService
+		watcher        *services.MatchWatcherServiceSportsmonk
 	)
 
 	if env == "fake" {
@@ -91,7 +92,7 @@ func main() {
 
 			simulatedAPI := api.NewSimulatedSportsmonkAPI(api.NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN")))
 			sportsmonkRepo := repositories.NewSportsmonkRepository(simulatedAPI)
-			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(sportsmonkRepo, matchService, 1*time.Minute)
+			watcher = services.NewMatchWatcherServiceSportsmonk(sportsmonkRepo, matchService, 1*time.Minute)
 			log.Info("Running in fake mode: SimulatedSportsmonkAPI + real postgres (1m poll)")
 		} else {
 			log.Info("Running in fake mode — all repositories are in-memory, no DB required")
@@ -124,9 +125,9 @@ func main() {
 			}
 			fakeAPI := api.NewFakeRandomSportsmonkAPI(fakeSeasonMatches)
 			fakeRepo := repositories.NewSportsmonkRepository(fakeAPI)
-			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(fakeRepo, matchService, 500*time.Millisecond)
+			watcher = services.NewMatchWatcherServiceSportsmonk(fakeRepo, matchService, 500*time.Millisecond)
 
-			// Seed fake games so the watcher has subscribers and HandleMatchUpdates is exercised
+			// Seed fake games so the games receive the match updates
 			allFakeMatches := make([]models.Match, 0, len(fakeSeasonMatches))
 			for i := range fakeSeasonMatches {
 				allFakeMatches = append(allFakeMatches, &fakeSeasonMatches[i])
@@ -169,11 +170,14 @@ func main() {
 		uow = postgres.NewUnitOfWork(db)
 
 		matchService = services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
-		w, err := services.NewMatchWatcherServiceSportsmonk(env, matchService)
-		if err != nil {
-			log.Fatal("Failed to create match watcher service:", err)
+		if env == "local" {
+			// the Sportsmonk token comes from the .env file
+			if err := godotenv.Load(); err != nil {
+				log.Errorf("No .env file found or error loading it: %v", err)
+			}
 		}
-		watcher = w
+		sportsmonkRepo := repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN")))
+		watcher = services.NewMatchWatcherServiceSportsmonk(sportsmonkRepo, matchService, time.Minute)
 	}
 
 	if err := watcher.Start(ctx); err != nil {
@@ -202,7 +206,7 @@ func main() {
 		log.Fatal("Failed to create game registry:", err)
 	}
 
-	membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry)
 	authService := services.NewAuthService(playerRepo, services.WithPlayerGamesRemover(membershipService))
 	queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, profileService)
 	joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
