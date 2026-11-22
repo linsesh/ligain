@@ -18,6 +18,8 @@ type GameServiceRegistryInterface interface {
 	Register(gameID string, gs GameService)
 	// Unregister removes a GameService from the registry
 	Unregister(gameID string)
+	// GetMatchService returns the MatchService used by this registry
+	GetMatchService() MatchService
 }
 
 // GameServiceRegistry manages GameService instances
@@ -25,7 +27,7 @@ type GameServiceRegistry struct {
 	gameRepo       repositories.GameRepository
 	betRepo        repositories.BetRepository
 	gamePlayerRepo repositories.GamePlayerRepository
-	watcher        MatchWatcherService
+	matchService   MatchService
 	gameServices   sync.Map
 }
 
@@ -34,13 +36,13 @@ func NewGameServiceRegistry(
 	gameRepo repositories.GameRepository,
 	betRepo repositories.BetRepository,
 	gamePlayerRepo repositories.GamePlayerRepository,
-	watcher MatchWatcherService,
+	matchService MatchService,
 ) (*GameServiceRegistry, error) {
 	r := &GameServiceRegistry{
 		gameRepo:       gameRepo,
 		betRepo:        betRepo,
 		gamePlayerRepo: gamePlayerRepo,
-		watcher:        watcher,
+		matchService:   matchService,
 	}
 	if err := r.loadAll(); err != nil {
 		return nil, err
@@ -50,12 +52,12 @@ func NewGameServiceRegistry(
 
 // Create creates a new GameService and registers it
 func (r *GameServiceRegistry) Create(gameID string) (GameService, error) {
-	gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo)
+	gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo, r.matchService)
 
-	// Subscribe to watcher if available
-	if r.watcher != nil {
-		if err := r.watcher.Subscribe(gameService); err != nil {
-			return nil, fmt.Errorf("failed to subscribe game to watcher: %v", err)
+	// Subscribe to matchService if available
+	if r.matchService != nil {
+		if err := r.matchService.Subscribe(gameService); err != nil {
+			return nil, fmt.Errorf("failed to subscribe game to matchService: %v", err)
 		}
 	}
 
@@ -82,6 +84,11 @@ func (r *GameServiceRegistry) Unregister(gameID string) {
 	r.gameServices.Delete(gameID)
 }
 
+// GetMatchService returns the MatchService used by this registry
+func (r *GameServiceRegistry) GetMatchService() MatchService {
+	return r.matchService
+}
+
 // loadAll loads all existing games from the repository
 func (r *GameServiceRegistry) loadAll() error {
 	games, err := r.gameRepo.GetAllGames()
@@ -90,13 +97,13 @@ func (r *GameServiceRegistry) loadAll() error {
 	}
 
 	for gameID := range games {
-		gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo)
+		gameService := NewGameService(gameID, r.gameRepo, r.betRepo, r.gamePlayerRepo, r.matchService)
 		r.gameServices.Store(gameID, gameService)
 
-		// Subscribe to watcher if available
-		if r.watcher != nil {
-			if err := r.watcher.Subscribe(gameService); err != nil {
-				log.WithError(err).Warnf("Failed to subscribe game %s to watcher", gameID)
+		// Subscribe to matchService if available
+		if r.matchService != nil {
+			if err := r.matchService.Subscribe(gameService); err != nil {
+				log.WithError(err).Warnf("Failed to subscribe game %s to matchService", gameID)
 			}
 		}
 	}

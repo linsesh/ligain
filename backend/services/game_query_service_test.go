@@ -4,6 +4,7 @@ import (
 	"errors"
 	"ligain/backend/models"
 	"ligain/backend/rules"
+	"ligain/backend/testutils"
 	"testing"
 	"time"
 
@@ -24,8 +25,8 @@ func TestGameQueryService_GetPlayerGames_Success(t *testing.T) {
 	gameIDs := []string{"game1", "game2"}
 
 	// Create real games
-	realGame1 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 1", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
-	realGame2 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 2", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame1 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 1", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
+	realGame2 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 2", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// Mock expectations
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
@@ -71,7 +72,7 @@ func TestGameQueryService_GetPlayerGames_WithPlayersAndScores(t *testing.T) {
 	gameIDs := []string{"game1"}
 
 	// Create a real game
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	mockPlayers := []models.Player{player1, player2}
 	mockScores := map[string]map[string]int{
@@ -176,7 +177,7 @@ func TestGameQueryService_GetPlayerGames_GracefulDegradation(t *testing.T) {
 	gameIDs := []string{"game1", "game2"}
 
 	// Create one real game
-	realGame1 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 1", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame1 := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game 1", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// Mock expectations - game2 fails but game1 succeeds
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
@@ -208,7 +209,7 @@ func TestGameQueryService_GetGame_Success(t *testing.T) {
 	service := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// Mock expectations
 	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
@@ -260,7 +261,7 @@ func TestGameQueryService_GetPlayerGames_FinishedStatus(t *testing.T) {
 	gameIDs := []string{"game1"}
 
 	// Create a finished game
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 	realGame.Finish() // Mark as finished
 
 	// Mock expectations
@@ -314,7 +315,7 @@ func TestGameQueryService_GetPlayerGames_RefreshesStaleAvatarURL(t *testing.T) {
 	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1"}
 
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
 	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
@@ -373,7 +374,7 @@ func TestGameQueryService_GetPlayerGames_DoesNotRefreshValidAvatarURL(t *testing
 	player1 := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameIDs := []string{"game1"}
 
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return(gameIDs, nil)
 	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)

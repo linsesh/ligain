@@ -4,8 +4,17 @@ import (
 	"fmt"
 	"ligain/backend/models"
 	"math"
+	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
+
+// MatchReader reads matches by ID. Implemented by MatchService.
+type MatchReader interface {
+	GetMatch(id string) (models.Match, error)
+	GetMatches(ids []string) (map[string]models.Match, error)
+}
 
 // Game represents a competition between several players, on a specific season and competition
 type GameImpl struct {
@@ -15,47 +24,99 @@ type GameImpl struct {
 	players         []models.Player
 	// PlayersPoints is a map of match id to a map of player to points
 	playersPoints map[string]map[string]int
-	// IncomingMatches is a map of match id to match
-	incomingMatches map[string]models.Match
+	// incomingMatchIDs is a list of match IDs in incoming status (not yet finished)
+	incomingMatchIDs []string
 	// Bets is a map of match id to a map of player to bet
 	bets map[string]map[string]*models.Bet
-	// PastMatches is a map of match id to match
-	pastMatches map[string]models.Match
-	gameStatus  models.GameStatus
-	scorer      Scorer
-	scores      map[string]map[string]int
+	// pastMatchIDs is a list of match IDs in past status (finished)
+	pastMatchIDs []string
+	gameStatus   models.GameStatus
+	scorer       Scorer
+	scores       map[string]map[string]int
+	// matchReader reads matches by ID (MatchService in production or tests)
+	matchReader MatchReader
+	// mu protects the state of the game: it is read by HTTP requests while match events update it
+	mu sync.RWMutex
 }
 
-func NewFreshGame(seasonCode, competitionCode, name string, players []models.Player, incomingMatches []models.Match, scorer Scorer) *GameImpl {
+func NewFreshGame(seasonCode, competitionCode, name string, players []models.Player, incomingMatches []models.Match, scorer Scorer, matchReader MatchReader) *GameImpl {
 	g := &GameImpl{
-		seasonCode:      seasonCode,
-		competitionCode: competitionCode,
-		name:            name,
-		players:         players,
-		gameStatus:      models.GameStatusScheduled,
-		playersPoints:   make(map[string]map[string]int),
-		incomingMatches: make(map[string]models.Match),
-		pastMatches:     make(map[string]models.Match),
-		bets:            make(map[string]map[string]*models.Bet),
-		scorer:          scorer,
-		scores:          make(map[string]map[string]int),
+		seasonCode:       seasonCode,
+		competitionCode:  competitionCode,
+		name:             name,
+		players:          players,
+		gameStatus:       models.GameStatusScheduled,
+		playersPoints:    make(map[string]map[string]int),
+		incomingMatchIDs: make([]string, 0),
+		pastMatchIDs:     make([]string, 0),
+		bets:             make(map[string]map[string]*models.Bet),
+		scorer:           scorer,
+		scores:           make(map[string]map[string]int),
+		matchReader:      matchReader,
 	}
 	for _, match := range incomingMatches {
-		g.incomingMatches[match.Id()] = match
+		g.incomingMatchIDs = append(g.incomingMatchIDs, match.Id())
 	}
 	return g
 }
 
-func NewStartedGame(seasonCode, competitionCode, name string, players []models.Player, incomingMatches []models.Match, pastMatches []models.Match, scorer Scorer, bets map[string]map[string]*models.Bet, scores map[string]map[string]int) models.Game {
-	g := NewFreshGame(seasonCode, competitionCode, name, players, incomingMatches, scorer)
+func NewStartedGame(seasonCode, competitionCode, name string, players []models.Player, incomingMatches []models.Match, pastMatches []models.Match, scorer Scorer, bets map[string]map[string]*models.Bet, scores map[string]map[string]int, matchReader MatchReader) models.Game {
+	g := NewFreshGame(seasonCode, competitionCode, name, players, incomingMatches, scorer, matchReader)
 	for _, match := range pastMatches {
-		g.pastMatches[match.Id()] = match
+		g.pastMatchIDs = append(g.pastMatchIDs, match.Id())
 	}
 	g.bets = bets
 	g.scores = scores
 	g.playersPoints = scores
 	g.gameStatus = models.GameStatusScheduled
 	return g
+}
+
+// HasIncomingMatch checks if a match ID is in the incoming list (implements models.Game interface)
+func (g *GameImpl) HasIncomingMatch(matchID string) bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.hasIncomingMatchID(matchID)
+}
+
+// hasIncomingMatchID checks if a match ID is in the incoming list
+// Callers must hold g.mu.
+func (g *GameImpl) hasIncomingMatchID(matchID string) bool {
+	for _, id := range g.incomingMatchIDs {
+		if id == matchID {
+			return true
+		}
+	}
+	return false
+}
+
+// removeFromIncoming removes a match ID from the incoming list
+// Callers must hold g.mu.
+func (g *GameImpl) removeFromIncoming(matchID string) {
+	for i, id := range g.incomingMatchIDs {
+		if id == matchID {
+			g.incomingMatchIDs = append(g.incomingMatchIDs[:i], g.incomingMatchIDs[i+1:]...)
+			return
+		}
+	}
+}
+
+// addToPast adds a match ID to the past list
+// Callers must hold g.mu.
+func (g *GameImpl) addToPast(matchID string) {
+	g.pastMatchIDs = append(g.pastMatchIDs, matchID)
+}
+
+// getIncomingMatches returns all incoming match objects by reading from matchReader
+// Callers must hold g.mu.
+func (g *GameImpl) getIncomingMatches() (map[string]models.Match, error) {
+	return g.matchReader.GetMatches(g.incomingMatchIDs)
+}
+
+// getPastMatches returns all past match objects by reading from matchReader
+// Callers must hold g.mu.
+func (g *GameImpl) getPastMatches() (map[string]models.Match, error) {
+	return g.matchReader.GetMatches(g.pastMatchIDs)
 }
 
 // containsPlayerByID returns true if a player with the same ID exists in the slice
@@ -69,8 +130,9 @@ func containsPlayerByID(players []models.Player, player models.Player) bool {
 }
 
 func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
-	_, exists := g.incomingMatches[bet.Match.Id()]
-	if !exists {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if !g.hasIncomingMatchID(bet.Match.Id()) {
 		return fmt.Errorf("match %v not found", bet.Match.Id())
 	}
 	if !containsPlayerByID(g.players, player) {
@@ -83,8 +145,9 @@ func (g *GameImpl) CheckPlayerBetValidity(player models.Player, bet *models.Bet,
 }
 
 func (g *GameImpl) CalculateMatchScores(match models.Match) (map[string]int, error) {
-	_, exists := g.incomingMatches[match.Id()]
-	if !exists {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if !g.hasIncomingMatchID(match.Id()) {
 		return nil, fmt.Errorf("match not found")
 	}
 	if !match.IsFinished() {
@@ -95,31 +158,26 @@ func (g *GameImpl) CalculateMatchScores(match models.Match) (map[string]int, err
 }
 
 func (g *GameImpl) ApplyMatchScores(match models.Match, scores map[string]int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.updatePlayersPoints(match, scores)
 	g.finishMatch(match)
 }
 
 // We assume that the match is correct since it's a private method
+// Callers must hold g.mu.
 func (g *GameImpl) finishMatch(match models.Match) {
-	delete(g.incomingMatches, match.Id())
-	g.pastMatches[match.Id()] = match
-	if len(g.incomingMatches) == 0 {
-		g.Finish()
+	g.removeFromIncoming(match.Id())
+	g.addToPast(match.Id())
+	if len(g.incomingMatchIDs) == 0 {
+		g.gameStatus = models.GameStatusFinished
 	}
-}
-
-func (g *GameImpl) UpdateMatch(match models.Match) error {
-	_, exists := g.incomingMatches[match.Id()]
-	if !exists {
-		return fmt.Errorf("match not found")
-	}
-	g.incomingMatches[match.Id()] = match
-	return nil
 }
 
 func (g *GameImpl) AddPlayerBet(player models.Player, bet *models.Bet) error {
-	_, exists := g.incomingMatches[bet.Match.Id()]
-	if !exists {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.hasIncomingMatchID(bet.Match.Id()) {
 		return fmt.Errorf("match not found")
 	}
 	if _, exists := g.bets[bet.Match.Id()]; !exists {
@@ -130,6 +188,8 @@ func (g *GameImpl) AddPlayerBet(player models.Player, bet *models.Bet) error {
 }
 
 func (g *GameImpl) AddPlayer(player models.Player) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	// Check if the player is already in the game
 	if containsPlayerByID(g.players, player) {
 		return fmt.Errorf("player %v is already in the game", player)
@@ -141,6 +201,7 @@ func (g *GameImpl) AddPlayer(player models.Player) error {
 	return nil
 }
 
+// Callers must hold g.mu.
 func (g *GameImpl) hasPlayerWithID(playerID string) bool {
 	for _, p := range g.players {
 		if p.GetID() == playerID {
@@ -151,6 +212,8 @@ func (g *GameImpl) hasPlayerWithID(playerID string) bool {
 }
 
 func (g *GameImpl) RemovePlayer(player models.Player) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	for i, p := range g.players {
 		if p.GetID() == player.GetID() {
 			g.players = append(g.players[:i], g.players[i+1:]...)
@@ -160,6 +223,7 @@ func (g *GameImpl) RemovePlayer(player models.Player) error {
 	return fmt.Errorf("player not found")
 }
 
+// Callers must hold g.mu.
 func (g *GameImpl) scoreMatch(match models.Match) map[string]int {
 	bets := g.bets[match.Id()]
 
@@ -182,6 +246,7 @@ func (g *GameImpl) scoreMatch(match models.Match) map[string]int {
 	return scoresMap
 }
 
+// Callers must hold g.mu.
 func (g *GameImpl) updatePlayersPoints(match models.Match, scores map[string]int) {
 	for playerID, score := range scores {
 		if _, exists := g.playersPoints[match.Id()]; !exists {
@@ -200,6 +265,8 @@ func (g *GameImpl) GetCompetitionName() string {
 }
 
 func (g *GameImpl) GetGameStatus() models.GameStatus {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.gameStatus
 }
 
@@ -208,8 +275,15 @@ func (g *GameImpl) GetName() string {
 }
 
 func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	results := make(map[string]*models.MatchResult)
-	for _, match := range g.pastMatches {
+	pastMatches, err := g.getPastMatches()
+	if err != nil {
+		log.Errorf("Error reading the past matches of game %q: %v", g.name, err)
+		return results
+	}
+	for _, match := range pastMatches {
 		playerBets := make(map[models.Player]*models.Bet)
 		for playerID, bet := range g.bets[match.Id()] {
 			for _, player := range g.players {
@@ -256,8 +330,15 @@ func (g *GameImpl) GetPastResults() map[string]*models.MatchResult {
 }
 
 func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	matches := make(map[string]*models.MatchResult)
-	for _, match := range g.incomingMatches {
+	incomingMatches, err := g.getIncomingMatches()
+	if err != nil {
+		log.Errorf("Error reading the incoming matches of game %q: %v", g.name, err)
+		return matches
+	}
+	for _, match := range incomingMatches {
 		playerBets := make(map[string]*models.Bet)
 
 		// Pre-populate all non-requesting players with hasBet: false
@@ -290,8 +371,15 @@ func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.M
 
 // GetIncomingMatchesForTesting returns all incoming matches with all bets (for testing only)
 func (g *GameImpl) GetIncomingMatchesForTesting() map[string]*models.MatchResult {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	matches := make(map[string]*models.MatchResult)
-	for _, match := range g.incomingMatches {
+	incomingMatches, err := g.getIncomingMatches()
+	if err != nil {
+		log.Errorf("Error reading the incoming matches of game %q: %v", g.name, err)
+		return matches
+	}
+	for _, match := range incomingMatches {
 		playerBets := make(map[string]*models.Bet)
 		if bets, exists := g.bets[match.Id()]; exists {
 			// Show all bets for testing purposes
@@ -305,6 +393,13 @@ func (g *GameImpl) GetIncomingMatchesForTesting() map[string]*models.MatchResult
 }
 
 func (g *GameImpl) GetPlayersPoints() map[string]int {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.totalPlayersPoints()
+}
+
+// Callers must hold g.mu.
+func (g *GameImpl) totalPlayersPoints() map[string]int {
 	points := make(map[string]int)
 	for _, matchPoints := range g.playersPoints {
 		for playerID, score := range matchPoints {
@@ -315,21 +410,29 @@ func (g *GameImpl) GetPlayersPoints() map[string]int {
 }
 
 func (g *GameImpl) IsFinished() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.gameStatus == models.GameStatusFinished
 }
 
 func (g *GameImpl) Finish() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.gameStatus = models.GameStatusFinished
 }
 
 func (g *GameImpl) GetPlayers() []models.Player {
-	return g.players
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return append(make([]models.Player, 0, len(g.players)), g.players...)
 }
 
 func (g *GameImpl) GetWinner() []models.Player {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	bestScore := math.MinInt32
 	winners := make([]models.Player, 0)
-	totalPlayerPoints := g.GetPlayersPoints()
+	totalPlayerPoints := g.totalPlayersPoints()
 
 	// Create a map for faster player lookup
 	playerMap := make(map[string]models.Player)
@@ -346,12 +449,4 @@ func (g *GameImpl) GetWinner() []models.Player {
 		}
 	}
 	return winners
-}
-
-func (g *GameImpl) GetMatchById(matchId string) (models.Match, error) {
-	match, exists := g.incomingMatches[matchId]
-	if !exists {
-		return nil, fmt.Errorf("match not found")
-	}
-	return match, nil
 }

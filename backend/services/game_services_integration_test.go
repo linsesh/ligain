@@ -4,6 +4,7 @@ import (
 	"context"
 	"ligain/backend/models"
 	"ligain/backend/rules"
+	"ligain/backend/testutils"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ func setupIntegrationTest() (
 	*MockGameCodeRepository,
 	*MockBetRepository,
 	*MockMatchRepository,
-	*MockWatcher,
+	*MockMatchService,
 ) {
 	// Create shared mock repositories
 	mockGameRepo := new(MockGameRepository)
@@ -42,14 +43,14 @@ func setupIntegrationTest() (
 	mockGameCodeRepo := new(MockGameCodeRepository)
 	mockBetRepo := new(MockBetRepository)
 	mockMatchRepo := new(MockMatchRepository)
-	mockWatcher := new(MockWatcher)
+	mockMatchService := new(MockMatchService)
 
 	// Constructor calls loadAll, so we need to mock GetAllGames
 	mockGameRepo.On("GetAllGames").Return(map[string]models.Game{}, nil)
 
 	// Wire services with SAME mock instances
-	registry, _ := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockWatcher)
-	membershipService := NewGameMembershipService(&integrationUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, mockWatcher)
+	registry, _ := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
+	membershipService := NewGameMembershipService(&integrationUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return integrationTestTime })
 	creationService := NewGameCreationServiceWithServices(
@@ -59,24 +60,24 @@ func setupIntegrationTest() (
 	)
 
 	return creationService, joinService, queryService, membershipService, registry,
-		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, mockMatchRepo, mockWatcher
+		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, mockMatchRepo, mockMatchService
 }
 
 // TestCreateGame_QueryServiceSeesNewGame verifies that after creating a game,
 // the QueryService can see it immediately
 func TestCreateGame_QueryServiceSeesNewGame(t *testing.T) {
 	creationService, _, queryService, _, _,
-		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, mockMatchRepo, mockWatcher := setupIntegrationTest()
+		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, mockMatchRepo, mockMatchService := setupIntegrationTest()
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// Setup ALL mocks upfront - first call returns empty, subsequent calls return the game
 	mockGamePlayerRepo.On("GetPlayerGames", mock.Anything, "player1").Return([]string{}, nil).Once()
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("game1", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "game1", "player1").Return(nil)
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockMatchService.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
 
@@ -119,7 +120,7 @@ func TestJoinGame_QueryServiceSeesNewPlayer(t *testing.T) {
 	}
 
 	// Setup game with player A (but no players initially for AddPlayer to work)
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// Setup mocks for join - first GetPlayerGames call returns empty
 	mockGameCodeRepo.On("GetGameCodeByCode", "XYZ1").Return(gameCode, nil)
@@ -151,7 +152,7 @@ func TestJoinGame_QueryServiceSeesNewPlayer(t *testing.T) {
 // reflects repo state after a player joins
 func TestJoinGame_RegistryGameServiceSeesNewPlayer(t *testing.T) {
 	_, joinService, _, _, registry,
-		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, _, _, mockWatcher := setupIntegrationTest()
+		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, _, _, mockMatchService := setupIntegrationTest()
 
 	playerA := &models.PlayerData{ID: "playerA", Name: "Player A"}
 	playerB := &models.PlayerData{ID: "playerB", Name: "Player B"}
@@ -162,10 +163,10 @@ func TestJoinGame_RegistryGameServiceSeesNewPlayer(t *testing.T) {
 	}
 
 	// Setup game
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// First, get or create game service (simulating it was already cached)
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockMatchService.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
@@ -222,16 +223,16 @@ func TestLeaveGame_QueryServiceNoLongerShowsGame(t *testing.T) {
 // GameService reflects that a player has left
 func TestLeaveGame_RegistryGameServiceNoLongerShowsPlayer(t *testing.T) {
 	_, _, _, membershipService, registry,
-		mockGameRepo, mockGamePlayerRepo, _, _, _, mockWatcher := setupIntegrationTest()
+		mockGameRepo, mockGamePlayerRepo, _, _, _, mockMatchService := setupIntegrationTest()
 
 	playerA := &models.PlayerData{ID: "playerA", Name: "Player A"}
 	playerB := &models.PlayerData{ID: "playerB", Name: "Player B"}
 
 	// Create a real game with both players for the cached game service
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{playerA, playerB}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{playerA, playerB}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// First, get or create game service (simulating it was already cached)
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockMatchService.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
@@ -259,17 +260,17 @@ func TestLeaveGame_RegistryGameServiceNoLongerShowsPlayer(t *testing.T) {
 // the game is properly cleaned up
 func TestLastPlayerLeave_GameDeletedAcrossServices(t *testing.T) {
 	_, _, _, membershipService, registry,
-		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, _, _, mockWatcher := setupIntegrationTest()
+		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, _, _, mockMatchService := setupIntegrationTest()
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 
 	// Create a game WITH the player so RemovePlayer can succeed
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 	mockGameRepo.On("GetGame", "game1").Return(realGame, nil)
 	mockGameRepo.On("SaveWithId", "game1", realGame).Return(nil)
 
 	// First, get or create game service
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockMatchService.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
@@ -279,7 +280,7 @@ func TestLastPlayerLeave_GameDeletedAcrossServices(t *testing.T) {
 	mockGamePlayerRepo.On("GetPlayersInGame", mock.Anything, "game1").Return([]models.Player{}, nil) // No players left
 
 	// Setup mocks for game deletion
-	mockWatcher.On("Unsubscribe", "game1").Return(nil)
+	mockMatchService.On("Unsubscribe", "game1").Return(nil)
 	mockGameCodeRepo.On("DeleteGameCodeByGameID", "game1").Return(nil)
 
 	// Last player leaves
@@ -295,7 +296,7 @@ func TestLastPlayerLeave_GameDeletedAcrossServices(t *testing.T) {
 // are consistent across all services
 func TestMembershipCheck_ConsistentAcrossServices(t *testing.T) {
 	_, joinService, _, membershipService, registry,
-		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, _, _, mockWatcher := setupIntegrationTest()
+		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, _, _, mockMatchService := setupIntegrationTest()
 
 	player := &models.PlayerData{ID: "player1", Name: "Test Player"}
 	gameCode := &models.GameCode{
@@ -305,10 +306,10 @@ func TestMembershipCheck_ConsistentAcrossServices(t *testing.T) {
 	}
 
 	// Setup game
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 	// First create game service
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockMatchService.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	_, err := registry.Create("game1")
 	require.NoError(t, err)
 
@@ -343,7 +344,7 @@ func TestMembershipCheck_ConsistentAcrossServices(t *testing.T) {
 // don't have race conditions
 func TestCreateAndJoin_ConcurrentAccess(t *testing.T) {
 	creationService, _, queryService, _, _,
-		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, mockMatchRepo, mockWatcher := setupIntegrationTest()
+		mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, mockMatchRepo, mockMatchService := setupIntegrationTest()
 
 	playerA := &models.PlayerData{ID: "playerA", Name: "Player A"}
 	playerB := &models.PlayerData{ID: "playerB", Name: "Player B"}
@@ -353,7 +354,7 @@ func TestCreateAndJoin_ConcurrentAccess(t *testing.T) {
 	mockMatchRepo.On("GetMatchesByCompetitionAndSeason", "Ligue 1", "2026/2027").Return([]models.Match{}, nil)
 	mockGameRepo.On("CreateGame", mock.AnythingOfType("*rules.GameImpl")).Return("game1", nil)
 	mockGamePlayerRepo.On("AddPlayerToGame", mock.Anything, "game1", "playerA").Return(nil)
-	mockWatcher.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
+	mockMatchService.On("Subscribe", mock.AnythingOfType("*services.GameServiceImpl")).Return(nil)
 	mockGameCodeRepo.On("CodeExists", mock.AnythingOfType("string")).Return(false, nil)
 	mockGameCodeRepo.On("CreateGameCode", mock.AnythingOfType("*models.GameCode")).Return(nil)
 
@@ -367,7 +368,7 @@ func TestCreateAndJoin_ConcurrentAccess(t *testing.T) {
 	code := createResp.Code
 
 	// Setup mocks for player B joining immediately
-	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+	realGame := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 	gameCode := &models.GameCode{
 		GameID:    "game1",
 		Code:      code,

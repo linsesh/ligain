@@ -57,6 +57,7 @@ func main() {
 		gameCodeRepo   repositories.GameCodeRepository
 		gamePlayerRepo repositories.GamePlayerRepository
 		uow            repositories.UnitOfWork
+		matchService   services.MatchService
 		watcher        services.MatchWatcherService
 	)
 
@@ -75,19 +76,19 @@ func main() {
 				log.Fatal("Failed to ping database:", err)
 			}
 
-			pgGameRepo, err := postgres.NewPostgresGameRepository(db)
+			matchRepo = postgres.NewPostgresMatchRepository(db)
+			matchService = services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
+			pgGameRepo, err := postgres.NewPostgresGameRepository(db, matchService)
 			if err != nil {
 				log.Fatal("Failed to create game repository:", err)
 			}
 			gameRepo = pgGameRepo
 			betRepo = postgres.NewPostgresBetRepository(db)
 			playerRepo = postgres.NewPostgresPlayerRepository(db)
-			matchRepo = postgres.NewPostgresMatchRepository(db)
 			gameCodeRepo = postgres.NewPostgresGameCodeRepository(db)
 			gamePlayerRepo = postgres.NewPostgresGamePlayerRepository(db)
 			uow = postgres.NewUnitOfWork(db)
 
-			matchService := services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
 			simulatedAPI := api.NewSimulatedSportsmonkAPI(api.NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN")))
 			sportsmonkRepo := repositories.NewSportsmonkRepository(simulatedAPI)
 			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(sportsmonkRepo, matchService, 1*time.Minute)
@@ -104,6 +105,8 @@ func main() {
 			gamePlayerRepo = repositories.NewInMemoryGamePlayerRepository(inMemPlayerRepo)
 			uow = repositories.NewNoopUnitOfWork()
 
+			matchService = services.NewMatchService(matchRepo)
+
 			fakeSeasonMatches := []models.SeasonMatch{
 				*models.NewSeasonMatchWithKnownOdds("PSG", "Lyon", "2026/2027", "Ligue 1", time.Now().Add(1*time.Hour), 1, 1.5, 4.0, 3.5),
 				*models.NewSeasonMatchWithKnownOdds("Marseille", "Nice", "2026/2027", "Ligue 1", time.Now().Add(2*time.Hour), 1, 2.0, 3.0, 3.0),
@@ -119,7 +122,6 @@ func main() {
 					log.Fatalf("Failed to save fake match: %v", err)
 				}
 			}
-			matchService := services.NewMatchService(matchRepo)
 			fakeAPI := api.NewFakeRandomSportsmonkAPI(fakeSeasonMatches)
 			fakeRepo := repositories.NewSportsmonkRepository(fakeAPI)
 			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(fakeRepo, matchService, 500*time.Millisecond)
@@ -130,7 +132,7 @@ func main() {
 				allFakeMatches = append(allFakeMatches, &fakeSeasonMatches[i])
 			}
 			for i := 1; i <= 3; i++ {
-				game := rules.NewFreshGame("2026/2027", "Ligue 1", fmt.Sprintf("Fake Game %d", i), []models.Player{}, allFakeMatches, &rules.ScorerOriginal{})
+				game := rules.NewFreshGame("2026/2027", "Ligue 1", fmt.Sprintf("Fake Game %d", i), []models.Player{}, allFakeMatches, &rules.ScorerOriginal{}, matchService)
 				if _, err := gameRepo.CreateGame(game); err != nil {
 					log.Fatalf("Failed to seed fake game %d: %v", i, err)
 				}
@@ -153,19 +155,20 @@ func main() {
 			log.Fatal("Failed to ping database:", err)
 		}
 
-		pgGameRepo, err := postgres.NewPostgresGameRepository(db)
+		matchRepo = postgres.NewPostgresMatchRepository(db)
+		matchService = services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
+		pgGameRepo, err := postgres.NewPostgresGameRepository(db, matchService)
 		if err != nil {
 			log.Fatal("Failed to create game repository:", err)
 		}
 		gameRepo = pgGameRepo
 		betRepo = postgres.NewPostgresBetRepository(db)
 		playerRepo = postgres.NewPostgresPlayerRepository(db)
-		matchRepo = postgres.NewPostgresMatchRepository(db)
 		gameCodeRepo = postgres.NewPostgresGameCodeRepository(db)
 		gamePlayerRepo = postgres.NewPostgresGamePlayerRepository(db)
 		uow = postgres.NewUnitOfWork(db)
 
-		matchService := services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
+		matchService = services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
 		w, err := services.NewMatchWatcherServiceSportsmonk(env, matchService)
 		if err != nil {
 			log.Fatal("Failed to create match watcher service:", err)
@@ -194,7 +197,7 @@ func main() {
 		log.Warn("GCS_BUCKET_NAME not set, avatar upload disabled")
 	}
 
-	registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, watcher)
+	registry, err := services.NewGameServiceRegistry(gameRepo, betRepo, gamePlayerRepo, matchService)
 	if err != nil {
 		log.Fatal("Failed to create game registry:", err)
 	}

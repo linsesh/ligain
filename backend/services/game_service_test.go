@@ -6,6 +6,7 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/repositories"
 	"ligain/backend/rules"
+	"ligain/backend/testutils"
 	"testing"
 	"time"
 
@@ -70,59 +71,6 @@ func (s *scorerMock) ScoreWithBreakdown(match models.Match, bets []*models.Bet) 
 	return breakdowns
 }
 
-type flakyUpdateGame struct {
-	matches     map[string]models.Match
-	updateCalls int
-}
-
-func (g *flakyUpdateGame) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
-	return make(map[string]*models.MatchResult)
-}
-func (g *flakyUpdateGame) GetPastResults() map[string]*models.MatchResult {
-	return make(map[string]*models.MatchResult)
-}
-func (g *flakyUpdateGame) GetSeasonYear() string { return "2024" }
-func (g *flakyUpdateGame) GetCompetitionName() string {
-	return "Premier League"
-}
-func (g *flakyUpdateGame) GetGameStatus() models.GameStatus {
-	return models.GameStatusScheduled
-}
-func (g *flakyUpdateGame) GetName() string { return "Test Game" }
-func (g *flakyUpdateGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
-	return nil
-}
-func (g *flakyUpdateGame) AddPlayerBet(player models.Player, bet *models.Bet) error { return nil }
-func (g *flakyUpdateGame) AddPlayer(player models.Player) error                     { return nil }
-func (g *flakyUpdateGame) RemovePlayer(player models.Player) error                  { return nil }
-func (g *flakyUpdateGame) CalculateMatchScores(match models.Match) (map[string]int, error) {
-	return nil, nil
-}
-func (g *flakyUpdateGame) ApplyMatchScores(match models.Match, scores map[string]int) {}
-func (g *flakyUpdateGame) UpdateMatch(match models.Match) error {
-	g.updateCalls++
-	if g.updateCalls == 1 {
-		return fmt.Errorf("first update failed")
-	}
-	g.matches[match.Id()] = match
-	return nil
-}
-func (g *flakyUpdateGame) GetPlayersPoints() map[string]int { return make(map[string]int) }
-func (g *flakyUpdateGame) GetPlayers() []models.Player      { return nil }
-func (g *flakyUpdateGame) IsFinished() bool                 { return false }
-func (g *flakyUpdateGame) GetWinner() []models.Player       { return nil }
-func (g *flakyUpdateGame) GetIncomingMatchesForTesting() map[string]*models.MatchResult {
-	return make(map[string]*models.MatchResult)
-}
-func (g *flakyUpdateGame) GetMatchById(matchId string) (models.Match, error) {
-	match, ok := g.matches[matchId]
-	if !ok {
-		return nil, fmt.Errorf("match not found")
-	}
-	return match, nil
-}
-func (g *flakyUpdateGame) Finish() {}
-
 // testPlayer is a concrete implementation of models.Player for testing
 type testPlayer struct {
 	id   string
@@ -140,24 +88,6 @@ func newTestPlayer(name string) models.Player {
 	}
 }
 
-// mutableTestPlayer is a test player that can change their name (for testing display name changes)
-type mutableTestPlayer struct {
-	id   string
-	name string
-}
-
-func (p *mutableTestPlayer) GetID() string       { return p.id }
-func (p *mutableTestPlayer) GetName() string     { return p.name }
-func (p *mutableTestPlayer) SetName(name string) { p.name = name }
-
-// newMutableTestPlayer creates a new test player that can change names
-func newMutableTestPlayer(id, name string) *mutableTestPlayer {
-	return &mutableTestPlayer{
-		id:   id,
-		name: name,
-	}
-}
-
 func newTestSeasonMatchWithOdds(homeTeam, awayTeam string, date time.Time, matchday int) *models.SeasonMatch {
 	return models.NewSeasonMatchWithKnownOdds(homeTeam, awayTeam, "2024", "Premier League", date, matchday, 1.0, 2.0, 3.0)
 }
@@ -167,7 +97,7 @@ func setupTestGameService() (*GameServiceImpl, models.Match, []models.Player) {
 	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
 	matches := []models.Match{match}
 
-	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{})
+	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{}, testutils.NewInMemoryMatchReaderOf(matches))
 	gameRepo := &gameRepositoryMock{}
 	gameRepo.On("GetGame", "test-game").Return(game, nil)
 	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
@@ -190,7 +120,8 @@ func setupTestGameService() (*GameServiceImpl, models.Match, []models.Player) {
 		gamePlayerRepo.AddPlayerToGame(context.Background(), "test-game", player.GetID())
 	}
 
-	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo)
+	mockMatchService := new(MockMatchService)
+	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo, mockMatchService)
 	return service, match, players
 }
 
@@ -234,145 +165,6 @@ func TestGameService_UpdatePlayerBet(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "too late to bet")
 	})
-}
-
-func TestGameService_HandleMatchUpdates(t *testing.T) {
-	service, match, players := setupTestGameService()
-	player1 := players[0]
-
-	// Add a bet first
-	bet := models.NewBet(match, 2, 1)
-	err := service.UpdatePlayerBet(player1, bet, matchTime.Add(-1*time.Hour))
-	require.NoError(t, err)
-
-	t.Run("handles match updates correctly", func(t *testing.T) {
-		// Create a finished match update
-		finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-
-		updates := map[string]models.Match{
-			match.Id(): finishedMatch,
-		}
-
-		// Set up mock expectation for SaveWithId since the game will finish
-		service.gameRepo.(*gameRepositoryMock).On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-		err := service.HandleMatchUpdates(updates)
-		require.NoError(t, err)
-
-		// Check that the game is now finished
-		game, err := service.getGame()
-		require.NoError(t, err)
-		assert.True(t, game.IsFinished())
-
-		// Check that the winner is correct
-		winners := game.GetWinner()
-		require.Len(t, winners, 1)
-		assert.Equal(t, "Player1", winners[0].GetName())
-
-		// Verify SaveWithId was called
-		service.gameRepo.(*gameRepositoryMock).AssertExpectations(t)
-	})
-
-	t.Run("handles multiple match updates", func(t *testing.T) {
-		// Create another match
-		match2 := newTestSeasonMatchWithOdds("Team3", "Team4", matchTime.Add(1*time.Hour), 2)
-
-		// Create a new service with the updated game
-		gameRepo := &gameRepositoryMock{}
-		betRepo := repositories.NewInMemoryBetRepository()
-
-		// Create a game with both matches
-		players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
-		matches := []models.Match{match, match2}
-		game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{})
-
-		// Set up mock expectations
-		gameRepo.On("GetGame", "test-game").Return(game, nil)
-		gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-		service := NewGameService("test-game", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
-
-		// Add bet for second match
-		bet2 := models.NewBet(match2, 1, 0)
-		err := service.UpdatePlayerBet(player1, bet2, matchTime)
-		require.NoError(t, err)
-
-		// Create updates for both matches
-		finishedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-		finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 1, 0, "2024", "Premier League", matchTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
-
-		updates := map[string]models.Match{
-			match.Id():  finishedMatch1,
-			match2.Id(): finishedMatch2,
-		}
-
-		// Set up mock expectation for SaveWithId since the game will finish
-		gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-		err = service.HandleMatchUpdates(updates)
-		require.NoError(t, err)
-
-		// Check that the game is now finished
-		game5, err := service.getGame()
-		require.NoError(t, err)
-		assert.True(t, game5.IsFinished())
-
-		// Verify SaveWithId was called
-		gameRepo.AssertExpectations(t)
-	})
-}
-
-func TestGameService_HandleMatchUpdates_ContinuesAfterPerMatchError(t *testing.T) {
-	match1 := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
-	match2 := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime.Add(1*time.Hour), 2)
-	game := &flakyUpdateGame{
-		matches: map[string]models.Match{
-			match1.Id(): match1,
-			match2.Id(): match2,
-		},
-	}
-
-	gameRepo := &gameRepositoryMock{}
-	gameRepo.On("GetGame", "test-game").Return(game, nil)
-	service := NewGameService("test-game", gameRepo, repositories.NewInMemoryBetRepository(), repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
-
-	updates := map[string]models.Match{
-		match1.Id(): models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1),
-		match2.Id(): models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime.Add(1*time.Hour), 2),
-	}
-
-	err := service.HandleMatchUpdates(updates)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "first update failed")
-	assert.Equal(t, 2, game.updateCalls, "expected later match updates to be attempted after a per-match failure")
-}
-
-func TestGameService_HandleMatchUpdates_DoesNotScoreFinishedMatchWithoutOdds(t *testing.T) {
-	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
-	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
-	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, []models.Match{match}, &scorerMock{})
-	gameRepo := &gameRepositoryMock{}
-	gameRepo.On("GetGame", "test-game").Return(game, nil)
-	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-	service := NewGameService("test-game", gameRepo, repositories.NewInMemoryBetRepository(), repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
-
-	player1 := players[0]
-	bet := models.NewBet(match, 2, 1)
-	err := service.UpdatePlayerBet(player1, bet, matchTime.Add(-1*time.Hour))
-	require.NoError(t, err)
-
-	finishedMatchWithoutOdds := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 0, 0, 0)
-	updates := map[string]models.Match{
-		match.Id(): finishedMatchWithoutOdds,
-	}
-
-	err = service.HandleMatchUpdates(updates)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing odds")
-
-	gameFromService, err := service.getGame()
-	require.NoError(t, err)
-	assert.False(t, gameFromService.IsFinished(), "match should not be scored or moved to past results without usable odds")
 }
 
 func TestGameService_GetGameID(t *testing.T) {
@@ -559,503 +351,347 @@ func (g *GameServiceImpl) adjustOddsWithTime(match models.Match, lastMatchState 
 	return match
 }
 
-// TestGameService_HandleMatchUpdates_AdjustOdds tests that odds are properly adjusted during match updates
-func TestGameService_HandleMatchUpdates_AdjustOdds(t *testing.T) {
-	// Create a base time for testing
-	baseTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
+// TestGameService_OnMatchesUpdated_IgnoresMatchesNotInIncomingList tests that OnMatchesUpdated
+// ignores matches not in the game's incoming list (no error, no scoring, no DB write)
+func TestGameService_OnMatchesUpdated_IgnoresMatchesNotInIncomingList(t *testing.T) {
+	// Setup: game with one incoming match
+	incomingMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+	otherMatch := models.NewSeasonMatchWithKnownOdds("Team3", "Team4", "2024", "PL", matchTime, 2, 1.0, 2.0, 3.0)
 
-	// Create a match that's 5 minutes away (should have odds blocked)
-	matchTime := baseTime.Add(5 * time.Minute)
-	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
-	match.SetHomeTeamOdds(1.5)
-	match.SetAwayTeamOdds(2.5)
-	match.SetDrawOdds(3.5)
+	player := &models.PlayerData{ID: "player1", Name: "Player 1"}
+	game := rules.NewFreshGame("2024", "PL", "Test Game", []models.Player{player}, []models.Match{incomingMatch}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{incomingMatch}))
+	game.AddPlayerBet(player, models.NewBet(incomingMatch, 1, 1))
 
-	// Create players
-	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
-	matches := []models.Match{match}
+	gameRepo := &gameRepositoryMock{}
+	gameRepo.On("GetGame", "game1").Return(game, nil)
+	gameRepo.On("SaveWithId", "game1", game).Return(nil)
+	betRepo := repositories.NewInMemoryBetRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchRepo.SaveMatch(incomingMatch)
+	matchRepo.SaveMatch(otherMatch)
+	matchService := NewMatchService(matchRepo)
 
-	// Create game with the match
-	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, &scorerMock{})
+	gameService := NewGameService("game1", gameRepo, betRepo, gamePlayerRepo, matchService)
+
+	// Finish the other match (not in this game)
+	finishedOther := models.NewFinishedSeasonMatch("Team3", "Team4", 2, 1, "2024", "PL", matchTime, 2, 1.0, 2.0, 3.0)
+	matchRepo.SaveMatch(finishedOther)
+
+	// Apply update with the other match's ID
+	err := gameService.OnMatchesUpdated([]string{otherMatch.Id()})
+
+	// Should succeed but not score anything (match not in incoming list)
+	assert.NoError(t, err)
+
+	// Verify game was not saved (no scoring occurred)
+	gameRepo.AssertNotCalled(t, "SaveWithId")
+}
+
+// TestGameService_OnMatchesUpdated_IsIdempotentForPastMatches tests that OnMatchesUpdated
+// is idempotent for a match already in past (no rescoring)
+func TestGameService_OnMatchesUpdated_IsIdempotentForPastMatches(t *testing.T) {
+	// Setup: game with two matches, one already in past
+	incomingMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+	pastMatch := models.NewFinishedSeasonMatch("Team3", "Team4", 1, 0, "2024", "PL", matchTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
+
+	player := &models.PlayerData{ID: "player1", Name: "Player 1"}
+	game := rules.NewFreshGame("2024", "PL", "Test Game", []models.Player{player}, []models.Match{incomingMatch, pastMatch}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{incomingMatch, pastMatch}))
+	game.AddPlayerBet(player, models.NewBet(incomingMatch, 2, 1))
+	game.AddPlayerBet(player, models.NewBet(pastMatch, 1, 0))
+
+	// Score the past match (this moves it to past list in the game)
+	game.ApplyMatchScores(pastMatch, map[string]int{player.ID: 500})
+
+	gameRepo := &gameRepositoryMock{}
+	gameRepo.On("GetGame", "game1").Return(game, nil)
+	betRepo := repositories.NewInMemoryBetRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchRepo.SaveMatch(incomingMatch)
+	matchRepo.SaveMatch(pastMatch)
+	matchService := NewMatchService(matchRepo)
+
+	gameService := NewGameService("game1", gameRepo, betRepo, gamePlayerRepo, matchService)
+
+	// Apply update with the already-past match ID - should be ignored
+	err := gameService.OnMatchesUpdated([]string{pastMatch.Id()})
+
+	// Should succeed but not rescore
+	assert.NoError(t, err)
+
+	// Verify game was not saved (no scoring occurred)
+	gameRepo.AssertNotCalled(t, "SaveWithId")
+}
+
+// TestGameService_OnMatchesUpdated_ContinuesAfterMatchServiceError tests that one match's
+// MatchService.GetMatch error doesn't stop others from being processed
+func TestGameService_OnMatchesUpdated_ContinuesAfterMatchServiceError(t *testing.T) {
+	// Setup: game with two incoming matches
+	match1 := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+	match2 := models.NewSeasonMatchWithKnownOdds("Team3", "Team4", "2024", "PL", matchTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
+
+	player := &models.PlayerData{ID: "player1", Name: "Player 1"}
+	game := rules.NewFreshGame("2024", "PL", "Test Game", []models.Player{player}, []models.Match{match1, match2}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{match1, match2}))
+	game.AddPlayerBet(player, models.NewBet(match1, 1, 1))
+	game.AddPlayerBet(player, models.NewBet(match2, 0, 2))
+
+	gameRepo := &gameRepositoryMock{}
+	gameRepo.On("GetGame", "game1").Return(game, nil)
+	gameRepo.On("SaveWithId", "game1", game).Return(nil)
+	betRepo := repositories.NewInMemoryBetRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	// Don't save match1, only match2
+	matchService := NewMatchService(matchRepo)
+
+	gameService := NewGameService("game1", gameRepo, betRepo, gamePlayerRepo, matchService)
+
+	// Finish match2
+	finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 0, 2, "2024", "PL", matchTime.Add(1*time.Hour), 2, 1.0, 2.0, 3.0)
+	matchRepo.SaveMatch(finishedMatch2)
+
+	// Apply update with both match IDs - match1 will fail to load (not in repo), match2 should still be scored
+	err := gameService.OnMatchesUpdated([]string{match1.Id(), match2.Id()})
+
+	// Should return error (from match1) but match2 should have been scored anyway
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "get match")
+
+	// Verify game was saved (match2 was scored and game is now finished)
+	gameRepo.AssertCalled(t, "SaveWithId", "game1", mock.AnythingOfType("*rules.GameImpl"))
+}
+
+// TestGameService_OnMatchesUpdated_SavesFinishedGameToDatabase tests that finishing game is persisted
+func TestGameService_OnMatchesUpdated_SavesFinishedGameToDatabase(t *testing.T) {
+	// Setup: game with one incoming match
+	incomingMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+
+	player := &models.PlayerData{ID: "player1", Name: "Player 1"}
+	game := rules.NewFreshGame("2024", "PL", "Test Game", []models.Player{player}, []models.Match{incomingMatch}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{incomingMatch}))
+	game.AddPlayerBet(player, models.NewBet(incomingMatch, 2, 1))
+
+	gameRepo := &gameRepositoryMock{}
+	gameRepo.On("GetGame", "game1").Return(game, nil)
+	gameRepo.On("SaveWithId", "game1", game).Return(nil)
+	betRepo := repositories.NewInMemoryBetRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchRepo.SaveMatch(incomingMatch)
+	matchService := NewMatchService(matchRepo)
+
+	gameService := NewGameService("game1", gameRepo, betRepo, gamePlayerRepo, matchService)
+
+	// Finish the match
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+	matchRepo.SaveMatch(finishedMatch)
+
+	// Apply update
+	err := gameService.OnMatchesUpdated([]string{incomingMatch.Id()})
+
+	// Should succeed and game should be finished and saved
+	assert.NoError(t, err)
+	gameRepo.AssertCalled(t, "SaveWithId", "game1", mock.AnythingOfType("*rules.GameImpl"))
+}
+
+// TestGameService_OnMatchesUpdated_NonDrawResultScoresAllPlayers tests that non-draw finished match scores all players
+func TestGameService_OnMatchesUpdated_NonDrawResultScoresAllPlayers(t *testing.T) {
+	// Setup: game with two players and one match with non-draw result
+	incomingMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+
+	player1 := &models.PlayerData{ID: "p1", Name: "Player 1"}
+	player2 := &models.PlayerData{ID: "p2", Name: "Player 2"}
+	game := rules.NewFreshGame("2024", "PL", "Test Game", []models.Player{player1, player2}, []models.Match{incomingMatch}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{incomingMatch}))
+
+	// Both players bet on Team1 to win (2-1)
+	game.AddPlayerBet(player1, models.NewBet(incomingMatch, 2, 1))
+	game.AddPlayerBet(player2, models.NewBet(incomingMatch, 2, 1))
+
+	gameRepo := &gameRepositoryMock{}
+	gameRepo.On("GetGame", "game1").Return(game, nil)
+	gameRepo.On("SaveWithId", "game1", game).Return(nil)
+	betRepo := repositories.NewInMemoryBetRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchRepo.SaveMatch(incomingMatch)
+	matchService := NewMatchService(matchRepo)
+
+	gameService := NewGameService("game1", gameRepo, betRepo, gamePlayerRepo, matchService)
+
+	// Finish the match with 2-1 (matches both players' predictions)
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+	matchRepo.SaveMatch(finishedMatch)
+
+	// Apply update
+	err := gameService.OnMatchesUpdated([]string{incomingMatch.Id()})
+
+	// Should succeed
+	assert.NoError(t, err)
+
+	// Verify both players got points
+	points := game.GetPlayersPoints()
+	assert.Equal(t, 500, points[player1.ID])
+	assert.Equal(t, 500, points[player2.ID])
+}
+
+// TestGameService_OnMatchesUpdated_SaveFinishedGameError tests that SaveWithId error is returned
+func TestGameService_OnMatchesUpdated_SaveFinishedGameError(t *testing.T) {
+	// Setup: game with one match
+	incomingMatch := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+
+	player := &models.PlayerData{ID: "player1", Name: "Player 1"}
+	game := rules.NewFreshGame("2024", "PL", "Test Game", []models.Player{player}, []models.Match{incomingMatch}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{incomingMatch}))
+	game.AddPlayerBet(player, models.NewBet(incomingMatch, 2, 1))
+
+	gameRepo := &gameRepositoryMock{}
+	gameRepo.On("GetGame", "game1").Return(game, nil)
+	gameRepo.On("SaveWithId", "game1", game).Return(fmt.Errorf("database error"))
+	betRepo := repositories.NewInMemoryBetRepository()
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchRepo.SaveMatch(incomingMatch)
+	matchService := NewMatchService(matchRepo)
+
+	gameService := NewGameService("game1", gameRepo, betRepo, gamePlayerRepo, matchService)
+
+	// Finish the match
+	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "PL", matchTime, 1, 1.0, 2.0, 3.0)
+	matchRepo.SaveMatch(finishedMatch)
+
+	// Apply update
+	err := gameService.OnMatchesUpdated([]string{incomingMatch.Id()})
+
+	// Should return the save error
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "database error")
+}
+
+// failingMatchService makes reading one match fail, like a repository error would
+type failingMatchService struct {
+	MatchService
+	failID string
+}
+
+func (m *failingMatchService) GetMatch(id string) (models.Match, error) {
+	if id == m.failID {
+		return nil, fmt.Errorf("cannot read match %s", id)
+	}
+	return m.MatchService.GetMatch(id)
+}
+
+// finishedMatchFixture is a game of the given players over the given matches, with a real MatchService
+// over an in-memory match repository. The game service is NOT subscribed: tests deliver the event by calling
+// OnMatchesUpdated, which is what the MatchService does for a subscribed game.
+type finishedMatchFixture struct {
+	gameService  *GameServiceImpl
+	matchService *MatchServiceImpl
+	gameRepo     repositories.GameRepository
+}
+
+func newFinishedMatchFixture(t *testing.T, scorer rules.Scorer, players []models.Player, matches ...models.Match) *finishedMatchFixture {
+	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
+	gameRepo := repositories.NewInMemoryGameRepository()
+	require.NoError(t, gameRepo.SaveWithId("test-game", game))
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	for _, m := range matches {
+		require.NoError(t, matchRepo.SaveMatch(m))
+	}
+	matchService := NewMatchService(matchRepo)
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	return &finishedMatchFixture{
+		gameService:  NewGameService("test-game", gameRepo, repositories.NewInMemoryBetRepository(), gamePlayerRepo, matchService),
+		matchService: matchService,
+		gameRepo:     gameRepo,
+	}
+}
+
+func (f *finishedMatchFixture) provider(t *testing.T, finished ...models.Match) {
+	updates := make(map[string]models.Match)
+	for _, m := range finished {
+		updates[m.Id()] = m
+	}
+	require.NoError(t, f.matchService.TryUpdateMatches(models.MatchUpdatesOf(updates)))
+}
+
+func TestGameService_FinishedMatchEvent_FinishesAndSavesTheGame(t *testing.T) {
+	match := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
+	player1, player2 := newTestPlayer("Player1"), newTestPlayer("Player2")
+	f := newFinishedMatchFixture(t, &scorerMock{}, []models.Player{player1, player2}, match)
+	require.NoError(t, f.gameService.UpdatePlayerBet(player1, models.NewBet(match, 2, 1), matchTime))
+	require.NoError(t, f.gameService.UpdatePlayerBet(player2, models.NewBet(match, 1, 2), matchTime))
+
+	f.provider(t, models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0))
+	require.NoError(t, f.gameService.OnMatchesUpdated([]string{match.Id()}))
+
+	saved, err := f.gameRepo.GetGame("test-game")
+	require.NoError(t, err)
+	assert.True(t, saved.IsFinished())
+}
+
+func TestGameService_FinishedMatchEvent_ReportsTheErrorWhenTheGameCannotBeSaved(t *testing.T) {
+	match := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
+	player := newTestPlayer("Player1")
+	game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player}, []models.Match{match}, &scorerMock{}, testutils.NewInMemoryMatchReaderOf([]models.Match{match}))
 	gameRepo := &gameRepositoryMock{}
 	gameRepo.On("GetGame", "test-game").Return(game, nil)
-	betRepo := repositories.NewInMemoryBetRepository()
+	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	require.NoError(t, matchRepo.SaveMatch(match))
+	matchService := NewMatchService(matchRepo)
+	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository())
+	gameService := NewGameService("test-game", gameRepo, repositories.NewInMemoryBetRepository(), gamePlayerRepo, matchService)
+	require.NoError(t, gameService.UpdatePlayerBet(player, models.NewBet(match, 2, 1), matchTime))
+	require.NoError(t, matchService.TryUpdateMatches(models.MatchUpdatesOf(map[string]models.Match{
+		match.Id(): models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0),
+	})))
 
-	// Create a time function that returns our base time
-	timeFunc := func() time.Time { return baseTime }
+	gameRepo.ExpectedCalls = nil
+	gameRepo.On("GetGame", "test-game").Return(game, nil)
+	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(fmt.Errorf("database error"))
+	err := gameService.OnMatchesUpdated([]string{match.Id()})
 
-	// Create service with custom time function
-	service := NewGameServiceWithTime("test-game", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), timeFunc)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "database error")
+}
 
-	// Create an update with different odds
-	updatedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", matchTime, 1)
-	updatedMatch.SetHomeTeamOdds(1.2) // Different odds
-	updatedMatch.SetAwayTeamOdds(2.8) // Different odds
-	updatedMatch.SetDrawOdds(3.2)     // Different odds
+func TestGameService_FinishedMatchEvent_ReadFailureOnOneMatchDoesNotStopTheOthers(t *testing.T) {
+	match1 := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
+	match2 := newTestSeasonMatchWithOdds("Team3", "Team4", matchTime.Add(time.Hour), 2)
+	player := newTestPlayer("Player1")
+	f := newFinishedMatchFixture(t, &rules.ScorerOriginal{}, []models.Player{player}, match1, match2)
+	require.NoError(t, f.gameService.UpdatePlayerBet(player, models.NewBet(match1, 2, 1), matchTime))
+	require.NoError(t, f.gameService.UpdatePlayerBet(player, models.NewBet(match2, 0, 2), matchTime))
+	f.provider(t,
+		models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0),
+		models.NewFinishedSeasonMatch("Team3", "Team4", 0, 2, "2024", "Premier League", matchTime.Add(time.Hour), 2, 1.0, 2.0, 3.0),
+	)
+	f.gameService.matchService = &failingMatchService{MatchService: f.matchService, failID: match1.Id()}
 
-	updates := map[string]models.Match{
-		match.Id(): updatedMatch,
-	}
+	err := f.gameService.OnMatchesUpdated([]string{match1.Id(), match2.Id()})
 
-	t.Run("odds should be blocked when match is within 6 minutes", func(t *testing.T) {
-		// Get the original odds from the game
-		game, err := service.getGame()
-		require.NoError(t, err)
-		originalMatch, err := game.GetMatchById(match.Id())
-		require.NoError(t, err)
-		originalHomeOdds := originalMatch.GetHomeTeamOdds()
-		originalAwayOdds := originalMatch.GetAwayTeamOdds()
-		originalDrawOdds := originalMatch.GetDrawOdds()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), match1.Id())
+	results := f.gameService.GetMatchResults()
+	assert.Contains(t, results, match2.Id(), "the readable match is still scored and moved to past")
+	assert.NotContains(t, results, match1.Id())
+}
 
-		// Process the update
-		err = service.HandleMatchUpdates(updates)
-		require.NoError(t, err)
+func TestGameService_FinishedMatchEvent_NonDrawResultScoresEveryCorrectBet(t *testing.T) {
+	match := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
+	winner1, winner2, loser := newTestPlayer("Winner1"), newTestPlayer("Winner2"), newTestPlayer("Loser")
+	f := newFinishedMatchFixture(t, &rules.ScorerOriginal{}, []models.Player{winner1, winner2, loser}, match)
+	require.NoError(t, f.gameService.UpdatePlayerBet(winner1, models.NewBet(match, 2, 1), matchTime))
+	require.NoError(t, f.gameService.UpdatePlayerBet(winner2, models.NewBet(match, 3, 0), matchTime))
+	require.NoError(t, f.gameService.UpdatePlayerBet(loser, models.NewBet(match, 1, 1), matchTime))
 
-		// Get the updated match
-		game, err = service.getGame()
-		require.NoError(t, err)
-		updatedMatchFromGame, err := game.GetMatchById(match.Id())
-		require.NoError(t, err)
+	f.provider(t, models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0))
+	require.NoError(t, f.gameService.OnMatchesUpdated([]string{match.Id()}))
 
-		// The odds should be preserved (blocked) because the match is within 6 minutes
-		assert.Equal(t, originalHomeOdds, updatedMatchFromGame.GetHomeTeamOdds())
-		assert.Equal(t, originalAwayOdds, updatedMatchFromGame.GetAwayTeamOdds())
-		assert.Equal(t, originalDrawOdds, updatedMatchFromGame.GetDrawOdds())
-	})
-
-	t.Run("odds should not be blocked when match is more than 6 minutes away", func(t *testing.T) {
-		// Create a match that's 7 minutes away
-		matchTime7Min := baseTime.Add(7 * time.Minute)
-		match7Min := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime7Min, 2)
-		match7Min.SetHomeTeamOdds(2.0)
-		match7Min.SetAwayTeamOdds(3.0)
-		match7Min.SetDrawOdds(4.0)
-
-		// Add the match to the game
-		players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2")}
-		matches := []models.Match{match7Min}
-		game := rules.NewFreshGame("2024", "Premier League", "Test Game 2", players, matches, &scorerMock{})
-		gameRepo.On("GetGame", "test-game-2").Return(game, nil)
-
-		service := NewGameServiceWithTime("test-game-2", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), timeFunc)
-
-		// Create an update with different odds
-		updatedMatch7Min := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", matchTime7Min, 2)
-		updatedMatch7Min.SetHomeTeamOdds(1.8) // Different odds
-		updatedMatch7Min.SetAwayTeamOdds(2.8) // Different odds
-		updatedMatch7Min.SetDrawOdds(3.8)     // Different odds
-
-		updates := map[string]models.Match{
-			match7Min.Id(): updatedMatch7Min,
-		}
-
-		// Process the update
-		err := service.HandleMatchUpdates(updates)
-		require.NoError(t, err)
-
-		// Get the updated match
-		game2, err := service.getGame()
-		require.NoError(t, err)
-		updatedMatchFromGame, err := game2.GetMatchById(match7Min.Id())
-		require.NoError(t, err)
-
-		// The odds should be updated because the match is more than 6 minutes away
-		assert.Equal(t, 1.8, updatedMatchFromGame.GetHomeTeamOdds())
-		assert.Equal(t, 2.8, updatedMatchFromGame.GetAwayTeamOdds())
-		assert.Equal(t, 3.8, updatedMatchFromGame.GetDrawOdds())
-	})
+	points := f.gameService.GetMatchResults()[match.Id()].Scores
+	assert.Greater(t, points[winner1.GetID()], 0)
+	assert.Greater(t, points[winner2.GetID()], 0)
+	assert.Equal(t, 0, points[loser.GetID()])
 }
 
 // TestGameService_PlayerChangesDisplayNameMidGame tests that a player can change their display name
 // in the middle of a game and continue playing, placing bets, and winning
-func TestGameService_PlayerChangesDisplayNameMidGame(t *testing.T) {
-	// Create matches
-	match1 := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
-	match2 := newTestSeasonMatchWithOdds("Team3", "Team4", matchTime.Add(2*time.Hour), 2)
-	matches := []models.Match{match1, match2}
-
-	// Create players - one mutable player and one regular player
-	player1 := newMutableTestPlayer("player1-id", "OriginalName")
-	player2 := newTestPlayer("Player2")
-	players := []models.Player{player1, player2}
-
-	// Create game
-	game := rules.NewFreshGame("2024", "Premier League", "Display Name Change Test", players, matches, &scorerMock{})
-	gameRepo := &gameRepositoryMock{}
-	gameRepo.On("GetGame", "test-game").Return(game, nil)
-	gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-	betRepo := repositories.NewInMemoryBetRepository()
-
-	// Create player repository and add players to it
-	playerRepo := repositories.NewInMemoryPlayerRepository()
-	gamePlayerRepo := repositories.NewInMemoryGamePlayerRepository(playerRepo)
-
-	// Add players to the repositories
-	for _, player := range players {
-		playerData := &models.PlayerData{
-			ID:   player.GetID(),
-			Name: player.GetName(),
-		}
-		playerRepo.UpdatePlayer(context.Background(), playerData)
-		gamePlayerRepo.AddPlayerToGame(context.Background(), "test-game", player.GetID())
-	}
-
-	service := NewGameService("test-game", gameRepo, betRepo, gamePlayerRepo)
-
-	// Phase 1: Player places initial bet with original name
-	t.Run("Player places bet with original name", func(t *testing.T) {
-		bet1 := models.NewBet(match1, 2, 1) // Betting Team1 wins 2-1
-		err := service.UpdatePlayerBet(player1, bet1, matchTime.Add(-1*time.Hour))
-		require.NoError(t, err)
-
-		// Verify bet was saved
-		bets, err := service.GetPlayerBets(player1)
-		require.NoError(t, err)
-		require.Len(t, bets, 1)
-		assert.Equal(t, 2, bets[0].PredictedHomeGoals)
-		assert.Equal(t, 1, bets[0].PredictedAwayGoals)
-
-		// Verify player appears in game with original name
-		gamePlayers := service.GetPlayers()
-		found := false
-		for _, p := range gamePlayers {
-			if p.GetID() == player1.GetID() {
-				assert.Equal(t, "OriginalName", p.GetName())
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "Player should be found in game with original name")
-	})
-
-	// Phase 2: Player changes display name mid-game
-	t.Run("Player changes display name mid-game", func(t *testing.T) {
-		// Simulate display name change
-		player1.SetName("NewDisplayName")
-
-		// Update the player name in the repository (simulating what would happen in real app)
-		playerData := &models.PlayerData{
-			ID:   player1.GetID(),
-			Name: player1.GetName(),
-		}
-		playerRepo.UpdatePlayer(context.Background(), playerData)
-
-		// Verify the player can still be found by ID and now has new name
-		gamePlayers := service.GetPlayers()
-		found := false
-		for _, p := range gamePlayers {
-			if p.GetID() == player1.GetID() {
-				// The game should still reference the same player object
-				// In a real scenario, the game would need to be updated with the new player data
-				// For this test, we're checking that the player object itself changed
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "Player should still be found in game after name change")
-		assert.Equal(t, "NewDisplayName", player1.GetName())
-	})
-
-	// Phase 3: Player continues to place bets with new name
-	t.Run("Player places more bets with new name", func(t *testing.T) {
-		bet2 := models.NewBet(match2, 1, 0) // Betting Team3 wins 1-0
-		err := service.UpdatePlayerBet(player1, bet2, matchTime.Add(1*time.Hour))
-		require.NoError(t, err)
-
-		// Verify both bets are saved for the same player
-		bets, err := service.GetPlayerBets(player1)
-		require.NoError(t, err)
-		require.Len(t, bets, 2)
-
-		// Check that we have both bets (without assuming order)
-		foundBet1 := false // 2-1 bet for match1
-		foundBet2 := false // 1-0 bet for match2
-
-		for _, bet := range bets {
-			if bet.PredictedHomeGoals == 2 && bet.PredictedAwayGoals == 1 {
-				foundBet1 = true
-			} else if bet.PredictedHomeGoals == 1 && bet.PredictedAwayGoals == 0 {
-				foundBet2 = true
-			}
-		}
-
-		assert.True(t, foundBet1, "Should find bet with 2-1 prediction")
-		assert.True(t, foundBet2, "Should find bet with 1-0 prediction")
-	})
-
-	// Phase 4: Matches finish and player wins
-	t.Run("Matches finish and player with changed name wins", func(t *testing.T) {
-		// Player2 places losing bets
-		wrongBet1 := models.NewBet(match1, 0, 3) // Wrong prediction
-		wrongBet2 := models.NewBet(match2, 2, 2) // Wrong prediction
-		err := service.UpdatePlayerBet(player2, wrongBet1, matchTime.Add(-30*time.Minute))
-		require.NoError(t, err)
-		err = service.UpdatePlayerBet(player2, wrongBet2, matchTime.Add(1*time.Hour))
-		require.NoError(t, err)
-
-		// Finish matches with results that match player1's predictions
-		finishedMatch1 := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-		finishedMatch2 := models.NewFinishedSeasonMatch("Team3", "Team4", 1, 0, "2024", "Premier League", matchTime.Add(2*time.Hour), 2, 1.0, 2.0, 3.0)
-
-		updates := map[string]models.Match{
-			match1.Id(): finishedMatch1,
-			match2.Id(): finishedMatch2,
-		}
-
-		// Set up mock expectation for SaveWithId since the game will finish
-		gameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-		err = service.HandleMatchUpdates(updates)
-		require.NoError(t, err)
-
-		// Check that the game is finished
-		game, err := service.getGame()
-		require.NoError(t, err)
-		assert.True(t, game.IsFinished())
-
-		// Verify SaveWithId was called
-		gameRepo.AssertExpectations(t)
-
-		// Check that player1 (with changed name) is the winner
-		winners := game.GetWinner()
-		require.Len(t, winners, 1)
-
-		// The winner should be our player1 who changed their name
-		winner := winners[0]
-		assert.Equal(t, player1.GetID(), winner.GetID())
-		assert.Equal(t, "NewDisplayName", winner.GetName()) // Should have the new name
-
-		// Verify the winner's total score (should have 1000 points: 500 for each correct bet)
-		totalPlayerPoints := game.GetPlayersPoints()
-
-		player1Points := totalPlayerPoints[player1.GetID()]
-		player2Points := totalPlayerPoints[player2.GetID()]
-
-		assert.Equal(t, 1000, player1Points) // 500 points per correct bet
-		assert.Equal(t, 0, player2Points)    // 0 points for incorrect bets
-	})
-
-	// Phase 5: Verify game history shows player with new name
-	t.Run("Game history shows player with updated name", func(t *testing.T) {
-		game, err := service.getGame()
-		require.NoError(t, err)
-		pastResults := game.GetPastResults()
-		assert.Len(t, pastResults, 2)
-
-		// Check that in past results, our player appears with new name
-		for _, result := range pastResults {
-			if result.Bets != nil {
-				for playerID, bet := range result.Bets {
-					if playerID == player1.GetID() {
-						// The bet should exist and be associated with the correct player ID
-						assert.NotNil(t, bet)
-						// In a real system, we'd want to verify the display name is updated
-						// in the UI, but the game logic should work with player IDs
-						break
-					}
-				}
-			}
-		}
-	})
-}
-
-func TestGameService_HandleMatchUpdates_SavesFinishedGameToDatabase(t *testing.T) {
-	// Create a mock game repository that tracks SaveWithId calls
-	mockGameRepo := &gameRepositoryMock{}
-	betRepo := repositories.NewInMemoryBetRepository()
-
-	// Create a test match that will finish
-	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
-	match := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
-
-	// Create players
-	player1 := newTestPlayer("Player1")
-	player2 := newTestPlayer("Player2")
-	players := []models.Player{player1, player2}
-
-	// Create a game with the match
-	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, []models.Match{match}, &scorerMock{})
-	mockGameRepo.On("GetGame", "test-game").Return(game, nil)
-	mockGameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-	// Create service
-	service := NewGameService("test-game", mockGameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
-
-	// Add bets for both players
-	bet1 := models.NewBet(match, 2, 1)
-	bet2 := models.NewBet(match, 1, 2)
-	err := service.UpdatePlayerBet(player1, bet1, matchTime)
-	require.NoError(t, err)
-	err = service.UpdatePlayerBet(player2, bet2, matchTime)
-	require.NoError(t, err)
-
-	// Create finished match update
-	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-	updates := map[string]models.Match{
-		match.Id(): finishedMatch,
-	}
-
-	// Set up mock expectation for SaveWithId
-	mockGameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-	// Handle the updates
-	err = service.HandleMatchUpdates(updates)
-	require.NoError(t, err)
-
-	// Verify the game is finished
-	game3, err := service.getGame()
-	require.NoError(t, err)
-	assert.True(t, game3.IsFinished())
-
-	// Verify SaveWithId was called with the finished game
-	mockGameRepo.AssertExpectations(t)
-}
-
-func TestGameService_HandleMatchUpdates_SaveFinishedGameError(t *testing.T) {
-	// Create a mock game repository that returns an error on SaveWithId
-	mockGameRepo := &gameRepositoryMock{}
-	betRepo := repositories.NewInMemoryBetRepository()
-
-	// Create a test match that will finish
-	matchTime := time.Date(2024, 1, 10, 15, 0, 0, 0, time.UTC)
-	match := newTestSeasonMatchWithOdds("Team1", "Team2", matchTime, 1)
-
-	// Create players
-	player1 := newTestPlayer("Player1")
-	player2 := newTestPlayer("Player2")
-	players := []models.Player{player1, player2}
-
-	// Create a game with the match
-	game := rules.NewFreshGame("2024", "Premier League", "Test Game", players, []models.Match{match}, &scorerMock{})
-	mockGameRepo.On("GetGame", "test-game").Return(game, nil)
-	mockGameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(nil)
-
-	// Create service
-	service := NewGameService("test-game", mockGameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()))
-
-	// Add bets for both players
-	bet1 := models.NewBet(match, 2, 1)
-	bet2 := models.NewBet(match, 1, 2)
-	err := service.UpdatePlayerBet(player1, bet1, matchTime)
-	require.NoError(t, err)
-	err = service.UpdatePlayerBet(player2, bet2, matchTime)
-	require.NoError(t, err)
-
-	// Create finished match update
-	finishedMatch := models.NewFinishedSeasonMatch("Team1", "Team2", 2, 1, "2024", "Premier League", matchTime, 1, 1.0, 2.0, 3.0)
-	updates := map[string]models.Match{
-		match.Id(): finishedMatch,
-	}
-
-	// Reset mock expectations and set up SaveWithId to return an error
-	mockGameRepo.ExpectedCalls = nil
-	mockGameRepo.On("GetGame", "test-game").Return(game, nil)
-	mockGameRepo.On("SaveWithId", "test-game", mock.AnythingOfType("*rules.GameImpl")).Return(fmt.Errorf("database error"))
-
-	// Handle the updates - should return an error
-	err = service.HandleMatchUpdates(updates)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "database error")
-
-	// Verify the game is still finished (the game state was updated)
-	game4, err := service.getGame()
-	require.NoError(t, err)
-	assert.True(t, game4.IsFinished())
-
-	// Verify SaveWithId was called
-	mockGameRepo.AssertExpectations(t)
-}
-
-// TestBug_PlayersOnlyGetPointsForDraws_HandleMatchUpdates tests for the bug in the complete HandleMatchUpdates flow
-func TestBug_PlayersOnlyGetPointsForDraws_HandleMatchUpdates(t *testing.T) {
-	// Create a game service
-	service := &GameServiceImpl{
-		timeFunc: func() time.Time { return time.Date(2024, 1, 1, 15, 0, 0, 0, time.UTC) },
-	}
-
-	// Create a finished match that is NOT a draw (home team wins 2-1)
-	finishedMatch := models.NewFinishedSeasonMatch(
-		"Paris Saint Germain",
-		"Lyon",
-		2, 1, // Home team wins 2-1 (NOT a draw)
-		"2024/2025",
-		"Ligue 1",
-		time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-		1,
-		1.5, 2.5, 3.0, // Odds
-	)
-
-	// Create the last match state (before the match was finished)
-	lastMatchState := models.NewSeasonMatchWithKnownOdds(
-		"Paris Saint Germain",
-		"Lyon",
-		"2024/2025",
-		"Ligue 1",
-		time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC),
-		1,
-		1.5, 2.5, 3.0, // Same odds
-	)
-	lastMatchState.Start()       // Mark as in progress
-	lastMatchState.HomeGoals = 1 // Partial score
-	lastMatchState.AwayGoals = 0
-
-	// Simulate the adjustOdds call that happens in HandleMatchUpdates
-	adjustedMatch := service.adjustOdds(finishedMatch, lastMatchState)
-
-	// Now test the scoring logic with the adjusted match
-	bets := []*models.Bet{
-		// Player 1: Correctly predicts home win (2-1) - should get points
-		models.NewBet(adjustedMatch, 2, 1),
-		// Player 2: Predicts draw (1-1) - should get 0 points
-		models.NewBet(adjustedMatch, 1, 1),
-		// Player 3: Predicts away win (0-2) - should get 0 points
-		models.NewBet(adjustedMatch, 0, 2),
-		// Player 4: Predicts different home win (3-0) - should get points (close prediction)
-		models.NewBet(adjustedMatch, 3, 0),
-	}
-
-	// Use the original scorer to calculate points
-	scorer := &rules.ScorerOriginal{}
-	scores := scorer.Score(adjustedMatch, bets)
-
-	// The bug would cause all scores to be 0 except for draw predictions
-	// But in this case, the match result is NOT a draw, so only players who predicted the correct result should get points
-
-	// Player 1 should get points for perfect prediction (2-1)
-	if scores[0] <= 0 {
-		t.Errorf("Player 1 (correct prediction 2-1) should get points, but got %d", scores[0])
-	}
-
-	// Player 2 should get 0 points for wrong prediction (draw)
-	if scores[1] != 0 {
-		t.Errorf("Player 2 (wrong prediction 1-1) should get 0 points, but got %d", scores[1])
-	}
-
-	// Player 3 should get 0 points for wrong prediction (away win)
-	if scores[2] != 0 {
-		t.Errorf("Player 3 (wrong prediction 0-2) should get 0 points, but got %d", scores[2])
-	}
-
-	// Player 4 should get points for close prediction (3-0 vs 2-1)
-	if scores[3] <= 0 {
-		t.Errorf("Player 4 (close prediction 3-0) should get points, but got %d", scores[3])
-	}
-
-	// Verify that at least one player got points (this would fail if the bug exists)
-	anyPlayerGotPoints := false
-	for i, score := range scores {
-		if score > 0 {
-			anyPlayerGotPoints = true
-			t.Logf("Player %d got %d points for prediction %d-%d", i+1, score, bets[i].PredictedHomeGoals, bets[i].PredictedAwayGoals)
-		}
-	}
-
-	if !anyPlayerGotPoints {
-		t.Fatal("BUG DETECTED: No players got points for a non-draw match result after adjustOdds. This indicates the bug where players only get points for draws.")
-	}
-
-	t.Logf("Test passed: Players correctly got points for non-draw match result after adjustOdds")
-	t.Logf("Match result: %s %d-%d %s",
-		adjustedMatch.GetHomeTeam(), adjustedMatch.GetHomeGoals(), adjustedMatch.GetAwayGoals(), adjustedMatch.GetAwayTeam())
-	t.Logf("Scores: %v", scores)
-}

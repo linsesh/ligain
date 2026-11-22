@@ -17,8 +17,6 @@ type GameService interface {
 	UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error
 	GetPlayerBets(player models.Player) ([]*models.Bet, error)
 	GetPlayers() []models.Player
-	// GameUpdateHandler interface methods
-	HandleMatchUpdates(updates map[string]models.Match) error
 	GetGameID() string
 	AddPlayer(player models.Player) error
 	RemovePlayer(player models.Player) error
@@ -30,31 +28,19 @@ type GameServiceImpl struct {
 	gameRepo       repositories.GameRepository
 	betRepo        repositories.BetRepository
 	gamePlayerRepo repositories.GamePlayerRepository
-	timeFunc       func() time.Time // Function to get current time (for testing)
+	matchService   MatchService // For reading match data
 }
 
-func NewGameService(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, gamePlayerRepo repositories.GamePlayerRepository) *GameServiceImpl {
+func NewGameService(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, gamePlayerRepo repositories.GamePlayerRepository, matchService MatchService) *GameServiceImpl {
 	return &GameServiceImpl{
 		gameId:         gameId,
 		gameRepo:       gameRepo,
 		betRepo:        betRepo,
 		gamePlayerRepo: gamePlayerRepo,
-		timeFunc:       time.Now, // Default to real time
+		matchService:   matchService,
 	}
 }
 
-// NewGameServiceWithTime creates a GameService with a custom time function (for testing)
-func NewGameServiceWithTime(gameId string, gameRepo repositories.GameRepository, betRepo repositories.BetRepository, gamePlayerRepo repositories.GamePlayerRepository, timeFunc func() time.Time) *GameServiceImpl {
-	return &GameServiceImpl{
-		gameId:         gameId,
-		gameRepo:       gameRepo,
-		betRepo:        betRepo,
-		gamePlayerRepo: gamePlayerRepo,
-		timeFunc:       timeFunc,
-	}
-}
-
-// getGame always fetches the current game state from the repository
 func (g *GameServiceImpl) getGame() (models.Game, error) {
 	return g.gameRepo.GetGame(g.gameId)
 }
@@ -77,64 +63,7 @@ func (g *GameServiceImpl) GetIncomingMatches(player models.Player) map[string]*m
 	return game.GetIncomingMatches(player)
 }
 
-// HandleMatchUpdates implements GameUpdateHandler interface
-func (g *GameServiceImpl) HandleMatchUpdates(updates map[string]models.Match) error {
-	// Get current game state
-	game, err := g.getGame()
-	if err != nil {
-		log.Errorf("Error getting game: %v", err)
-		return err
-	}
-
-	var updateErrors []error
-	for _, match := range updates {
-		log.Infof("Handling update for match %v", match.Id())
-		lastMatchState, err := game.GetMatchById(match.Id())
-		if err != nil {
-			log.Errorf("Error getting last match state: %v", err)
-			updateErrors = append(updateErrors, fmt.Errorf("match %s: get last match state: %w", match.Id(), err))
-			continue
-		}
-		match = g.adjustOdds(match, lastMatchState)
-		if match.IsFinished() && !hasUsableOdds(match) {
-			err := fmt.Errorf("match %s: missing odds for finished match", match.Id())
-			log.Errorf("Error handling score update: %v", err)
-			updateErrors = append(updateErrors, err)
-			continue
-		}
-		err = game.UpdateMatch(match)
-		if err != nil {
-			log.Errorf("Error updating match: %v", err)
-			updateErrors = append(updateErrors, fmt.Errorf("match %s: update match: %w", match.Id(), err))
-			continue
-		}
-		if match.IsFinished() {
-			log.Infof("Match %v is finished with score %d - %d, handling score update", match.Id(), match.GetHomeGoals(), match.GetAwayGoals())
-			err = g.handleScoreUpdate(match)
-			if err != nil {
-				log.Errorf("Error handling score update: %v", err)
-				updateErrors = append(updateErrors, fmt.Errorf("match %s: handle score update: %w", match.Id(), err))
-				continue
-			}
-		}
-	}
-
-	// Check if game is finished after processing updates
-	if game.IsFinished() {
-		winners := game.GetWinner()
-		log.Infof("Game %v is finished, with winner(s) %v", g.gameId, winners)
-
-		err := g.gameRepo.SaveWithId(g.gameId, game)
-		if err != nil {
-			log.Errorf("Error saving finished game status: %v", err)
-			updateErrors = append(updateErrors, fmt.Errorf("save finished game status: %w", err))
-		}
-	}
-
-	return errors.Join(updateErrors...)
-}
-
-// GetGameID implements GameUpdateHandler interface
+// GetGameID returns the game ID
 func (g *GameServiceImpl) GetGameID() string {
 	return g.gameId
 }
@@ -179,8 +108,11 @@ func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 	}
 
 	game.ApplyMatchScores(match, scores)
+	if game.IsFinished() {
+		log.Infof("Game %v is finished, with winner(s) %v", g.gameId, game.GetWinner())
+	}
 
-	// Save the updated game
+	// Save the updated game: it is also what stores the finished status of a game whose last match was just scored
 	err = g.gameRepo.SaveWithId(g.gameId, game)
 	if err != nil {
 		log.Errorf("Error saving game after score update: %v", err)
@@ -278,19 +210,56 @@ func (g *GameServiceImpl) RemovePlayer(player models.Player) error {
 	return nil
 }
 
-// adjustOdds ensures that odds are blocked 5minutes before the match starts.
-// We use 6 to ensure that the odds are always blocked at least 5 minutes before the match starts.
-func (g *GameServiceImpl) adjustOdds(match models.Match, lastMatchState models.Match) models.Match {
-	matchDate := match.GetDate()
-	now := g.timeFunc()
-	if matchDate.Before(now.Add(6 * time.Minute)) {
-		match.SetHomeTeamOdds(lastMatchState.GetHomeTeamOdds())
-		match.SetAwayTeamOdds(lastMatchState.GetAwayTeamOdds())
-		match.SetDrawOdds(lastMatchState.GetDrawOdds())
+// OnMatchesUpdated implements MatchUpdateListener interface.
+// It processes updates only for matches in this game's incoming list.
+// - Ignores matches not in incoming list (no error, no scoring, no DB write)
+// - Is idempotent for matches already in past (no rescoring)
+// - Continues processing after errors, collecting all errors
+func (g *GameServiceImpl) OnMatchesUpdated(matchIDs []string) error {
+	if g.matchService == nil {
+		log.Warnf("OnMatchesUpdated called but matchService is nil for game %s", g.gameId)
+		return nil
 	}
-	return match
-}
 
-func hasUsableOdds(match models.Match) bool {
-	return match.GetHomeTeamOdds() > 0 && match.GetAwayTeamOdds() > 0 && match.GetDrawOdds() > 0
+	var updateErrors []error
+
+	for _, matchID := range matchIDs {
+		// Get current game state to check if this match is incoming
+		game, err := g.getGame()
+		if err != nil {
+			log.Errorf("Error getting game: %v", err)
+			updateErrors = append(updateErrors, fmt.Errorf("match %s: get game: %w", matchID, err))
+			continue
+		}
+
+		// Skip matches not in this game's incoming list (idempotent for already-past matches too)
+		if !game.HasIncomingMatch(matchID) {
+			log.Debugf("Match %s not in game %s incoming list, skipping", matchID, g.gameId)
+			continue
+		}
+
+		// Get the match from MatchService
+		match, err := g.matchService.GetMatch(matchID)
+		if err != nil {
+			log.Errorf("Error getting match %s from MatchService: %v", matchID, err)
+			updateErrors = append(updateErrors, fmt.Errorf("match %s: get match: %w", matchID, err))
+			continue
+		}
+
+		// Only score finished matches
+		if !match.IsFinished() {
+			log.Debugf("Match %s not finished yet, skipping", matchID)
+			continue
+		}
+
+		log.Infof("Handling update for finished match %s", matchID)
+		err = g.handleScoreUpdate(match)
+		if err != nil {
+			log.Errorf("Error handling score update for match %s: %v", matchID, err)
+			updateErrors = append(updateErrors, fmt.Errorf("match %s: handle score update: %w", matchID, err))
+			continue
+		}
+	}
+
+	return errors.Join(updateErrors...)
 }
