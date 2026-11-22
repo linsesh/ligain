@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"ligain/backend/models"
+	"ligain/backend/repositories"
 
 	"github.com/stretchr/testify/require"
 )
@@ -164,6 +165,39 @@ func TestMatchRepository_Integration(t *testing.T) {
 				}
 			}
 			require.True(t, found, "Should find the match we just created")
+		})
+	}, 10*time.Second)
+}
+
+func TestMatchRepository_GetMatch_FromDatabase_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+
+		match := models.NewSeasonMatchWithKnownOdds("Team E", "Team F", "2024", "Premier League", testTime.Add(24*time.Hour), 3, 1.5, 2.5, 3.0)
+		require.NoError(t, NewPostgresMatchRepository(testDB.db).SaveMatch(match))
+
+		// a new repository instance has an empty cache: the match must come from the database
+		freshRepo := NewPostgresMatchRepository(testDB.db)
+
+		t.Run("existing match", func(t *testing.T) {
+			retrieved, err := freshRepo.GetMatch(match.Id())
+			require.NoError(t, err)
+			require.Equal(t, match.Id(), retrieved.Id())
+			require.Equal(t, 1.5, retrieved.GetHomeTeamOdds())
+			require.Equal(t, 2.5, retrieved.GetAwayTeamOdds())
+			require.Equal(t, 3.0, retrieved.GetDrawOdds())
+			require.Equal(t, match.GetDate().Unix(), retrieved.GetDate().Unix())
+		})
+
+		t.Run("unknown match", func(t *testing.T) {
+			retrieved, err := freshRepo.GetMatch("unknown")
+			require.ErrorIs(t, err, repositories.ErrMatchNotFound)
+			require.Nil(t, retrieved)
 		})
 	}, 10*time.Second)
 }

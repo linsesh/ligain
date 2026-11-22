@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"ligain/backend/models"
 	"ligain/backend/repositories"
@@ -63,8 +64,13 @@ func (r *PostgresMatchRepository) SaveMatch(match models.Match) error {
 	return nil
 }
 
+// rowScanner is what *sql.Row and *sql.Rows have in common
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
 // scanMatchRow scans a single row from a match query into a Match object
-func scanMatchRow(rows *sql.Rows) (models.Match, error) {
+func scanMatchRow(rows rowScanner) (models.Match, error) {
 	var id, homeTeamId, awayTeamId string
 	var homeTeamScore, awayTeamScore sql.NullInt32
 	var matchDate sql.NullTime
@@ -88,46 +94,38 @@ func scanMatchRow(rows *sql.Rows) (models.Match, error) {
 		&competitionCode,
 		&matchday,
 	); err != nil {
-		return nil, fmt.Errorf("error scanning match: %v", err)
+		return nil, fmt.Errorf("error scanning match: %w", err)
 	}
 
 	return CreateMatchFromDB(homeTeamId, awayTeamId, seasonCode, competitionCode, matchDate.Time, matchday, matchStatus, homeTeamScore, awayTeamScore, homeWinOdds, awayWinOdds, drawOdds), nil
 }
 
-// GetMatch returns a match by its id
+// GetMatch returns a copy of the match with this id, or repositories.ErrMatchNotFound
 func (r *PostgresMatchRepository) GetMatch(matchId string) (models.Match, error) {
 	// Try cache first
-	match, err := r.cache.GetMatch(matchId)
-	if err == nil && match != nil {
+	if match, err := r.cache.GetMatch(matchId); err == nil {
 		return match, nil
 	}
 
-	var seasonMatch models.SeasonMatch
-	var date time.Time
-
-	err = r.db.QueryRow(`
+	match, err := scanMatchRow(r.db.QueryRow(`
 		SELECT local_id, home_team_id, away_team_id,
 			   home_team_score, away_team_score, match_date,
 			   home_win_odds, away_win_odds, draw_odds,
 			   match_status, season_code, competition_code, matchday
 		FROM match
 		WHERE local_id = $1
-	`, matchId).Scan(
-		&seasonMatch.HomeTeam, &seasonMatch.AwayTeam,
-		&seasonMatch.HomeGoals, &seasonMatch.AwayGoals, &date,
-		&seasonMatch.HomeTeamOdds, &seasonMatch.AwayTeamOdds, &seasonMatch.DrawOdds,
-		&seasonMatch.Status, &seasonMatch.SeasonCode, &seasonMatch.CompetitionCode,
-		&seasonMatch.Matchday)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("match not found: %s", matchId)
-	}
+	`, matchId))
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: %s", repositories.ErrMatchNotFound, matchId)
+		}
 		return nil, err
 	}
 
-	seasonMatch.Date = date
-	return &seasonMatch, nil
+	if err := r.cache.SaveMatch(match); err != nil {
+		log.Errorf("Warning: failed to update cache: %v", err)
+	}
+	return match, nil
 }
 
 // GetMatches returns all matches

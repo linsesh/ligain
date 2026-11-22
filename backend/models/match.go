@@ -45,7 +45,49 @@ type Match interface {
 	// Clear favorite methods
 	HasClearFavorite() bool
 	GetFavoriteTeam() string
+	// Clone returns an independent copy of the match
+	Clone() Match
+	// TryUpdate returns a copy of the match with the update applied, and whether anything changed.
+	// Status, score and date are always applied. Odds are refused from OddsFreezeDelay before kickoff on.
+	TryUpdate(update MatchUpdate, now time.Time) (Match, bool)
 }
+
+// MatchUpdate is a new state reported for a match. TryUpdate decides which parts of it are applied.
+type MatchUpdate struct {
+	Status       MatchStatus
+	Date         time.Time
+	HomeGoals    int
+	AwayGoals    int
+	HomeTeamOdds float64
+	AwayTeamOdds float64
+	DrawOdds     float64
+}
+
+// MatchUpdateOf reads the state of a match as an update
+func MatchUpdateOf(match Match) MatchUpdate {
+	return MatchUpdate{
+		Status:       match.GetStatus(),
+		Date:         match.GetDate(),
+		HomeGoals:    match.GetHomeGoals(),
+		AwayGoals:    match.GetAwayGoals(),
+		HomeTeamOdds: match.GetHomeTeamOdds(),
+		AwayTeamOdds: match.GetAwayTeamOdds(),
+		DrawOdds:     match.GetDrawOdds(),
+	}
+}
+
+// MatchUpdatesOf reads the state of several matches, keyed by match id, as updates
+func MatchUpdatesOf(matches map[string]Match) map[string]MatchUpdate {
+	updates := make(map[string]MatchUpdate, len(matches))
+	for id, match := range matches {
+		updates[id] = MatchUpdateOf(match)
+	}
+	return updates
+}
+
+// OddsFreezeDelay is how long before kickoff the odds stop following the provider.
+// We use 6 minutes to be sure the odds are always blocked at least 5 minutes before the match starts.
+const OddsFreezeDelay = 6 * time.Minute
 
 // SeasonMatch represents a football match within a championship, like Ligue 1, Serie A, etc.
 type SeasonMatch struct {
@@ -228,4 +270,39 @@ func (m *SeasonMatch) GetFavoriteTeam() string {
 		return m.HomeTeam
 	}
 	return m.AwayTeam
+}
+
+// Clone returns an independent copy of the match
+func (m *SeasonMatch) Clone() Match {
+	copied := *m
+	return &copied
+}
+
+func (m *SeasonMatch) hasUsableOdds() bool {
+	return m.HomeTeamOdds > 0 && m.AwayTeamOdds > 0 && m.DrawOdds > 0
+}
+
+// TryUpdate returns a copy of the match with the update applied, and whether anything changed.
+// Status, score and date are always applied (cancellations and postponements must go through).
+// The odds are refused from OddsFreezeDelay before kickoff on, once we have usable ones: scores are computed
+// from them, and bookmakers settle them at extreme prices once the match is over. The freeze is decided on the
+// date of the update, so a postponed match is no longer about to start and its odds follow again.
+func (m *SeasonMatch) TryUpdate(update MatchUpdate, now time.Time) (Match, bool) {
+	updated := *m
+	updated.Date = update.Date
+	updated.Status = update.Status
+	updated.HomeGoals = update.HomeGoals
+	updated.AwayGoals = update.AwayGoals
+	if !m.hasUsableOdds() || !update.Date.Before(now.Add(OddsFreezeDelay)) {
+		updated.HomeTeamOdds = update.HomeTeamOdds
+		updated.AwayTeamOdds = update.AwayTeamOdds
+		updated.DrawOdds = update.DrawOdds
+	}
+	return &updated, !m.sameStateAs(&updated)
+}
+
+func (m *SeasonMatch) sameStateAs(other *SeasonMatch) bool {
+	return m.Status == other.Status && m.Date.Equal(other.Date) &&
+		m.HomeGoals == other.HomeGoals && m.AwayGoals == other.AwayGoals &&
+		m.HomeTeamOdds == other.HomeTeamOdds && m.AwayTeamOdds == other.AwayTeamOdds && m.DrawOdds == other.DrawOdds
 }

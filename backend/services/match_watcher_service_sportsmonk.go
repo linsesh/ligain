@@ -14,15 +14,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// watchHorizon is how far in the future the provider is asked about matches
+const watchHorizon = 14 * 24 * time.Hour
+
+// MatchWatcherServiceSportsmonk polls Sportsmonk and hands what it reports to the MatchService,
+// which owns the match state. It keeps no match itself.
 type MatchWatcherServiceSportsmonk struct {
-	watchedMatches map[string]models.Match
-	repo           repositories.SportsmonkRepository
-	matchRepo      repositories.MatchRepository
-	subscribers    map[string]GameService
-	stopChan       chan struct{}
-	isRunning      bool
-	pollInterval   time.Duration
-	now            func() time.Time
+	repo         repositories.SportsmonkRepository
+	matchService MatchService
+	stopChan     chan struct{}
+	isRunning    bool
+	pollInterval time.Duration
 }
 
 var (
@@ -30,7 +32,7 @@ var (
 	once    sync.Once
 )
 
-func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Match, matchRepo repositories.MatchRepository) (*MatchWatcherServiceSportsmonk, error) {
+func NewMatchWatcherServiceSportsmonk(env string, matchService MatchService) (*MatchWatcherServiceSportsmonk, error) {
 	once.Do(func() {
 		if env == "local" {
 			log.Infof("Initializing local environment")
@@ -39,21 +41,11 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 				log.Errorf("Error initializing local environment: %v", err)
 			}
 		}
-		/*
-			seasonMatches := make([]models.SeasonMatch, 0, len(matches))
-			for _, m := range matches {
-				if sm, ok := m.(*models.SeasonMatch); ok {
-					seasonMatches = append(seasonMatches, *sm)
-				}
-			}*/
 		watcher = &MatchWatcherServiceSportsmonk{
-			watchedMatches: matches,
-			repo:           repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
-			matchRepo:      matchRepo,
-			subscribers:    make(map[string]GameService),
-			stopChan:       make(chan struct{}),
-			pollInterval:   time.Minute * 1,
-			now:            time.Now,
+			repo:         repositories.NewSportsmonkRepository(api.NewSportsmonkAPI(getAPIToken())),
+			matchService: matchService,
+			stopChan:     make(chan struct{}),
+			pollInterval: time.Minute * 1,
 		}
 	})
 	return watcher, nil
@@ -63,37 +55,24 @@ func NewMatchWatcherServiceSportsmonk(env string, matches map[string]models.Matc
 // repository and poll interval. Intended for local development and testing (e.g. FakeRandomSportsmonkAPI).
 func NewMatchWatcherServiceSportsmonkWithOptions(
 	repo repositories.SportsmonkRepository,
-	matches map[string]models.Match,
-	matchRepo repositories.MatchRepository,
+	matchService MatchService,
 	pollInterval time.Duration,
 ) *MatchWatcherServiceSportsmonk {
 	return &MatchWatcherServiceSportsmonk{
-		watchedMatches: matches,
-		repo:           repo,
-		matchRepo:      matchRepo,
-		subscribers:    make(map[string]GameService),
-		stopChan:       make(chan struct{}),
-		pollInterval:   pollInterval,
-		now:            time.Now,
+		repo:         repo,
+		matchService: matchService,
+		stopChan:     make(chan struct{}),
+		pollInterval: pollInterval,
 	}
 }
 
+// Subscribe makes a game receive the matches that changed (the MatchService publishes them)
 func (m *MatchWatcherServiceSportsmonk) Subscribe(handler GameService) error {
-	gameID := handler.GetGameID()
-	m.subscribers[gameID] = handler
-
-	log.Infof("Game %s subscribed to match watcher", gameID)
-	return nil
+	return m.matchService.Subscribe(handler)
 }
 
 func (m *MatchWatcherServiceSportsmonk) Unsubscribe(gameID string) error {
-	if _, exists := m.subscribers[gameID]; !exists {
-		return nil
-	}
-
-	delete(m.subscribers, gameID)
-	log.Infof("Game %s unsubscribed from match watcher", gameID)
-	return nil
+	return m.matchService.Unsubscribe(gameID)
 }
 
 func (m *MatchWatcherServiceSportsmonk) Start(ctx context.Context) error {
@@ -140,93 +119,22 @@ func (m *MatchWatcherServiceSportsmonk) pollLoop(ctx context.Context) {
 }
 
 func (m *MatchWatcherServiceSportsmonk) checkForUpdates() {
-	updates, err := m.getMatchesUpdates()
+	matchesToQuery, err := m.matchService.GetMatchesInHorizon(watchHorizon)
+	if err != nil {
+		log.Errorf("Error getting the matches to watch: %v", err)
+		return
+	}
+	log.Infof("Getting last match infos for %d matches (scheduled within %v)", len(matchesToQuery), watchHorizon)
+
+	lastMatchInfos, err := m.repo.GetLastMatchInfos(matchesToQuery)
 	if err != nil {
 		log.Errorf("Error getting match updates: \t%v", err)
 		return
 	}
 
-	// Save updates to the database before notifying subscribers
-	for _, updatedMatch := range updates {
-		if err := m.matchRepo.SaveMatch(updatedMatch); err != nil {
-			log.Errorf("Failed to save updated match %s to database: %v", updatedMatch.Id(), err)
-		}
+	if err := m.matchService.TryUpdateMatches(models.MatchUpdatesOf(lastMatchInfos)); err != nil {
+		log.Errorf("Error updating the matches: %v", err)
 	}
-
-	log.Infof("Found %d match updates, notifying subscribers", len(updates))
-
-	for gameID, handler := range m.subscribers {
-		go func(gameID string, handler GameService, updates map[string]models.Match) {
-			if err := handler.HandleMatchUpdates(updates); err != nil {
-				log.Errorf("Error handling updates for game %s: %v", gameID, err)
-			}
-		}(gameID, handler, updates)
-	}
-}
-
-func (m *MatchWatcherServiceSportsmonk) getMatchesUpdates() (map[string]models.Match, error) {
-	updates := make(map[string]models.Match)
-	twoWeeksFromNow := m.now().Add(14 * 24 * time.Hour)
-	matchesToQuery := make(map[string]models.Match)
-	for id, match := range m.watchedMatches {
-		if !match.GetDate().After(twoWeeksFromNow) {
-			matchesToQuery[id] = match
-		}
-	}
-	log.Infof("Getting last match infos for %d matches (out of %d watched, excluding matches scheduled beyond 2 weeks in the future)", len(matchesToQuery), len(m.watchedMatches))
-	lastMatchInfos, err := m.repo.GetLastMatchInfos(matchesToQuery)
-	if err != nil {
-		return nil, err
-	}
-	for matchId, match := range lastMatchInfos {
-		if matchWasUpdated(match, m.watchedMatches[matchId]) {
-			updates[matchId] = match
-			m.watchedMatches[matchId] = match
-			if match.IsFinished() {
-				delete(m.watchedMatches, matchId)
-			}
-		}
-	}
-	if len(updates) > 0 {
-		log.Infof("Found %d updates", len(updates))
-	}
-	return updates, nil
-}
-
-func matchWasUpdated(match models.Match, lastMatchState models.Match) bool {
-	if match.GetStatus() != lastMatchState.GetStatus() {
-		log.Infof("Status updated from %v to %v in match %s", lastMatchState.GetStatus(), match.GetStatus(), match.Id())
-		return true
-	}
-	if lastMatchState.IsInProgress() || match.IsInProgress() || match.IsFinished() {
-		if match.GetHomeGoals() != lastMatchState.GetHomeGoals() {
-			log.Infof("Home goals updated from %v to %v in match %s", lastMatchState.GetHomeGoals(), match.GetHomeGoals(), match.Id())
-			return true
-		}
-		if match.GetAwayGoals() != lastMatchState.GetAwayGoals() {
-			log.Infof("Away goals updated from %v to %v in match %s", lastMatchState.GetAwayGoals(), match.GetAwayGoals(), match.Id())
-			return true
-		}
-	} else { // Match is not in progress, so we need to check the odds/date only
-		if match.GetHomeTeamOdds() != lastMatchState.GetHomeTeamOdds() {
-			log.Infof("Home team odds updated from %v to %v in match %s", lastMatchState.GetHomeTeamOdds(), match.GetHomeTeamOdds(), match.Id())
-			return true
-		}
-		if match.GetAwayTeamOdds() != lastMatchState.GetAwayTeamOdds() {
-			log.Infof("Away team odds updated from %v to %v in match %s", lastMatchState.GetAwayTeamOdds(), match.GetAwayTeamOdds(), match.Id())
-			return true
-		}
-		if match.GetDrawOdds() != lastMatchState.GetDrawOdds() {
-			log.Infof("Draw odds updated from %v to %v in match %s", lastMatchState.GetDrawOdds(), match.GetDrawOdds(), match.Id())
-			return true
-		}
-		if match.GetDate() != lastMatchState.GetDate() {
-			log.Infof("Date updated from %v to %v in match %s", lastMatchState.GetDate(), match.GetDate(), match.Id())
-			return true
-		}
-	}
-
-	return false
 }
 
 // localInit is a function that initializes the environment variables for the local environment
