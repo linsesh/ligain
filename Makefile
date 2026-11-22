@@ -50,7 +50,7 @@ help:
 
 # Run tests
 test:
-	go test ./... -short || true
+	go test -race ./... -short
 	cd frontend/ligain && npm test || true
 
 # Run frontend tests

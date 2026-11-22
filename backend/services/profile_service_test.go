@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"ligain/backend/models"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,7 +21,15 @@ type MockStorageServiceForProfile struct {
 	LastObjectKey    string
 	LastUserID       string
 	GeneratedURL     string
+	deletedMu        sync.Mutex // DeleteAvatar is called from a goroutine by the service
 	DeletedObjectKey string
+}
+
+// deletedObjectKey returns the key passed to DeleteAvatar, safely while the service goroutine may still run
+func (m *MockStorageServiceForProfile) deletedObjectKey() string {
+	m.deletedMu.Lock()
+	defer m.deletedMu.Unlock()
+	return m.DeletedObjectKey
 }
 
 func NewMockStorageServiceForProfile() *MockStorageServiceForProfile {
@@ -47,7 +56,9 @@ func (m *MockStorageServiceForProfile) GenerateSignedURL(ctx context.Context, ob
 }
 
 func (m *MockStorageServiceForProfile) DeleteAvatar(ctx context.Context, objectKey string) error {
+	m.deletedMu.Lock()
 	m.DeletedObjectKey = objectKey
+	m.deletedMu.Unlock()
 	if m.DeleteError != nil {
 		return m.DeleteError
 	}
@@ -246,11 +257,8 @@ func TestProfileService_UploadAvatar_ReplacesExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Wait for fire-and-forget goroutine to complete
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify old avatar deletion was triggered (fire-and-forget)
-	assert.Equal(t, oldObjectKey, storageService.DeletedObjectKey)
+	// Verify old avatar deletion was triggered (fire-and-forget: wait for the goroutine)
+	require.Eventually(t, func() bool { return storageService.deletedObjectKey() == oldObjectKey }, time.Second, time.Millisecond)
 
 	// Verify new avatar was uploaded
 	assert.Equal(t, "player-1", storageService.LastUserID)
@@ -346,11 +354,8 @@ func TestProfileService_DeleteAvatar_Success(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Wait for fire-and-forget goroutine to complete
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify storage delete was called (fire-and-forget)
-	assert.Equal(t, objectKey, storageService.DeletedObjectKey)
+	// Verify storage delete was called (fire-and-forget: wait for the goroutine)
+	require.Eventually(t, func() bool { return storageService.deletedObjectKey() == objectKey }, time.Second, time.Millisecond)
 
 	// Verify database was cleared
 	assert.Nil(t, playerRepo.players["player-1"].AvatarObjectKey)
