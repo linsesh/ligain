@@ -151,6 +151,9 @@ func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 		log.Errorf("Error calculating match scores: %v", err)
 		return err
 	}
+	// A player whose score cannot be saved must not prevent the others from being
+	// scored, nor keep the finished match open: collect failures and report them at the end.
+	var saveErrors []error
 	for playerID, score := range scores {
 		// Find the player by ID
 		var player models.Player
@@ -168,7 +171,9 @@ func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 		err = g.betRepo.SaveScore(g.gameId, match, player, score)
 		if err != nil {
 			log.Errorf("Error saving score for player %v: %v", player, err)
-			return err
+			saveErrors = append(saveErrors, fmt.Errorf("player %s: %w", playerID, err))
+			delete(scores, playerID)
+			continue
 		}
 		log.Infof("Player %v has earned %v points for match %v", player, score, match.Id())
 	}
@@ -179,10 +184,10 @@ func (g *GameServiceImpl) handleScoreUpdate(match models.Match) error {
 	err = g.gameRepo.SaveWithId(g.gameId, game)
 	if err != nil {
 		log.Errorf("Error saving game after score update: %v", err)
-		return err
+		return errors.Join(append(saveErrors, err)...)
 	}
 
-	return nil
+	return errors.Join(saveErrors...)
 }
 
 func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet, now time.Time) error {

@@ -141,6 +141,15 @@ func (g *GameImpl) AddPlayer(player models.Player) error {
 	return nil
 }
 
+func (g *GameImpl) hasPlayerWithID(playerID string) bool {
+	for _, p := range g.players {
+		if p.GetID() == playerID {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *GameImpl) RemovePlayer(player models.Player) error {
 	for i, p := range g.players {
 		if p.GetID() == player.GetID() {
@@ -261,6 +270,9 @@ func (g *GameImpl) GetIncomingMatches(player models.Player) map[string]*models.M
 
 		if bets, exists := g.bets[match.Id()]; exists {
 			for playerID, bet := range bets {
+				if !g.hasPlayerWithID(playerID) {
+					continue
+				}
 				if playerID == player.GetID() || match.IsInProgress() {
 					playerBets[playerID] = bet
 				} else {

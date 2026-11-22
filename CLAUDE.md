@@ -181,6 +181,7 @@ This applies to any derived fact: whether a match has started, who the favorite 
   5. **Run the test again and confirm it is GREEN.** Show the output.
   6. **Refactor if needed**, keeping tests green.
 - **If you catch yourself writing code before a test exists, STOP immediately**, delete the code, and go back to step 1.
+- **Test through the public entry point, not the internals:** a test must exercise the same path the frontend calls (HTTP route in, JSON response out) and assert on the response only. Do not call internal methods to set up the scenario (e.g. removing a player from a cached game, manually updating a repository or cache) and do not assert on cache or other internal state. If a scenario can only be reproduced by poking internals, the production code is missing a call that the route should make.
 - **Test services with mocks, don't test mocks directly**: Mock implementations exist as test doubles to enable testing business logic. Test the service layer using mocks, not the mock implementation itself. Integration tests validate that real implementations behave correctly.
 
 **Architecture:**

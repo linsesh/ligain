@@ -26,20 +26,38 @@ type AuthServiceInterface interface {
 	DeleteAccount(ctx context.Context, playerID string) error
 }
 
+// PlayerGamesRemover removes a player from every game they belong to
+type PlayerGamesRemover interface {
+	RemovePlayerFromAllGames(player models.Player) error
+}
+
 // AuthService implements authentication with Google or Apple
 type AuthService struct {
-	playerRepo    repositories.PlayerRepository
-	oauthVerifier OAuthVerifierInterface
-	timeFunc      func() time.Time // For testing - allows injection of frozen time
+	playerRepo         repositories.PlayerRepository
+	oauthVerifier      OAuthVerifierInterface
+	timeFunc           func() time.Time // For testing - allows injection of frozen time
+	playerGamesRemover PlayerGamesRemover
+}
+
+// AuthServiceOption customizes an AuthService
+type AuthServiceOption func(*AuthService)
+
+// WithPlayerGamesRemover makes DeleteAccount remove the player from their games first
+func WithPlayerGamesRemover(remover PlayerGamesRemover) AuthServiceOption {
+	return func(s *AuthService) { s.playerGamesRemover = remover }
 }
 
 // NewAuthService creates a new AuthService instance
-func NewAuthService(playerRepo repositories.PlayerRepository) *AuthService {
-	return &AuthService{
+func NewAuthService(playerRepo repositories.PlayerRepository, opts ...AuthServiceOption) *AuthService {
+	s := &AuthService{
 		playerRepo:    playerRepo,
 		oauthVerifier: NewOAuthVerifier(),
 		timeFunc:      time.Now,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // NewAuthServiceWithTimeFunc creates an AuthService with a custom time function for testing
@@ -500,6 +518,13 @@ func (s *AuthService) DeleteAccount(ctx context.Context, playerID string) error 
 
 	if player == nil {
 		return &models.PlayerNotFoundError{Reason: "player not found"}
+	}
+
+	// Remove the player from their games first so the games stay consistent
+	if s.playerGamesRemover != nil {
+		if err := s.playerGamesRemover.RemovePlayerFromAllGames(player); err != nil {
+			return &models.GeneralAuthError{Reason: fmt.Sprintf("failed to remove player from games: %v", err)}
+		}
 	}
 
 	// Delete the player (this will cascade delete all related data due to our foreign key constraints)

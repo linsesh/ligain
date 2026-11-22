@@ -127,6 +127,20 @@ func (s *GameMembershipService) RemovePlayerFromGame(gameID string, player model
 	return nil
 }
 
+// RemovePlayerFromAllGames removes a player from every game they belong to
+func (s *GameMembershipService) RemovePlayerFromAllGames(player models.Player) error {
+	gameIDs, err := s.gamePlayerRepo.GetPlayerGames(context.Background(), player.GetID())
+	if err != nil {
+		return fmt.Errorf("error getting player games: %v", err)
+	}
+	for _, gameID := range gameIDs {
+		if err := s.RemovePlayerFromGame(gameID, player); err != nil {
+			return fmt.Errorf("error removing player from game %s: %w", gameID, err)
+		}
+	}
+	return nil
+}
+
 // IsPlayerInGame checks if a player is in a specific game
 func (s *GameMembershipService) IsPlayerInGame(gameID string, playerID string) (bool, error) {
 	return s.gamePlayerRepo.IsPlayerInGame(context.Background(), gameID, playerID)

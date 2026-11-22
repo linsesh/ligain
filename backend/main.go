@@ -195,8 +195,6 @@ func main() {
 		log.Fatal("Failed to start match watcher service:", err)
 	}
 
-	authService := services.NewAuthService(playerRepo)
-
 	// Setup profile service (avatar upload requires GCS, display name works without it)
 	var profileService services.ProfileService
 	if bucketName := os.Getenv("GCS_BUCKET_NAME"); bucketName != "" {
@@ -220,6 +218,7 @@ func main() {
 	}
 
 	membershipService := services.NewGameMembershipService(uow, gamePlayerRepo, gameRepo, gameCodeRepo, registry, watcher)
+	authService := services.NewAuthService(playerRepo, services.WithPlayerGamesRemover(membershipService))
 	queryService := services.NewGameQueryService(gameRepo, gamePlayerRepo, gameCodeRepo, betRepo, profileService)
 	joinService := services.NewGameJoinService(gameCodeRepo, gameRepo, gamePlayerRepo, membershipService, registry, time.Now)
 	creationService := services.NewGameCreationServiceWithServices(
