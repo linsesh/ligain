@@ -87,20 +87,10 @@ func main() {
 			gamePlayerRepo = postgres.NewPostgresGamePlayerRepository(db)
 			uow = postgres.NewUnitOfWork(db)
 
-			matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2026/2027")
-			log.Infof("Got %d matches", len(matches))
-			if err != nil {
-				log.Fatal("Failed to get matches:", err)
-			}
-			matchesMap := make(map[string]models.Match)
-			for _, match := range matches {
-				if !match.IsFinished() {
-					matchesMap[match.Id()] = match
-				}
-			}
+			matchService := services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
 			simulatedAPI := api.NewSimulatedSportsmonkAPI(api.NewSportsmonkAPI(os.Getenv("SPORTSMONK_API_TOKEN")))
 			sportsmonkRepo := repositories.NewSportsmonkRepository(simulatedAPI)
-			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(sportsmonkRepo, matchesMap, matchRepo, 1*time.Minute)
+			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(sportsmonkRepo, matchService, 1*time.Minute)
 			log.Info("Running in fake mode: SimulatedSportsmonkAPI + real postgres (1m poll)")
 		} else {
 			log.Info("Running in fake mode — all repositories are in-memory, no DB required")
@@ -124,13 +114,15 @@ func main() {
 				*models.NewSeasonMatchWithKnownOdds("Montpellier", "Metz", "2026/2027", "Ligue 1", time.Now().Add(7*time.Hour), 3, 2.1, 3.1, 3.2),
 				*models.NewSeasonMatchWithKnownOdds("Auxerre", "Reims", "2026/2027", "Ligue 1", time.Now().Add(8*time.Hour), 3, 2.3, 3.0, 3.0),
 			}
-			matchesMap := make(map[string]models.Match)
 			for i := range fakeSeasonMatches {
-				matchesMap[fakeSeasonMatches[i].Id()] = &fakeSeasonMatches[i]
+				if err := matchRepo.SaveMatch(&fakeSeasonMatches[i]); err != nil {
+					log.Fatalf("Failed to save fake match: %v", err)
+				}
 			}
+			matchService := services.NewMatchService(matchRepo)
 			fakeAPI := api.NewFakeRandomSportsmonkAPI(fakeSeasonMatches)
 			fakeRepo := repositories.NewSportsmonkRepository(fakeAPI)
-			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(fakeRepo, matchesMap, matchRepo, 500*time.Millisecond)
+			watcher = services.NewMatchWatcherServiceSportsmonkWithOptions(fakeRepo, matchService, 500*time.Millisecond)
 
 			// Seed fake games so the watcher has subscribers and HandleMatchUpdates is exercised
 			allFakeMatches := make([]models.Match, 0, len(fakeSeasonMatches))
@@ -173,18 +165,8 @@ func main() {
 		gamePlayerRepo = postgres.NewPostgresGamePlayerRepository(db)
 		uow = postgres.NewUnitOfWork(db)
 
-		matches, err := matchRepo.GetMatchesByCompetitionAndSeason("Ligue 1", "2026/2027")
-		log.Infof("Got %d matches", len(matches))
-		if err != nil {
-			log.Fatal("Failed to get matches:", err)
-		}
-		matchesMap := make(map[string]models.Match)
-		for _, match := range matches {
-			if !match.IsFinished() {
-				matchesMap[match.Id()] = match
-			}
-		}
-		w, err := services.NewMatchWatcherServiceSportsmonk(env, matchesMap, matchRepo)
+		matchService := services.NewMatchService(matchRepo, services.WatchOnly("Ligue 1", "2026/2027"))
+		w, err := services.NewMatchWatcherServiceSportsmonk(env, matchService)
 		if err != nil {
 			log.Fatal("Failed to create match watcher service:", err)
 		}

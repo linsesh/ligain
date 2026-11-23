@@ -124,3 +124,12 @@ func (m *MockMatch) GetFavoriteTeam() string {
 	}
 	return m.GetAwayTeam()
 }
+
+func (m *MockMatch) Clone() models.Match {
+	copied := *m
+	return &copied
+}
+
+func (m *MockMatch) TryUpdate(update models.MatchUpdate, now time.Time) (models.Match, bool) {
+	return m, false
+}
