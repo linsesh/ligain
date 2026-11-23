@@ -129,7 +129,14 @@ func (g *GameServiceImpl) UpdatePlayerBet(player models.Player, bet *models.Bet,
 		return err
 	}
 
-	err = game.CheckPlayerBetValidity(player, bet, now)
+	// Fetch the match from MatchService to validate the bet
+	match, err := g.matchService.GetMatch(bet.MatchID)
+	if err != nil {
+		log.Errorf("Error getting match %s: %v", bet.MatchID, err)
+		return err
+	}
+
+	err = game.CheckPlayerBetValidity(player, bet, match, now)
 	if err != nil {
 		log.Errorf("Error checking player bet validity: %v", err)
 		return err

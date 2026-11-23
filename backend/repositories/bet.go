@@ -59,8 +59,8 @@ func (r *InMemoryBetRepository) GetBets(gameId string, player models.Player) ([]
 }
 
 func (r *InMemoryBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, *models.Bet, error) {
-	matchId := bet.Match.Id()
-	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), matchId)
+	matchId := bet.MatchID
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetID(), matchId)
 	entry := BetEntry{
 		GameId:  gameId,
 		Player:  player,
@@ -88,8 +88,8 @@ func (r *InMemoryBetRepository) GetBetsForMatch(match models.Match, gameId strin
 }
 
 func (r *InMemoryBetRepository) SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error {
-	matchId := bet.Match.Id()
-	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), matchId)
+	matchId := bet.MatchID
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetID(), matchId)
 	entry := BetEntry{
 		GameId:  gameId,
 		Player:  player,
@@ -102,7 +102,7 @@ func (r *InMemoryBetRepository) SaveWithId(gameId string, betId string, bet *mod
 }
 
 func (r *InMemoryBetRepository) SaveScore(gameId string, match models.Match, player models.Player, points int) error {
-	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetName(), match.Id())
+	betKey := fmt.Sprintf("%s:%s:%s", gameId, player.GetID(), match.Id())
 	entry, err := r.cache.Get(betKey)
 	if err != nil {
 		r.cache.Set(betKey, BetEntry{

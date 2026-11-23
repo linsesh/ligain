@@ -27,6 +27,7 @@ type MockGame struct {
 	incomingMatches map[string]*models.MatchResult
 	pastMatches     map[string]*models.MatchResult
 	bets            map[string]map[string]*models.Bet
+	matchRepo       repositories.MatchRepository
 }
 
 func (m *MockGame) GetIncomingMatches(player models.Player) map[string]*models.MatchResult {
@@ -53,9 +54,9 @@ func (m *MockGame) GetName() string {
 	return "Test Game"
 }
 
-func (m *MockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, datetime time.Time) error {
-	if datetime.After(bet.Match.GetDate()) {
-		return fmt.Errorf("too late to bet on match %v", bet.Match.Id())
+func (m *MockGame) CheckPlayerBetValidity(player models.Player, bet *models.Bet, match models.Match, datetime time.Time) error {
+	if datetime.After(match.GetDate()) {
+		return fmt.Errorf("too late to bet on match %v", bet.MatchID)
 	}
 	return nil
 }
@@ -64,19 +65,20 @@ func (m *MockGame) AddPlayerBet(player models.Player, bet *models.Bet) error {
 	if m.bets == nil {
 		m.bets = make(map[string]map[string]*models.Bet)
 	}
-	if m.bets[bet.Match.Id()] == nil {
-		m.bets[bet.Match.Id()] = make(map[string]*models.Bet)
+	if m.bets[bet.MatchID] == nil {
+		m.bets[bet.MatchID] = make(map[string]*models.Bet)
 	}
-	m.bets[bet.Match.Id()][player.GetName()] = bet
+	m.bets[bet.MatchID][player.GetName()] = bet
 
 	// Update the MatchResult in incomingMatches
-	if _, exists := m.incomingMatches[bet.Match.Id()]; exists {
+	if _, exists := m.incomingMatches[bet.MatchID]; exists {
 		// Convert map[string]*models.Bet to map[models.Player]*models.Bet for NewMatchWithBets
 		playerBets := make(map[models.Player]*models.Bet)
-		for playerName, bet := range m.bets[bet.Match.Id()] {
+		for playerName, bet := range m.bets[bet.MatchID] {
 			playerBets[&models.PlayerData{Name: playerName}] = bet
 		}
-		m.incomingMatches[bet.Match.Id()] = models.NewMatchWithBets(bet.Match, playerBets)
+		matchResult := m.incomingMatches[bet.MatchID]
+		m.incomingMatches[bet.MatchID] = models.NewMatchWithBets(matchResult.Match, playerBets)
 	}
 	return nil
 }
@@ -218,13 +220,15 @@ func setupTestRouterWithTime(timeFunc func() time.Time) (*gin.Engine, *MockGame)
 
 	gameRepo := repositories.NewInMemoryGameRepository()
 	betRepo := repositories.NewInMemoryBetRepository()
+	matchRepo := repositories.NewInMemoryMatchRepository()
 	game := &MockGame{
 		incomingMatches: make(map[string]*models.MatchResult),
 		pastMatches:     make(map[string]*models.MatchResult),
 		bets:            make(map[string]map[string]*models.Bet),
+		matchRepo:       matchRepo, // Add matchRepo to MockGame so it can save matches
 	}
 	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
-	matchService := services.NewMatchService(repositories.NewInMemoryMatchRepository())
+	matchService := services.NewMatchService(matchRepo)
 	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), matchService)
 
 	mockAuthService := &MockBetAuthService{}
@@ -301,6 +305,10 @@ func TestSaveBet_Success(t *testing.T) {
 	matchResult := models.NewMatchWithBets(match, nil)
 
 	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+	// Also save the match to the MatchService repository so UpdatePlayerBet can find it
+	if game.matchRepo != nil {
+		game.matchRepo.SaveMatch(match)
+	}
 
 	// Create request body
 	homeGoals := 2
@@ -438,6 +446,10 @@ func TestSaveBet_UpdateExistingBet(t *testing.T) {
 	matchResult := models.NewMatchWithBets(match, nil)
 
 	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+	// Also save the match to the MatchService repository so UpdatePlayerBet can find it
+	if game.matchRepo != nil {
+		game.matchRepo.SaveMatch(match)
+	}
 
 	// First bet
 	homeGoals1 := 2
@@ -556,6 +568,10 @@ func TestSaveBet_SevenZeroBet(t *testing.T) {
 	matchResult := models.NewMatchWithBets(match, nil)
 
 	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+	// Also save the match to the MatchService repository so UpdatePlayerBet can find it
+	if game.matchRepo != nil {
+		game.matchRepo.SaveMatch(match)
+	}
 
 	// Test the 7-0 bet that's failing in production
 	homeGoals := 7
@@ -616,6 +632,10 @@ func TestSaveBet_SevenOneBet(t *testing.T) {
 	matchResult := models.NewMatchWithBets(match, nil)
 
 	game.GetIncomingMatches(nil)[match.Id()] = matchResult
+	// Also save the match to the MatchService repository so UpdatePlayerBet can find it
+	if game.matchRepo != nil {
+		game.matchRepo.SaveMatch(match)
+	}
 
 	// Test a 7-1 bet to see if the issue is with the 0 value
 	homeGoals := 7

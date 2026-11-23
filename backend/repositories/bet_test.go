@@ -54,8 +54,8 @@ func TestInMemoryBetRepository_SaveAndGetBets(t *testing.T) {
 	if len(bets) != 1 {
 		t.Errorf("Expected 1 bet, got %d", len(bets))
 	}
-	if bets[0].Match.Id() != match.Id() {
-		t.Errorf("Expected bet for match %s, got %s", match.Id(), bets[0].Match.Id())
+	if bets[0].MatchID != match.Id() {
+		t.Errorf("Expected bet for match %s, got %s", match.Id(), bets[0].MatchID)
 	}
 }
 

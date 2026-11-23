@@ -441,7 +441,7 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 
 				// Verify that Player3 can place a bet (this was the original bug)
 				bet3 := models.NewBet(futureMatch, 0, 0)
-				err = restoredGame.CheckPlayerBetValidity(players[2], bet3, testTime) // Player3
+				err = restoredGame.CheckPlayerBetValidity(players[2], bet3, futureMatch, testTime) // Player3
 				require.NoError(t, err, "Player3 should be able to place a bet even though they haven't bet yet")
 
 				// Verify incoming matches have bets from Player1 and Player2 only

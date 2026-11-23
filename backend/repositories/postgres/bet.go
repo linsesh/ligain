@@ -6,8 +6,6 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/repositories"
 
-	"time"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,38 +22,29 @@ func NewPostgresBetRepository(db DBExecutor) repositories.BetRepository {
 func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player models.Player) (string, *models.Bet, error) {
 	query := `
 		WITH match_id AS (
-			SELECT id FROM match 
-			WHERE home_team_id = $1 
-			AND away_team_id = $2 
-			AND season_code = $3 
-			AND competition_code = $4 
-			AND matchday = $5
+			SELECT id FROM match
+			WHERE local_id = $1
 		)
 		INSERT INTO bet (game_id, match_id, player_id, predicted_home_goals, predicted_away_goals)
-		SELECT $6, m.id, p.id, $7, $8
+		SELECT $2, m.id, $3, $4, $5
 		FROM match_id m
-		JOIN player p ON p.name = $9
-		ON CONFLICT (game_id, match_id, player_id) DO UPDATE 
-		SET predicted_home_goals = $7, predicted_away_goals = $8, updated_at = NOW()
+		ON CONFLICT (game_id, match_id, player_id) DO UPDATE
+		SET predicted_home_goals = $4, predicted_away_goals = $5, updated_at = NOW()
 		RETURNING id`
 
 	var id string
 	err := r.db.QueryRow(
 		query,
-		bet.Match.GetHomeTeam(),
-		bet.Match.GetAwayTeam(),
-		bet.Match.GetSeasonCode(),
-		bet.Match.GetCompetitionCode(),
-		bet.Match.(*models.SeasonMatch).Matchday,
+		bet.MatchID,
 		gameId,
+		player.GetID(),
 		bet.PredictedHomeGoals,
 		bet.PredictedAwayGoals,
-		player.GetName(),
 	).Scan(&id)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", nil, fmt.Errorf("player not found: %s", player.GetName())
+			return "", nil, fmt.Errorf("match or player not found")
 		}
 		return "", nil, fmt.Errorf("error saving bet: %v", err)
 	}
@@ -64,17 +53,15 @@ func (r *PostgresBetRepository) SaveBet(gameId string, bet *models.Bet, player m
 }
 
 func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]*models.Bet, error) {
-	// Query database with JOIN to player table
+	// Query database to get bets with their match IDs
 	query := `
-		SELECT b.id, b.match_id, b.predicted_home_goals, b.predicted_away_goals,
-			   m.home_team_id, m.away_team_id, m.match_date, m.match_status,
-			   m.season_code, m.competition_code, m.matchday
+		SELECT b.predicted_home_goals, b.predicted_away_goals, m.local_id
 		FROM bet b
 		JOIN match m ON b.match_id = m.id
 		JOIN player p ON b.player_id = p.id
-		WHERE b.game_id = $1 AND p.name = $2`
+		WHERE b.game_id = $1 AND p.id = $2`
 
-	rows, err := r.db.Query(query, gameId, player.GetName())
+	rows, err := r.db.Query(query, gameId, player.GetID())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []*models.Bet{}, nil
@@ -86,39 +73,21 @@ func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]
 	var bets []*models.Bet
 	for rows.Next() {
 		var (
-			id                                     string
-			matchId                                string
 			predictedHomeGoals, predictedAwayGoals int
-			homeTeam, awayTeam                     string
-			matchDateStr                           string
-			matchStatus                            string
-			seasonCode, competitionCode            string
-			matchday                               int
+			matchID                                string
 		)
 
-		err := rows.Scan(
-			&id, &matchId, &predictedHomeGoals, &predictedAwayGoals,
-			&homeTeam, &awayTeam, &matchDateStr, &matchStatus,
-			&seasonCode, &competitionCode, &matchday,
-		)
+		err := rows.Scan(&predictedHomeGoals, &predictedAwayGoals, &matchID)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning bet row: %v", err)
 		}
 
-		// Parse match date
-		matchDate, err := time.Parse(time.RFC3339, matchDateStr)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing match date: %v", err)
+		// Create bet with just the match ID (no embedded match)
+		bet := &models.Bet{
+			MatchID:            matchID,
+			PredictedHomeGoals: predictedHomeGoals,
+			PredictedAwayGoals: predictedAwayGoals,
 		}
-
-		// Create match
-		match := models.NewSeasonMatch(homeTeam, awayTeam, seasonCode, competitionCode, matchDate, matchday)
-		if matchStatus == "finished" {
-			match.Finish(predictedHomeGoals, predictedAwayGoals)
-		}
-
-		// Create bet
-		bet := models.NewBet(match, predictedHomeGoals, predictedAwayGoals)
 		bets = append(bets, bet)
 	}
 
@@ -132,7 +101,7 @@ func (r *PostgresBetRepository) GetBets(gameId string, player models.Player) ([]
 func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId string) ([]*models.Bet, []models.Player, error) {
 	// Query database with JOIN to get player names and IDs
 	query := `
-		SELECT b.id, p.id, p.name, b.predicted_home_goals, b.predicted_away_goals
+		SELECT p.id, p.name, b.predicted_home_goals, b.predicted_away_goals
 		FROM bet b
 		JOIN player p ON b.player_id = p.id
 		JOIN match m ON b.match_id = m.id
@@ -154,19 +123,22 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 
 	for rows.Next() {
 		var (
-			id                                     string
 			playerId                               string
 			playerName                             string
 			predictedHomeGoals, predictedAwayGoals int
 		)
 
-		err := rows.Scan(&id, &playerId, &playerName, &predictedHomeGoals, &predictedAwayGoals)
+		err := rows.Scan(&playerId, &playerName, &predictedHomeGoals, &predictedAwayGoals)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error scanning bet row: %v", err)
 		}
 
-		// Create bet
-		bet := models.NewBet(match, predictedHomeGoals, predictedAwayGoals)
+		// Create bet with just the match ID
+		bet := &models.Bet{
+			MatchID:            match.Id(),
+			PredictedHomeGoals: predictedHomeGoals,
+			PredictedAwayGoals: predictedAwayGoals,
+		}
 		bets = append(bets, bet)
 
 		// Create player with proper ID
@@ -184,20 +156,13 @@ func (r *PostgresBetRepository) GetBetsForMatch(match models.Match, gameId strin
 func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *models.Bet, player models.Player) error {
 	// Save bet with specific ID
 	_, err := r.db.Exec(`
-		WITH player_id AS (
-			SELECT id FROM player WHERE name = $1
-		),
-		match_id AS (
-			SELECT id FROM match 
-			WHERE home_team_id = $2 
-			AND away_team_id = $3 
-			AND season_code = $4 
-			AND competition_code = $5 
-			AND matchday = $6
+		WITH match_id AS (
+			SELECT id FROM match
+			WHERE local_id = $1
 		)
 		INSERT INTO bet (id, match_id, player_id, predicted_home_goals, predicted_away_goals, game_id)
-		SELECT $7, m.id, p.id, $8, $9, $10
-		FROM player_id p, match_id m
+		SELECT $2, m.id, $3, $4, $5, $6
+		FROM match_id m
 		ON CONFLICT (id) DO UPDATE SET
 			match_id = EXCLUDED.match_id,
 			player_id = EXCLUDED.player_id,
@@ -205,10 +170,10 @@ func (r *PostgresBetRepository) SaveWithId(gameId string, betId string, bet *mod
 			predicted_away_goals = EXCLUDED.predicted_away_goals,
 			game_id = EXCLUDED.game_id,
 			updated_at = NOW()
-	`, player.GetName(), bet.Match.GetHomeTeam(), bet.Match.GetAwayTeam(), bet.Match.GetSeasonCode(), bet.Match.GetCompetitionCode(), bet.Match.(*models.SeasonMatch).Matchday, betId, bet.PredictedHomeGoals, bet.PredictedAwayGoals, gameId)
+	`, bet.MatchID, betId, player.GetID(), bet.PredictedHomeGoals, bet.PredictedAwayGoals, gameId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("player not found: %s", player.GetName())
+			return fmt.Errorf("match or player not found")
 		}
 		return fmt.Errorf("error saving bet: %w", err)
 	}

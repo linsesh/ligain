@@ -20,7 +20,7 @@ type Game interface {
 	GetCompetitionName() string
 	GetGameStatus() GameStatus
 	GetName() string
-	CheckPlayerBetValidity(player Player, bet *Bet, datetime time.Time) error
+	CheckPlayerBetValidity(player Player, bet *Bet, match Match, datetime time.Time) error
 	AddPlayerBet(player Player, bet *Bet) error
 	AddPlayer(player Player) error
 	RemovePlayer(player Player) error
