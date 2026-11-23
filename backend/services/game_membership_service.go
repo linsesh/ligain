@@ -30,7 +30,6 @@ type GameMembershipService struct {
 	gameRepo       repositories.GameRepository
 	gameCodeRepo   repositories.GameCodeRepository
 	registry       GameServiceRegistryInterface
-	watcher        MatchWatcherService
 }
 
 // NewGameMembershipService creates a new GameMembershipService instance
@@ -40,7 +39,6 @@ func NewGameMembershipService(
 	gameRepo repositories.GameRepository,
 	gameCodeRepo repositories.GameCodeRepository,
 	registry GameServiceRegistryInterface,
-	watcher MatchWatcherService,
 ) *GameMembershipService {
 	return &GameMembershipService{
 		uow:            uow,
@@ -48,7 +46,6 @@ func NewGameMembershipService(
 		gameRepo:       gameRepo,
 		gameCodeRepo:   gameCodeRepo,
 		registry:       registry,
-		watcher:        watcher,
 	}
 }
 
@@ -156,7 +153,7 @@ func (s *GameMembershipService) LeaveGame(gameID string, player models.Player) e
 	return s.RemovePlayerFromGame(gameID, player)
 }
 
-// deleteGame marks a game as finished, persists it, unsubscribes from the watcher, and deletes the join code
+// deleteGame marks a game as finished, persists it, unsubscribes from the match updates, and deletes the join code
 func (s *GameMembershipService) deleteGame(gameID string) error {
 	game, err := s.gameRepo.GetGame(gameID)
 	if err != nil {
@@ -176,14 +173,6 @@ func (s *GameMembershipService) deleteGame(gameID string) error {
 		err := matchService.Unsubscribe(gameID)
 		if err != nil {
 			log.WithError(err).Warnf("Failed to unsubscribe game %s from matchService", gameID)
-		}
-	}
-
-	// Always unsubscribe from old watcher if present (backward compatibility)
-	if s.watcher != nil {
-		err := s.watcher.Unsubscribe(gameID)
-		if err != nil {
-			log.WithError(err).Warnf("Failed to unsubscribe game %s from watcher", gameID)
 		}
 	}
 

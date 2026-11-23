@@ -17,7 +17,7 @@ func TestSeasonMatch_Clone_IsIndependent(t *testing.T) {
 	original := scheduledWithOdds(2.1, 3.2, 3.3)
 
 	clone := original.Clone()
-	clone.SetHomeTeamOdds(9)
+	clone.(*SeasonMatch).HomeTeamOdds = 9
 	clone.Start()
 
 	assert.Equal(t, 2.1, original.GetHomeTeamOdds())

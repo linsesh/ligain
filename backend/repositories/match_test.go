@@ -28,7 +28,7 @@ func TestInMemoryMatchRepository_ReturnsCopies(t *testing.T) {
 	require.NoError(t, repo.SaveMatch(saved))
 
 	t.Run("changing the saved match afterwards does not change the repository", func(t *testing.T) {
-		saved.SetHomeTeamOdds(99)
+		saved.HomeTeamOdds = 99
 
 		stored, err := repo.GetMatch(saved.Id())
 		require.NoError(t, err)
@@ -38,7 +38,7 @@ func TestInMemoryMatchRepository_ReturnsCopies(t *testing.T) {
 	t.Run("changing a returned match does not change the repository", func(t *testing.T) {
 		first, err := repo.GetMatch(saved.Id())
 		require.NoError(t, err)
-		first.SetHomeTeamOdds(77)
+		first.(*models.SeasonMatch).HomeTeamOdds = 77
 		first.Start()
 
 		second, err := repo.GetMatch(saved.Id())
@@ -50,7 +50,7 @@ func TestInMemoryMatchRepository_ReturnsCopies(t *testing.T) {
 	t.Run("changing a match returned in a list does not change the repository", func(t *testing.T) {
 		all, err := repo.GetMatches()
 		require.NoError(t, err)
-		all[saved.Id()].SetHomeTeamOdds(55)
+		all[saved.Id()].(*models.SeasonMatch).HomeTeamOdds = 55
 
 		inCompetition, err := repo.GetMatchesByCompetitionAndSeason("Ligue 1", "2026/2027")
 		require.NoError(t, err)

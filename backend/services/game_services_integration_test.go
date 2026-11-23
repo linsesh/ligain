@@ -50,7 +50,7 @@ func setupIntegrationTest() (
 
 	// Wire services with SAME mock instances
 	registry, _ := NewGameServiceRegistry(mockGameRepo, mockBetRepo, mockGamePlayerRepo, mockMatchService)
-	membershipService := NewGameMembershipService(&integrationUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry, nil)
+	membershipService := NewGameMembershipService(&integrationUoW{}, mockGamePlayerRepo, mockGameRepo, mockGameCodeRepo, registry)
 	queryService := NewGameQueryService(mockGameRepo, mockGamePlayerRepo, mockGameCodeRepo, mockBetRepo, nil)
 	joinService := NewGameJoinService(mockGameCodeRepo, mockGameRepo, mockGamePlayerRepo, membershipService, registry, func() time.Time { return integrationTestTime })
 	creationService := NewGameCreationServiceWithServices(
