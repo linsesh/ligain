@@ -26,13 +26,13 @@ type Game interface {
 	RemovePlayer(player Player) error
 	CalculateMatchScores(match Match) (map[string]int, error)
 	ApplyMatchScores(match Match, scores map[string]int)
-	UpdateMatch(match Match) error
 	GetPlayersPoints() map[string]int
 	GetPlayers() []Player
 	IsFinished() bool
 	GetWinner() []Player
 	// GetIncomingMatchesForTesting returns all incoming matches with all bets (for testing only)
 	GetIncomingMatchesForTesting() map[string]*MatchResult
-	GetMatchById(matchId string) (Match, error)
+	// HasIncomingMatch checks if a match ID is in the game's incoming list
+	HasIncomingMatch(matchID string) bool
 	Finish()
 }

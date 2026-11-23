@@ -170,7 +170,16 @@ func (s *GameMembershipService) deleteGame(gameID string) error {
 		return fmt.Errorf("error saving finished game: %v", err)
 	}
 
-	// Always unsubscribe from watcher if present
+	// Unsubscribe from matchService
+	matchService := s.registry.GetMatchService()
+	if matchService != nil {
+		err := matchService.Unsubscribe(gameID)
+		if err != nil {
+			log.WithError(err).Warnf("Failed to unsubscribe game %s from matchService", gameID)
+		}
+	}
+
+	// Always unsubscribe from old watcher if present (backward compatibility)
 	if s.watcher != nil {
 		err := s.watcher.Unsubscribe(gameID)
 		if err != nil {

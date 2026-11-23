@@ -66,8 +66,8 @@ func NewMatchWatcherServiceSportsmonkWithOptions(
 	}
 }
 
-// Subscribe makes a game receive the matches that changed (the MatchService publishes them)
-func (m *MatchWatcherServiceSportsmonk) Subscribe(handler GameService) error {
+// Subscribe makes a listener receive the matches that changed (the MatchService publishes them)
+func (m *MatchWatcherServiceSportsmonk) Subscribe(handler MatchUpdateListener) error {
 	return m.matchService.Subscribe(handler)
 }
 

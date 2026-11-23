@@ -29,18 +29,18 @@ func finishedUpdate(match models.Match) models.MatchUpdate {
 	return update
 }
 
-// notifiedGame is a GameService fake that reports what MatchService tells it on a channel
+// notifiedGame is a MatchUpdateListener fake that reports what MatchService tells it on a channel
 type notifiedGame struct {
 	*MockGameService
-	received chan map[string]models.Match
+	received chan []string
 }
 
 func newNotifiedGame(gameID string) *notifiedGame {
-	return &notifiedGame{MockGameService: NewMockGameService(gameID), received: make(chan map[string]models.Match, 10)}
+	return &notifiedGame{MockGameService: NewMockGameService(gameID), received: make(chan []string, 10)}
 }
 
-func (g *notifiedGame) HandleMatchUpdates(updates map[string]models.Match) error {
-	g.received <- updates
+func (g *notifiedGame) OnMatchesUpdated(ids []string) error {
+	g.received <- ids
 	return nil
 }
 
@@ -52,7 +52,7 @@ func (g *notifiedGame) nothingReceived(t *testing.T) {
 	}
 }
 
-func (g *notifiedGame) receivedWithin(t *testing.T) map[string]models.Match {
+func (g *notifiedGame) receivedWithin(t *testing.T) []string {
 	select {
 	case updates := <-g.received:
 		return updates
@@ -62,7 +62,7 @@ func (g *notifiedGame) receivedWithin(t *testing.T) map[string]models.Match {
 	}
 }
 
-func TestMatchService_TryUpdateMatches_SavesTheUpdatedMatchAndTellsEverySubscriber(t *testing.T) {
+func TestMatchService_TryUpdateMatches_SavesTheUpdatedMatchAndTellsEverySubscriberItsId(t *testing.T) {
 	current := scheduledMatch("Lens", "Toulouse")
 	repo := new(MockMatchRepository)
 	repo.On("GetMatch", current.Id()).Return(current, nil)
@@ -76,14 +76,8 @@ func TestMatchService_TryUpdateMatches_SavesTheUpdatedMatchAndTellsEverySubscrib
 
 	require.NoError(t, err)
 	repo.AssertNumberOfCalls(t, "SaveMatch", 1)
-	updates1, updates2 := game1.receivedWithin(t), game2.receivedWithin(t)
-	for _, updates := range []map[string]models.Match{updates1, updates2} {
-		require.Contains(t, updates, current.Id())
-		assert.True(t, updates[current.Id()].IsFinished())
-	}
-	// each game gets its own copy
-	updates1[current.Id()].(*models.SeasonMatch).HomeGoals = 99
-	assert.Equal(t, 2, updates2[current.Id()].GetHomeGoals())
+	assert.Equal(t, []string{current.Id()}, game1.receivedWithin(t))
+	assert.Equal(t, []string{current.Id()}, game2.receivedWithin(t))
 }
 
 func TestMatchService_TryUpdateMatches_NothingChangedMeansNothingSavedNorSent(t *testing.T) {
@@ -157,9 +151,7 @@ func TestMatchService_TryUpdateMatches_AFailingMatchDoesNotStopTheOthers(t *test
 	require.Error(t, err)
 	assert.ErrorIs(t, err, repositories.ErrMatchNotFound)
 	assert.Contains(t, err.Error(), "database down")
-	updates := game.receivedWithin(t)
-	assert.Len(t, updates, 1, "only the match that was saved is sent")
-	assert.Contains(t, updates, fine.Id())
+	assert.Equal(t, []string{fine.Id()}, game.receivedWithin(t), "only the match that was saved is announced")
 }
 
 func TestMatchService_UnsubscribedGameIsNotTold(t *testing.T) {

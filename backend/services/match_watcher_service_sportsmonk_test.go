@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"ligain/backend/models"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,13 +33,16 @@ func (r *SportsmonkRepositoryMock) GetLastMatchInfos(matches map[string]models.M
 
 // MockGameService for testing
 type MockGameService struct {
-	gameID  string
-	updates []map[string]models.Match
+	gameID   string
+	mu       sync.Mutex
+	received [][]string // the match IDs of each notification
 }
 
-func (m *MockGameService) HandleMatchUpdates(updates map[string]models.Match) error {
-	m.updates = append(m.updates, updates)
-	return nil
+// notifications returns the match IDs of every notification received so far
+func (m *MockGameService) notifications() [][]string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([][]string(nil), m.received...)
 }
 
 func (m *MockGameService) GetGameID() string {
@@ -74,11 +78,15 @@ func (m *MockGameService) RemovePlayer(player models.Player) error {
 	return nil
 }
 
+func (m *MockGameService) OnMatchesUpdated(matchIDs []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.received = append(m.received, matchIDs)
+	return nil
+}
+
 func NewMockGameService(gameID string) *MockGameService {
-	return &MockGameService{
-		gameID:  gameID,
-		updates: make([]map[string]models.Match, 0),
-	}
+	return &MockGameService{gameID: gameID}
 }
 
 // newTestWatcher builds a watcher over a real MatchService and an in-memory match repository holding the given matches
@@ -142,9 +150,7 @@ func TestMatchWatcherServiceSportsmonk_FinishedMatchIsSavedAndSentToGames(t *tes
 	require.NoError(t, err)
 	assert.True(t, saved.IsFinished())
 	assert.Equal(t, 2, saved.GetHomeGoals())
-	require.Len(t, handler.updates, 1)
-	require.Contains(t, handler.updates[0], initial.Id())
-	assert.True(t, handler.updates[0][initial.Id()].IsFinished())
+	assert.Equal(t, [][]string{{initial.Id()}}, handler.notifications())
 }
 
 func TestMatchWatcherServiceSportsmonk_NothingChangedNothingSent(t *testing.T) {
@@ -157,7 +163,7 @@ func TestMatchWatcherServiceSportsmonk_NothingChangedNothingSent(t *testing.T) {
 
 	pollOnce(service)
 
-	assert.Empty(t, handler.updates)
+	assert.Empty(t, handler.notifications())
 }
 
 func TestMatchWatcherServiceSportsmonk_ProviderErrorChangesNothing(t *testing.T) {
@@ -170,7 +176,7 @@ func TestMatchWatcherServiceSportsmonk_ProviderErrorChangesNothing(t *testing.T)
 
 	pollOnce(service)
 
-	assert.Empty(t, handler.updates)
+	assert.Empty(t, handler.notifications())
 }
 
 func TestMatchWatcherServiceSportsmonk_WhatChangesIsSentToGames(t *testing.T) {
@@ -208,7 +214,7 @@ func TestMatchWatcherServiceSportsmonk_WhatChangesIsSentToGames(t *testing.T) {
 
 			pollOnce(service)
 
-			assert.Equal(t, tt.sent, len(handler.updates) == 1)
+			assert.Equal(t, tt.sent, len(handler.notifications()) == 1)
 		})
 	}
 }
@@ -251,9 +257,7 @@ func TestMatchWatcherServiceSportsmonk_PreMatchOddsAreKeptOnceMatchIsAboutToStar
 			saved, err := matchRepo.GetMatch(initial.Id())
 			require.NoError(t, err)
 			assert.Equal(t, tt.odds, [3]float64{saved.GetHomeTeamOdds(), saved.GetAwayTeamOdds(), saved.GetDrawOdds()}, "odds saved")
-			require.Len(t, handler.updates, 1)
-			sent := handler.updates[0][initial.Id()]
-			assert.Equal(t, tt.odds, [3]float64{sent.GetHomeTeamOdds(), sent.GetAwayTeamOdds(), sent.GetDrawOdds()}, "odds sent to the games")
+			assert.Equal(t, [][]string{{initial.Id()}}, handler.notifications(), "games are told the match changed and read it from the MatchService")
 		})
 	}
 }
@@ -272,7 +276,7 @@ func TestMatchWatcherServiceSportsmonk_FinishedMatchWithoutUsableOddsIsRejected(
 	saved, err := matchRepo.GetMatch(initial.Id())
 	require.NoError(t, err)
 	assert.False(t, saved.IsFinished(), "a finished match nobody can score must not be saved")
-	assert.Empty(t, handler.updates)
+	assert.Empty(t, handler.notifications())
 }
 
 func TestMatchWatcherService_OnlyQueriesMatchesWithinTwoWeeks(t *testing.T) {
@@ -350,8 +354,7 @@ func TestMatchWatcherService_DetectsRescheduleOfPastMatch(t *testing.T) {
 	saved, err := matchRepo.GetMatch(pastMatch.Id())
 	require.NoError(t, err)
 	assert.Equal(t, rescheduledDate, saved.GetDate())
-	require.Len(t, handler.updates, 1, "a rescheduled past match must be reported as an update")
-	assert.Equal(t, rescheduledDate, handler.updates[0][pastMatch.Id()].GetDate())
+	assert.Equal(t, [][]string{{pastMatch.Id()}}, handler.notifications(), "a rescheduled past match must be reported as an update")
 }
 
 func TestMatchWatcherService_OnlyQueriesTheConfiguredCompetitionAndSeason(t *testing.T) {
@@ -392,5 +395,5 @@ func TestMatchWatcherServiceSportsmonk_OddsNoiseAfterKickoffIsNotAnUpdate(t *tes
 	saved, err := matchRepo.GetMatch(started.Id())
 	require.NoError(t, err)
 	assert.Equal(t, 2.12, saved.GetHomeTeamOdds())
-	assert.Empty(t, handler.updates)
+	assert.Empty(t, handler.notifications())
 }

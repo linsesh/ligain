@@ -15,9 +15,11 @@ type PostgresGameRepository struct {
 	matchRepo repositories.MatchRepository
 	betRepo   repositories.BetRepository
 	cache     repositories.GameRepository // In-memory cache
+	// matchReader is where the games it loads read their matches (the MatchService in production)
+	matchReader rules.MatchReader
 }
 
-func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) {
+func NewPostgresGameRepository(db *sql.DB, matchReader rules.MatchReader) (repositories.GameRepository, error) {
 	baseRepo := NewPostgresRepository(db)
 	matchRepo := NewPostgresMatchRepository(db)
 	betRepo := NewPostgresBetRepository(db)
@@ -27,6 +29,7 @@ func NewPostgresGameRepository(db *sql.DB) (repositories.GameRepository, error) 
 		matchRepo:          matchRepo,
 		betRepo:            betRepo,
 		cache:              cache,
+		matchReader:        matchReader,
 	}, nil
 }
 
@@ -118,8 +121,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 			name,
 			playerSlice,
 			[]models.Match{}, // empty incoming matches
-			&rules.ScorerOriginal{},
-		)
+			&rules.ScorerOriginal{}, r.matchReader)
 	} else {
 		gameImpl = rules.NewStartedGame(
 			seasonYear,
@@ -130,8 +132,7 @@ func (r *PostgresGameRepository) GetGame(gameId string) (models.Game, error) {
 			pastMatches,
 			&rules.ScorerOriginal{},
 			bets,
-			playerScores,
-		)
+			playerScores, r.matchReader)
 	}
 
 	if status == "finished" {

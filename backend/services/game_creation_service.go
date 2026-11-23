@@ -162,8 +162,7 @@ func (s *GameCreationService) CreateGame(req *CreateGameRequest, player models.P
 		req.Name,
 		[]models.Player{player},
 		matches,
-		&rules.ScorerOriginal{},
-	)
+		&rules.ScorerOriginal{}, s.registry.GetMatchService())
 
 	// Save the game to get its ID
 	gameID, err := s.gameRepo.CreateGame(game)

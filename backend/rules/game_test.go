@@ -2,6 +2,7 @@ package rules
 
 import (
 	"ligain/backend/models"
+	"ligain/backend/testutils"
 	"testing"
 	"time"
 )
@@ -56,7 +57,7 @@ func TestGameBasicProperties(t *testing.T) {
 	}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Test basic properties
 	if game.GetSeasonYear() != "2024" {
@@ -79,7 +80,7 @@ func TestCheckPlayerBetValidity(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	tests := []struct {
 		name          string
@@ -136,7 +137,7 @@ func TestCheckPlayerBetValidityWithMixedPlayerSources(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Add bets for Player1 and Player2 only
 	bet1 := models.NewBet(match, 2, 1)
@@ -214,7 +215,7 @@ func TestAddPlayerBetAndGetIncomingMatches(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Add a valid bet
 	bet := models.NewBet(match, 2, 1)
@@ -249,7 +250,7 @@ func TestCalculateAndApplyMatchScores(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Add bets for both players
 	correctBet := models.NewBet(match, 2, 1)
@@ -300,7 +301,7 @@ func TestGameFinishAndWinner(t *testing.T) {
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
 
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Add bets
 	correctBet := models.NewBet(match, 2, 1)
@@ -334,42 +335,12 @@ func TestGameFinishAndWinner(t *testing.T) {
 	}
 }
 
-func TestUpdateMatch(t *testing.T) {
-	players := []models.Player{newTestPlayer("Player1")}
-	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
-	matches := []models.Match{match}
-	scorer := &ScorerTest{}
-
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
-
-	// Update match with new time
-	updatedMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime.Add(24*time.Hour), 1)
-	err := game.UpdateMatch(updatedMatch)
-	if err != nil {
-		t.Errorf("Expected no error updating match, got %v", err)
-	}
-
-	// Verify update in incoming matches
-	incomingMatches := game.GetIncomingMatches(players[0])
-	updatedResult := incomingMatches[match.Id()]
-	if updatedResult.Match.GetDate() != testTime.Add(24*time.Hour) {
-		t.Error("Match time was not updated correctly")
-	}
-
-	// Try to update non-existent match
-	nonExistentMatch := models.NewSeasonMatch("Team3", "Team4", "2024", "Premier League", testTime, 2)
-	err = game.UpdateMatch(nonExistentMatch)
-	if err == nil {
-		t.Error("Expected error updating non-existent match, got nil")
-	}
-}
-
 func TestGame_CalculateMatchScores_ForgottenBets(t *testing.T) {
 	players := []models.Player{newTestPlayer("Player1"), newTestPlayer("Player2"), newTestPlayer("Player3")}
 	match := models.NewSeasonMatch("TeamA", "TeamB", "2024", "Test League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerOriginal{}
-	game := NewFreshGame("2024", "Test League", "Forgotten Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Test League", "Forgotten Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Only Player1 bets
 	bet := models.NewBet(match, 1, 0)
@@ -394,7 +365,7 @@ func TestGame_CalculateMatchScores_ForgottenBets(t *testing.T) {
 	players2 := []models.Player{newTestPlayer("P1"), newTestPlayer("P2")}
 	match2 := models.NewSeasonMatch("TeamC", "TeamD", "2024", "Test League", testTime, 2)
 	matches2 := []models.Match{match2}
-	game2 := NewFreshGame("2024", "Test League", "Forgotten Game 2", players2, matches2, scorer)
+	game2 := NewFreshGame("2024", "Test League", "Forgotten Game 2", players2, matches2, scorer, testutils.NewInMemoryMatchReaderOf(matches2))
 	match2.Finish(0, 0)
 
 	scores2, err := game2.CalculateMatchScores(match2)
@@ -413,7 +384,7 @@ func TestRemovePlayer(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Test removing an existing player
 	err := game.RemovePlayer(players[1])
@@ -445,7 +416,7 @@ func TestRemovePlayer_NonExistentPlayer(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Test removing a non-existent player
 	nonExistentPlayer := newTestPlayer("NonExistentPlayer")
@@ -469,7 +440,7 @@ func TestRemovePlayer_WithBets(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Add bets for all players
 	bet1 := models.NewBet(match, 2, 1)
@@ -518,7 +489,7 @@ func TestRemovePlayer_LastPlayer(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Remove the last player
 	err := game.RemovePlayer(players[0])
@@ -538,7 +509,7 @@ func TestRemovePlayer_EmptyGame(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Try to remove a player from an empty game
 	player := newTestPlayer("Player1")
@@ -556,7 +527,7 @@ func TestRemovePlayer_MultipleRemovals(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Remove multiple players
 	err := game.RemovePlayer(players[1]) // Remove Player2
@@ -601,7 +572,7 @@ func TestGetIncomingMatchesPlayerBetStatus(t *testing.T) {
 
 	matches := []models.Match{scheduledMatch, inProgressMatch}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Player2 bets on scheduled match, Player2 and Player3 bet on in-progress match
 	bet2Scheduled := models.NewBet(scheduledMatch, 1, 0)
@@ -665,7 +636,7 @@ func TestRemovePlayer_AfterGameStarted(t *testing.T) {
 	match := models.NewSeasonMatch("Team1", "Team2", "2024", "Premier League", testTime, 1)
 	matches := []models.Match{match}
 	scorer := &ScorerTest{}
-	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer)
+	game := NewFreshGame("2024", "Premier League", "Test Game", players, matches, scorer, testutils.NewInMemoryMatchReaderOf(matches))
 
 	// Add bets and finish a match to simulate a game in progress
 	bet1 := models.NewBet(match, 2, 1)
@@ -708,7 +679,7 @@ func TestGetIncomingMatchesInProgressShowsAllBets(t *testing.T) {
 
 	inProgressMatch := models.NewSeasonMatch("Team1", "Team2", "2024", "Ligue 1", testTime.Add(-1*time.Hour), 1)
 	inProgressMatch.Start()
-	game := NewFreshGame("2024", "Ligue 1", "Test", players, []models.Match{inProgressMatch}, &ScorerTest{})
+	game := NewFreshGame("2024", "Ligue 1", "Test", players, []models.Match{inProgressMatch}, &ScorerTest{}, testutils.NewInMemoryMatchReaderOf([]models.Match{inProgressMatch}))
 
 	bet1 := models.NewBet(inProgressMatch, 2, 0)
 	bet2 := models.NewBet(inProgressMatch, 1, 1)
@@ -726,5 +697,22 @@ func TestGetIncomingMatchesInProgressShowsAllBets(t *testing.T) {
 	}
 	if _, exists := result.Bets[player3.GetID()]; exists {
 		t.Errorf("player3 has no bet, should not appear in Bets")
+	}
+}
+
+// The reader given to a started game is the one used: it must not be replaced by a snapshot of the matches
+// the game was built with, otherwise the game never sees a match change.
+func TestNewStartedGame_ReadsMatchesFromTheGivenReader(t *testing.T) {
+	player := newTestPlayer("Player1")
+	scheduled := models.NewSeasonMatchWithKnownOdds("Team1", "Team2", "2024", "Premier League", testTime, 1, 1.5, 2.5, 3.0)
+	started := scheduled.Clone()
+	started.Start()
+	game := NewStartedGame("2024", "Premier League", "Test Game", []models.Player{player}, []models.Match{scheduled}, nil,
+		&ScorerTest{}, map[string]map[string]*models.Bet{}, map[string]map[string]int{}, testutils.NewInMemoryMatchReader(started))
+
+	incoming := game.GetIncomingMatches(player)
+
+	if !incoming[scheduled.Id()].Match.IsInProgress() {
+		t.Errorf("the match must be read from the given reader (in progress), got %v", incoming[scheduled.Id()].Match.GetStatus())
 	}
 }

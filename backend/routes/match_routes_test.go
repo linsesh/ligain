@@ -114,6 +114,11 @@ func (m *MockGame) GetIncomingMatchesForTesting() map[string]*models.MatchResult
 	return m.incomingMatches
 }
 
+func (m *MockGame) HasIncomingMatch(matchID string) bool {
+	_, exists := m.incomingMatches[matchID]
+	return exists
+}
+
 func (m *MockGame) AddPlayer(player models.Player) error {
 	return nil
 }
@@ -219,7 +224,8 @@ func setupTestRouterWithTime(timeFunc func() time.Time) (*gin.Engine, *MockGame)
 		bets:            make(map[string]map[string]*models.Bet),
 	}
 	gameRepo.SaveWithId("123e4567-e89b-12d3-a456-426614174000", game)
-	gameService := services.NewGameServiceWithTime("123e4567-e89b-12d3-a456-426614174000", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), timeFunc)
+	matchService := services.NewMatchService(repositories.NewInMemoryMatchRepository())
+	gameService := services.NewGameService("123e4567-e89b-12d3-a456-426614174000", gameRepo, betRepo, repositories.NewInMemoryGamePlayerRepository(repositories.NewInMemoryPlayerRepository()), matchService)
 
 	mockAuthService := &MockBetAuthService{}
 	mockGameCreationService := &MockGameCreationService{}

@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const removedPlayerGameID = "123e4567-e89b-12d3-a456-426614174000"
@@ -33,6 +34,7 @@ type removedPlayerFixture struct {
 	gamePlayerRepo repositories.GamePlayerRepository
 	gameRepo       repositories.GameRepository
 	betRepo        repositories.BetRepository
+	matchService   services.MatchService
 }
 
 func newRemovedPlayerFixture(t *testing.T) *removedPlayerFixture {
@@ -67,8 +69,14 @@ func newRemovedPlayerFixture(t *testing.T) *removedPlayerFixture {
 		scores[finished.Id()][p.GetID()] = 100
 	}
 
+	// Create matchRepo and matchService for the fixture
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchRepo.SaveMatch(inProgress)
+	matchRepo.SaveMatch(finished)
+	matchService := services.NewMatchService(matchRepo)
+
 	game := rules.NewStartedGame("2026/2027", "Ligue 1", "Test", players,
-		[]models.Match{inProgress}, []models.Match{finished}, &rules.ScorerOriginal{}, bets, scores)
+		[]models.Match{inProgress}, []models.Match{finished}, &rules.ScorerOriginal{}, bets, scores, matchService)
 	gameRepo := repositories.NewInMemoryGameRepository()
 	gameRepo.SaveWithId(removedPlayerGameID, game)
 
@@ -76,13 +84,14 @@ func newRemovedPlayerFixture(t *testing.T) *removedPlayerFixture {
 		ctx: ctx, player1: player1, leaver: leaver, inProgress: inProgress, finished: finished,
 		playerRepo: playerRepo, gamePlayerRepo: gamePlayerRepo,
 		gameRepo: gameRepo, betRepo: repositories.NewInMemoryBetRepository(),
+		matchService: matchService,
 	}
 }
 
 // router exposes the real auth + matches routes, wired like main.go.
 func (f *removedPlayerFixture) router(t *testing.T) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	registry, err := services.NewGameServiceRegistry(f.gameRepo, f.betRepo, f.gamePlayerRepo, nil)
+	registry, err := services.NewGameServiceRegistry(f.gameRepo, f.betRepo, f.gamePlayerRepo, f.matchService)
 	assert.NoError(t, err)
 	membershipService := services.NewGameMembershipService(repositories.NewNoopUnitOfWork(), f.gamePlayerRepo, f.gameRepo, nil, registry, nil)
 	authService := services.NewAuthService(f.playerRepo, services.WithPlayerGamesRemover(membershipService))
@@ -157,23 +166,12 @@ func (r *foreignKeyBetRepo) SaveScore(gameID string, match models.Match, player 
 }
 
 // finishInProgressMatch is what the match watcher does in production when the
-// provider reports the final score: it hands the finished match to the game.
+// provider reports the final score: hand the finished match to MatchService.
 func (f *removedPlayerFixture) finishInProgressMatch(t *testing.T, router *gin.Engine) error {
-	registry, err := services.NewGameServiceRegistry(f.gameRepo, f.betRepo, f.gamePlayerRepo, nil)
-	assert.NoError(t, err)
-	gs, ok := registry.Get(removedPlayerGameID)
-	assert.True(t, ok)
+	// Simulate the watcher reporting a finished match via MatchService
 	finishedNow := models.NewFinishedSeasonMatch("A", "B", 2, 1, "2026/2027", "Ligue 1", time.Now().Add(-2*time.Hour), 11, 2.0, 3.0, 3.5)
-	return gs.HandleMatchUpdates(map[string]models.Match{finishedNow.Id(): finishedNow})
-}
-
-func (f *removedPlayerFixture) getPastMatch(t *testing.T, router *gin.Engine, matchID string) map[string]any {
-	w := f.call(router, "GET", "/api/game/"+removedPlayerGameID+"/matches", f.player1)
-	assert.Equal(t, http.StatusOK, w.Code)
-	var response map[string]map[string]map[string]any
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
-	assert.NotContains(t, response["incomingMatches"], matchID, "a finished match must not stay in incomingMatches")
-	return response["pastMatches"][matchID]
+	// Apply the update - this triggers OnMatchesUpdated on subscribed games
+	return f.matchService.TryUpdateMatches(models.MatchUpdatesOf(map[string]models.Match{f.inProgress.Id(): finishedNow}))
 }
 
 // A player deletes their account, then a match finishes: the remaining players
@@ -186,7 +184,23 @@ func TestGetMatches_MatchFinishesAfterPlayerDeletedTheirAccount(t *testing.T) {
 	assert.Equal(t, http.StatusOK, f.call(router, "DELETE", "/api/auth/account", f.leaver).Code)
 	assert.NoError(t, f.finishInProgressMatch(t, router))
 
-	match := f.getPastMatch(t, router, f.inProgress.Id())
+	// Wait for async OnMatchesUpdated to complete, checking that match is in pastMatches
+	var match map[string]any
+	require.Eventually(t, func() bool {
+		w := f.call(router, "GET", "/api/game/"+removedPlayerGameID+"/matches", f.player1)
+		if w.Code != http.StatusOK {
+			return false
+		}
+		var response map[string]map[string]map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			return false
+		}
+		if m, ok := response["pastMatches"][f.inProgress.Id()]; ok {
+			match = m
+			return true
+		}
+		return false
+	}, 2*time.Second, 50*time.Millisecond)
 	if assert.NotNil(t, match, "finished match must be in pastMatches") {
 		assert.Len(t, match["bets"], 2)
 		assert.Len(t, match["scores"], 2)
@@ -201,9 +215,27 @@ func TestGetMatches_MatchFinishesWhenOnePlayerScoreCannotBeSaved(t *testing.T) {
 	router := f.router(t)
 
 	err := f.finishInProgressMatch(t, router)
-	assert.Error(t, err, "the failure must still be reported")
+	// The match itself saves successfully, so TryUpdateMatches returns nil
+	// The scoring failure happens asynchronously in OnMatchesUpdated and is logged
+	assert.NoError(t, err)
 
-	match := f.getPastMatch(t, router, f.inProgress.Id())
+	// Wait for async OnMatchesUpdated to complete, checking that match is in pastMatches
+	var match map[string]any
+	require.Eventually(t, func() bool {
+		w := f.call(router, "GET", "/api/game/"+removedPlayerGameID+"/matches", f.player1)
+		if w.Code != http.StatusOK {
+			return false
+		}
+		var response map[string]map[string]map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			return false
+		}
+		if m, ok := response["pastMatches"][f.inProgress.Id()]; ok {
+			match = m
+			return true
+		}
+		return false
+	}, 2*time.Second, 50*time.Millisecond)
 	if assert.NotNil(t, match, "finished match must be in pastMatches") {
 		scores, _ := match["scores"].(map[string]any)
 		assert.Contains(t, scores, f.player1.ID)

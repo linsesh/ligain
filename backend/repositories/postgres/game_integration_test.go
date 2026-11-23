@@ -9,12 +9,18 @@ import (
 	"ligain/backend/models"
 	"ligain/backend/rules"
 	"ligain/backend/services"
+	"ligain/backend/testutils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var testTime = time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC)
+
+// testMatchReader reads the matches the way production does: through a MatchService over the match repository
+func testMatchReader(db *sql.DB) rules.MatchReader {
+	return services.NewMatchService(NewPostgresMatchRepository(db))
+}
 
 func TestGameRepository_Integration(t *testing.T) {
 	if testing.Short() {
@@ -25,7 +31,7 @@ func TestGameRepository_Integration(t *testing.T) {
 		testDB := setupTestDB(t)
 		defer testDB.Close()
 
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		t.Run("Create and Get Game", func(t *testing.T) {
@@ -54,7 +60,7 @@ func TestGameRepository_Integration(t *testing.T) {
 
 		t.Run("Save Game with ID", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+				game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 				gameID := "223e4567-e89b-12d3-a456-426614174000"
 				err := gameRepo.SaveWithId(gameID, game)
 				require.NoError(t, err)
@@ -68,7 +74,7 @@ func TestGameRepository_Integration(t *testing.T) {
 
 		t.Run("Save Game with Invalid ID", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
-				game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+				game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 				err := gameRepo.SaveWithId("invalid-uuid-format", game)
 				require.Error(t, err)
 			})
@@ -154,7 +160,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		// Create players first
@@ -178,7 +184,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 
 		// Now that player1 and player2 have IDs, create the game
 		gameId := "323e4567-e89b-12d3-a456-426614174000"
-		game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player1, player2}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 		err = gameRepo.SaveWithId(gameId, game)
 		require.NoError(t, err)
 
@@ -246,7 +252,7 @@ func TestGameRepository_RestoreGameState(t *testing.T) {
 		t.Run("Restore Game State", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create a fresh game repository to bypass cache and test actual database loading
-				freshGameRepo, err := NewPostgresGameRepository(testDB.db)
+				freshGameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 				require.NoError(t, err)
 
 				// Get the game
@@ -342,7 +348,7 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		// Create players first
@@ -374,7 +380,7 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 
 		// Create a game with all three players
 		gameId := "423e4567-e89b-12d3-a456-426614174000"
-		game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player1, player2, player3}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player1, player2, player3}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 		err = gameRepo.SaveWithId(gameId, game)
 		require.NoError(t, err)
 
@@ -412,7 +418,7 @@ func TestGameRepository_LoadPlayersFromBothTables(t *testing.T) {
 		t.Run("Load All Players Including Non-Betting Players", func(t *testing.T) {
 			testDB.withTransaction(t, func(tx *sql.Tx) {
 				// Create a fresh game repository to bypass cache and test actual database loading
-				freshGameRepo, err := NewPostgresGameRepository(testDB.db)
+				freshGameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 				require.NoError(t, err)
 
 				// Get the game
@@ -457,7 +463,7 @@ func TestGameRepository_GetAllGames_Integration(t *testing.T) {
 		testDB := setupTestDB(t)
 		defer testDB.Close()
 
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		t.Run("Get All Games - Empty Repository", func(t *testing.T) {
@@ -649,12 +655,12 @@ func TestGameRepositoryCacheInconsistency(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		// Create a test game
 		player := &models.PlayerData{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Test Player"}
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 		// Save game to database
 		gameID, err := gameRepo.CreateGame(game)
@@ -692,11 +698,12 @@ func TestGameServiceCacheInconsistency(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 		betRepo := NewPostgresBetRepository(testDB.db)
 		gamePlayerRepo := NewPostgresGamePlayerRepository(testDB.db)
 		playerRepo := NewPostgresPlayerRepository(testDB.db)
+		matchRepo := NewPostgresMatchRepository(testDB.db)
 
 		// Create a test player and save to database
 		player := &models.PlayerData{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Test Player"}
@@ -704,7 +711,7 @@ func TestGameServiceCacheInconsistency(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a test game
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 		// Save game to database
 		gameID, err := gameRepo.CreateGame(game)
@@ -715,7 +722,8 @@ func TestGameServiceCacheInconsistency(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create game service (this will cache the game)
-		_ = services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo)
+		matchService := services.NewMatchService(matchRepo)
+		_ = services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo, matchService)
 
 		// Verify initial status
 		assert.Equal(t, models.GameStatusScheduled, game.GetGameStatus())
@@ -750,7 +758,7 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
@@ -769,7 +777,7 @@ func TestGameCreationServiceCacheInconsistency(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a test game
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 		// Save game to database
 		gameID, err := gameRepo.CreateGame(game)
@@ -831,7 +839,7 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
@@ -859,7 +867,7 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a test game with matches
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{match1, match2}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{match1, match2}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{match1, match2}))
 
 		// Save game to database
 		gameID, err := gameRepo.CreateGame(game)
@@ -894,8 +902,6 @@ func TestGameCreationServiceCacheInconsistencyWithMatches(t *testing.T) {
 		err = matchRepo.SaveMatch(match1)
 		require.NoError(t, err)
 
-		// Update the game to reflect the finished match
-		game.UpdateMatch(match1)
 		// Apply scores to actually move the match from incoming to past
 		scores, err := game.CalculateMatchScores(match1)
 		require.NoError(t, err)
@@ -930,7 +936,7 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
@@ -949,7 +955,7 @@ func TestGetPlayerGamesStatusInconsistency(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a test game
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 
 		// Save game to database
 		gameID, err := gameRepo.CreateGame(game)
@@ -1000,7 +1006,7 @@ func TestPostgresGameRepositoryCaching(t *testing.T) {
 		testDB := setupTestDB(t)
 		defer testDB.Close()
 
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		// Create a player
@@ -1010,7 +1016,7 @@ func TestPostgresGameRepositoryCaching(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a game
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 		gameID, err := gameRepo.CreateGame(game)
 		require.NoError(t, err)
 
@@ -1046,7 +1052,7 @@ func TestPostgresGameRepositoryCacheClearing(t *testing.T) {
 		testDB := setupTestDB(t)
 		defer testDB.Close()
 
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 
 		// Create a player
@@ -1056,7 +1062,7 @@ func TestPostgresGameRepositoryCacheClearing(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a game
-		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{})
+		game := rules.NewFreshGame("2025/2026", "Ligue 1", "Test Game", []models.Player{player}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 		gameID, err := gameRepo.CreateGame(game)
 		require.NoError(t, err)
 
@@ -1093,7 +1099,7 @@ func TestUnitOfWork_RollbackOnCacheFailure(t *testing.T) {
 		defer testDB.Close()
 
 		// Create repositories
-		gameRepo, err := NewPostgresGameRepository(testDB.db)
+		gameRepo, err := NewPostgresGameRepository(testDB.db, testMatchReader(testDB.db))
 		require.NoError(t, err)
 		betRepo := NewPostgresBetRepository(testDB.db)
 		gameCodeRepo := NewPostgresGameCodeRepository(testDB.db)
@@ -1112,7 +1118,7 @@ func TestUnitOfWork_RollbackOnCacheFailure(t *testing.T) {
 
 		// Create a game WITHOUT the player in its cached state
 		// This simulates a scenario where DB and cache are out of sync
-		gameWithoutPlayer := rules.NewFreshGame("2025/2026", "Ligue 1", "Rollback Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{})
+		gameWithoutPlayer := rules.NewFreshGame("2025/2026", "Ligue 1", "Rollback Test Game", []models.Player{}, []models.Match{}, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf([]models.Match{}))
 		gameID, err := gameRepo.CreateGame(gameWithoutPlayer)
 		require.NoError(t, err)
 
@@ -1161,4 +1167,43 @@ func TestUnitOfWork_RollbackOnCacheFailure(t *testing.T) {
 			assert.Equal(t, player.ID, players[0].GetID(), "The player should be the one we added")
 		}
 	}, 10*time.Second)
+}
+
+// A game loaded from the database reads its matches from the MatchService: a match that changes after the game
+// was loaded is seen as changed by the game.
+func TestGameRepository_LoadedGameReadsMatchesFromTheMatchService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	runTestWithTimeout(t, func(t *testing.T) {
+		testDB := setupTestDB(t)
+		defer testDB.Close()
+		ctx := context.Background()
+		matchService := services.NewMatchService(NewPostgresMatchRepository(testDB.db))
+
+		player := &models.PlayerData{Name: "Player1", Email: stringPtr("p1@example.com"), Provider: stringPtr("google"), ProviderID: stringPtr("google_p1")}
+		require.NoError(t, NewPostgresPlayerRepository(testDB.db).CreatePlayer(ctx, player))
+		gameID := "623e4567-e89b-12d3-a456-426614174000"
+		seedRepo, err := NewPostgresGameRepository(testDB.db, matchService)
+		require.NoError(t, err)
+		require.NoError(t, seedRepo.SaveWithId(gameID, rules.NewFreshGame("2024", "Premier League", "Test Game", []models.Player{player}, nil, &rules.ScorerOriginal{}, testutils.NewInMemoryMatchReaderOf(nil))))
+		require.NoError(t, NewPostgresGamePlayerRepository(testDB.db).AddPlayerToGame(ctx, gameID, player.GetID()))
+		match := models.NewSeasonMatchWithKnownOdds("Arsenal", "Chelsea", "2024", "Premier League", testTime.Add(24*time.Hour), 1, 1.5, 2.5, 3.0)
+		require.NoError(t, NewPostgresMatchRepository(testDB.db).SaveMatch(match))
+
+		// a new repository has an empty cache: the game is loaded from the database
+		loadingRepo, err := NewPostgresGameRepository(testDB.db, matchService)
+		require.NoError(t, err)
+		game, err := loadingRepo.GetGame(gameID)
+		require.NoError(t, err)
+		update := models.MatchUpdateOf(match)
+		update.Status = models.MatchStatusStarted
+		require.NoError(t, matchService.TryUpdateMatches(map[string]models.MatchUpdate{match.Id(): update}))
+
+		incoming := game.GetIncomingMatches(player)
+
+		require.Contains(t, incoming, match.Id())
+		require.True(t, incoming[match.Id()].Match.IsInProgress(), "the game must see the match change")
+	}, 15*time.Second)
 }

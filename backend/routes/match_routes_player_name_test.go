@@ -62,8 +62,12 @@ func TestPlayerNameUpdateReflectedInMatches(t *testing.T) {
 	mockGame.incomingMatches[match.Id()] = matchResult
 	gameRepo.SaveWithId(gameID, mockGame)
 
+	// Create MatchService for the GameService
+	matchRepo := repositories.NewInMemoryMatchRepository()
+	matchService := services.NewMatchService(matchRepo)
+
 	// Create game service
-	gameService := services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo)
+	gameService := services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo, matchService)
 	gameService.AddPlayer(player)
 
 	// Add player to the game-player mapping in the repository
@@ -76,7 +80,7 @@ func TestPlayerNameUpdateReflectedInMatches(t *testing.T) {
 
 	// STEP 4: Reload the game service (simulating a new request after name update)
 	// The game service will call GetPlayers() which loads from the player repo
-	gameServiceAfterUpdate := services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo)
+	gameServiceAfterUpdate := services.NewGameService(gameID, gameRepo, betRepo, gamePlayerRepo, matchService)
 	gameServiceAfterUpdate.AddPlayer(player) // Add the updated player
 
 	// Setup mocks

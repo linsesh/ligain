@@ -22,12 +22,19 @@ type MatchService interface {
 	// (matches already past but not finished are included: they may have been rescheduled)
 	GetMatchesInHorizon(horizon time.Duration) (map[string]models.Match, error)
 	// TryUpdateMatches tries to apply the updates (a match may refuse parts of one, such as odds near kickoff),
-	// persists the matches that really changed and notifies the subscribed games with them
+	// persists the matches that really changed and notifies the subscribed listeners with their ids
 	TryUpdateMatches(updates map[string]models.MatchUpdate) error
-	// Subscribe makes a game receive the matches that changed
-	Subscribe(handler GameService) error
-	// Unsubscribe stops a game from receiving the matches that changed
+	// Subscribe makes a listener receive the ids of the matches that changed
+	Subscribe(handler MatchUpdateListener) error
+	// Unsubscribe stops a listener from receiving the matches that changed
 	Unsubscribe(gameID string) error
+}
+
+// MatchUpdateListener receives notifications when matches change.
+// It is implemented by services that need to react to match updates (e.g., GameService).
+type MatchUpdateListener interface {
+	GetGameID() string
+	OnMatchesUpdated(ids []string) error
 }
 
 type MatchServiceImpl struct {
@@ -36,7 +43,7 @@ type MatchServiceImpl struct {
 	competition string // when set, only this competition and season are watched
 	season      string
 	mu          sync.RWMutex
-	subscribers map[string]GameService
+	subscribers map[string]MatchUpdateListener
 }
 
 // MatchServiceOption customizes a MatchService
@@ -53,7 +60,7 @@ func NewMatchService(repo repositories.MatchRepository, opts ...MatchServiceOpti
 
 // NewMatchServiceWithTime creates a MatchService with a custom clock for testing
 func NewMatchServiceWithTime(repo repositories.MatchRepository, now func() time.Time, opts ...MatchServiceOption) *MatchServiceImpl {
-	s := &MatchServiceImpl{repo: repo, now: now, subscribers: make(map[string]GameService)}
+	s := &MatchServiceImpl{repo: repo, now: now, subscribers: make(map[string]MatchUpdateListener)}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -125,7 +132,7 @@ func (s *MatchServiceImpl) TryUpdateMatches(updates map[string]models.MatchUpdat
 	return errors.Join(errs...)
 }
 
-// publish sends the changed matches to every subscribed game, each one in its own goroutine
+// publish sends the changed match IDs to every subscribed listener, each one in its own goroutine
 func (s *MatchServiceImpl) publish(changed map[string]models.Match) {
 	if len(changed) == 0 {
 		return
@@ -136,20 +143,23 @@ func (s *MatchServiceImpl) publish(changed map[string]models.Match) {
 	// so a listener can subscribe or unsubscribe without deadlocking.
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	// Extract IDs from changed matches
+	ids := make([]string, 0, len(changed))
+	for id := range changed {
+		ids = append(ids, id)
+	}
+
 	for _, handler := range s.subscribers {
-		copies := make(map[string]models.Match, len(changed))
-		for id, match := range changed {
-			copies[id] = match.Clone()
-		}
-		go func(handler GameService, updates map[string]models.Match) {
-			if err := handler.HandleMatchUpdates(updates); err != nil {
+		go func(handler MatchUpdateListener, ids []string) {
+			if err := handler.OnMatchesUpdated(ids); err != nil {
 				log.Errorf("Error handling updates for game %s: %v", handler.GetGameID(), err)
 			}
-		}(handler, copies)
+		}(handler, ids)
 	}
 }
 
-func (s *MatchServiceImpl) Subscribe(handler GameService) error {
+func (s *MatchServiceImpl) Subscribe(handler MatchUpdateListener) error {
 	gameID := handler.GetGameID()
 	s.mu.Lock()
 	s.subscribers[gameID] = handler
@@ -193,4 +203,8 @@ func logChanges(before, after models.Match) {
 	if !before.GetDate().Equal(after.GetDate()) {
 		log.Infof("Date updated from %v to %v in match %s", before.GetDate(), after.GetDate(), id)
 	}
+}
+
+func hasUsableOdds(match models.Match) bool {
+	return match.GetHomeTeamOdds() > 0 && match.GetAwayTeamOdds() > 0 && match.GetDrawOdds() > 0
 }
